@@ -29,11 +29,13 @@ typedef struct agent {
 } AGENT __attribute__ ((aligned (16)));
 
 /*
- * Agent movement kernel
+ * Agent movement kernel.
+ * Also increments iteration number.
  */
 __kernel void RandomWalk(__global AGENT * agents,
 				__global ulong * seeds,
-				const SIM_PARAMS sim_params)
+				const SIM_PARAMS sim_params,
+				__global uint * iter)
 {
 	// Global id for this work-item
 	uint gid = get_global_id(0);
@@ -74,6 +76,8 @@ __kernel void RandomWalk(__global AGENT * agents,
 		// Update global mem
 		agents[gid] = agent;
 	}
+	// Increment iteration
+	if (gid == 0) iter[0]++;
 }
 
 /*
@@ -247,7 +251,9 @@ __kernel void CountAgents1(__global AGENT * agents,
 __kernel void CountAgents2(__global uint2 * gcounter,
 			__local uint2 * lcounter,
 			const uint maxgid,
-			__global uint * stats)
+			__global uint * num_agents,
+			__global STATS * stats,
+			__global uint * iter)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -262,9 +268,9 @@ __kernel void CountAgents2(__global uint2 * gcounter,
 	if (lid == 0) {
 		gcounter[wgid] = lcounter[lid];
 		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats[SHEEP_ID] = lcounter[lid].x;
-			stats[WOLF_ID] = lcounter[lid].y;
-			stats[TOTALAGENTS_ID] = lcounter[lid].x + lcounter[lid].y;
+			stats[iter[0]].sheep = lcounter[lid].x;
+			stats[iter[0]].wolves = lcounter[lid].y;
+			num_agents[0] = lcounter[lid].x + lcounter[lid].y;
 		}
 	}
 }
@@ -297,7 +303,8 @@ __kernel void CountGrass1(__global uint * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global uint * stats)
+			__global STATS * stats,
+			__global uint * iter)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -311,7 +318,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 	if (lid == 0) {
 		gcounter[wgid] = lcounter[lid];
 		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats[GRASS_ID] = lcounter[0];
+			stats[iter[0]].grass = lcounter[0];
 		}
 	}
 
@@ -321,7 +328,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 /*
  * Agent reproduction function for agents action kernel
  */
-AGENT agentReproduction(__global AGENT * agents, AGENT agent, __global AGENT_PARAMS * params, __global uint * stats, __global ulong * seeds)
+AGENT agentReproduction(__global AGENT * agents, AGENT agent, __global AGENT_PARAMS * params, __global uint * num_agents, __global ulong * seeds)
 {
 	// Perhaps agent will reproduce if energy > reproduce_threshold
 	if (agent.energy > params[agent.type].reproduce_threshold) {
@@ -329,7 +336,7 @@ AGENT agentReproduction(__global AGENT * agents, AGENT agent, __global AGENT_PAR
 		if (randomNextInt(seeds, 100) < params[agent.type].reproduce_prob ) {
 			// Agent will reproduce! Let's see if there is space...
 			AGENT newAgent;
-			uint position = atom_inc( &stats[TOTALAGENTS_ID] );
+			uint position = atom_inc(num_agents);
 			if (position < get_global_size(0) - 2)
 			{
 				// There is space, lets put new agent!
@@ -404,8 +411,7 @@ __kernel void AgentAction( __global AGENT * agents,
 			const SIM_PARAMS sim_params, 
 			__global AGENT_PARAMS * params,
 			__global ulong * seeds,
-			__global uint * stats/*,
-			__global uint8 * debug*/)
+			__global uint * num_agents)
 {
 	// Global id for this work-item
 	uint gid = get_global_id(0);
@@ -420,7 +426,7 @@ __kernel void AgentAction( __global AGENT * agents,
 			default : break;
 		}
 		// Try reproducing this agent
-		agent = agentReproduction(agents, agent, params, stats, seeds);
+		agent = agentReproduction(agents, agent, params, num_agents, seeds);
 		// My actions only affect my energy, so I will only put back energy...
 		agents[gid].energy = agent.energy;
 	}

@@ -12,12 +12,6 @@ typedef struct agent {
 	uint next;
 } AGENT __attribute__ ((aligned (16)));
 
-typedef struct stats {
-	uint sheep;
-	uint wolves;
-	uint grass;
-} STATS;
-
 typedef struct sim_params {
 	uint size_x;
 	uint size_y;

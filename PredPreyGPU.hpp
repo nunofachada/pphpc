@@ -17,15 +17,6 @@ typedef struct sim_params {
 	cl_uint grid_cell_space;
 } SIM_PARAMS;
 
-typedef struct stats {
-	unsigned int * sheep;
-	unsigned int * wolves;
-	unsigned int * grass;
-} STATS;
-
-
-void printAgentArray(cl_uint4* array, unsigned int size);
-void printGrassMatrix(cl_uint4* matrix, unsigned int size_x,  unsigned int size_y);
 CLZONE parseArgs(int argc, char ** argv);
 void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu);
 void printFixedWorkSizes();

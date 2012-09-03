@@ -29,7 +29,8 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
+	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
+	CLZONE zone = getClZone("Intel(R) Corporation", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -50,11 +51,6 @@ int main(int argc, char ** argv)
 	cl_uint lines_per_thread = params.grid_y / num_threads + (params.grid_y % num_threads > 0);
 
 	// 4. Print simulation info to screen
-	printf("-------- Simulation Parameters --------\n");	
-	printf("Sizes [x = %d] [y = %d] [iters = %d]\n", params.grid_x, params.grid_y, params.iters);
-	printf("Sheep [init = %d] [gain_from_food = %d] [reproduce_threshold = %d] [reproduce_prob = %d]\n", params.init_sheep, params.sheep_gain_from_food, params.sheep_reproduce_threshold, params.sheep_reproduce_prob);
-	printf("Wolves [init = %d] [gain_from_food = %d] [reproduce_threshold = %d] [reproduce_prob = %d]\n", params.init_wolves, params.wolves_gain_from_food, params.wolves_reproduce_threshold, params.wolves_reproduce_prob);
-	printf("Grass [restart = %d]\n", params.grass_restart);
 	printf("-------- Compute Parameters --------\n");	
 	printf("Compute units: %d\n", zone.cu);
 	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
@@ -407,13 +403,18 @@ int main(int argc, char ** argv)
 	printf("Time = %f\n", dt);
 
 	// 12. Free stuff!
-        free(agentsArrayHost);
-	free(cellMatrixHost);
-	free(statsArrayHost);
-	free(rngSeedsHost);
-	//clReleaseMemObject(agentArrayDevice);
-	//clReleaseMemObject(cellMatrixDevice);
-	//clReleaseMemObject(statsDevice);
+	printf("Press enter to free memory...");
+	getchar();
+	if (step1_kernel) clReleaseKernel(step1_kernel);  
+	if (step2_kernel) clReleaseKernel(step2_kernel);
+	destroyClZone(zone);
+    if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
+    if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
+    if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
+    if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
+	printf("Press enter to bail out...");
+	getchar();
+
 	return 0;
 }
 

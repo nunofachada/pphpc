@@ -33,3 +33,9 @@ unsigned int tzc(register int x)
 {
         return(ones32((x & -x) - 1));
 }
+
+// Returns the series (sum of sequence of 0 to) x
+unsigned int sum(unsigned int x)
+{
+	return(x == 0 ? x : sum(x - 1) + x);
+}

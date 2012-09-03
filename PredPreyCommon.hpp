@@ -22,6 +22,13 @@ typedef struct clzone {
 	cl_program program;
 } CLZONE;
 
+
+typedef struct stats {
+	cl_uint sheep;
+	cl_uint wolves;
+	cl_uint grass;
+} STATS;
+
 typedef struct params {
 	unsigned int init_sheep;
 	unsigned int sheep_gain_from_food;
@@ -44,5 +51,6 @@ typedef struct agent_params {
 } AGENT_PARAMS;
 
 CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceType);
+void destroyClZone(CLZONE zone);
 PARAMS loadParams(const char * paramsFile);
 

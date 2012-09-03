@@ -7,11 +7,6 @@ typedef struct agent {
 	cl_uint next;
 } AGENT __attribute__ ((aligned (16)));
 
-typedef struct stats {
-	cl_uint sheep;
-	cl_uint wolves;
-	cl_uint grass;
-} STATS;
 
 typedef struct sim_params {
 	cl_uint size_x;

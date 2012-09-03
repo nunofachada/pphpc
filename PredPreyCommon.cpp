@@ -118,8 +118,14 @@ PARAMS loadParams(const char* paramsFile) {
 
 // Get a CL zone with all the stuff required
 CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceType) {
+	char pbuff[100];
 	CLZONE zone;
 	cl_int status;
+#ifdef CLPROFILER
+	cl_int queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
+#else
+	cl_int queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+#endif
 	// Set device type
 	zone.device_type = deviceType;
 	// Get a platform
@@ -130,7 +136,6 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 	clGetPlatformIDs(numPlatforms, platforms, NULL);
 	for(unsigned int i=0; i < numPlatforms; ++i)
 	{
-		char pbuff[100];
 		clGetPlatformInfo( platforms[i], CL_PLATFORM_VENDOR, sizeof(pbuff), pbuff, NULL);
 		platform = platforms[i];
 		if(!strcmp(pbuff, vendor))
@@ -151,7 +156,7 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 	cl_context context = clCreateContext( NULL, 1, &device, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorCreateContext(status, NULL); exit(-1); }
 	zone.context = context;
-	cl_command_queue queue = clCreateCommandQueue( context, device, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &status );
+	cl_command_queue queue = clCreateCommandQueue( context, device, queue_properties, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateCommandQueue(status, NULL); exit(-1); }
 	zone.queue = queue;
 	// Import kernels
@@ -178,3 +183,11 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 	// Return zone object
 	return zone;
 }
+
+// Destroy a CL zone
+void destroyClZone(CLZONE zone) {
+    if (zone.program) clReleaseProgram(zone.program);
+    if (zone.queue) clReleaseCommandQueue(zone.queue);
+    if (zone.context) clReleaseContext(zone.context);
+}
+

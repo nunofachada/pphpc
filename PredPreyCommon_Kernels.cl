@@ -1,3 +1,8 @@
+typedef struct stats {
+	uint sheep;
+	uint wolves;
+	uint grass;
+} STATS;
 
 typedef struct agent_params {
 	uint gain_from_food;

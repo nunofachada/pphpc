@@ -300,4 +300,17 @@ void PrintErrorEnqueueUnmapMemObject( cl_int error, const char * xtra ) {
 	return;
 }
 
+void PrintErrorGetEventProfilingInfo( cl_int error, const char * xtra ) {
+	printf("GetEventProfilingInfo error: ");
+	switch (error) {
+		case CL_PROFILING_INFO_NOT_AVAILABLE : printf("Profiling info not available: The CL_QUEUE_PROFILING_ENABLE flag is not set for the command-queue, OR the execution status of the command identified by event is not CL_COMPLETE OR event is a user event object!\n"); break;
+		case CL_INVALID_VALUE: printf("Invalid value (param_name is not valid, OR size in bytes specified by param_value_size is < size of return type as described in table and param_value is not NULL)!\n"); break;
+		case CL_INVALID_EVENT: printf("Invalid event (event is a not a valid event object)!\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources!\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory!\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
 
