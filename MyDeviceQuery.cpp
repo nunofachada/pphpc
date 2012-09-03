@@ -20,6 +20,7 @@ int main(int argc, char ** argv)
 	{
 		// Print platform info
 		char pbuff[MAX_INFO_STRING];
+		cl_uint uintaux;
 		clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, sizeof(pbuff), pbuff, NULL);
 		printf("Platform #%d: %s\n", i, pbuff);
 		// Get devices in platform
@@ -34,6 +35,9 @@ int main(int argc, char ** argv)
 			printf("\tDevice #%d: %s\n", j, pbuff);
 			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, sizeof(pbuff), pbuff, NULL);
 			printf("\t           %s\n", pbuff);
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(pbuff), &uintaux, NULL);
+			printf("\t           Max. Compute units: %d\n", uintaux);
+
 		}
 	}
 	return 0;
