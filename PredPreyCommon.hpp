@@ -1,0 +1,48 @@
+#include <CL/cl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <time.h>
+#include <math.h>
+#include <limits.h>
+#include "utils/clerrors.h"
+#include "utils/fileutils.h"
+#include "utils/bitstuff.h"
+
+#define CONFIG_FILE "config.txt"
+
+typedef struct clzone {
+	cl_platform_id platform;
+	cl_device_id device;
+	cl_uint device_type;
+	cl_uint cu;
+	cl_context context;
+	cl_command_queue queue;
+	cl_program program;
+} CLZONE;
+
+typedef struct params {
+	unsigned int init_sheep;
+	unsigned int sheep_gain_from_food;
+	unsigned int sheep_reproduce_threshold;
+	unsigned int sheep_reproduce_prob;
+	unsigned int init_wolves;
+	unsigned int wolves_gain_from_food;
+	unsigned int wolves_reproduce_threshold;
+	unsigned int wolves_reproduce_prob;
+	unsigned int grass_restart;
+	unsigned int grid_x;
+	unsigned int grid_y;
+	unsigned int iters;
+} PARAMS;
+
+typedef struct agent_params {
+	cl_uint gain_from_food;
+	cl_uint reproduce_threshold;
+	cl_uint reproduce_prob; /* between 1 and 100 */
+} AGENT_PARAMS;
+
+CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceType);
+PARAMS loadParams(const char * paramsFile);
+
