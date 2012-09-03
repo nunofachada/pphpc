@@ -153,7 +153,9 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 	if( status != CL_SUCCESS ) { PrintErrorGetDeviceInfo( status, NULL ); exit(-1); }
 	zone.cu = compute_units;
 	// Create a context and command queue on that device.
-	cl_context context = clCreateContext( NULL, 1, &device, NULL, NULL, &status);
+	cl_context_properties cps[3] = {
+		CL_CONTEXT_PLATFORM, (cl_context_properties) platform, 0};
+	cl_context context = clCreateContext( cps, 1, &device, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorCreateContext(status, NULL); exit(-1); }
 	zone.context = context;
 	cl_command_queue queue = clCreateCommandQueue( context, device, queue_properties, &status );
