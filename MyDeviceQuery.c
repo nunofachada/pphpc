@@ -12,7 +12,7 @@ int main(int argc, char ** argv)
 	cl_uint numPlatforms;
 	clGetPlatformIDs(0, NULL, &numPlatforms);
 	printf("Number of platforms: %d\n", numPlatforms);
-	cl_platform_id* platforms = new cl_platform_id[numPlatforms];
+	cl_platform_id* platforms = (cl_platform_id*) malloc(numPlatforms * sizeof(cl_platform_id));
 	clGetPlatformIDs(numPlatforms, platforms, NULL);
 
 	// Cycle through platforms
@@ -35,7 +35,7 @@ int main(int argc, char ** argv)
 			printf("\tDevice #%d: %s\n", j, pbuff);
 			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, sizeof(pbuff), pbuff, NULL);
 			printf("\t           %s\n", pbuff);
-			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(pbuff), &uintaux, NULL);
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uintaux), &uintaux, NULL);
 			printf("\t           Max. Compute units: %d\n", uintaux);
 
 		}
