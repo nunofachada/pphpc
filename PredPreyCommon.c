@@ -1,9 +1,13 @@
-#include "PredPreyCommon.hpp"
+#include "PredPreyCommon.h"
 
 // Load parameters
 PARAMS loadParams(const char* paramsFile) {
 	PARAMS parameters;
 	FILE * fp = fopen(paramsFile, "r");
+	if(fp == NULL) {
+		printf("Error: File 'config.txt' not found!\n");
+		exit(-1);
+	}	
 	char param[100];
 	unsigned int value;
 	unsigned int check = 0;
@@ -132,7 +136,7 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 	cl_uint numPlatforms;
 	cl_platform_id platform = NULL;
 	clGetPlatformIDs(0, NULL, &numPlatforms);
-	cl_platform_id* platforms = new cl_platform_id[numPlatforms];
+	cl_platform_id platforms[numPlatforms];
 	clGetPlatformIDs(numPlatforms, platforms, NULL);
 	for(unsigned int i=0; i < numPlatforms; ++i)
 	{

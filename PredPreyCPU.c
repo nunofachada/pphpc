@@ -1,4 +1,4 @@
-#include "PredPreyCPU.hpp"
+#include "PredPreyCPU.h"
 
 #define MAX_AGENTS 16777216
 #define NULL_AGENT_POINTER UINT_MAX

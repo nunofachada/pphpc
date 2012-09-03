@@ -1,4 +1,4 @@
-#include "PredPreyGPU.hpp"
+#include "PredPreyGPU.h"
 
 #define MAX_AGENTS 1048576
 

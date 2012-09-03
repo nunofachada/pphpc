@@ -1,4 +1,4 @@
-#include "PredPreyCommon.hpp"
+#include "PredPreyCommon.h"
 
 typedef struct agent {
 	cl_uint x;
