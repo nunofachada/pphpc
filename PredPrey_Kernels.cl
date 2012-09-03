@@ -233,6 +233,30 @@ void reduceAgents(__local uint2 * lcounter, uint lid)
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 }
+
+/*
+ * Reduction code for grass count kernels
+ */
+void reduceGrass(__local uint * lcounter, uint lid) 
+{
+	barrier(CLK_LOCAL_MEM_FENCE);
+	/* Determine number of stages/loops. */
+//	uint stages = 8*sizeof(uint) - clz(get_local_size(0)) - 1;
+	uint lsbits = 8*sizeof(uint) - clz(get_local_size(0)) - 1;
+	uint stages = ((1 << lsbits) == get_local_size(0)) ? lsbits : lsbits + 1;
+	/* Perform loops/stages. */
+	for (int i = 0; i < stages; i++) {
+		uint stride = (uint) 1 << i; //round(pown(2.0f, i));
+		uint divisible = (uint) stride * 2;
+		if ((lid % divisible) == 0) {
+			if (lid + stride < get_local_size(0)) {
+				lcounter[lid] += lcounter[lid + stride];
+			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+}
+
 /*
  * Count agents part 1.
  */
@@ -262,43 +286,30 @@ __kernel void CountAgents1(__global AGENT * agents,
  */
 __kernel void CountAgents2(__global uint2 * gcounter,
 			__local uint2 * lcounter,
+			const uint maxgid,
 			__global uint * stats)
 {
+	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
-	lcounter[lid].x = gcounter[lid].x;
-	lcounter[lid].y = gcounter[lid].y;
-	barrier(CLK_LOCAL_MEM_FENCE);
+	uint wgid = get_group_id(0);
+
+	if (gid < maxgid) {
+		lcounter[lid] = gcounter[wgid * get_local_size(0) + lid];
+	} else {
+		lcounter[lid] = (uint2) (0, 0);
+	}
 	reduceAgents(lcounter, lid);
 	if (lid == 0) {
-		stats[SHEEP_ID] = lcounter[lid].x;
-		stats[WOLF_ID] = lcounter[lid].y;
-		stats[TOTALAGENTS_ID] = lcounter[lid].x + lcounter[lid].y;
-	}
-	
-}
-
-
-/*
- * Reduction code for grass count kernels
- */
-void reduceGrass(__local uint * lcounter, uint lid) 
-{
-	barrier(CLK_LOCAL_MEM_FENCE);
-	/* Determine number of stages/loops. */
-	uint lsbits = 8*sizeof(uint) - clz(get_local_size(0)) - 1;
-	uint stages = ((1 << lsbits) == get_local_size(0)) ? lsbits : lsbits + 1;
-	/* Perform loops/stages. */
-	for (int i = 0; i < stages; i++) {
-		uint stride = (uint) 1 << i; //round(pown(2.0f, i));
-		uint divisible = (uint) stride * 2;
-		if ((lid % divisible) == 0) {
-			if (lid + stride < get_local_size(0)) {
-				lcounter[lid] += lcounter[lid + stride];
-			}
+		gcounter[wgid] = lcounter[lid];
+		if ((gid == 0) && (get_num_groups(0) == 1)) {
+			stats[SHEEP_ID] = lcounter[lid].x;
+			stats[WOLF_ID] = lcounter[lid].y;
+			stats[TOTALAGENTS_ID] = lcounter[lid].x + lcounter[lid].y;
 		}
-		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 }
+
+
 
 /*
  * Count grass part 1.
@@ -310,13 +321,14 @@ __kernel void CountGrass1(__global uint * grass,
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
-	// Check if this thread will do anything
 	if (gid < sim_params.size_xy) {
 		lcounter[lid] = (grass[gid * sim_params.grid_cell_space] == 0 ? 1 : 0);
-		reduceGrass(lcounter, lid);
-		if (lid == 0)
-			gcounter[get_group_id(0)] = lcounter[lid];
+	} else {
+		lcounter[lid] = 0;
 	}
+	reduceGrass(lcounter, lid);
+	if (lid == 0)
+		gcounter[get_group_id(0)] = lcounter[lid];
 }
 
 /*
@@ -324,16 +336,26 @@ __kernel void CountGrass1(__global uint * grass,
  */
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
+			const uint maxgid,
 			__global uint * stats)
 {
 	uint gid = get_global_id(0);
-	// Check if this thread will do anything
 	uint lid = get_local_id(0);
-	lcounter[lid] = gcounter[gid];
-	barrier(CLK_LOCAL_MEM_FENCE);
+	uint wgid = get_group_id(0);
+
+	if (gid < maxgid)
+		lcounter[lid] = gcounter[wgid * get_local_size(0) + lid];
+	else
+		lcounter[lid] = 0;
 	reduceGrass(lcounter, lid);
-	if (gid == 0)
-		stats[GRASS_ID] = lcounter[0];
+	if (lid == 0) {
+		gcounter[wgid] = lcounter[lid];
+		if ((gid == 0) && (get_num_groups(0) == 1)) {
+			stats[GRASS_ID] = lcounter[0];
+		}
+	}
+
+
 }
 
 /*

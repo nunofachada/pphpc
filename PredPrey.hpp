@@ -5,8 +5,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <math.h>
-#include "../clutils/clerrors.h"
-#include "../clutils/fileutils.h"
+#include "clutils/clerrors.h"
+#include "clutils/fileutils.h"
 
 typedef struct clzone {
 	cl_platform_id platform;

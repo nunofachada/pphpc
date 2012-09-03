@@ -1,14 +1,14 @@
 #include "PredPrey.hpp"
 
-#define MAX_AGENTS 131072
+#define MAX_AGENTS 1048576
 
-#define INIT_SHEEP 6400
+#define INIT_SHEEP 6400 //25600 //6400
 #define SHEEP_GAIN_FROM_FOOD 4
 #define SHEEP_REPRODUCE_THRESHOLD 2
 #define SHEEP_REPRODUCE_PROB 4 //between 0 and 100
 #define SHEEP_ID 0
 
-#define INIT_WOLVES 3200
+#define INIT_WOLVES 3200 //12800 //3200
 #define WOLVES_GAIN_FROM_FOOD 20
 #define WOLVES_REPRODUCE_THRESHOLD 2
 #define WOLVES_REPRODUCE_PROB 5 //between 0 and 100
@@ -16,8 +16,8 @@
 
 #define GRASS_RESTART 10
 
-#define GRID_X 400
-#define GRID_Y 400
+#define GRID_X 400 //800 //400
+#define GRID_Y 400 //800 //400
 
 #define CELL_SPACE 4
 #define CELL_GRASS_OFFSET 0
@@ -32,6 +32,8 @@
 
 #define LWS_GPU_PREF_2D_X 16
 #define LWS_GPU_PREF_2D_Y 8
+
+#define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // Get a CL zone with all the stuff required
 CLZONE getClZone(const char* vendor, cl_uint deviceType) {
@@ -175,45 +177,50 @@ int main(int argc, char ** argv)
 
 
 	// 3. Compute work sizes for different kernels.
-	size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws;
+	size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
 	size_t agentsort_lws, agent_lws, grass_lws[2], agentcount1_lws, agentcount2_lws, grasscount1_lws, grasscount2_lws;
-	// sheep sort worksizes
-	agentsort_gws = MAX_AGENTS / 2;
-	agentsort_lws = LWS_GPU_PREF;
-	while (agentsort_gws % agentsort_lws != 0)
-		agentsort_lws = agentsort_lws / 2;
-	// agent mov/action/update kernels worksizes
-	size_t agentact_gws = MAX_AGENTS;
-	size_t agentact_lws = LWS_GPU_PREF;
-	while (agent_gws % agent_lws != 0)
-		agent_lws = agent_lws / 2;
+	int effectiveNextGrassToCount[MAX_GRASS_COUNT_LOOPS];
+
+
 	// grass growth worksizes
 	grass_lws[0] = LWS_GPU_PREF_2D_X;
 	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) GRID_X) / LWS_GPU_PREF_2D_X);
 	grass_lws[1] = LWS_GPU_PREF_2D_Y;
 	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) GRID_Y) / LWS_GPU_PREF_2D_Y);
-	// agent count worksizes
-	agentcount1_gws = MAX_AGENTS;
+	// fixed local agent kernel worksizes
+	agent_lws = LWS_GPU_PREF;
 	agentcount1_lws = LWS_GPU_MAX;
-	while (agentcount1_gws % agentcount1_lws != 0)
-		agentcount1_lws = agentcount1_lws / 2;
-	agentcount2_gws = agentcount1_gws / agentcount1_lws;
-	agentcount2_lws = agentcount2_gws;
+	agentcount2_lws = LWS_GPU_MAX;
+
 	// grass count worksizes
 	grasscount1_lws = LWS_GPU_MAX;
 	grasscount1_gws = LWS_GPU_MAX * ceil((((float) GRID_X * GRID_Y)) / LWS_GPU_MAX);
-	grasscount2_gws = grasscount1_gws / grasscount1_lws;
-	grasscount2_lws = grasscount2_gws;
+	grasscount2_lws = LWS_GPU_MAX;
+	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
+	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
+	
+	// Determine number of loops of secondary count required to perform complete reduction (count)
+	int numGrassCount2Loops = 1;
+	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
+		effectiveNextGrassToCount[numGrassCount2Loops] = grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
+		grasscount2_gws[numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
+		numGrassCount2Loops++;
+	}
+	
+	//grasscount2_gws[0] = grasscount1_gws / grasscount1_lws;
+	//grasscount2_lws = grasscount1_gws / grasscount1_lws;
 
 	printf("Fixed kernel sizes:\n");
-	//printf("agentsort_gws=%d\tagentsort_lws=%d\n", (int) agentsort_gws, (int) agentsort_lws);
-	//printf("agentmov_gws=%d\tagentmov_lws=%d\n", (int) agentmov_gws, (int) agentmov_lws);
 	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
-	//printf("agentaction_gws=%d\tagentaction_lws=%d\n", (int) agentaction_gws, (int) agentaction_lws);
-	printf("agentcount1_gws=%d\tagentcount1_lws=%d\n", (int) agentcount1_gws, (int) agentcount1_lws);
-	printf("agentcount2_gws=%d\tagentcount2_lws=%d\n", (int) agentcount2_gws, (int) agentcount2_lws);
+	printf("agent_lws=%d\n", (int) agent_lws);
+	printf("agentcount1_lws=%d\n", (int) agentcount1_lws);
+	printf("agentcount2_lws=%d\n", (int) agentcount2_lws);
 	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
-	printf("grasscount2_gws=%d\tgrasscount2_lws=%d\n", (int) grasscount2_gws, (int) grasscount2_lws);
+	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
+	for (int i = 0; i < numGrassCount2Loops; i++) {
+		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n", i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
+	}
+	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
 
 	// 5. obtain kernels entry points.
 	cl_kernel grass_kernel = clCreateKernel( zone.program, "Grass", &status );
@@ -323,13 +330,13 @@ int main(int argc, char ** argv)
 	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, 4*sizeof(cl_uint), tmpStats, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
 
-	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws*sizeof(cl_uint), NULL, &status );
+	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws[0]*sizeof(cl_uint), NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassCountDevice"); return(-1); }
 
-	cl_mem agentsCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, agentcount2_gws*sizeof(cl_uint2), NULL, &status );
+	cl_mem agentsCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, (MAX_AGENTS / agentcount2_lws)*sizeof(cl_uint2), NULL, &status ); // This size is the maximum you'll ever need for the given maximum number of agents
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "agentsCountDevice"); return(-1); }
 
-	cl_mem agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 2*sizeof(AGENT_PARAMS), agent_params, &status );
+	cl_mem agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 2*sizeof(AGENT_PARAMS), agent_params, &status ); // Two types of agent, thus two packs of agent parameters
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "agentParamsDevice"); return(-1); }
 
 	cl_mem rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, rngSeedsSizeInBytes, rngSeedsHost, &status );
@@ -406,16 +413,16 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countagents1 kernel"); return(-1); }
 
 	status = clSetKernelArg(countagents1_kernel, 2, agentcount1_lws*sizeof(cl_uint2), NULL);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass1 kernel"); return(-1); }
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countagents1 kernel"); return(-1); }
 
 	status = clSetKernelArg(countagents2_kernel, 0, sizeof(cl_mem), (void *) &agentsCountDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countagents1 kernel"); return(-1); }
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countagents2 kernel"); return(-1); }
 
-	status = clSetKernelArg(countagents2_kernel, 1, agentcount2_gws*sizeof(cl_uint2), NULL);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass1 kernel"); return(-1); }
+	status = clSetKernelArg(countagents2_kernel, 1, agentcount2_lws*sizeof(cl_uint2), NULL);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countagents2 kernel"); return(-1); }
 
-	status = clSetKernelArg(countagents2_kernel, 2, sizeof(cl_mem), (void *) &statsDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countagents2 kernel"); return(-1); }
+	status = clSetKernelArg(countagents2_kernel, 3, sizeof(cl_mem), (void *) &statsDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countagents2 kernel"); return(-1); }
 
 	// Count grass
 
@@ -434,22 +441,23 @@ int main(int argc, char ** argv)
 	status = clSetKernelArg(countgrass2_kernel, 0, sizeof(cl_mem), (void *) &grassCountDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countgrass2 kernel"); return(-1); }
 
-	status = clSetKernelArg(countgrass2_kernel, 1, grasscount2_gws*sizeof(cl_uint), NULL);
+	status = clSetKernelArg(countgrass2_kernel, 1, grasscount2_gws[0]*sizeof(cl_uint), NULL);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass2 kernel"); return(-1); }
 
-	status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_mem), (void *) &statsDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass2_kernel, 3, sizeof(cl_mem), (void *) &statsDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countgrass2 kernel"); return(-1); }
 	
         // 9. Run the show
-	cl_event agentsort_event, agentaction_move_event, grass_event, agentaction_event, agentcount1_event, count2_events[2], agentupdate_event, grasscount1_event;
+	cl_event agentsort_event, agentaction_move_event, grass_event, agentaction_event, agentcount1_event, agentupdate_event, grasscount1_event;
 	char msg[500];
 	gettimeofday(&time0, NULL);
 	for (cl_int iter = 1; iter <= ITERS; iter++) {
 
 		// Determine agent kernels size for this iteration
 		unsigned int maxOccupiedSpace = tmpStats[3] * 2; // Worst case array agent (dead or alive) occupation
-		agent_lws = LWS_GPU_PREF;
 		agent_gws = LWS_GPU_PREF * ceil(((float) maxOccupiedSpace) / LWS_GPU_PREF);
+		agentcount1_gws = LWS_GPU_MAX * ceil(((float) maxOccupiedSpace) / LWS_GPU_MAX);
+		cl_uint effectiveNextAgentsToCount = agentcount1_gws / agentcount1_lws;
 
 		// Agent movement
 		status = clEnqueueNDRangeKernel( zone.queue, agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, &agentaction_move_event);
@@ -486,27 +494,51 @@ int main(int argc, char ** argv)
 		if (status != CL_SUCCESS) { sprintf(msg, "agentupdate_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
 		// agent actions
-		//agent_gws *= 2;
 		status = clEnqueueNDRangeKernel( zone.queue, agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, &agentupdate_event, &agentaction_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentaction_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
-//printf("For %d agents: agent_gws=%d\t(agentaction_gws=%d)\tagent_lws=%d\tagentsort_gws=%d\tagentsort_lws=%d\n", tmpStats[3], agent_gws/2, agent_gws, agent_lws, agentsort_gws, agentsort_lws);
-
 		// Gather statistics
+		// Count agents, part 1
 		status = clEnqueueNDRangeKernel( zone.queue, countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, &agentaction_event, &agentcount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countagents1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
-
+		// Count grass, part 1
 		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, &agentaction_event, &grasscount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+		// Count agents, part 2
+		do {
+			agentcount2_gws = LWS_GPU_MAX * ceil(((float) effectiveNextAgentsToCount) / LWS_GPU_MAX);
 
-		status = clEnqueueNDRangeKernel( zone.queue, countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, &agentcount1_event, &count2_events[0]);
-		if (status != CL_SUCCESS) { sprintf(msg, "countagents2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+			status = clSetKernelArg(countagents2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextAgentsToCount);
+			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countagents2 kernel"); return(-1); }
 
-		status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws, &grasscount2_lws, 1, &grasscount1_event, &count2_events[1]);
-		if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+			status = clEnqueueNDRangeKernel( zone.queue, countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, &agentcount1_event, NULL);
+			if (status != CL_SUCCESS) { sprintf(msg, "countagents2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+
+			effectiveNextAgentsToCount = agentcount2_gws / agentcount2_lws;
+
+			status = clEnqueueBarrier(zone.queue);
+			if (status != CL_SUCCESS) {  sprintf(msg, "in agent count loops"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+
+
+		} while (effectiveNextAgentsToCount > 1);
+		// Count grass, part 2
+		for (int i = 0; i < numGrassCount2Loops; i++) {
+
+			status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextGrassToCount[i]);
+			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
+
+			status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws[i], &grasscount2_lws, 1, &grasscount1_event, NULL);
+			if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+
+			status = clEnqueueBarrier(zone.queue);
+			if (status != CL_SUCCESS) {  sprintf(msg, "in grass count loops"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+
+		}
 
 		// Get stats
-		clEnqueueReadBuffer( zone.queue, statsDevice, CL_TRUE, 0, 4*sizeof(cl_uint), tmpStats, 2, count2_events, NULL );
+		status = clEnqueueReadBuffer( zone.queue, statsDevice, CL_TRUE, 0, 4*sizeof(cl_uint), tmpStats, 0, NULL, NULL );
+		if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "readback stats"); return(-1); };
+
 		statistics.sheep[iter] = tmpStats[SHEEP_ID];
 		statistics.wolves[iter] = tmpStats[WOLF_ID];
 		statistics.grass[iter] = tmpStats[grassIndex];
