@@ -1,3 +1,6 @@
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#define __NO_STD_STRING
+
 #include <CL/cl.h>
 #include <stdio.h>
 #include <stdlib.h>
