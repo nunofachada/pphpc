@@ -5,17 +5,10 @@
 #include <sys/time.h>
 #include <time.h>
 #include <math.h>
-#include "clutils/clerrors.h"
-#include "clutils/fileutils.h"
-
-typedef struct clzone {
-	cl_platform_id platform;
-	cl_device_id device;
-	cl_uint cu;
-	cl_context context;
-	cl_command_queue queue;
-	cl_program program;
-} CLZONE;
+#include "utils/clerrors.h"
+#include "utils/clutils.h"
+#include "utils/fileutils.h"
+#include "utils/bitstuff.h"
 
 typedef struct stats {
 	unsigned int * sheep;
@@ -46,7 +39,22 @@ typedef struct sim_params {
 	cl_uint grid_cell_space;
 } SIM_PARAMS;
 
-CLZONE getClZone(const char* vendor, cl_uint deviceType);
+typedef struct params {
+	unsigned int init_sheep;
+	unsigned int sheep_gain_from_food;
+	unsigned int sheep_reproduce_threshold;
+	unsigned int sheep_reproduce_prob;
+	unsigned int init_wolves;
+	unsigned int wolves_gain_from_food;
+	unsigned int wolves_reproduce_threshold;
+	unsigned int wolves_reproduce_prob;
+	unsigned int grass_restart;
+	unsigned int grid_x;
+	unsigned int grid_y;
+	unsigned int iters;
+} PARAMS;
+
 void printAgentArray(cl_uint4* array, unsigned int size);
 void printGrassMatrix(cl_uint4* matrix, unsigned int size_x,  unsigned int size_y);
-
+PARAMS loadParams(const char * paramsFile);
+CLZONE parseArgs(int argc, char ** argv);
