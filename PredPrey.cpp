@@ -1,6 +1,6 @@
 // A minimalist OpenCL program.
 #include "PredPrey.hpp"
-#define MAX_SHEEP 4096
+#define MAX_SHEEP 32768
 #define INIT_SHEEP 100
 #define SHEEP_GAIN_FROM_FOOD 4
 #define SHEEP_REPRODUCE_THRESHOLD 2
@@ -8,11 +8,11 @@
 #define MAX_WOLVES 4096
 #define INIT_WOLVES 25
 #define GRASS_RESTART 30
-#define GRID_X 512
-#define GRID_Y 512
+#define GRID_X 50
+#define GRID_Y 50
 #define MAX_SHEEP_ENERGY 1000
-#define ITERS 2500
-#define MAX_LWS_GPU 768
+#define ITERS 20
+#define MAX_LWS_GPU 512
 #define MIN_LWS_GPU 8
 
 // Get a CL zone with all the stuff required
@@ -111,8 +111,8 @@ int main(int argc, char ** argv)
 
 
 	// 3. Compute work sizes for different kernels.
-	size_t sheepsort_gws, sheepmov_gws, grass_gws[2], sheep_gws, sheepcount_gws;
-	size_t sheepsort_lws, sheepmov_lws, grass_lws[2], sheep_lws, sheepcount_lws;
+	size_t sheepsort_gws, sheepmov_gws, grass_gws[2], sheep_gws, sheepcount_gws, grasscount1_gws, grasscount2_gws;
+	size_t sheepsort_lws, sheepmov_lws, grass_lws[2], sheep_lws, sheepcount_lws, grasscount1_lws, grasscount2_lws;
 	// Preferred number of work groups
 	unsigned int num_wgroups = (unsigned int) pow(2, zone.cu / 6);
 	// sheep sort worksizes
@@ -123,9 +123,9 @@ int main(int argc, char ** argv)
 	sheepmov_lws = fmin(MAX_LWS_GPU, fmax(MIN_LWS_GPU, sheepmov_gws/num_wgroups));
 	// grass growth worksizes
 	grass_gws[0] = GRID_X;  grass_gws[1] = GRID_Y;
-	grass_lws[0] = grass_gws[0] / num_wgroups;
+	grass_lws[0] = fmax(grass_gws[0] / num_wgroups, MIN_LWS_GPU);
 	while (grass_gws[0] % grass_lws[0] != 0) grass_lws[0]++;
-	grass_lws[1] = grass_gws[1] / num_wgroups;
+	grass_lws[1] = fmax(grass_gws[1] / num_wgroups, MIN_LWS_GPU);
 	while (grass_gws[1] % grass_lws[1] != 0) grass_lws[1]++;
 	// sheep action worksizes
 	sheep_gws = sheepmov_gws;
@@ -133,11 +133,21 @@ int main(int argc, char ** argv)
 	// sheep count worksizes
 	sheepcount_gws = sheepmov_gws;
 	sheepcount_lws = sheepmov_lws;
+	// grass count worksizes
+	grasscount1_gws = GRID_X * GRID_Y;
+	grasscount1_lws = fmin(MAX_LWS_GPU, fmax(MIN_LWS_GPU, grasscount1_gws/num_wgroups));
+	while (grasscount1_gws % grasscount1_lws != 0) grasscount1_lws++;
+	grasscount2_gws = grasscount1_gws / grasscount1_lws;
+	grasscount2_lws = grasscount2_gws;
 
 	printf("Sizes:\n");
 	printf("sheepsort_gws=%d\tsheepsort_lws=%d\n", (int) sheepsort_gws, (int) sheepsort_lws);
 	printf("sheepmov_gws=%d\tsheepmov_lws=%d\n", (int) sheepmov_gws, (int) sheepmov_lws);
 	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
+	printf("sheep_gws=%d\tsheep_lws=%d\n", (int) sheep_gws, (int) sheep_lws);
+	printf("sheepcount_gws=%d\tsheepcount_lws=%d\n", (int) sheepcount_gws, (int) sheepcount_lws);
+	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
+	printf("grasscount2_gws=%d\tgrasscount2_lws=%d\n", (int) grasscount2_gws, (int) grasscount2_lws);
 
 	// 5. obtain kernels entry points.
 	cl_kernel grass_kernel = clCreateKernel( zone.program, "Grass", &status );
@@ -150,8 +160,21 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Sheep kernel"); exit(-1); }
 	cl_kernel countagents_kernel = clCreateKernel( zone.program, "CountAgents", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountAgents kernel"); exit(-1); }
+	cl_kernel countgrass1_kernel = clCreateKernel( zone.program, "CountGrass1", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass1 kernel"); exit(-1); }
+	cl_kernel countgrass2_kernel = clCreateKernel( zone.program, "CountGrass2", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass2 kernel"); exit(-1); }
 
 	// 6. Create and initialize host buffers
+	// Statistics
+	STATS statistics;
+	size_t statsSize = (ITERS + 1) * sizeof(unsigned int);
+	statistics.sheep = (unsigned int *) malloc(statsSize);
+	statistics.wolves = (unsigned int *) malloc(statsSize);
+	statistics.grass = (unsigned int *) malloc(statsSize);
+	statistics.sheep[0] = INIT_SHEEP;
+	statistics.wolves[0] = INIT_WOLVES;
+	statistics.grass[0] = 0;
 	// Sheep array
 	size_t sheepSizeInBytes = MAX_SHEEP * sizeof(cl_uint4);
 	cl_uint4 * sheepArrayHost = (cl_uint4 *) malloc(sheepSizeInBytes);
@@ -169,19 +192,33 @@ int main(int argc, char ** argv)
 	size_t grassSizeInBytes = GRID_X * GRID_Y * sizeof(cl_uint);
 	cl_uint * grassMatrixHost = (cl_uint *) malloc(grassSizeInBytes);
 	for(int i = 0; i < GRID_X; i++)
+	{
 		for (int j = 0; j < GRID_Y; j++)
+		{
 			grassMatrixHost[i + j*GRID_X] = (rand() % 2) == 0 ? 0 : 1 + (rand() % GRASS_RESTART);
-	// Statistics
-	size_t statsSize = ITERS * sizeof(cl_uint);
-	cl_uint * numSheepsHost = (cl_uint *) malloc(statsSize);
+			if (grassMatrixHost[i + j*GRID_X] == 0)
+				statistics.grass[0]++;
+		}
+	}
+	// Debugz
+	cl_uint4 * dbgHost = (cl_uint4 *) malloc(sheepSizeInBytes);
 	
 	// 7. Creat OpenCL buffers
+	cl_uint tmpStats[4] = {statistics.sheep[0], statistics.wolves[0], statistics.grass[0], 0};
+	cl_uint sheepStatIndex = 0, wolvesStatIndex = 1, grassStatIndex = 2;
 	cl_mem sheepArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sheepSizeInBytes, sheepArrayHost, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "sheepArrayDevice"); return(-1); }
 	cl_mem grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, grassSizeInBytes, grassMatrixHost, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassMatrixDevice"); return(-1); }
-	cl_mem numSheepsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, statsSize, numSheepsHost, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "numSheepsDevice"); return(-1); }
+	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, 4*sizeof(cl_uint), tmpStats, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
+	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws*sizeof(cl_uint), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
+
+	// Debugz
+	cl_mem dbgDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sheepSizeInBytes, NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "debugzDevice"); return(-1); }
+	
 
 	// 8. Set fixed kernel arguments
 	cl_uint totalsize = MAX_SHEEP;
@@ -221,13 +258,28 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 5 of sheep kernel"); return(-1); }
 	status = clSetKernelArg(sheep_kernel, 6, sizeof(cl_uint), (void *) &sheepReproduceProb);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 6 of sheep kernel"); return(-1); }
-	status = clSetKernelArg(sheep_kernel, 7, sizeof(cl_mem), (void *) &numSheepsDevice);
+	status = clSetKernelArg(sheep_kernel, 7, sizeof(cl_mem), (void *) &statsDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 7 of sheep kernel"); return(-1); }
 	// Count agents
 	status = clSetKernelArg(countagents_kernel, 0, sizeof(cl_mem), (void *) &sheepArrayDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countagents kernel"); return(-1); }
-	status = clSetKernelArg(countagents_kernel, 1, sizeof(cl_mem), (void *) &numSheepsDevice);
+	status = clSetKernelArg(countagents_kernel, 1, sizeof(cl_mem), (void *) &statsDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countagents kernel"); return(-1); }
+	// Count grass
+	status = clSetKernelArg(countgrass1_kernel, 0, sizeof(cl_mem), (void *) &grassMatrixDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countgrass1 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass1_kernel, 1, sizeof(cl_mem), (void *) &grassCountDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass1 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass1_kernel, 2, grasscount1_lws*sizeof(cl_uint), NULL);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass1 kernel"); return(-1); }
+	//status = clSetKernelArg(countgrass1_kernel, 3, sizeof(cl_mem), (void *) &dbgDevice);
+	//if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "dbg arg of countgrass1 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass2_kernel, 0, sizeof(cl_mem), (void *) &grassCountDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countgrass2 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass2_kernel, 1, grasscount2_gws*sizeof(cl_uint), NULL);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass2 kernel"); return(-1); }
+	status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_mem), (void *) &statsDevice);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
 	
 
         // 9. Run the show
@@ -235,7 +287,7 @@ int main(int argc, char ** argv)
 	cl_event sheepsort_event, sheep_move_event, grass_event, sheep_event, sheepcount_event;
 	char msg[100];
 	gettimeofday(&time0, NULL);
-	for (cl_int iter = 0; iter < ITERS; iter++) {
+	for (cl_int iter = 1; iter <= ITERS; iter++) {
 		// Sheep movement
 		status = clEnqueueNDRangeKernel( zone.queue, agentmov_kernel, 1, NULL, &sheepmov_gws, &sheepmov_lws, 0, NULL, &sheep_move_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentmov_kernel, iteration %d ", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
@@ -258,38 +310,56 @@ int main(int argc, char ** argv)
 		}
 		clEnqueueBarrier(zone.queue);
 		// Sheep count
-		status = clSetKernelArg(countagents_kernel, 2, sizeof(cl_uint), (void *) &iter);
-		if (status != CL_SUCCESS) {  sprintf(msg, "argument 2 of countagents_kernel, iteration %d", iter); PrintErrorSetKernelArg(status, msg); return(-1); }
+		status = clSetKernelArg(countagents_kernel, 2, sizeof(cl_uint), (void *) &sheepStatIndex);
+		if (status != CL_SUCCESS) { sprintf(msg, "argument 2 of countagents_kernel, iteration %d", iter); PrintErrorSetKernelArg(status, msg); return(-1); }
 		status = clEnqueueNDRangeKernel( zone.queue, countagents_kernel, 1, NULL, &sheepcount_gws, &sheepcount_lws, 0, NULL, &sheepcount_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countagents_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+		// Grass count
+		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 0, NULL, NULL);
+		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 		clEnqueueBarrier(zone.queue);
+		status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws, &grasscount2_lws, 0, NULL, NULL);
+		if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+		clEnqueueBarrier(zone.queue);
+		// Get stats
+		clEnqueueReadBuffer( zone.queue, statsDevice, CL_TRUE, 0, 4*sizeof(cl_uint), tmpStats, 0, NULL, NULL );
+		statistics.sheep[iter] = tmpStats[sheepStatIndex];
+		//statistics.wolves[iter] = tmpStats[wolvesStatIndex];
+		statistics.grass[iter] = tmpStats[grassStatIndex];
 		// Sheep actions
-		status = clSetKernelArg(sheep_kernel, 8, sizeof(cl_uint), (void *) &iter);
-		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 8 of sheep kernel"); return(-1); }
 		status = clEnqueueNDRangeKernel( zone.queue, sheep_kernel, 1, NULL, &sheep_gws, &sheep_lws, 0, NULL, &sheep_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "sheep_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 		clEnqueueBarrier(zone.queue);
-		
+
 	}
 	gettimeofday(&time1, NULL);  
-
 	// 10. Get results back
 	status = clEnqueueReadBuffer( zone.queue, sheepArrayDevice, CL_TRUE, 0, sheepSizeInBytes, sheepArrayHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "readback sheepArray"); return(-1); };
 	status = clEnqueueReadBuffer( zone.queue, grassMatrixDevice, CL_TRUE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "readback grassMatrix"); return(-1); };
-	status = clEnqueueReadBuffer( zone.queue, numSheepsDevice, CL_TRUE, 0, statsSize, numSheepsHost, 0, NULL, NULL);
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "readback numSheeps"); return(-1); };
+
+	status = clEnqueueReadBuffer( zone.queue, dbgDevice, CL_TRUE, 0, sheepSizeInBytes, dbgHost, 0, NULL, NULL);
+	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "readback dbg"); return(-1); };
 
 	// 11. Check results
 	FILE * fp1 = fopen("stats.txt","w");
-	for (int i = 0; i < ITERS; i++)
-		fprintf(fp1, "%d\n", numSheepsHost[i]);
+	for (int i = 0; i <= ITERS; i++)
+		fprintf(fp1, "%d\t%d\n", statistics.sheep[i], statistics.grass[i] );
+
+		//fprintf(fp1, "%d\t%d\n", statistics.sheep[i], statistics.wolves[i] );
 	fclose(fp1);
-	FILE * fp2 = fopen("sheeparray.txt","w");
+	/*FILE * fp2 = fopen("sheeparray.txt","w");
 	for (int i = 0; i < MAX_SHEEP; i++)
-		fprintf(fp2, "x=%d\ty=%d\te=%d\tmov=%d\n", sheepArrayHost[i].x, sheepArrayHost[i].y, sheepArrayHost[i].z, sheepArrayHost[i].w);
+		fprintf(fp2, "x=%d\ty=%d\te=%d\trep=%d\n", sheepArrayHost[i].x, sheepArrayHost[i].y, sheepArrayHost[i].z, sheepArrayHost[i].w);
 	fclose(fp2);
+	FILE * fp3 = fopen("debug.txt","w");
+	for (int i = 0; i < (GRID_X*GRID_Y); i++) {
+		if (i%GRID_X == 0) fprintf(fp3, "\n");
+		fprintf(fp3, "%c", dbgHost[i].x==1?'*':'-');
+	}
+	fclose(fp3);
+printGrassMatrix(grassMatrixHost, GRID_X, GRID_Y);*/
 
 	// 12. Print timmings
 	dt = time1.tv_sec - time0.tv_sec;
@@ -302,10 +372,12 @@ int main(int argc, char ** argv)
 	// 13. Free stuff!
         free(sheepArrayHost);
 	free(grassMatrixHost);
-	free(numSheepsHost);
+	free(statistics.sheep);
+	free(statistics.wolves);
+	free(statistics.grass);
 	clReleaseMemObject(sheepArrayDevice);
 	clReleaseMemObject(grassMatrixDevice);
-	clReleaseMemObject(numSheepsDevice);
+	clReleaseMemObject(statsDevice);
 	return 0;
 }
 

@@ -17,6 +17,12 @@ typedef struct clzone {
 	cl_program program;
 } CLZONE;
 
+typedef struct stats {
+	unsigned int * sheep;
+	unsigned int * wolves;
+	unsigned int * grass;
+} STATS;
+
 CLZONE getClZone(const char* vendor, cl_uint deviceType);
 void printAgentArray(cl_uint4* array, unsigned int size);
 void printGrassMatrix(cl_uint4* matrix, unsigned int size_x,  unsigned int size_y);
