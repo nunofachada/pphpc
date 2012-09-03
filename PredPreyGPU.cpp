@@ -10,8 +10,8 @@
 #define CELL_NUMAGENTS_OFFSET 1
 #define CELL_AGINDEX_OFFSET 2
 
-#define LWS_GPU_MAX 512
-#define LWS_GPU_PREF 128
+#define LWS_GPU_MAX 256 //512
+#define LWS_GPU_PREF 64 //128
 #define LWS_GPU_MIN 8
 
 #define LWS_GPU_PREF_2D_X 16

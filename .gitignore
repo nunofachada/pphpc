@@ -2,6 +2,8 @@
 .~*#
 .nfs*
 *.[oa]
-build/
+bin/
 versions/
 stats*.txt
+utils/
+config.txt
