@@ -26,10 +26,10 @@ typedef struct stats {
 typedef struct agent {
 	cl_uint x;
 	cl_uint y;
+	cl_uint alive;
 	cl_ushort energy;
 	cl_ushort type;
-	cl_uint alive;
-} AGENT;
+} AGENT __attribute__ ((aligned (16)));
 
 typedef struct agent_params {
 	cl_uint gain_from_food;
@@ -40,6 +40,7 @@ typedef struct agent_params {
 typedef struct sim_params {
 	cl_uint size_x;
 	cl_uint size_y;
+	cl_uint size_xy;
 	cl_uint max_agents;
 	cl_uint grass_restart;
 	cl_uint grid_cell_space;

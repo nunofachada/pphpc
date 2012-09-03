@@ -1,6 +1,6 @@
 #include "PredPrey.hpp"
 
-#define MAX_AGENTS 262144
+#define MAX_AGENTS 131072
 
 #define INIT_SHEEP 6400
 #define SHEEP_GAIN_FROM_FOOD 4
@@ -24,10 +24,14 @@
 #define CELL_NUMAGENTS_OFFSET 1
 #define CELL_AGINDEX_OFFSET 2
 
-#define ITERS 4000
+#define ITERS 2000
 
-#define MAX_LWS_GPU 512
-#define MIN_LWS_GPU 8
+#define LWS_GPU_MAX 512
+#define LWS_GPU_PREF 128
+#define LWS_GPU_MIN 8
+
+#define LWS_GPU_PREF_2D_X 16
+#define LWS_GPU_PREF_2D_Y 8
 
 // Get a CL zone with all the stuff required
 CLZONE getClZone(const char* vendor, cl_uint deviceType) {
@@ -62,7 +66,7 @@ CLZONE getClZone(const char* vendor, cl_uint deviceType) {
 	cl_context context = clCreateContext( NULL, 1, &device, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorCreateContext(status, NULL); exit(-1); }
 	zone.context = context;
-	cl_command_queue queue = clCreateCommandQueue( context, device, 0, &status );
+	cl_command_queue queue = clCreateCommandQueue( context, device, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateCommandQueue(status, NULL); exit(-1); }
 	zone.queue = queue;
 	// Import kernels
@@ -118,6 +122,40 @@ void printGrassMatrix(cl_uint* matrix, unsigned int size_x,  unsigned int size_y
 	}
 }
 
+// Returns the next larger power of 2 of the given value
+unsigned int nlpo2(register unsigned int x)
+{
+	/* If value already is power of 2, return it has is. */
+	if ((x&(x-1)) == 0) return x;
+	/* If not, determine next larger power of 2. */
+        x |= (x >> 1);
+        x |= (x >> 2);
+        x |= (x >> 4);
+        x |= (x >> 8);
+        x |= (x >> 16);
+        return(x+1);
+}
+
+// Returns the the number of one bits in the given value.
+unsigned int ones32(register unsigned int x)
+{
+        /* 32-bit recursive reduction using SWAR...
+	   but first step is mapping 2-bit values
+	   into sum of 2 1-bit values in sneaky way
+	*/
+        x -= ((x >> 1) & 0x55555555);
+        x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+        x = (((x >> 4) + x) & 0x0f0f0f0f);
+        x += (x >> 8);
+        x += (x >> 16);
+        return(x & 0x0000003f);
+}
+// Returns the trailing Zero Count (i.e. the log2 of a base 2 number)
+unsigned int tzc(register int x)
+{
+        return(ones32((x & -x) - 1));
+}
+
 // Main stuff
 int main(int argc, char ** argv)
 {
@@ -137,42 +175,41 @@ int main(int argc, char ** argv)
 
 
 	// 3. Compute work sizes for different kernels.
-	size_t agentsort_gws, agentmov_gws, grass_gws[2], agentaction_gws, agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws;
-	size_t agentsort_lws, agentmov_lws, grass_lws[2], agentaction_lws, agentcount1_lws, agentcount2_lws, grasscount1_lws, grasscount2_lws;
-	// Preferred number of work groups
-	unsigned int num_wgroups = (unsigned int) pow(2, zone.cu / 6);
+	size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws;
+	size_t agentsort_lws, agent_lws, grass_lws[2], agentcount1_lws, agentcount2_lws, grasscount1_lws, grasscount2_lws;
 	// sheep sort worksizes
 	agentsort_gws = MAX_AGENTS / 2;
-	agentsort_lws = fmin(MAX_LWS_GPU, fmax(MIN_LWS_GPU, agentsort_gws/num_wgroups));
-	// agent movement worksizes
-	agentmov_gws = MAX_AGENTS;
-	agentmov_lws = fmin(MAX_LWS_GPU, fmax(MIN_LWS_GPU, agentmov_gws/num_wgroups));
+	agentsort_lws = LWS_GPU_PREF;
+	while (agentsort_gws % agentsort_lws != 0)
+		agentsort_lws = agentsort_lws / 2;
+	// agent mov/action/update kernels worksizes
+	size_t agentact_gws = MAX_AGENTS;
+	size_t agentact_lws = LWS_GPU_PREF;
+	while (agent_gws % agent_lws != 0)
+		agent_lws = agent_lws / 2;
 	// grass growth worksizes
-	grass_gws[0] = GRID_X;  grass_gws[1] = GRID_Y;
-	grass_lws[0] = fmax(grass_gws[0] / num_wgroups, MIN_LWS_GPU);
-	while (grass_gws[0] % grass_lws[0] != 0) grass_lws[0]++;
-	grass_lws[1] = fmax(grass_gws[1] / num_wgroups, MIN_LWS_GPU);
-	while (grass_gws[1] % grass_lws[1] != 0) grass_lws[1]++;
-	// agent action worksizes
-	agentaction_gws = agentmov_gws;
-	agentaction_lws = agentmov_lws;
+	grass_lws[0] = LWS_GPU_PREF_2D_X;
+	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) GRID_X) / LWS_GPU_PREF_2D_X);
+	grass_lws[1] = LWS_GPU_PREF_2D_Y;
+	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) GRID_Y) / LWS_GPU_PREF_2D_Y);
 	// agent count worksizes
-	agentcount1_gws = agentmov_gws;
-	agentcount1_lws = agentmov_lws;
+	agentcount1_gws = MAX_AGENTS;
+	agentcount1_lws = LWS_GPU_MAX;
+	while (agentcount1_gws % agentcount1_lws != 0)
+		agentcount1_lws = agentcount1_lws / 2;
 	agentcount2_gws = agentcount1_gws / agentcount1_lws;
 	agentcount2_lws = agentcount2_gws;
 	// grass count worksizes
-	grasscount1_gws = GRID_X * GRID_Y;
-	grasscount1_lws = fmin(MAX_LWS_GPU, fmax(MIN_LWS_GPU, grasscount1_gws/num_wgroups));
-	while (grasscount1_gws % grasscount1_lws != 0) grasscount1_lws--;
+	grasscount1_lws = LWS_GPU_MAX;
+	grasscount1_gws = LWS_GPU_MAX * ceil((((float) GRID_X * GRID_Y)) / LWS_GPU_MAX);
 	grasscount2_gws = grasscount1_gws / grasscount1_lws;
 	grasscount2_lws = grasscount2_gws;
 
-	printf("Sizes:\n");
-	printf("agentsort_gws=%d\tagentsort_lws=%d\n", (int) agentsort_gws, (int) agentsort_lws);
-	printf("agentmov_gws=%d\tagentmov_lws=%d\n", (int) agentmov_gws, (int) agentmov_lws);
+	printf("Fixed kernel sizes:\n");
+	//printf("agentsort_gws=%d\tagentsort_lws=%d\n", (int) agentsort_gws, (int) agentsort_lws);
+	//printf("agentmov_gws=%d\tagentmov_lws=%d\n", (int) agentmov_gws, (int) agentmov_lws);
 	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
-	printf("agentaction_gws=%d\tagentaction_lws=%d\n", (int) agentaction_gws, (int) agentaction_lws);
+	//printf("agentaction_gws=%d\tagentaction_lws=%d\n", (int) agentaction_gws, (int) agentaction_lws);
 	printf("agentcount1_gws=%d\tagentcount1_lws=%d\n", (int) agentcount1_gws, (int) agentcount1_lws);
 	printf("agentcount2_gws=%d\tagentcount2_lws=%d\n", (int) agentcount2_gws, (int) agentcount2_lws);
 	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
@@ -259,6 +296,7 @@ int main(int argc, char ** argv)
 	SIM_PARAMS sim_params;
 	sim_params.size_x = GRID_X;
 	sim_params.size_y = GRID_Y;
+	sim_params.size_xy = GRID_X * GRID_Y;
 	sim_params.max_agents = MAX_AGENTS;
 	sim_params.grass_restart = GRASS_RESTART;
 	sim_params.grid_cell_space = CELL_SPACE;
@@ -403,20 +441,32 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
 	
         // 9. Run the show
-	cl_uint totalStages = (cl_uint) round(logf((float) MAX_AGENTS)/logf(2.0f));
-	cl_event agentsort_event, agentaction_move_event, grass_event, agentaction_event, agentcount_event;
+	cl_event agentsort_event, agentaction_move_event, grass_event, agentaction_event, agentcount1_event, count2_events[2], agentupdate_event, grasscount1_event;
 	char msg[500];
 	gettimeofday(&time0, NULL);
 	for (cl_int iter = 1; iter <= ITERS; iter++) {
 
+		// Determine agent kernels size for this iteration
+		unsigned int maxOccupiedSpace = tmpStats[3] * 2; // Worst case array agent (dead or alive) occupation
+		agent_lws = LWS_GPU_PREF;
+		agent_gws = LWS_GPU_PREF * ceil(((float) maxOccupiedSpace) / LWS_GPU_PREF);
+
 		// Agent movement
-		status = clEnqueueNDRangeKernel( zone.queue, agentmov_kernel, 1, NULL, &agentmov_gws, &agentmov_lws, 0, NULL, &agentaction_move_event);
+		status = clEnqueueNDRangeKernel( zone.queue, agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, &agentaction_move_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentmov_kernel, iteration %d ", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after agent mov, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+		// Grass growth and agent number reset
+		status = clEnqueueNDRangeKernel( zone.queue, grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &grass_event);
+		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d ", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 		// Sort agent array
+		agentsort_gws = nlpo2(maxOccupiedSpace) / 2;
+		agentsort_lws = LWS_GPU_PREF;
+		while (agentsort_gws % agentsort_lws != 0)
+			agentsort_lws = agentsort_lws / 2;
+		cl_uint totalStages = (cl_uint) tzc(agentsort_gws * 2);
+		status = clEnqueueWaitForEvents(zone.queue, 1, &agentaction_move_event);
+		if (status != CL_SUCCESS) {  sprintf(msg, "clEnqueueWaitForEvents after agent mov, iteration %d", iter); PrintErrorEnqueueWaitForEvents(status, msg); return(-1); }
 		for (int currentStage = 1; currentStage <= totalStages; currentStage++) {
 			cl_uint step = currentStage;
 			for (int currentStep = step; currentStep > 0; currentStep--) {
@@ -424,59 +474,39 @@ int main(int argc, char ** argv)
 				if (status != CL_SUCCESS) { sprintf(msg, "argument 1 of sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorSetKernelArg(status, msg); return(-1); }
 				status = clSetKernelArg(sort_kernel, 2, sizeof(cl_uint), (void *) &currentStep);
 				if (status != CL_SUCCESS) {  sprintf(msg, "argument 2 of sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorSetKernelArg(status, msg); return(-1); }
-				status = clEnqueueNDRangeKernel( zone.queue, sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, &agentsort_event);
+				status = clEnqueueNDRangeKernel( zone.queue, sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, NULL);
 				if (status != CL_SUCCESS) {  sprintf(msg, "sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 				status = clEnqueueBarrier(zone.queue);
 				if (status != CL_SUCCESS) {  sprintf(msg, "in sort agents loop, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 			}
 		}
 
-		// Grass growth
-		status = clEnqueueNDRangeKernel( zone.queue, grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &grass_event);
-		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d ", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
-
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after grass growth, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
-
 		// Update agent number in grid
-		status = clEnqueueNDRangeKernel( zone.queue, agentupdate_kernel, 1, NULL, &agentaction_gws, &agentaction_lws, 0, NULL, NULL);
+		status = clEnqueueNDRangeKernel( zone.queue, agentupdate_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, &agentupdate_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentupdate_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after agent update, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
-
 		// agent actions
-		status = clEnqueueNDRangeKernel( zone.queue, agentaction_kernel, 1, NULL, &agentaction_gws, &agentaction_lws, 0, NULL, &agentaction_event);
+		//agent_gws *= 2;
+		status = clEnqueueNDRangeKernel( zone.queue, agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, &agentupdate_event, &agentaction_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentaction_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after agent actions, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+//printf("For %d agents: agent_gws=%d\t(agentaction_gws=%d)\tagent_lws=%d\tagentsort_gws=%d\tagentsort_lws=%d\n", tmpStats[3], agent_gws/2, agent_gws, agent_lws, agentsort_gws, agentsort_lws);
 
-		// Agents count
-		status = clEnqueueNDRangeKernel( zone.queue, countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 0, NULL, NULL);
+		// Gather statistics
+		status = clEnqueueNDRangeKernel( zone.queue, countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, &agentaction_event, &agentcount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countagents1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-		clEnqueueBarrier(zone.queue);
-		status = clEnqueueNDRangeKernel( zone.queue, countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 0, NULL, NULL);
-
-		if (status != CL_SUCCESS) { sprintf(msg, "countagents2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
-		clEnqueueBarrier(zone.queue);
-
-		// Grass count
-		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 0, NULL, NULL);
+		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, &agentaction_event, &grasscount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after grasscount1, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+		status = clEnqueueNDRangeKernel( zone.queue, countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, &agentcount1_event, &count2_events[0]);
+		if (status != CL_SUCCESS) { sprintf(msg, "countagents2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-		status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws, &grasscount2_lws, 0, NULL, NULL);
+		status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws, &grasscount2_lws, 1, &grasscount1_event, &count2_events[1]);
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-		status = clEnqueueBarrier(zone.queue);
-		if (status != CL_SUCCESS) {  sprintf(msg, "barrier after grasscount2, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
-
 		// Get stats
-		clEnqueueReadBuffer( zone.queue, statsDevice, CL_TRUE, 0, 4*sizeof(cl_uint), tmpStats, 0, NULL, NULL );
+		clEnqueueReadBuffer( zone.queue, statsDevice, CL_TRUE, 0, 4*sizeof(cl_uint), tmpStats, 2, count2_events, NULL );
 		statistics.sheep[iter] = tmpStats[SHEEP_ID];
 		statistics.wolves[iter] = tmpStats[WOLF_ID];
 		statistics.grass[iter] = tmpStats[grassIndex];
@@ -500,11 +530,11 @@ int main(int argc, char ** argv)
 		fprintf(fp1, "%d\t%d\t%d\n", statistics.sheep[i], statistics.wolves[i], statistics.grass[i] );
 	fclose(fp1);
 
-	/*FILE * fp2 = fopen("agentArray.txt","w");
+	FILE * fp2 = fopen("agentArray.txt","w");
 	for (int i = 0; i < MAX_AGENTS; i++)
 		fprintf(fp2, "x=%d\ty=%d\te=%d\ttype=%d\talive=%d\n", agentArrayHost[i].x, agentArrayHost[i].y, agentArrayHost[i].energy, agentArrayHost[i].type, agentArrayHost[i].alive);
 	fclose(fp2);
-	FILE * fp3 = fopen("debug.txt","w");
+	/*FILE * fp3 = fopen("debug.txt","w");
 	for (int i = 0; i < (MAX_AGENTS); i++) {
 		if ((dbgHost[i].s0 == 1) && (dbgHost[i].s1 == 1) && (dbgHost[i].s5 < MAX_AGENTS))
 			fprintf(fp3, "w_gid=%d\tw_x=%d\tw_y=%d\ts_gid=%d\ts_x=%d\ts_y=%d\n", dbgHost[i].s2, dbgHost[i].s3, dbgHost[i].s4, dbgHost[i].s5, dbgHost[i].s6, dbgHost[i].s7);

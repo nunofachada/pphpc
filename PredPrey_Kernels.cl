@@ -20,6 +20,7 @@ typedef struct agent_params {
 typedef struct sim_params {
 	uint size_x;
 	uint size_y;
+	uint size_xy;
 	uint max_agents;
 	uint grass_restart;
 	uint grid_cell_space;
@@ -28,10 +29,10 @@ typedef struct sim_params {
 typedef struct agent {
 	uint x;
 	uint y;
+	uint alive;
 	ushort energy;
 	ushort type;
-	uint alive;
-} AGENT;
+} AGENT __attribute__ ((aligned (16)));
 
 /*
  * RNG utility function, not to be called directly from kernels.
@@ -148,10 +149,9 @@ __kernel void BitonicSort(__global AGENT * agents,
 	uint gid = get_global_id(0);
 
 	// Determine what to compare and possibly swap
-	uint pair_stride = (uint) 1 << (step - 1);//round(pown(2.0f, (int) step-1));
+	uint pair_stride = (uint) 1 << (step - 1);
 	uint index1 = gid + (gid / pair_stride) * pair_stride;
 	uint index2 = index1 + pair_stride;
-	//bool swap = 0;
 	// Get values from global memory
 	AGENT agent1 = agents[index1];
 	AGENT agent2 = agents[index2];
@@ -200,13 +200,16 @@ __kernel void Grass(__global uint * matrix,
 	// Grid position for this work-item
 	uint x = get_global_id(0);
 	uint y = get_global_id(1);
-	// Decrement counter if grass is dead
-	uint index = sim_params.grid_cell_space*(x + sim_params.size_x * y);
-	if (matrix[index] > 0)
-		matrix[index]--;
-	// Set number of agents in this place to zero
-	matrix[index + CELL_NUMAGENTS_OFFSET] = 0;
-	matrix[index + CELL_AGINDEX_OFFSET] = sim_params.max_agents;
+	// Check if this thread will do anything
+	if ((x < sim_params.size_x) && (y < sim_params.size_y)) {
+		// Decrement counter if grass is dead
+		uint index = sim_params.grid_cell_space*(x + sim_params.size_x * y);
+		if (matrix[index] > 0)
+			matrix[index]--;
+		// Set number of agents in this place to zero
+		matrix[index + CELL_NUMAGENTS_OFFSET] = 0;
+		matrix[index + CELL_AGINDEX_OFFSET] = sim_params.max_agents;
+	}
 }
 
 
@@ -307,10 +310,13 @@ __kernel void CountGrass1(__global uint * grass,
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
-	lcounter[lid] = (grass[gid * sim_params.grid_cell_space] == 0 ? 1 : 0);
-	reduceGrass(lcounter, lid);
-	if (lid == 0)
-		gcounter[get_group_id(0)] = lcounter[lid];
+	// Check if this thread will do anything
+	if (gid < sim_params.size_xy) {
+		lcounter[lid] = (grass[gid * sim_params.grid_cell_space] == 0 ? 1 : 0);
+		reduceGrass(lcounter, lid);
+		if (lid == 0)
+			gcounter[get_group_id(0)] = lcounter[lid];
+	}
 }
 
 /*
@@ -320,13 +326,14 @@ __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			__global uint * stats)
 {
+	uint gid = get_global_id(0);
+	// Check if this thread will do anything
 	uint lid = get_local_id(0);
-	lcounter[lid] = gcounter[lid];
+	lcounter[lid] = gcounter[gid];
 	barrier(CLK_LOCAL_MEM_FENCE);
 	reduceGrass(lcounter, lid);
-	if (lid == 0)
+	if (gid == 0)
 		stats[GRASS_ID] = lcounter[0];
-	
 }
 
 /*
