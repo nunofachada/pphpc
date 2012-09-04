@@ -327,3 +327,15 @@ void PrintErrorGetEventProfilingInfo( cl_int error, const char * xtra ) {
 	return;
 }
 
+void PrintErrorFinish( cl_int error, const char * xtra ) {
+	printf("Finish error: ");
+	switch (error) {
+		case CL_INVALID_COMMAND_QUEUE : printf("Invalid command queue: command_queue is not a valid command-queue!\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources!\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory!\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
+

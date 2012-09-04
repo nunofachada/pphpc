@@ -21,3 +21,4 @@ void PrintErrorEnqueueWaitForEvents( cl_int error, const char * xtra );
 void PrintErrorEnqueueMapBuffer( cl_int error, const char * xtra );
 void PrintErrorEnqueueUnmapMemObject( cl_int error, const char * xtra );
 void PrintErrorGetEventProfilingInfo( cl_int error, const char * xtra );
+void PrintErrorFinish( cl_int error, const char * xtra );
