@@ -1,6 +1,7 @@
 // A minimalist OpenCL program.
 #include <CL/cl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define MAX_DEVICES_QUERY 10
 #define MAX_INFO_STRING 250
