@@ -277,3 +277,53 @@ void PrintErrorGetPlatformInfo( cl_int error, const char * xtra ) {
 }
 
 
+void PrintErrorEnqueueMapBuffer( cl_int error, const char * xtra ) {
+	printf("EnqueueMapBuffer error: ");
+	switch (error) {
+		case CL_INVALID_COMMAND_QUEUE: printf("Invalid command queue (command_queue is not a valid command-queue)!\n"); break;
+		case CL_INVALID_CONTEXT : printf("Invalid context (context associated with command_queue and buffer are not the same or if the context associated with command_queue and events in event_wait_list are not the same)!\n"); break;
+		case CL_INVALID_MEM_OBJECT: printf("Invalid mem object (buffer is not a valid buffer object)!\n"); break;
+		case CL_INVALID_VALUE: printf("Invalid value (region being mapped given by (offset, cb) is out of bounds or if values specified in map_flags are not valid)!\n"); break;
+		case CL_INVALID_EVENT_WAIT_LIST : printf("Invalid event wait list (if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events)!\n"); break;
+		case CL_MISALIGNED_SUB_BUFFER_OFFSET: printf("CL_MISALIGNED_SUB_BUFFER_OFFSET (buffer is a sub-buffer object and offset specified when the sub-buffer object is created is not aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN value for device associated with queue)"); break;
+		case CL_MAP_FAILURE : printf("CL_MAP_FAILURE (there is a failure to map the requested region into the host address space. This error cannot occur for buffer objects created with CL_MEM_USE_HOST_PTR or CL_MEM_ALLOC_HOST_PTR)!\n"); break;
+		case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST : printf("CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST (the map operation is blocking and the execution status of any of the events in event_wait_list is a negative integer value)!\n"); break;
+		case CL_MEM_OBJECT_ALLOCATION_FAILURE : printf("CL_MEM_OBJECT_ALLOCATION_FAILURE (there is a failure to allocate memory for data store associated with buffer)!\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources!\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory!\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
+
+void PrintErrorEnqueueUnmapMemObject( cl_int error, const char * xtra ) {
+	printf("EnqueueUnmapMemObject error: ");
+	switch (error) {
+		case CL_INVALID_COMMAND_QUEUE: printf("Invalid command queue (command_queue is not a valid command-queue)!\n"); break;
+		case CL_INVALID_CONTEXT : printf("Invalid context (context associated with command_queue and memobj are not the same or if the context associated with command_queue and events in event_wait_list are not the same)!\n"); break;
+		case CL_INVALID_MEM_OBJECT: printf("Invalid mem object (buffer is not a valid memory object)!\n"); break;
+		case CL_INVALID_VALUE: printf("Invalid value (mapped_ptr is not a valid pointer returned by clEnqueueMapBuffer, or clEnqueueMapImage for memobj)!\n"); break;
+		case CL_INVALID_EVENT_WAIT_LIST : printf("Invalid event wait list (if event_wait_list is NULL and num_events_in_wait_list > 0, or event_wait_list is not NULL and num_events_in_wait_list is 0, or if event objects in event_wait_list are not valid events)!\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources!\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory!\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
+
+void PrintErrorGetEventProfilingInfo( cl_int error, const char * xtra ) {
+	printf("GetEventProfilingInfo error: ");
+	switch (error) {
+		case CL_PROFILING_INFO_NOT_AVAILABLE : printf("Profiling info not available: The CL_QUEUE_PROFILING_ENABLE flag is not set for the command-queue, OR the execution status of the command identified by event is not CL_COMPLETE OR event is a user event object!\n"); break;
+		case CL_INVALID_VALUE: printf("Invalid value (param_name is not valid, OR size in bytes specified by param_value_size is < size of return type as described in table and param_value is not NULL)!\n"); break;
+		case CL_INVALID_EVENT: printf("Invalid event (event is a not a valid event object)!\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources!\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory!\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
+
