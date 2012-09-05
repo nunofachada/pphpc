@@ -10,6 +10,7 @@
 #include <math.h>
 #include <limits.h>
 #include "utils/clerrors.h"
+#include "utils/clinfo.h"
 #include "utils/fileutils.h"
 #include "utils/bitstuff.h"
 

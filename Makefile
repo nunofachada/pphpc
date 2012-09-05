@@ -5,7 +5,7 @@ CLINCLUDES = -I$$AMDAPPSDKROOT/include
 LFLAGS = -lOpenCL -lm
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
 BUILDDIR = bin
-UTILOBJS = utils/clerrors.o utils/fileutils.o utils/bitstuff.o
+UTILOBJS = utils/clerrors.o utils/fileutils.o utils/bitstuff.o utils/clinfo.o
  
 all: PredPreyGPU PredPreyCPU cleanobjs
 
@@ -28,7 +28,7 @@ PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $@ -c $<
 
 clean: cleanobjs
-	rm $(BUILDDIR)/*
+	rm -f $(BUILDDIR)/*
 	
 cleanobjs:
-	rm *.o
+	rm -f *.o

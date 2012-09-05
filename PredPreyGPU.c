@@ -61,6 +61,39 @@ int main(int argc, char ** argv)
 
 	// 4. obtain kernels entry points.
 	getKernelEntryPoints(zone.program);
+	
+	// Show kernel info - this should then influence the stuff above
+	KERNEL_WORK_GROUP_INFO kwgi;
+	printf("\n-------- grass_kernel information --------\n");	
+	getWorkGroupInfo(grass_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentmov_kernel information --------\n");	
+	getWorkGroupInfo(agentmov_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentupdate_kernel information --------\n");	
+	getWorkGroupInfo(agentupdate_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- sort_kernel information --------\n");	
+	getWorkGroupInfo(sort_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentaction_kernel information --------\n");	
+	getWorkGroupInfo(agentaction_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countagents1_kernel information --------\n");	
+	getWorkGroupInfo(countagents1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countagents2_kernel information --------\n");	
+	getWorkGroupInfo(countagents2_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countgrass1_kernel information --------\n");	
+	getWorkGroupInfo(countgrass1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countgrass2_kernel information --------\n");	
+	getWorkGroupInfo(countgrass2_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+
+	printf("-------- Simulation start --------\n");		
+	
 
 	// 5. Create and initialize host buffers
 	// Statistics
@@ -510,14 +543,51 @@ int main(int argc, char ** argv)
 	printf("\n");
 
 	// 11. Free stuff!
-        free(agentArrayHost);
-	free(grassMatrixHost);
-	free(statsArrayHost);
-	free(rngSeedsHost);
+	
+	// Free OpenCL kernels
+	clReleaseKernel(grass_kernel);
+	clReleaseKernel(agentmov_kernel);
+	clReleaseKernel(agentupdate_kernel);
+	clReleaseKernel(sort_kernel);
+	clReleaseKernel(agentaction_kernel);
+	clReleaseKernel(countagents1_kernel);
+	clReleaseKernel(countagents2_kernel);
+	clReleaseKernel(countgrass1_kernel); 
+	clReleaseKernel(countgrass2_kernel);
+	// Free OpenCL program and command queue
+    clReleaseProgram(zone.program);
+    clReleaseCommandQueue(zone.queue);
+	// Free OpenCL memory objects
+	clReleaseMemObject(statsArrayDevice);
 	clReleaseMemObject(agentArrayDevice);
 	clReleaseMemObject(grassMatrixDevice);
-	clReleaseMemObject(statsArrayDevice);
+	clReleaseMemObject(iterDevice);
+	clReleaseMemObject(numAgentsDevice);
+	clReleaseMemObject(grassCountDevice);
+	clReleaseMemObject(agentsCountDevice );
+	clReleaseMemObject(agentParamsDevice);
+	clReleaseMemObject(rngSeedsDevice);
+	// Free OpenCL context
+	clReleaseContext(zone.context);
+	// Free host resources
+	free(statsArrayHost);
+	free(numAgentsHost);
+	free(agentArrayHost);
+	free(grassMatrixHost);
+	free(rngSeedsHost);
+	free(agentaction_move_event); 
+	free(grass_event); 
+	free(agentaction_event); 
+	free(agentsort_event);
+	free(agentcount1_event); 
+	free(agentcount2_event);
+	free(agentupdate_event); 
+	free(grasscount1_event); 
+	free(grasscount2_event);
+	free(readNumAgents_event);
+
 	return 0;
+	
 }
 
 

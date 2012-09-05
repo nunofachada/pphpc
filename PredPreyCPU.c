@@ -62,6 +62,17 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "step1_kernel"); exit(-1); }
 	step2_kernel = clCreateKernel( zone.program, "step2", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "step2_kernel"); exit(-1); }
+	
+	// Show kernel info - this should then influence the stuff above
+	KERNEL_WORK_GROUP_INFO kwgi;
+	printf("-------- step1_kernel information --------\n");	
+	getWorkGroupInfo(step1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("-------- step2_kernel information --------\n");	
+	getWorkGroupInfo(step1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+
+	printf("-------- Simulation start --------\n");	
 
 	// 6. Create memory objects
 
@@ -405,15 +416,22 @@ int main(int argc, char ** argv)
 	// 12. Free stuff!
 	printf("Press enter to free memory...");
 	getchar();
+	// Release kernels
 	if (step1_kernel) clReleaseKernel(step1_kernel);  
 	if (step2_kernel) clReleaseKernel(step2_kernel);
-	destroyClZone(zone);
+	// Release Program and Command queue (previsouly done with destroyClZone(zone));
+    if (zone.program) clReleaseProgram(zone.program);
+    if (zone.queue) clReleaseCommandQueue(zone.queue);
+    // Release memory objects
     if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
     if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
     if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
     if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
+    // Release context
+    if (zone.context) clReleaseContext(zone.context);
 	printf("Press enter to bail out...");
 	getchar();
+	
 
 	return 0;
 }
