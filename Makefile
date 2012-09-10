@@ -7,8 +7,8 @@ CLLIBDIR=-L$AMDAPPSDKROOT/lib/x86_64
  
 all: MyDeviceQuery clerrors.o fileutils.o bitstuff.o clinfo.o
 
-MyDeviceQuery: MyDeviceQuery.c
-	$(CC) $(CFLAGS) $(CLMACROS) $< $(CLINCLUDES) $(CLLIB) $(CLLIBDIR) -o $@
+MyDeviceQuery: MyDeviceQuery.c clinfo.o
+	$(CC) $(CFLAGS) $(CLMACROS) $^ $(CLINCLUDES) $(CLLIB) $(CLLIBDIR) -o $@
 
 clerrors.o: clerrors.c clerrors.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $@	

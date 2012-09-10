@@ -2,6 +2,7 @@
 #include <CL/cl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "clinfo.h"
 
 #define MAX_DEVICES_QUERY 10
 #define MAX_INFO_STRING 250
@@ -22,6 +23,9 @@ int main(int argc, char ** argv)
 		// Print platform info
 		char pbuff[MAX_INFO_STRING];
 		cl_uint uintaux;
+		cl_ulong ulongaux;
+		cl_device_type dtypeaux;
+		cl_device_local_mem_type dlmt;
 		clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, sizeof(pbuff), pbuff, NULL);
 		printf("Platform #%d: %s\n", i, pbuff);
 		// Get devices in platform
@@ -34,10 +38,18 @@ int main(int argc, char ** argv)
 			// Print device info
 			clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(pbuff), pbuff, NULL);
 			printf("\tDevice #%d: %s\n", j, pbuff);
+			clGetDeviceInfo(devices[j], CL_DEVICE_TYPE, sizeof(cl_device_type), &dtypeaux, NULL);
+			printf("\t           Type: %s\n", getDeviceTypeStr(dtypeaux, 0, pbuff, MAX_INFO_STRING));
 			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, sizeof(pbuff), pbuff, NULL);
 			printf("\t           %s\n", pbuff);
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uintaux), &uintaux, NULL);
 			printf("\t           Max. Compute units: %d\n", uintaux);
+			clGetDeviceInfo(devices[j], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(ulongaux), &ulongaux, NULL);
+			printf("\t           Global mem. size: %ld Kb = %ld Mb\n", ulongaux / 1024, ulongaux / 1024 / 1024);
+			clGetDeviceInfo(devices[j], CL_DEVICE_LOCAL_MEM_TYPE, sizeof(dlmt), &dlmt, NULL);
+			printf("\t           Local mem. type: %s\n", (dlmt == CL_LOCAL ? "local" : "global"));
+			clGetDeviceInfo(devices[j], CL_DEVICE_LOCAL_MEM_SIZE, sizeof(ulongaux), &ulongaux, NULL);
+			printf("\t           Local mem. size: %ld Kb\n", ulongaux / 1024);
 
 		}
 	}

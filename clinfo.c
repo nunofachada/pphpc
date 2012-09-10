@@ -1,3 +1,4 @@
+#include <string.h>
 #include "clinfo.h"
 
 cl_uint getWorkGroupInfo(cl_kernel kernel, cl_device_id device, KERNEL_WORK_GROUP_INFO* kwgi) {
@@ -30,4 +31,58 @@ void printWorkGroupInfo(KERNEL_WORK_GROUP_INFO kwgi) {
 	printf("Local memory used by kernel: %ld bytes\n", (long) kwgi.local_mem_size);
 	printf("Min. private memory used by each workitem: %ld bytes\n", (long) kwgi.private_mem_size);
 
+}
+
+char* getDeviceTypeStr(cl_device_type cldt, int full, char* str, int strSize) {
+
+	int occuSpace = 0;
+	char temp[30];
+	*str = 0;
+
+	if (cldt & CL_DEVICE_TYPE_DEFAULT) {
+		strcpy(temp, full ? CL_DEVICE_TYPE_DEFAULT_STR_FULL : CL_DEVICE_TYPE_DEFAULT_STR);
+		int availSpace = strSize - occuSpace - 2; // 1 for space + 1 for \0 
+		if (strlen(temp) <= availSpace) {
+			strcat(str, " ");
+			strcat(str, temp);
+			availSpace -= strlen(temp);
+		}
+	}
+	if (cldt & CL_DEVICE_TYPE_CPU) {
+		strcpy(temp, full ? CL_DEVICE_TYPE_CPU_STR_FULL : CL_DEVICE_TYPE_CPU_STR);
+		int availSpace = strSize - occuSpace - 2; // 1 for space + 1 for \0 
+		if (strlen(temp) <= availSpace) {
+			strcat(str, " ");
+			strcat(str, temp);
+			availSpace -= strlen(temp);
+		}
+	}
+	if (cldt & CL_DEVICE_TYPE_GPU) {
+		strcpy(temp, full ? CL_DEVICE_TYPE_GPU_STR_FULL : CL_DEVICE_TYPE_GPU_STR);
+		int availSpace = strSize - occuSpace - 2; // 1 for space + 1 for \0 
+		if (strlen(temp) <= availSpace) {
+			strcat(str, " ");
+			strcat(str, temp);
+			availSpace -= strlen(temp);
+		}
+	}
+	if (cldt & CL_DEVICE_TYPE_ACCELERATOR) {
+		strcpy(temp, full ? CL_DEVICE_TYPE_ACCELERATOR_STR_FULL : CL_DEVICE_TYPE_ACCELERATOR_STR);
+		int availSpace = strSize - occuSpace - 2; // 1 for space + 1 for \0 
+		if (strlen(temp) <= availSpace) {
+			strcat(str, " ");
+			strcat(str, temp);
+			availSpace -= strlen(temp);
+		}
+	}
+	if (cldt == CL_DEVICE_TYPE_ALL) {
+		strcpy(temp, full ? CL_DEVICE_TYPE_ALL_STR_FULL : CL_DEVICE_TYPE_ALL_STR);
+		int availSpace = strSize - occuSpace - 2; // 1 for space + 1 for \0 
+		if (strlen(temp) <= availSpace) {
+			strcat(str, " ");
+			strcat(str, temp);
+			availSpace -= strlen(temp);
+		}
+	}
+	return str;
 }
