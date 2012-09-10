@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
 		char pbuff[MAX_INFO_STRING];
 		size_t sizetaux;
 		cl_uint uintaux;
-		cl_ulong ulongaux;
+		cl_ulong ulongaux, ulongaux2;
 		cl_device_type dtypeaux;
 		cl_device_local_mem_type dlmt;
 		cl_bool boolaux;
@@ -47,11 +47,12 @@ int main(int argc, char ** argv)
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uintaux), &uintaux, NULL);
 			printf("\t           Max. Compute units: %d\n", uintaux);
 			clGetDeviceInfo(devices[j], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(ulongaux), &ulongaux, NULL);
+			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(ulongaux2), &ulongaux2, NULL);
 			clGetDeviceInfo(devices[j], CL_DEVICE_HOST_UNIFIED_MEMORY, sizeof(boolaux), &boolaux, NULL);
-			printf("\t           Global mem. size: %ld Kb = %ld Mb (%s)\n", ulongaux / 1024, ulongaux / 1024 / 1024, boolaux ? "shared with host" : "dedicated");
+			printf("\t           Global mem. size: %ld Mb %s (max. alloc. %ld Mb)\n", (unsigned long int) ulongaux / 1024l / 1024l, boolaux ? "shared with host" : "dedicated", (unsigned long int) ulongaux2 / 1024l / 1024l);
 			clGetDeviceInfo(devices[j], CL_DEVICE_LOCAL_MEM_TYPE, sizeof(dlmt), &dlmt, NULL);
 			clGetDeviceInfo(devices[j], CL_DEVICE_LOCAL_MEM_SIZE, sizeof(ulongaux), &ulongaux, NULL);
-			printf("\t           Local mem. type / size: %s / %ld Kb\n", (dlmt == CL_LOCAL ? "local" : "global"), ulongaux / 1024);
+			printf("\t           Local mem. size (type): %ld Kb (%s)\n", (unsigned long int) ulongaux / 1024l, (dlmt == CL_LOCAL ? "local" : "global"));
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(sizetaux), &sizetaux, NULL);
 			printf("\t           Max. work-group size: %d\n", (int) sizetaux);
 
