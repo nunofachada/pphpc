@@ -5,18 +5,24 @@ CLINCLUDES = -I$$AMDAPPSDKROOT/include
 LFLAGS = -lOpenCL -lm
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
 BUILDDIR = bin
-UTILOBJS = utils/clerrors.o utils/fileutils.o utils/bitstuff.o utils/clinfo.o
+UTILOBJS = utils/ocl/clerrors.o utils/ocl/fileutils.o utils/ocl/bitstuff.o utils/ocl/clinfo.o
  
-all: PredPreyGPU PredPreyCPU cleanobjs
+all: PredPreyGPUSort PredPreyGPU PredPreyCPU cleanobjs
 
 profiler: CLMACROS += -DCLPROFILER
 profiler: all
 	
+PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+
 PredPreyGPU: PredPreyGPU.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
 
 PredPreyCPU: PredPreyCPU.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+
+PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
 
 PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@

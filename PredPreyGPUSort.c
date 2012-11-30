@@ -1,4 +1,14 @@
-#include "PredPreyGPU.h"
+#include "PredPreyGPUSort.h"
+
+#define MAX_AGENTS 1048576
+
+#define SHEEP_ID 0
+#define WOLF_ID 1
+
+#define CELL_SPACE 4 // 0-Grass state, 1-number of agents in cell, 2-pointer to first agent in cell, 3-unused
+#define CELL_GRASS_OFFSET 0
+#define CELL_NUMAGENTS_OFFSET 1
+#define CELL_AGINDEX_OFFSET 2
 
 #define LWS_GPU_MAX 256 //512
 #define LWS_GPU_PREF 64 //128
@@ -10,22 +20,13 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // Global work sizes
-size_t grass_gws[2];
-size_t grasscount1_gws;
-size_t grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
-
+size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
 // Local work sizes
-size_t grass_lws[2]
-size_t grasscount1_lws;
-size_t grasscount2_lws;
-
+size_t agentsort_lws, agent_lws, grass_lws[2], agentcount1_lws, agentcount2_lws, grasscount1_lws, grasscount2_lws;
 int effectiveNextGrassToCount[MAX_GRASS_COUNT_LOOPS];
 int numGrassCount2Loops;
-
 // Kernels
-cl_kernel grass_kernel;
-cl_kernel countgrass1_kernel;
-cl_kernel countgrass2_kernel;
+cl_kernel grass_kernel, agentmov_kernel, agentupdate_kernel, sort_kernel, agentaction_kernel, countagents1_kernel, countagents2_kernel, countgrass1_kernel, countgrass2_kernel;
 
 // Main stuff
 int main(int argc, char ** argv)
@@ -37,57 +38,121 @@ int main(int argc, char ** argv)
 	printf("Profiling is OFF!\n");
 #endif
 
+
 	// Status var aux
 	cl_int status;	
 	
+	// Init random number generator
+	srandom((unsigned)(time(0)));
+
 	// Timmings
 	struct timeval time1, time0;
 	double dt = 0;
 
-	// Get the required CL zone.
-	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	// 1. Get the required CL zone.
+	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
 
-	// Get simulation parameters
+	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
 
-	// Compute work sizes for different kernels and print them to screen
+	// 3. Compute work sizes for different kernels and print them to screen
 	computeWorkSizes(params, zone.device_type, zone.cu);	
 	printFixedWorkSizes();
 
-	// obtain kernels entry points.
+	// 4. obtain kernels entry points.
 	getKernelEntryPoints(zone.program);
 	
 	// Show kernel info - this should then influence the stuff above
-	showKernelInfo();
+	KERNEL_WORK_GROUP_INFO kwgi;
+	printf("\n-------- grass_kernel information --------\n");	
+	getWorkGroupInfo(grass_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentmov_kernel information --------\n");	
+	getWorkGroupInfo(agentmov_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentupdate_kernel information --------\n");	
+	getWorkGroupInfo(agentupdate_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- sort_kernel information --------\n");	
+	getWorkGroupInfo(sort_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- agentaction_kernel information --------\n");	
+	getWorkGroupInfo(agentaction_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countagents1_kernel information --------\n");	
+	getWorkGroupInfo(countagents1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countagents2_kernel information --------\n");	
+	getWorkGroupInfo(countagents2_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countgrass1_kernel information --------\n");	
+	getWorkGroupInfo(countgrass1_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+	printf("\n-------- countgrass2_kernel information --------\n");	
+	getWorkGroupInfo(countgrass2_kernel, zone.device, &kwgi);
+	printWorkGroupInfo(kwgi);
+
+	printf("-------- Simulation start --------\n");		
 	
-	/////////////////////////////////////
-	// Create and initialize host buffers
-	/////////////////////////////////////
-	
+
+	// 5. Create and initialize host buffers
 	// Statistics
 	size_t statsSizeInBytes = (params.iters + 1) * sizeof(STATS);
 	STATS * statsArrayHost = (STATS *) malloc(statsSizeInBytes);
 	statsArrayHost[0].sheep = params.init_sheep;
 	statsArrayHost[0].wolves = params.init_wolves;
 	statsArrayHost[0].grass = 0;
-	
+	// Number of agents after each iteration - this will be a mapped with device, so CPU can auto-adjust GPU worksize in each iteration
+	cl_uint * numAgentsHost = (cl_uint*) malloc(sizeof(cl_uint));
+	(*numAgentsHost) = params.init_sheep + params.init_wolves;
 	// Current iteration
 	cl_uint iter = 0; 
-
-	// Grass matrix //TODO Maybe I could do this in 2D with a 2D kernel? Why not?
-	size_t grassSizeInBytes = params.grid_x * params.grid_y * sizeof(CELL);
-	cl_uint * grassMatrixHost = (CELL *) malloc(grassSizeInBytes);
+	// Agent array
+	size_t agentsSizeInBytes = MAX_AGENTS * sizeof(AGENT);
+	AGENT * agentArrayHost = (AGENT *) malloc(agentsSizeInBytes);
+	for(unsigned int i = 0; i < MAX_AGENTS; i++)
+	{
+		agentArrayHost[i].x = rand() % params.grid_x;
+		agentArrayHost[i].y = rand() % params.grid_y;
+		if (i < params.init_sheep)
+		{
+			agentArrayHost[i].energy = 1 + (rand() % (params.sheep_gain_from_food * 2));
+			agentArrayHost[i].type = 0; // Sheep
+			agentArrayHost[i].alive = 1;
+		}
+		else if (i < params.init_sheep + params.init_wolves)
+		{
+			agentArrayHost[i].energy = 1 + (rand() % (params.wolves_gain_from_food * 2));
+			agentArrayHost[i].type = 1; // Wolves
+			agentArrayHost[i].alive = 1;
+		}
+		else {
+			agentArrayHost[i].energy = 0;
+			agentArrayHost[i].type = 0;
+			agentArrayHost[i].alive = 0;
+		}
+	}
+	// Grass matrix
+	size_t grassSizeInBytes = CELL_SPACE * params.grid_x * params.grid_y * sizeof(cl_uint);
+	cl_uint * grassMatrixHost = (cl_uint *) malloc(grassSizeInBytes);
 	for(unsigned int i = 0; i < params.grid_x; i++)
 	{
 		for (unsigned int j = 0; j < params.grid_y; j++)
 		{
-			unsigned int gridIndex = i + j*params.grid_x;
-			grassMatrixHost[gridIndex] = (rand() % 2) == 0 ? 0 : 1 + (rand() % params.grass_restart);
-			if (grassMatrixHost[gridIndex] == 0)
+			unsigned int gridIndex = (i + j*params.grid_x) * CELL_SPACE;
+			grassMatrixHost[gridIndex + CELL_GRASS_OFFSET] = (rand() % 2) == 0 ? 0 : 1 + (rand() % params.grass_restart);
+			if (grassMatrixHost[gridIndex + CELL_GRASS_OFFSET] == 0)
 				statsArrayHost[0].grass++;
 		}
 	}
-
+	// Agent parameters
+	AGENT_PARAMS agent_params[2];
+	agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
+	agent_params[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
+	agent_params[SHEEP_ID].reproduce_prob = params.sheep_reproduce_prob;
+	agent_params[WOLF_ID].gain_from_food = params.wolves_gain_from_food;
+	agent_params[WOLF_ID].reproduce_threshold = params.wolves_reproduce_threshold;
+	agent_params[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
 	// Sim parameters
 	SIM_PARAMS sim_params;
 	sim_params.size_x = params.grid_x;
@@ -96,7 +161,6 @@ int main(int argc, char ** argv)
 	sim_params.max_agents = MAX_AGENTS;
 	sim_params.grass_restart = params.grass_restart;
 	sim_params.grid_cell_space = CELL_SPACE;
-	
 	// RNG seeds
 	size_t rngSeedsSizeInBytes = MAX_AGENTS * sizeof(cl_ulong);
 	cl_ulong * rngSeedsHost = (cl_ulong*) malloc(rngSeedsSizeInBytes);
@@ -529,19 +593,43 @@ int main(int argc, char ** argv)
 
 // Compute worksizes depending on the device type and number of available compute units
 void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu) {
+	// grass growth worksizes
+	grass_lws[0] = LWS_GPU_PREF_2D_X;
+	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
+	grass_lws[1] = LWS_GPU_PREF_2D_Y;
+	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
+	// fixed local agent kernel worksizes
+	agent_lws = LWS_GPU_PREF;
+	agentcount1_lws = LWS_GPU_MAX;
+	agentcount2_lws = LWS_GPU_MAX;
+	// grass count worksizes
+	grasscount1_lws = LWS_GPU_MAX;
+	grasscount1_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
+	grasscount2_lws = LWS_GPU_MAX;
+	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
+	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
+	// Determine number of loops of secondary count required to perform complete reduction
+	numGrassCount2Loops = 1;
+	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
+		effectiveNextGrassToCount[numGrassCount2Loops] = grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
+		grasscount2_gws[numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
+		numGrassCount2Loops++;
+	}
 }
 
 // Print worksizes
 void printFixedWorkSizes() {
 	printf("Fixed kernel sizes:\n");
 	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
+	printf("agent_lws=%d\n", (int) agent_lws);
+	printf("agentcount1_lws=%d\n", (int) agentcount1_lws);
+	printf("agentcount2_lws=%d\n", (int) agentcount2_lws);
 	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
 	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
 	for (int i = 0; i < numGrassCount2Loops; i++) {
 		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n", i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
 	}
 	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
-
 }
 
 // Get kernel entry points
@@ -549,22 +637,20 @@ void getKernelEntryPoints(cl_program program) {
 	cl_int status;
 	grass_kernel = clCreateKernel( program, "Grass", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Grass kernel"); exit(-1); }
+	agentmov_kernel = clCreateKernel( program, "RandomWalk", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "RandomWalk kernel"); exit(-1); }
+	agentupdate_kernel = clCreateKernel( program, "AgentsUpdateGrid", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "AgentsUpdateGrid kernel"); exit(-1); }
+	sort_kernel = clCreateKernel( program, "BitonicSort", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "BitonicSort kernel"); exit(-1); }
+	agentaction_kernel = clCreateKernel( program, "AgentAction", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Agent kernel"); exit(-1); }
+	countagents1_kernel = clCreateKernel( program, "CountAgents1", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountAgents kernel"); exit(-1); }
+	countagents2_kernel = clCreateKernel( program, "CountAgents2", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountAgents kernel"); exit(-1); }
 	countgrass1_kernel = clCreateKernel( program, "CountGrass1", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass1 kernel"); exit(-1); }
 	countgrass2_kernel = clCreateKernel( program, "CountGrass2", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass2 kernel"); exit(-1); }
-}
-
-// Show kernel info
-void showKernelInfo() {
-	KERNEL_WORK_GROUP_INFO kwgi;
-	printf("\n-------- grass_kernel information --------\n");	
-	getWorkGroupInfo(grass_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
-	printf("\n-------- countgrass1_kernel information --------\n");	
-	getWorkGroupInfo(countgrass1_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
-	printf("\n-------- countgrass2_kernel information --------\n");	
-	getWorkGroupInfo(countgrass2_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
 }
