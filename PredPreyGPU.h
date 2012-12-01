@@ -15,4 +15,18 @@ typedef struct sim_params {
 	cl_uint grass_restart;
 } SIM_PARAMS;
 
+void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu);
+void printFixedWorkSizes();
+void getKernelEntryPoints(cl_program program);
 void showKernelInfo();
+STATS* initStatsArrayHost(PARAMS params, size_t statsSizeInBytes) ;
+cl_uint* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes);
+cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes);
+SIM_PARAMS initSimParams(PARAMS params);
+void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params);
+void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsArrayDevice, cl_mem iterDevice, SIM_PARAMS sim_params);
+void releaseKernels();
+void saveResults(char* filename, STATS statsArrayHost);
+double printTimmings(struct timeval time0, struct timeval time1);
+void showProfilingInfo(double dt);
+
