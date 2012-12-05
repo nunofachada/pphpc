@@ -20,13 +20,13 @@ void printFixedWorkSizes();
 void getKernelEntryPoints(cl_program program);
 void showKernelInfo();
 STATS* initStatsArrayHost(PARAMS params, size_t statsSizeInBytes) ;
-cl_uint* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes);
+CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArrayHost);
 cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes);
 SIM_PARAMS initSimParams(PARAMS params);
 void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params);
 void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsArrayDevice, cl_mem iterDevice, SIM_PARAMS sim_params);
 void releaseKernels();
-void saveResults(char* filename, STATS statsArrayHost);
+void saveResults(char* filename, STATS* statsArrayHost, unsigned int iters);
 double printTimmings(struct timeval time0, struct timeval time1);
-void showProfilingInfo(double dt);
+void showProfilingInfo(double dt, unsigned int iters, cl_uint grasscount2_event_index);
 
