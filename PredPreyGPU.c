@@ -22,17 +22,11 @@ size_t grasscount1_lws;
 size_t grasscount2_lws;
 
 int effectiveNextGrassToCount[MAX_GRASS_COUNT_LOOPS];
-int numGrassCount2Loops;
 
 // Kernels
 cl_kernel grass_kernel;
 cl_kernel countgrass1_kernel;
 cl_kernel countgrass2_kernel;
-
-// Events
-cl_event* grass_event; 
-cl_event *grasscount1_event; 
-cl_event *grasscount2_event;
 
 // Main stuff
 int main(int argc, char ** argv)
@@ -40,10 +34,15 @@ int main(int argc, char ** argv)
 
 #ifdef CLPROFILER
 	printf("Profiling is ON!\n");
+	// Profiling data
+	PROFILE_DATA* profiling = newProfile();
 #else
 	printf("Profiling is OFF!\n");
 #endif
 
+	// Events
+	EVENTS_CL* events;
+	
 	// Aux vars
 	cl_int status;
 	char msg[500];
@@ -58,8 +57,9 @@ int main(int argc, char ** argv)
 	PARAMS params = loadParams(CONFIG_FILE);
 
 	// Compute work sizes for different kernels and print them to screen
-	computeWorkSizes(params, zone.device_type, zone.cu);	
-	printFixedWorkSizes();
+	unsigned int numGrassCount2Loops;
+	computeWorkSizes(params, zone.device_type, zone.cu, &numGrassCount2Loops);	
+	printFixedWorkSizes(numGrassCount2Loops);
 
 	// obtain kernels entry points.
 	getKernelEntryPoints(zone.program);
@@ -73,11 +73,15 @@ int main(int argc, char ** argv)
 	
 	// Statistics
 	size_t statsSizeInBytes = (params.iters + 1) * sizeof(STATS);
-	STATS * statsArrayHost = initStatsArrayHost(params, statsSizeInBytes);
+	STATS * statsArray = initStatsArray(params, statsSizeInBytes);
+
+	// Host pointer for statistics coming from GPU after each iteration
+	STATS statsFromGPU;
+
 
 	// Grass matrix 
 	size_t grassSizeInBytes = params.grid_x * params.grid_y * sizeof(CELL);
-	CELL * grassMatrixHost = initGrassMatrixHost(params, grassSizeInBytes, statsArrayHost);
+	CELL * grassMatrixHost = initGrassMatrixHost(params, grassSizeInBytes, statsArray);
 	
 	// RNG seeds
 	size_t rngSeedsSizeInBytes = MAX_AGENTS * sizeof(cl_ulong);
@@ -93,17 +97,13 @@ int main(int argc, char ** argv)
 	// Create and initialize device buffers //
 	//////////////////////////////////////////
 
-	// Statistics
-	cl_mem statsArrayDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, statsSizeInBytes, statsArrayHost, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsArrayDevice"); return(-1); }
+	// Statistics after each iteration
+	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(STATS), &statsFromGPU, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
 
 	// Grass matrix
 	cl_mem grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, grassSizeInBytes, grassMatrixHost, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassMatrixDevice"); return(-1); }
-
-	// Iterations
-	cl_mem iterDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), &iter, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "iterDevice"); return(-1); }
 
 	// Grass count
 	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws[0] * sizeof(cl_uint), NULL, &status );
@@ -121,15 +121,12 @@ int main(int argc, char ** argv)
 	setGrassKernelArgs(grassMatrixDevice, sim_params);
 
 	// Count grass
-	setCountGrassKernelArgs(grassMatrixDevice, grassCountDevice, statsArrayDevice, iterDevice, sim_params);
+	setCountGrassKernelArgs(grassMatrixDevice, grassCountDevice, statsDevice, sim_params);
 	
 	//////////////////////////
 	//  Setup OpenCL events //
 	//////////////////////////
-	grass_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	grasscount1_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	grasscount2_event = (cl_event*) malloc(sizeof(cl_event) * params.iters * numGrassCount2Loops); // Exact usage scenario
-	cl_uint grasscount2_event_index = 0;
+	events = newEventsCL(numGrassCount2Loops);
 	
 	// Guarantee all memory transfers are performed
 	clFinish(zone.queue); 
@@ -141,19 +138,16 @@ int main(int argc, char ** argv)
 	//////////////////
 	//  SIMULATION! //
 	//////////////////
-	for (iter = 1; iter <= params.iters; iter++) {
+	for (iter = 0; iter < params.iters; iter++) {
 		
-		///// Simulation steps ////////
-		cl_uint iterbase = iter - 1;
-
 		// Grass kernel: grow grass, set number of prey to zero
-		status = clEnqueueNDRangeKernel( zone.queue, grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, grass_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queue, grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &(events->grass));
 		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d, gws=%d lws=%d ", iter, (int) *grass_gws, (int) *grass_lws); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 		///// Gather statistics //////
 		
 		// Count grass, part 1
-		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, NULL, grasscount1_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 0, NULL, &(events->grasscount1));
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 		
 		// Count grass, part 2
@@ -162,15 +156,30 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextGrassToCount[i]);
 			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
 
-			status = clEnqueueNDRangeKernel( zone.queue, countgrass2_kernel, 1, NULL, &grasscount2_gws[i], &grasscount2_lws, 1, grasscount1_event + iterbase, grasscount2_event + grasscount2_event_index);
+			status = clEnqueueNDRangeKernel( 
+				zone.queue, 
+				countgrass2_kernel, 
+				1, 
+				NULL,
+				&grasscount2_gws[i], 
+				&grasscount2_lws, 
+				1, 
+				&(events->grasscount1), 
+				events->grasscount2 + events->grasscount2_index
+			);
 			if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 			status = clEnqueueBarrier(zone.queue);
 			if (status != CL_SUCCESS) {  sprintf(msg, "in grass count loops"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 
-			grasscount2_event_index++;
+			events->grasscount2_index++;
 
 		}
+		
+#ifdef CLPROFILER
+		// Update profiling info
+		updateProfile(profiling, events);
+#endif
 
 	}
 
@@ -181,18 +190,18 @@ int main(int argc, char ** argv)
 	gettimeofday(&time1, NULL);  
 
 	// Get statistics
-	status = clEnqueueReadBuffer(zone.queue, statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
+	status = clEnqueueReadBuffer(zone.queue, statsDevice, CL_TRUE, 0, statsSizeInBytes, statsArray, 0, NULL, NULL);
 	if (status != CL_SUCCESS) {  PrintErrorEnqueueReadWriteBuffer(status, "statsArray"); return(-1); }
 	
 	// Output results to file
-	saveResults("stats.txt", statsArrayHost, params.iters);
+	saveResults("stats.txt", statsArray, params.iters);
 
 
 	// Print timmings
 #ifdef CLPROFILER
 	// Calculate and show profiling info
 	double totalTime = printTimmings(time0, time1);
-	showProfilingInfo(totalTime, params.iters, grasscount2_event_index);
+	printProfilingInfo(profiling, totalTime);
 #else
 	printTimmings(time0, time1);
 #endif
@@ -209,9 +218,8 @@ int main(int argc, char ** argv)
     clReleaseCommandQueue(zone.queue);
     
 	// Release OpenCL memory objects
-	clReleaseMemObject(statsArrayDevice);
+	clReleaseMemObject(statsDevice);
 	clReleaseMemObject(grassMatrixDevice);
-	clReleaseMemObject(iterDevice);
 	clReleaseMemObject(grassCountDevice);
 	clReleaseMemObject(rngSeedsDevice);
 
@@ -219,19 +227,21 @@ int main(int argc, char ** argv)
 	clReleaseContext(zone.context);
 	
 	// Free host resources
-	free(statsArrayHost);
+	free(statsArray);
 	free(grassMatrixHost);
 	free(rngSeedsHost);
-	free(grass_event); 
-	free(grasscount1_event); 
-	free(grasscount2_event);
+	freeEventsCL(events);
+	
+#ifdef CLPROFILER
+	freeProfile(profiling);
+#endif
 
 	return 0;
 	
 }
 
 // Compute worksizes depending on the device type and number of available compute units
-void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu) {
+void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu, unsigned int* numGrassCount2Loops) {
 	// grass growth worksizes
 	grass_lws[0] = LWS_GPU_PREF_2D_X;
 	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
@@ -244,17 +254,17 @@ void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu) {
 	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
 	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
 	// Determine number of loops of secondary count required to perform complete reduction
-	numGrassCount2Loops = 1;
-	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
-		effectiveNextGrassToCount[numGrassCount2Loops] = grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
-		grasscount2_gws[numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
-		numGrassCount2Loops++;
+	*numGrassCount2Loops = 1;
+	while ( grasscount2_gws[*numGrassCount2Loops - 1] > grasscount2_lws) {
+		effectiveNextGrassToCount[*numGrassCount2Loops] = grasscount2_gws[*numGrassCount2Loops - 1] / grasscount2_lws;
+		grasscount2_gws[*numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[*numGrassCount2Loops]) / LWS_GPU_MAX);
+		(*numGrassCount2Loops)++;
 	}
 	
 }
 
 // Print worksizes
-void printFixedWorkSizes() {
+void printFixedWorkSizes(unsigned int numGrassCount2Loops) {
 	printf("Fixed kernel sizes:\n");
 	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
 	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
@@ -292,17 +302,17 @@ void showKernelInfo(CLZONE zone) {
 }
 
 // Initialize statistics array in host
-STATS* initStatsArrayHost(PARAMS params, size_t statsSizeInBytes) 
+STATS* initStatsArray(PARAMS params, size_t statsSizeInBytes) 
 {
-	STATS* statsArrayHost = (STATS*) malloc(statsSizeInBytes);
-	statsArrayHost[0].sheep = params.init_sheep;
-	statsArrayHost[0].wolves = params.init_wolves;
-	statsArrayHost[0].grass = 0;
-	return statsArrayHost;
+	STATS* statsArray = (STATS*) malloc(statsSizeInBytes);
+	statsArray[0].sheep = params.init_sheep;
+	statsArray[0].wolves = params.init_wolves;
+	statsArray[0].grass = 0;
+	return statsArray;
 }
 
 // Initialize grass matrix in host
-CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArrayHost) 
+CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArray) 
 {
 
 	CELL * grassMatrixHost = (CELL *) malloc(grassSizeInBytes);
@@ -313,7 +323,7 @@ CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsAr
 			unsigned int gridIndex = i + j*params.grid_x;
 			grassMatrixHost[gridIndex].grass = (rand() % 2) == 0 ? 0 : 1 + (rand() % params.grass_restart);
 			if (grassMatrixHost[gridIndex].grass == 0)
-				statsArrayHost[0].grass++;
+				statsArray[0].grass++;
 		}
 	}
 	return grassMatrixHost;
@@ -351,8 +361,8 @@ void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params) {
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of grass kernel"); exit(EXIT_FAILURE); }
 }
 
-// Set grass count kernels parameters
-void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsArrayDevice, cl_mem iterDevice, SIM_PARAMS sim_params) {
+// Set grass count kernels fixed parameters
+void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, SIM_PARAMS sim_params) {
 	
 	cl_int status;
 
@@ -376,11 +386,9 @@ void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, 
 	status = clSetKernelArg(countgrass2_kernel, 1, grasscount2_gws[0]*sizeof(cl_uint), NULL);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass2_kernel, 3, sizeof(cl_mem), (void *) &statsArrayDevice);
+	status = clSetKernelArg(countgrass2_kernel, 3, sizeof(cl_mem), (void *) &statsDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass2_kernel, 4, sizeof(cl_mem), (void *) &iterDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 }
 
 // Release kernels
@@ -391,10 +399,10 @@ void releaseKernels() {
 }
 
 // Save results
-void saveResults(char* filename, STATS* statsArrayHost, unsigned int iters) {
+void saveResults(char* filename, STATS* statsArray, unsigned int iters) {
 	FILE * fp1 = fopen(filename,"w");
 	for (unsigned int i = 0; i <= iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep, statsArrayHost[i].wolves, statsArrayHost[i].grass );
+		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass );
 	fclose(fp1);
 }
 
@@ -409,46 +417,3 @@ double printTimmings(struct timeval time0, struct timeval time1) {
 	return dt;
 }
 
-// Show profiling info
-void showProfilingInfo(double dt, unsigned int iters, cl_uint grasscount2_event_index) {
-	cl_uint status;
-	char msg[500];
-	cl_ulong grass_profile = 0, grasscount1_profile = 0, grasscount2_profile = 0;
-	cl_ulong grass_profile_start, grasscount1_profile_start, grasscount2_profile_start;
-	cl_ulong grass_profile_end, grasscount1_profile_end, grasscount2_profile_end;
-
-	for (unsigned int i = 0; i < iters; i++) {
-		// Grass kernel profiling
-		status = clGetEventProfilingInfo (grass_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grass_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grass start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  exit(EXIT_FAILURE); }
-		status = clGetEventProfilingInfo (grass_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grass_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grass end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  exit(EXIT_FAILURE); }
-		grass_profile += grass_profile_end - grass_profile_start;
-		// Count grass 1 kernel profiling
-		status = clGetEventProfilingInfo (grasscount1_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grasscount1_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount1 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); exit(EXIT_FAILURE);  }
-		status = clGetEventProfilingInfo (grasscount1_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grasscount1_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount1 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  exit(EXIT_FAILURE); }
-		grasscount1_profile += grasscount1_profile_end - grasscount1_profile_start;
-	}
-
-	for (unsigned int i = 0; i < grasscount2_event_index; i++) {
-		// Grass count 2 kernel profiling
-		status = clGetEventProfilingInfo (grasscount2_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grasscount2_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount2 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  exit(EXIT_FAILURE); }
-		status = clGetEventProfilingInfo (grasscount2_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grasscount2_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount2 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  exit(EXIT_FAILURE); }
-		grasscount2_profile += grasscount2_profile_end - grasscount2_profile_start;
-	}
-
-	cl_ulong gpu_profile_total = grass_profile + grasscount1_profile + grasscount2_profile;
-	double gpu_exclusive = gpu_profile_total * 1e-9;
-	double cpu_exclusive = dt - gpu_exclusive;
-	printf(", of which %f (%f%%) is CPU and %f (%f%%) is GPU.\n", cpu_exclusive, 100*cpu_exclusive/dt, gpu_exclusive, 100*gpu_exclusive/dt);
-	printf("grass: %fms (%f%%)\n", grass_profile*1e-6, 100*((double) grass_profile)/((double) gpu_profile_total));
-	printf("grasscount1: %fms (%f%%)\n", grasscount1_profile*1e-6, 100*((double) grasscount1_profile)/((double) gpu_profile_total));
-	printf("grasscount2: %fms (%f%%)\n", grasscount2_profile*1e-6, 100*((double) grasscount2_profile)/((double) gpu_profile_total));
-	printf("\n");
-
-	
-}

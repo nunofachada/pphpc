@@ -1,5 +1,8 @@
 #include "PredPreyCommon.h"
-
+#include "PredPreyGPUEvents.h"
+#ifdef CLPROFILER
+#include "PredPreyGPUProfiler.h"
+#endif
 
 typedef struct cell {
 	cl_uint grass;
@@ -15,16 +18,16 @@ typedef struct sim_params {
 	cl_uint grass_restart;
 } SIM_PARAMS;
 
-void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu);
-void printFixedWorkSizes();
+void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu, unsigned int* numGrassCount2Loops);
+void printFixedWorkSizes(unsigned int numGrassCount2Loops);
 void getKernelEntryPoints(cl_program program);
 void showKernelInfo();
-STATS* initStatsArrayHost(PARAMS params, size_t statsSizeInBytes) ;
+STATS* initStatsArray(PARAMS params, size_t statsSizeInBytes) ;
 CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArrayHost);
 cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes);
 SIM_PARAMS initSimParams(PARAMS params);
 void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params);
-void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsArrayDevice, cl_mem iterDevice, SIM_PARAMS sim_params);
+void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, SIM_PARAMS sim_params);
 void releaseKernels();
 void saveResults(char* filename, STATS* statsArrayHost, unsigned int iters);
 double printTimmings(struct timeval time0, struct timeval time1);

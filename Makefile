@@ -15,7 +15,7 @@ profiler: all
 PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
 
-PredPreyGPU: PredPreyGPU.o PredPreyCommon.o
+PredPreyGPU: PredPreyGPU.o PredPreyCommon.o PredPreyGPUProfiler.o PredPreyGPUEvents.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
 
 PredPreyCPU: PredPreyCPU.o PredPreyCommon.o
@@ -27,6 +27,12 @@ PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
 PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
 
+PredPreyGPUProfiler.o: PredPreyGPUProfiler.c PredPreyGPUProfiler.h PredPreyGPUEvents.o PredPreyCommon.o
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+
+PredPreyGPUEvents.o: PredPreyGPUEvents.c PredPreyGPUEvents.h PredPreyCommon.o
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	
 PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
 

@@ -54,8 +54,7 @@ __kernel void CountGrass1(__global uint * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global STATS * stats,
-			__global uint * iter)
+			__global STATS * stats)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -69,7 +68,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 	if (lid == 0) {
 		gcounter[wgid] = lcounter[lid];
 		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats[iter[0]].grass = lcounter[0];
+			stats->grass = lcounter[0];
 		}
 	}
 
