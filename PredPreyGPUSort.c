@@ -50,7 +50,8 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	//CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);

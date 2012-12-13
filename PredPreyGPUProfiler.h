@@ -1,3 +1,6 @@
+#ifndef PREDPREYPROFILER_H
+#define PREDPREYPROFILER_H
+
 #include "PredPreyCommon.h"
 #include "PredPreyGPUEvents.h"
 
@@ -12,6 +15,6 @@ void freeProfile(PROFILE_DATA* profile);
 void updateProfile(PROFILE_DATA* profile, EVENTS_CL* events);
 void printProfilingInfo(PROFILE_DATA* profile, double dt);
 
-
+#endif
 
 

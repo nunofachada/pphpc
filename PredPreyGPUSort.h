@@ -1,3 +1,6 @@
+#ifndef PREDPREYGPUSORT_H
+#define PREDPREYGPUSORT_H
+
 #include "PredPreyCommon.h"
 
 typedef struct agent {
@@ -20,3 +23,5 @@ typedef struct sim_params {
 void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu);
 void printFixedWorkSizes();
 void getKernelEntryPoints(cl_program program);
+
+#endif

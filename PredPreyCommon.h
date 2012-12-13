@@ -1,3 +1,6 @@
+#ifndef PREDPREYCOMMON_H
+#define PREDPREYCOMMON_H
+
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS
 #define __NO_STD_STRING
 
@@ -58,3 +61,4 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 void destroyClZone(CLZONE zone);
 PARAMS loadParams(const char * paramsFile);
 
+#endif

@@ -1,3 +1,6 @@
+#ifndef PREDPREYCPU_H
+#define PREDPREYCPU_H
+
 #include "PredPreyCommon.h"
 
 typedef struct agent {
@@ -23,3 +26,4 @@ typedef struct cell {
 	cl_uint agent_pointer;
 } CELL;
 
+#endif

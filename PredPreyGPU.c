@@ -74,18 +74,9 @@ int main(int argc, char ** argv)
 	// Statistics
 	size_t statsSizeInBytes = (params.iters + 1) * sizeof(STATS);
 	STATS * statsArray = initStatsArray(params, statsSizeInBytes);
-
+	
 	// Host pointer for statistics coming from GPU after each iteration
 	STATS statsFromGPU;
-
-
-	// Grass matrix 
-	size_t grassSizeInBytes = params.grid_x * params.grid_y * sizeof(CELL);
-	CELL * grassMatrixHost = initGrassMatrixHost(params, grassSizeInBytes, statsArray);
-	
-	// RNG seeds
-	size_t rngSeedsSizeInBytes = MAX_AGENTS * sizeof(cl_ulong);
-	cl_ulong * rngSeedsHost = initRngSeedsHost(rngSeedsSizeInBytes) ;
 
 	// Sim parameters
 	SIM_PARAMS sim_params = initSimParams(params);
@@ -93,16 +84,17 @@ int main(int argc, char ** argv)
 	// Current iteration
 	cl_uint iter = 0; 
 	
-	//////////////////////////////////////////
-	// Create and initialize device buffers //
-	//////////////////////////////////////////
+	///////////////////////////
+	// Create device buffers //
+	///////////////////////////
 
 	// Statistics after each iteration
-	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(STATS), &statsFromGPU, &status );
+	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sizeof(STATS), &statsFromGPU, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
 
 	// Grass matrix
-	cl_mem grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, grassSizeInBytes, grassMatrixHost, &status );
+	size_t grassSizeInBytes = params.grid_x * params.grid_y * sizeof(CELL);
+	cl_mem grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grassSizeInBytes, NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassMatrixDevice"); return(-1); }
 
 	// Grass count
@@ -110,8 +102,28 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassCountDevice"); return(-1); }
 
 	// RNG seeds
-	cl_mem rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, rngSeedsSizeInBytes, rngSeedsHost, &status );
+	size_t rngSeedsSizeInBytes = MAX_AGENTS * sizeof(cl_ulong);
+	cl_mem rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, rngSeedsSizeInBytes, NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "rngSeedsDevice"); return(-1); }
+	
+	/////////////////////////////////////////////////////////////
+	// Initialize device buffers with initial simulation state //
+	/////////////////////////////////////////////////////////////
+
+	// Grass matrix // CELL * grassMatrixHost = (CELL *) malloc(grassSizeInBytes); HOW DO I FREE THIS? DOES UNMAP FREE THIS? Check the free below, and remove it if necessary
+	CELL * grassMatrixHost = (CELL *) clEnqueueMapBuffer( zone.queue, grassMatrixDevice, CL_TRUE, CL_MAP_WRITE, 0, grassSizeInBytes, 0, NULL, &(events->mapGrass), &status);
+	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "grassMatrixHost"); return(-1); }
+	initGrassMatrixHost(grassMatrixHost, params, grassSizeInBytes, statsArray);
+	status = clEnqueueUnmapMemObject( zone.queue, grassMatrixDevice, (void *) grassMatrixHost, 0, NULL, &(events->unmapGrass));
+	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "grassMatrixHost"); return(-1); }
+	
+	// RNG seeds // 	cl_ulong * rngSeedsHost = (cl_ulong*) malloc(rngSeedsSizeInBytes); HOW DO I FREE THIS? DOES UNMAP FREE THIS? Check the free below, and remove it if necessary
+	cl_ulong * rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queue, rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, rngSeedsSizeInBytes, 0, NULL, &(events->mapRng), &status);
+	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "rngSeedsHost"); return(-1); }
+	initRngSeedsHost(rngSeedsHost, rngSeedsSizeInBytes) ;
+	status = clEnqueueUnmapMemObject( zone.queue, rngSeedsDevice, (void *) rngSeedsHost, 0, NULL, &(events->unmapRng));
+	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "rngSeedsHost"); return(-1); }
+	
 
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
@@ -312,10 +324,9 @@ STATS* initStatsArray(PARAMS params, size_t statsSizeInBytes)
 }
 
 // Initialize grass matrix in host
-CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArray) 
+CELL* initGrassMatrixHost(CELL * grassMatrixHost, PARAMS params, size_t grassSizeInBytes, STATS* statsArray) 
 {
 
-	CELL * grassMatrixHost = (CELL *) malloc(grassSizeInBytes);
 	for(unsigned int i = 0; i < params.grid_x; i++)
 	{
 		for (unsigned int j = 0; j < params.grid_y; j++)
@@ -330,8 +341,7 @@ CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsAr
 }
 
 // Initialize random seeds array in host
-cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes) {
-	cl_ulong * rngSeedsHost = (cl_ulong*) malloc(rngSeedsSizeInBytes);
+cl_ulong* initRngSeedsHost(cl_ulong * rngSeedsHost, size_t rngSeedsSizeInBytes) {
 	for (int i = 0; i < MAX_AGENTS; i++) {
 		rngSeedsHost[i] = rand();
 	}

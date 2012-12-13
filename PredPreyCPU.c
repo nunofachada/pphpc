@@ -29,8 +29,8 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
-	CLZONE zone = getClZone("Intel(R) Corporation", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
+	CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
+	//CLZONE zone = getClZone("Intel(R) Corporation", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
