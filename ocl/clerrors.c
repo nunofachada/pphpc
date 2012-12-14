@@ -339,3 +339,17 @@ void PrintErrorFinish( cl_int error, const char * xtra ) {
 	return;
 }
 
+void PrintErrorReleaseEvent( cl_int error, const char * xtra ) {
+	printf("ReleaseEvent error: ");
+	switch (error) {
+
+		case CL_INVALID_EVENT: printf ("Event is not a valid event object.\n"); break;
+		case CL_OUT_OF_RESOURCES: printf("Out of resources: There is a failure to allocate resources required by the OpenCL implementation on the device.\n"); break;
+		case CL_OUT_OF_HOST_MEMORY: printf("Out of host memory: There is a failure to allocate resources required by the OpenCL implementation on the host.\n"); break;
+		default: printf("Unknown reason!\n"); break;
+	}
+	if (xtra != NULL) printf("Additional info: %s\n", xtra);
+	return;
+}
+
+
