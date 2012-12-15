@@ -52,6 +52,7 @@ int main(int argc, char ** argv)
 
 	// Get the required CL zone.
 	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
 
 	// Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -203,7 +204,7 @@ int main(int argc, char ** argv)
 		}
 
 		// Copy statistics back - WE CAN OPTIMIZE THIS WITHOUT BARRIER OR CLFINISH, AND START NEW ITERATION EVEN IF STATISTICS ARE NOT YET BACK (if profiling is off)
-		status = clEnqueueReadBuffer ( zone.queue, statsDevice, CL_FALSE, 0, sizeof(STATS), statsArray + iter + 1, 0, NULL, &(events->readStats));
+		status = clEnqueueReadBuffer ( zone.queue, statsDevice, CL_FALSE, 0, sizeof(STATS), statsArray + iter + 1, 1, events->grasscount2 + numGrassCount2Loops - 1, &(events->readStats));
 		if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorEnqueueReadWriteBuffer(status, msg); return(-1); }
 		
 		// Guarantee all tasks in queue are terminated...

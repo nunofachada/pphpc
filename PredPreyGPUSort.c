@@ -50,8 +50,8 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	//CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
-	CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -183,7 +183,7 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "iterDevice"); return(-1); }
 
 	// Stuff to get number of agents out in each iteration
-	cl_mem numAgentsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), numAgentsHost, &status );
+	cl_mem numAgentsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(cl_uint), numAgentsHost, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "numAgentsDevice"); return(-1); }
 
 	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws[0]*sizeof(cl_uint), NULL, &status );

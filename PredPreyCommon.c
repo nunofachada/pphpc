@@ -145,6 +145,13 @@ CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceTyp
 		if(!strcmp(pbuff, vendor))
 			break;
 	}
+	if(strcmp(pbuff, vendor)) {
+		printf("Platform '%s' not found! Aborting...\n", vendor);
+		exit(EXIT_FAILURE);
+	}
+#ifdef CLPROFILER
+	printf("Selected platform: %s\n", pbuff);
+#endif
 	zone.platform = platform;
 	// Find a device
 	cl_device_id device;

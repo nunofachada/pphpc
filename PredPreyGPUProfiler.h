@@ -11,7 +11,13 @@ typedef struct profileData {
 	cl_ulong readStats;
 	cl_ulong writeGrass;
 	cl_ulong writeRng;
+	cl_ulong overlap;
 } PROFILE_DATA;
+
+typedef struct profileTimes {
+	cl_ulong start;
+	cl_ulong end;
+} PROFILE_TIMES;
 
 PROFILE_DATA* newProfile();
 void freeProfile(PROFILE_DATA* profile);
