@@ -51,8 +51,7 @@ int main(int argc, char ** argv)
 	gettimeofday(&time0, NULL);
 
 	// Get the required CL zone.
-	CLZONE zone = getClZone("NVIDIA Corporation", "PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
-	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
 
 	// Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);

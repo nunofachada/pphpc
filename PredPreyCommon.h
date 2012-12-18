@@ -19,6 +19,10 @@
 
 #define CONFIG_FILE "config.txt"
 
+#define MAX_DEVICES_PER_PLATFORM 10
+#define MAX_DEVICES_TOTAL 20
+#define MAX_AUX_BUFF 100
+
 typedef struct clzone {
 	cl_platform_id platform;
 	cl_device_id device;
@@ -29,6 +33,12 @@ typedef struct clzone {
 	cl_program program;
 } CLZONE;
 
+typedef struct deviceInfo {
+	cl_device_id id;
+	char name[MAX_AUX_BUFF];
+	cl_platform_id platformId;
+	char platformName[MAX_AUX_BUFF];
+} DEVICE_INFO;
 
 typedef struct stats {
 	cl_uint sheep;
@@ -57,7 +67,8 @@ typedef struct agent_params {
 	cl_uint reproduce_prob; /* between 1 and 100 */
 } AGENT_PARAMS;
 
-CLZONE getClZone(const char* vendor, const char* kernels_file, cl_uint deviceType);
+CLZONE getClZone(const char* kernels_file, cl_uint deviceType);
+
 void destroyClZone(CLZONE zone);
 PARAMS loadParams(const char * paramsFile);
 
