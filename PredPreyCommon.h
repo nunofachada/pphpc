@@ -21,7 +21,7 @@
 
 #define MAX_DEVICES_PER_PLATFORM 10
 #define MAX_DEVICES_TOTAL 20
-#define MAX_AUX_BUFF 100
+#define MAX_AUX_BUFF 500
 
 typedef struct clzone {
 	cl_platform_id platform;

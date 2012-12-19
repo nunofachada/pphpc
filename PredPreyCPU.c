@@ -6,9 +6,6 @@
 #define SHEEP_ID 0
 #define WOLF_ID 1
 
-#define CELL_GRASS_OFFSET 0
-#define CELL_AGINDEX_OFFSET 1
-
 // Kernels
 cl_kernel step1_kernel, step2_kernel;
 // Number of threads
@@ -29,6 +26,7 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
+	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
 	CLZONE zone = getClZone("PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
 
 	// 2. Get simulation parameters

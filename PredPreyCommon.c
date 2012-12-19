@@ -177,18 +177,18 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType) {
 			// Print available devices
 			for (unsigned int i = 0; i < totalNumDevices; i++)
 				printf("\t(%d) %s, %s\n", i, devInfos[i].name, devInfos[i].platformName);			
-			printf("\n> ");
+			printf("\n>> ");
 			result = scanf ("%u", &deviceInfoIndex);
+			// Clean keyboard buffer
+			int c;
+			do { c = getchar(); } while (c != '\n' && c != EOF);
 			// Check if result is Ok and break the loop if so
 			if (1 == result) {
 				if ((deviceInfoIndex >= 0) && (deviceInfoIndex < totalNumDevices))
 					break;
 			}
 			// Result not Ok, print error message
-			printf("\n Invalid choice, please insert a value between 0 and %u.\n", totalNumDevices - 1);
-			// Clean keyboard buffer
-			int c;
-			do { c = getchar(); } while (c != '\n' && c != EOF);
+			printf("\n Invalid choice, please insert a value between 0 and %u.\n\n", totalNumDevices - 1);
 		} while (1);
 	}
 	

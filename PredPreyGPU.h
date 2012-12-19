@@ -28,7 +28,7 @@ CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsAr
 cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes);
 SIM_PARAMS initSimParams(PARAMS params);
 void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params);
-void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, SIM_PARAMS sim_params);
+void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, cl_mem iterDevice, SIM_PARAMS sim_params);
 void releaseKernels();
 void saveResults(char* filename, STATS* statsArrayHost, unsigned int iters);
 double printTimmings(struct timeval time0, struct timeval time1);

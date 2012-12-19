@@ -6,6 +6,7 @@ PROFILE_DATA* newProfile() {
 	profile->grass = 0; 
 	profile->grasscount1 = 0; 
 	profile->grasscount2 = 0;
+	profile->writeIter = 0;
 	profile->writeGrass = 0;
 	profile->writeRng = 0;
 	profile->overlap = 0;
@@ -15,6 +16,20 @@ PROFILE_DATA* newProfile() {
 // Free profile data
 void freeProfile(PROFILE_DATA* profile) {
 	free(profile);
+}
+
+// Update read stats profiling data
+void updateReadStatsProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
+
+	cl_uint status;
+	PROFILE_TIMES readStatsTimes;
+
+	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &readStatsTimes.start, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats start"); exit(EXIT_FAILURE);  }
+	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &readStatsTimes.end, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats end");  exit(EXIT_FAILURE); }
+	profile->readStats += &readStatsTimes.end - &readStatsTimes.start;
+
 }
 
 // Update simulation profiling data
@@ -52,13 +67,6 @@ void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 		profile->grasscount2 += &grasscount2end - &grasscount2start;
 	}
 	
-	// Read stats profiling
-	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[3].start, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[3].end, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats end");  exit(EXIT_FAILURE); }
-	profile->readStats += &times[3].end - &times[3].start;
-
 	// Check for overlaps
 	/*for (unsigned int i = 3; i > 0; i--) {
 		if (times[i].start < times[].end)
@@ -71,25 +79,32 @@ void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 
 	cl_uint status;
-	PROFILE_TIMES times[2];
+	PROFILE_TIMES times[3];
+
+	// Write iter profiling
+	status = clGetEventProfilingInfo (events->writeIter, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[0].start, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeIter start"); exit(EXIT_FAILURE);  }
+	status = clGetEventProfilingInfo (events->writeIter, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[0].end, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeIter end");  exit(EXIT_FAILURE); }
+	profile->writeIter += times[0].end - times[0].start;
 
 	// Write grass profiling
-	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[0].start, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrasss start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[0].end, NULL);
+	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[1].start, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass start"); exit(EXIT_FAILURE);  }
+	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[1].end, NULL);
 	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass end");  exit(EXIT_FAILURE); }
-	profile->writeGrass += times[0].end - times[0].start;
+	profile->writeGrass += times[1].end - times[1].start;
 
 	// Write Rng profiling
-	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[1].start, NULL);
+	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &times[2].start, NULL);
 	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrasss start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[1].end, NULL);
+	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &times[2].end, NULL);
 	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass end");  exit(EXIT_FAILURE); }
-	profile->writeRng += times[1].end - times[1].start;
+	profile->writeRng += times[2].end - times[2].start;
 	
 	// Check for overlap
-	if (times[1].start < times[0].end)
-		profile->overlap = times[0].end - times[1].start;
+	//if (times[1].start < times[0].end)
+		//profile->overlap = times[0].end - times[1].start;
 
 
 }
@@ -97,7 +112,8 @@ void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 // Print profiling info
 void printProfilingInfo(PROFILE_DATA* profile, double dt) {
 // TODO IMPROVE THIS, NAMELY DETERMINE OVERLAPS (IF ANY) DUE TO UNORDERED QUEUE
-	cl_ulong gpu_profile_total = 
+	cl_ulong gpu_profile_total =
+		profile->writeIter +
 		profile->writeGrass +
 		profile->writeRng +
 		profile->grass + 
@@ -108,6 +124,7 @@ void printProfilingInfo(PROFILE_DATA* profile, double dt) {
 	double cpu_exclusive = dt - gpu_exclusive;
 	printf(", of which %f (%f%%) is CPU and %f (%f%%) is GPU.\n", cpu_exclusive, 100*cpu_exclusive/dt, gpu_exclusive, 100*gpu_exclusive/dt);
 	printf("\nGPU timmings:\n\n");
+	printf("write iter: %fms (%f%%)\n", profile->writeIter*1e-6, 100*((double) profile->writeIter)/((double) gpu_profile_total));
 	printf("write grass: %fms (%f%%)\n", profile->writeGrass*1e-6, 100*((double) profile->writeGrass)/((double) gpu_profile_total));
 	printf("write rng: %fms (%f%%)\n", profile->writeRng*1e-6, 100*((double) profile->writeRng)/((double) gpu_profile_total));
 	printf("grass: %fms (%f%%)\n", profile->grass*1e-6, 100*((double) profile->grass)/((double) gpu_profile_total));

@@ -3,6 +3,7 @@
 #include <CL/cl.h>
 
 typedef struct eventsCL {
+	cl_event writeIter;
 	cl_event writeGrass;
 	cl_event writeRng;
 	cl_event grass; 

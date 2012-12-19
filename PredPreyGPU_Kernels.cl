@@ -90,7 +90,9 @@ __kernel void CountGrass1(__global CELL * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global STATS * stats)
+			__global STATS * stats,
+			__global unsigned int * iter,
+			const uint iterStatsTransfer)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -104,11 +106,14 @@ __kernel void CountGrass2(__global uint * gcounter,
 	if (lid == 0) {
 		gcounter[wgid] = lcounter[lid];
 		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats->grass = lcounter[0];
+			stats[*iter % iterStatsTransfer].grass = lcounter[0];
 			
 			// REMOVE THIS
-			stats->sheep = 0;
-			stats->wolves = 0;
+			stats[*iter % iterStatsTransfer].sheep = 0;
+			stats[*iter % iterStatsTransfer].wolves = 0;
+			
+			// Increment iteration
+			(*iter)++;
 		}
 	}
 
