@@ -16,14 +16,21 @@ typedef struct agent_params {
 int randomNext( __global ulong * seeds, 
 			int bits) {
 
-	// Global id for this work-item
-	uint gid = get_global_id(0);
+	// Get seed index
+	uint index;
+	uint dims = get_work_dim();
+	if (dims == 1)
+		index = get_global_id(0);
+	else if (dims == 2)
+		index = get_global_id(0) * get_global_size(0) + get_global_id(1);
+	else
+		index = get_global_id(0) * get_global_size(0) + get_global_id(1) * get_global_size(1) + get_global_id(2);
 	// Get current seed
-	ulong seed = seeds[gid];
+	ulong seed = seeds[index];
 	// Update seed
 	seed = (seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
 	// Keep seed
-	seeds[gid] = seed;
+	seeds[index] = seed;
 	// Return value
 	return (int) (seed >> (48 - bits));
 }

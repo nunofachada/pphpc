@@ -172,7 +172,7 @@ int main(int argc, char ** argv)
 	if (status != CL_SUCCESS) { PrintErrorReleaseEvent(status, "write rng"); return(-1); }
 	
 	// SIMULATION LOOP
-	for (iter = 0; iter < params.iters; iter++) {
+	for (iter = 1; iter <= params.iters; iter++) {
 		
 		//printf("------ Start loop iter %d ---------\n", iter);
 		
@@ -215,13 +215,13 @@ int main(int argc, char ** argv)
 		}
 		
 		// Check if its time to read back statistics
-		char willReadStats = ((iter % ITERS_STATS_TRANSFER == 0) || (iter == params.iters - 1)) && (iter > 0);
+		char willReadStats = (iter % ITERS_STATS_TRANSFER == 0) || (iter == params.iters);
 		
 		// Copy statistics back if it's the right time
 		if (willReadStats) {
 			unsigned int numItersToRead = (iter % ITERS_STATS_TRANSFER == 0) ? ITERS_STATS_TRANSFER : iter % ITERS_STATS_TRANSFER;
 			//printf("Read back stats iter %d, will read %d iters of stats\n", iter, numItersToRead);
-			status = clEnqueueReadBuffer ( zone.queue, statsDevice, CL_FALSE, 0, numItersToRead * sizeof(STATS), statsArray + iter + 1 - numItersToRead, 0, NULL, &(events->readStats));
+			status = clEnqueueReadBuffer ( zone.queue, statsDevice, CL_FALSE, 0, numItersToRead * sizeof(STATS), statsArray + 1 + iter - numItersToRead, 0, NULL, &(events->readStats));
 			if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorEnqueueReadWriteBuffer(status, msg); return(-1); }
 		}
 		

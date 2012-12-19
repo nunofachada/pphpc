@@ -36,6 +36,7 @@ __kernel void Grass(__global CELL * matrix,
 		if (randomNextInt(seeds, 10) < 1)
 			matrix[index].grass = randomNextInt(seeds, 30);
 			
+			
 		// Set number of prey to zero
 		matrix[index].numpreys_start = 0;
 		matrix[index].numpreys_end = 0;
