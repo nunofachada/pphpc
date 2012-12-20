@@ -2,6 +2,8 @@
 #define PREDPREYEVENTS_H
 #include <CL/cl.h>
 
+#define NUM_EVENTS 7
+
 typedef struct eventsCL {
 	cl_event writeIter;
 	cl_event writeGrass;

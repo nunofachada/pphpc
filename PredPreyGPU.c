@@ -233,10 +233,7 @@ int main(int argc, char ** argv)
 
 #ifdef CLPROFILER
 		// Update simulation profiling info
-		updateSimProfile(profiling, events);
-		if (willReadStats) {
-			updateReadStatsProfile(profiling, events);
-		}
+		updateSimProfile(profiling, events, willReadStats);
 #endif
 		
 		// Release current iteration events
