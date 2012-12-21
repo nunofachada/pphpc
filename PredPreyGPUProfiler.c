@@ -82,7 +82,7 @@ void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events, unsigned char pr
 	cl_ulong * currentOverlapMatrix = findOverlaps(et, numEvents);
 	
 	// Add overlaps to global overlap matrix
-	addOverlaps(profile, currentOverlapMatrix, 3, 3 + numEvents);
+	addOverlaps(profile, currentOverlapMatrix, 3, 3 + numEvents - 1);
 
 	// Free current overlap matrix
 	free(currentOverlapMatrix);
