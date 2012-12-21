@@ -7,7 +7,7 @@ CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
 BUILDDIR = bin
 UTILOBJS = utils/ocl/clerrors.o utils/ocl/fileutils.o utils/ocl/bitstuff.o utils/ocl/clinfo.o
  
-all: PredPreyGPUSort PredPreyGPU PredPreyCPU cleanobjs
+all: Test PredPreyGPUSort PredPreyGPU PredPreyCPU cleanobjs
 
 profiler: CLMACROS += -DCLPROFILER
 profiler: all
@@ -38,6 +38,12 @@ PredPreyGPUEvents.o: PredPreyGPUEvents.c PredPreyGPUEvents.h PredPreyCommon.o
 
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $@ -c $<
+
+Test.o: Test.c
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+
+Test: Test.o PredPreyCommon.o PredPreyGPUProfiler.o PredPreyGPUEvents.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
 
 clean: cleanobjs
 	rm -f $(BUILDDIR)/*

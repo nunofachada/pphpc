@@ -75,14 +75,14 @@ void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events, unsigned char pr
 		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats end");  exit(EXIT_FAILURE); }
 		profile->readStats += et[7].instant - et[6].instant;
 	} else {
-		numEvents = 4;
+		numEvents = 3;
 	}
 	
 	// Find overlaps
 	cl_ulong * currentOverlapMatrix = findOverlaps(et, numEvents);
 	
 	// Add overlaps to global overlap matrix
-	addOverlaps(*profile, currentOverlapMatrix, 3, 3 + numEvents);
+	addOverlaps(profile, currentOverlapMatrix, 3, 3 + numEvents);
 
 	// Free current overlap matrix
 	free(currentOverlapMatrix);
@@ -128,7 +128,7 @@ void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 	cl_ulong * currentOverlapMatrix = findOverlaps(et, 3);
 	
 	// Add overlaps to global overlap matrix
-	addOverlaps(*profile, currentOverlapMatrix, 0, 2);
+	addOverlaps(profile, currentOverlapMatrix, 0, 2);
 
 	// Free current overlap matrix
 	free(currentOverlapMatrix);
@@ -138,7 +138,6 @@ void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
 
 // Print profiling info
 void printProfilingInfo(PROFILE_DATA* profile, double dt) {
-// TODO IMPROVE THIS, NAMELY DETERMINE OVERLAPS (IF ANY) DUE TO UNORDERED QUEUE
 	cl_ulong gpu_profile_total =
 		profile->writeIter +
 		profile->writeGrass +
@@ -159,7 +158,14 @@ void printProfilingInfo(PROFILE_DATA* profile, double dt) {
 	printf("grasscount2: %fms (%f%%)\n", profile->grasscount2*1e-6, 100*((double) profile->grasscount2)/((double) gpu_profile_total));
 	printf("read stats: %fms (%f%%)\n", profile->readStats*1e-6, 100*((double) profile->readStats)/((double) gpu_profile_total));
 	printf("\n");
-	//printf("Overlap: %fms\n\n", profile->overlap*1e-6);
+	printf("Overlap matrix:\n\n");
+	for (unsigned int i = 0; i < NUM_EVENTS; i++) {
+		printf("|\t");
+		for (unsigned int j = 0; j < NUM_EVENTS; j++) {
+			printf("%4.4ld\t", profile->overlapMatrix[i][j]);
+		}
+		printf("|\n");
+	}
 
 	
 }
@@ -178,25 +184,25 @@ cl_ulong * findOverlaps(EVENT_TIME * et, unsigned int numEvents) {
 	// Setup current overlap matrix
 	cl_ulong *currentOverlapMatrix = (cl_ulong *) malloc(numEvents * numEvents * sizeof(cl_ulong));
 	for (unsigned int i = 0; i < numEvents * numEvents; i++)
-		*(currentOverlapMatrix + i) = 0;
+		currentOverlapMatrix[i] = 0;
 	
 	// Setup ocurring events array
 	unsigned char eventsOcurring[numEvents];
 	for (unsigned int i = 0; i < numEvents; i++)
 		eventsOcurring[i] = 0;
-	
 	// Sort et (event times array)
-	qsort(et, sizeof(et)/sizeof(*et), sizeof(*et), comp);
+	qsort(et, (size_t) 2 * numEvents, sizeof(EVENT_TIME), comp);
 	
 	// Iterate through each element of et (event times)
 	for (unsigned int i = 0; i < numEvents * 2; i++) {
+	
 		// Check if event time is START or END time
 		if (et[i].type == EV_START) {
 			// 1 - Check for new overlap with ocurring events
-			for (unsigned int j = 0; j < numEvents; j++) {
-				if (eventsOcurring[j]) {
-					unsigned int row = i < j ? i : j;
-					unsigned int col = i > j ? i : j;
+			for (unsigned int otherEvent = 0; otherEvent < numEvents; otherEvent++) {
+				if (eventsOcurring[otherEvent]) {
+					unsigned int row = et[i].event < otherEvent ? et[i].event : otherEvent;
+					unsigned int col = et[i].event > otherEvent ? et[i].event : otherEvent;
 					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
 				}
 			}
@@ -206,23 +212,25 @@ cl_ulong * findOverlaps(EVENT_TIME * et, unsigned int numEvents) {
 			// 1 - Remove event from ocurring events
 			eventsOcurring[et[i].event] = 0;
 			// 2 - Check for overlap termination with current events
-			for (unsigned int j = 0; j < numEvents; j++) {
-					unsigned int row = i > j ? i : j;
-					unsigned int col = i < j ? i : j;
+			for (unsigned int otherEvent = 0; otherEvent < numEvents; otherEvent++) {
+				if (eventsOcurring[otherEvent]) {
+					unsigned int row = et[i].event > otherEvent ? et[i].event : otherEvent;
+					unsigned int col = et[i].event < otherEvent ? et[i].event : otherEvent;
 					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
+				}
 			}
 		}
+
 	}
-	
 	// Return current overlap matrix
 	return currentOverlapMatrix;
 }
 
-void addOverlaps(PROFILE_DATA profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx) {
-	unsigned int numEvents = endIdx - startIdx;
+void addOverlaps(PROFILE_DATA * profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx) {
+	unsigned int numEvents = endIdx - startIdx + 1;
 	for (unsigned int i = 0; i < numEvents; i++) {
 		for (unsigned int j = i + 1; j < numEvents; j++) {
-			profile.overlapMatrix[startIdx + i][startIdx + j] += currentOverlapMatrix[j * numEvents + i] - currentOverlapMatrix[i * numEvents + j];
+			profile->overlapMatrix[startIdx + i][startIdx + j] += currentOverlapMatrix[j * numEvents + i] - currentOverlapMatrix[i * numEvents + j];
 		}
 	}
 }

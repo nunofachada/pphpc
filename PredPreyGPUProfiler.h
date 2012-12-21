@@ -34,7 +34,7 @@ void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events, unsigned char pr
 void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events);
 void printProfilingInfo(PROFILE_DATA* profile, double dt);
 cl_ulong * findOverlaps(EVENT_TIME * et, unsigned int numEvents);
-void addOverlaps(PROFILE_DATA profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx);
+void addOverlaps(PROFILE_DATA * profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx);
 #endif
 
 
