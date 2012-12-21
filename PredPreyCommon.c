@@ -121,7 +121,7 @@ PARAMS loadParams(const char* paramsFile) {
 } 
 
 // Get a CL zone with all the stuff required
-CLZONE getClZone(const char* kernels_file, cl_uint deviceType) {
+CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues) {
 	// Helper variables
 	cl_int status;
 	// Setup queue
@@ -204,15 +204,20 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType) {
 	if( status != CL_SUCCESS ) { PrintErrorGetDeviceInfo( status, NULL ); exit(-1); }
 	zone.cu = compute_units;
 	
-	// Create a context and command queue on that device.
+	// Create a context on that device.
 	cl_context_properties cps[3] = {
 		CL_CONTEXT_PLATFORM, (cl_context_properties) devInfos[deviceInfoIndex].platformId, 0};
 	cl_context context = clCreateContext( cps, 1, &zone.device, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorCreateContext(status, NULL); exit(-1); }
 	zone.context = context;
-	cl_command_queue queue = clCreateCommandQueue( context, zone.device, queue_properties, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateCommandQueue(status, NULL); exit(-1); }
-	zone.queue = queue;
+	
+	// Create the specified command queues on that device
+	zone.queues = (cl_command_queue*) malloc(numQueues * sizeof(cl_command_queue));
+	for (unsigned int i = 0; i < numQueues; i++) {
+		cl_command_queue queue = clCreateCommandQueue( context, zone.device, queue_properties, &status );
+		if (status != CL_SUCCESS) { PrintErrorCreateCommandQueue(status, NULL); exit(-1); }
+		zone.queues[i] = queue;
+	}
 	
 	// Import kernels
 	const char * source1 = importKernel("PredPreyCommon_Kernels.cl");
@@ -242,7 +247,9 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType) {
 // Destroy a CL zone
 void destroyClZone(CLZONE zone) {
     if (zone.program) clReleaseProgram(zone.program);
-    if (zone.queue) clReleaseCommandQueue(zone.queue);
+    for (unsigned int i = 0; i < zone.numQueues; i++)
+		if (zone.queues[i]) clReleaseCommandQueue(zone.queues[i]);
+	free(zone.queues);
     if (zone.context) clReleaseContext(zone.context);
 }
 

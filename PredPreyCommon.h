@@ -29,8 +29,9 @@ typedef struct clzone {
 	cl_uint device_type;
 	cl_uint cu;
 	cl_context context;
-	cl_command_queue queue;
+	cl_command_queue * queues;
 	cl_program program;
+	unsigned int numQueues;
 } CLZONE;
 
 typedef struct deviceInfo {
@@ -67,7 +68,7 @@ typedef struct agent_params {
 	cl_uint reproduce_prob; /* between 1 and 100 */
 } AGENT_PARAMS;
 
-CLZONE getClZone(const char* kernels_file, cl_uint deviceType);
+CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues);
 
 void destroyClZone(CLZONE zone);
 PARAMS loadParams(const char * paramsFile);

@@ -27,7 +27,7 @@ int main(int argc, char ** argv)
 
 	// 1. Get the required CL zone.
 	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
-	CLZONE zone = getClZone("PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
+	CLZONE zone = getClZone("PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU, 1);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -106,7 +106,7 @@ int main(int argc, char ** argv)
 	// 7. Initialize memory objects
 
 	// Statistics
-	STATS* statsArrayHost = (STATS*) clEnqueueMapBuffer( zone.queue, statsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, statsSizeInBytes, 0, NULL, NULL, &status);
+	STATS* statsArrayHost = (STATS*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, statsSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "statsArrayHost"); return(-1); }
 
 	statsArrayHost[0].sheep = params.init_sheep;
@@ -119,7 +119,7 @@ int main(int argc, char ** argv)
 	}
 
 	// Grass matrix
-	CELL* cellMatrixHost = (CELL *) clEnqueueMapBuffer( zone.queue, cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, cellMatrixSizeInBytes, 0, NULL, NULL, &status);
+	CELL* cellMatrixHost = (CELL *) clEnqueueMapBuffer( zone.queues[0], cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, cellMatrixSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "cellMatrixHost"); return(-1); }
 
 	for(cl_uint i = 0; i < params.grid_x; i++)
@@ -137,11 +137,11 @@ int main(int argc, char ** argv)
 		}
 	}
 
-	status = clEnqueueUnmapMemObject( zone.queue, statsArrayDevice, statsArrayHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], statsArrayDevice, statsArrayHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "statsArrayHost"); return(-1); }
 
 	// Agent array
-	AGENT* agentsArrayHost = (AGENT *) clEnqueueMapBuffer( zone.queue, agentsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, agentsSizeInBytes, 0, NULL, NULL, &status);
+	AGENT* agentsArrayHost = (AGENT *) clEnqueueMapBuffer( zone.queues[0], agentsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, agentsSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "agentsArrayHost"); return(-1); }
 
 	for(cl_uint i = 0; i < MAX_AGENTS; i++)
@@ -192,25 +192,25 @@ int main(int argc, char ** argv)
 
 	}
 
-	status = clEnqueueUnmapMemObject( zone.queue, agentsArrayDevice, agentsArrayHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], agentsArrayDevice, agentsArrayHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "agentsArrayHost"); return(-1); }
 
-	status = clEnqueueUnmapMemObject( zone.queue, cellMatrixDevice, cellMatrixHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], cellMatrixDevice, cellMatrixHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "cellMatrixHost"); return(-1); }
 
 	// RNG seeds
-	cl_ulong* rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queue, rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, rngSeedsSizeInBytes, 0, NULL, NULL, &status);
+	cl_ulong* rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, rngSeedsSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "rngSeedsHost"); return(-1); }
 
 	for (unsigned int i = 0; i < num_threads; i++) {
 		rngSeedsHost[i] = rand();
 	}
 
-	status = clEnqueueUnmapMemObject( zone.queue, rngSeedsDevice, rngSeedsHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], rngSeedsDevice, rngSeedsHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "rngSeedsHost"); return(-1); }
 
 	// Agent parameters
-	AGENT_PARAMS* agentParamsHost = (AGENT_PARAMS *) clEnqueueMapBuffer( zone.queue, agentParamsDevice, CL_TRUE, CL_MAP_WRITE, 0, agentParamsSizeInBytes, 0, NULL, NULL, &status);
+	AGENT_PARAMS* agentParamsHost = (AGENT_PARAMS *) clEnqueueMapBuffer( zone.queues[0], agentParamsDevice, CL_TRUE, CL_MAP_WRITE, 0, agentParamsSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "agentParamsHost"); return(-1); }
 
 	agentParamsHost[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
@@ -220,7 +220,7 @@ int main(int argc, char ** argv)
 	agentParamsHost[WOLF_ID].reproduce_threshold = params.wolves_reproduce_threshold;
 	agentParamsHost[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
 
-	status = clEnqueueUnmapMemObject( zone.queue, agentParamsDevice, agentParamsHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], agentParamsDevice, agentParamsHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "agentParamsHost"); return(-1); }
 
 	// Sim parameters
@@ -322,7 +322,7 @@ int main(int argc, char ** argv)
 	char msg[500];
 	size_t num_work_items = 1;
 	cl_uint iter;
-	clFinish(zone.queue); // Guarantee all memory transfers are performed
+	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
 	gettimeofday(&time0, NULL);
 	for (iter = 1; iter <= params.iters; iter++) {
 		// Step 1
@@ -332,10 +332,10 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(step1_kernel, 3, sizeof(cl_uint), (void *) &turn);
 			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of step1_kernel"); return(-1); }
 			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queue, step1_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel( zone.queues[0], step1_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
 			if (status != CL_SUCCESS) {  sprintf(msg, "step1_kernel, iteration %d, turn %d", iter, turn); PrintErrorEnqueueNDRangeKernel(status, msg); }
 			// Barrier
-			status = clEnqueueBarrier(zone.queue);
+			status = clEnqueueBarrier(zone.queues[0]);
 			if (status != CL_SUCCESS) {  sprintf(msg, "middle of sim loop 2"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 		}
 
@@ -348,21 +348,21 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(step2_kernel, 5, sizeof(cl_uint), (void *) &turn);
 			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 5 of step2_kernel"); return(-1); }
 			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queue, step2_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel( zone.queues[0], step2_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
 			if (status != CL_SUCCESS) {  sprintf(msg, "step2_kernel, iteration %d, turn %d", iter, turn); PrintErrorEnqueueNDRangeKernel(status, msg); }
 			// Barrier
-			status = clEnqueueBarrier(zone.queue);
+			status = clEnqueueBarrier(zone.queues[0]);
 			if (status != CL_SUCCESS) {  sprintf(msg, "middle of sim loop 2"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 		}
 
 
 
 	}
-	clFinish(zone.queue); // Guarantee all kernels have really terminated...
+	clFinish(zone.queues[0]); // Guarantee all kernels have really terminated...
 	gettimeofday(&time1, NULL);
 	printf("Time stops now!\n");
 
-	statsArrayHost = (STATS*) clEnqueueMapBuffer( zone.queue, statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, statsSizeInBytes, 0, NULL, NULL, &status);
+	statsArrayHost = (STATS*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, statsSizeInBytes, 0, NULL, NULL, &status);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "statsArrayHost - READ"); return(-1); }
 
 	// 10. Output results to file
@@ -371,7 +371,7 @@ int main(int argc, char ** argv)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep, statsArrayHost[i].wolves, statsArrayHost[i].grass );
 	fclose(fp1);
 
-	status = clEnqueueUnmapMemObject( zone.queue, statsArrayDevice, statsArrayHost, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( zone.queues[0], statsArrayDevice, statsArrayHost, 0, NULL, NULL);
 	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "statsArrayHost - READ"); return(-1); }
 
 		// TEST STUFF
@@ -416,16 +416,14 @@ int main(int argc, char ** argv)
 	// Release kernels
 	if (step1_kernel) clReleaseKernel(step1_kernel);  
 	if (step2_kernel) clReleaseKernel(step2_kernel);
-	// Release Program and Command queue (previsouly done with destroyClZone(zone));
-    if (zone.program) clReleaseProgram(zone.program);
-    if (zone.queue) clReleaseCommandQueue(zone.queue);
     // Release memory objects
     if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
     if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
     if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
     if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
-    // Release context
-    if (zone.context) clReleaseContext(zone.context);
+    // Release program, command queues and context
+    destroyClZone(zone);
+
 	printf("Press enter to bail out...");
 	getchar();
 	

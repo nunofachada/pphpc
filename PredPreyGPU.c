@@ -53,7 +53,7 @@ int main(int argc, char ** argv)
 	gettimeofday(&time0, NULL);
 
 	// Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU);
+	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2);
 
 	// Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -122,13 +122,13 @@ int main(int argc, char ** argv)
 	// Initialize device buffers //
 	///////////////////////////////
 	
-	status = clEnqueueWriteBuffer (	zone.queue, iterDevice, CL_FALSE, 0, sizeof(cl_uint), &iter, 0, NULL, &(events->writeIter) );
+	status = clEnqueueWriteBuffer (	zone.queues[0], iterDevice, CL_FALSE, 0, sizeof(cl_uint), &iter, 0, NULL, &(events->writeIter) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "iterDevice"); return(-1); }
 
-	status = clEnqueueWriteBuffer (	zone.queue, grassMatrixDevice, CL_FALSE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, &(events->writeGrass) );
+	status = clEnqueueWriteBuffer (	zone.queues[0], grassMatrixDevice, CL_FALSE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, &(events->writeGrass) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "grassMatrixDevice"); return(-1); }
 	
-	status = clEnqueueWriteBuffer (	zone.queue, rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &(events->writeRng) );
+	status = clEnqueueWriteBuffer (	zone.queues[0], rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &(events->writeRng) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "rngSeedsDevice"); return(-1); }
 
 	/////////////////////////////////
@@ -178,14 +178,14 @@ int main(int argc, char ** argv)
 		
 		//printf("Grass kernel iter %d\n", iter);
 		// Grass kernel: grow grass, set number of prey to zero
-		status = clEnqueueNDRangeKernel( zone.queue, grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &(events->grass));
+		status = clEnqueueNDRangeKernel( zone.queues[1], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &(events->grass));
 		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d, gws=%d lws=%d ", iter, (int) *grass_gws, (int) *grass_lws); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 		///// Gather statistics //////
 		
 		//printf("Count grass 1 iter %d\n", iter);
 		// Count grass, part 1
-		status = clEnqueueNDRangeKernel( zone.queue, countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, &(events->grass), &(events->grasscount1));
+		status = clEnqueueNDRangeKernel( zone.queues[1], countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, &(events->grass), &(events->grasscount1));
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 		
 		// Count grass, part 2
@@ -195,7 +195,7 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextGrassToCount[i]);
 			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass2 kernel"); return(-1); }
 			status = clEnqueueNDRangeKernel( 
-				zone.queue, 
+				zone.queues[1], 
 				countgrass2_kernel, 
 				1, 
 				NULL,
@@ -207,7 +207,7 @@ int main(int argc, char ** argv)
 			);
 			if (status != CL_SUCCESS) { sprintf(msg, "countgrass2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
-			status = clEnqueueBarrier(zone.queue);
+			status = clEnqueueBarrier(zone.queues[1]);
 			if (status != CL_SUCCESS) { sprintf(msg, "in grass count loops, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 
 			//events->grasscount2_index++;
@@ -221,14 +221,15 @@ int main(int argc, char ** argv)
 		if (willReadStats) {
 			unsigned int numItersToRead = (iter % ITERS_STATS_TRANSFER == 0) ? ITERS_STATS_TRANSFER : iter % ITERS_STATS_TRANSFER;
 			//printf("Read back stats iter %d, will read %d iters of stats\n", iter, numItersToRead);
-			status = clEnqueueReadBuffer ( zone.queue, statsDevice, CL_FALSE, 0, numItersToRead * sizeof(STATS), statsArray + 1 + iter - numItersToRead, 0, NULL, &(events->readStats));
+			status = clEnqueueReadBuffer ( zone.queues[0], statsDevice, CL_FALSE, 0, numItersToRead * sizeof(STATS), statsArray + 1 + iter - numItersToRead, 0, NULL, &(events->readStats));
 			if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorEnqueueReadWriteBuffer(status, msg); return(-1); }
 		}
 		
 
 		// WE CAN OPTIMIZE THIS WITHOUT BARRIER OR CLFINISH, AND START NEW ITERATION EVEN IF STATISTICS ARE NOT YET BACK (if profiling is off)
 		// Guarantee all tasks in queue are terminated...
-		status = clFinish(zone.queue);
+		status = clFinish(zone.queues[0]); 
+		status = clFinish(zone.queues[1]); 
 		if (status != CL_SUCCESS) { sprintf(msg, "sim loop, iteration %d", iter); PrintErrorFinish(status, msg); return(-1); }
 
 #ifdef CLPROFILER
@@ -255,7 +256,8 @@ int main(int argc, char ** argv)
 	}
 
 	// Guarantee all activity has terminated...
-	clFinish(zone.queue);
+	clFinish(zone.queues[0]);
+	clFinish(zone.queues[1]);
 
 	// Get finishing time	
 	gettimeofday(&time1, NULL);  
@@ -279,19 +281,15 @@ int main(int argc, char ** argv)
 	// Release OpenCL kernels
 	releaseKernels();
 	
-	// Release OpenCL program and command queue
-    clReleaseProgram(zone.program);
-    clReleaseCommandQueue(zone.queue);
-    
 	// Release OpenCL memory objects
 	clReleaseMemObject(statsDevice);
 	clReleaseMemObject(grassMatrixDevice);
 	clReleaseMemObject(grassCountDevice);
 	clReleaseMemObject(rngSeedsDevice);
 
-	// Release OpenCL context
-	clReleaseContext(zone.context);
-	
+	// Release OpenCL zone (program, command queue, context)
+	destroyClZone(zone);
+
 	// Free host resources
 	free(statsArray);
 	free(grassMatrixHost);
