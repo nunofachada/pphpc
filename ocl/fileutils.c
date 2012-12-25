@@ -4,6 +4,13 @@
 char* importKernel( const char * filename ) 
 {
 	FILE * fp = fopen(filename, "r");
+
+	if (!fp) {
+		char * sourcetmp = (char*) malloc(sizeof(char));
+		sourcetmp[0] = '\0';
+		return sourcetmp;
+	}
+	
 	fseek(fp, 0L, SEEK_END);
 	int kernel_size = (int) ftell(fp);
 	char * sourcetmp = (char*) malloc((kernel_size + 1)*sizeof(char));
