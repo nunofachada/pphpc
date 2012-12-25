@@ -19,15 +19,14 @@ int main(int argc, char ** argv)
 	cl_int status;	
 	
 	// Init random number generator
-	srandom((unsigned)(time(0)));
+	srand((unsigned)(time(0)));
 
 	// Timmings
 	struct timeval time1, time0;
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	//CLZONE zone = getClZone("Advanced Micro Devices, Inc.", "PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU);
-	CLZONE zone = getClZone("PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU, 1);
+	CLZONE zone = getClZone("PredPreyCPU_Kernels.cl", CL_DEVICE_TYPE_CPU, 1, 0);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);

@@ -32,10 +32,13 @@ cl_kernel grass_kernel, agentmov_kernel, agentupdate_kernel, sort_kernel, agenta
 int main(int argc, char ** argv)
 {
 
+	char doProfiling;
 #ifdef CLPROFILER
 	printf("Profiling is ON!\n");
+	doProfiling = 1;
 #else
 	printf("Profiling is OFF!\n");
+	doProfiling = 0;
 #endif
 
 
@@ -50,7 +53,7 @@ int main(int argc, char ** argv)
 	double dt = 0;
 
 	// 1. Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1);
+	CLZONE zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1, doProfiling);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);

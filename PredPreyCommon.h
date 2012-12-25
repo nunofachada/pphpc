@@ -68,7 +68,7 @@ typedef struct agent_params {
 	cl_uint reproduce_prob; /* between 1 and 100 */
 } AGENT_PARAMS;
 
-CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues);
+CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues, char profile);
 
 void destroyClZone(CLZONE zone);
 PARAMS loadParams(const char * paramsFile);

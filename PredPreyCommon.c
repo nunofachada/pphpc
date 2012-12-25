@@ -121,15 +121,15 @@ PARAMS loadParams(const char* paramsFile) {
 } 
 
 // Get a CL zone with all the stuff required
-CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues) {
+CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues, char profile) {
 	// Helper variables
 	cl_int status;
 	// Setup queue
-#ifdef CLPROFILER
-	cl_int queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
-#else
-	cl_int queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
-#endif
+	cl_int queue_properties;
+	if (profile)
+		queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
+	else
+		queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 	// Get number of platforms
 	cl_uint numPlatforms;
 	clGetPlatformIDs(0, NULL, &numPlatforms);
@@ -240,6 +240,7 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues
 		exit(-1);
 	}
 	zone.program = program;
+
 	// Return zone object
 	return zone;
 }

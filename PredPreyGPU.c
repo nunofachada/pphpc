@@ -34,13 +34,17 @@ cl_kernel countgrass2_kernel;
 int main(int argc, char ** argv)
 {
 
+	char doProfiling;
 #ifdef CLPROFILER
 	printf("Profiling is ON!\n");
-	// Profiling data
 	PROFILE_DATA* profiling = newProfile();
+	doProfiling = 1;
 #else
 	printf("Profiling is OFF!\n");
+	doProfiling = 0;
 #endif
+
+
 
 	// Aux vars
 	cl_int status;
@@ -52,8 +56,11 @@ int main(int argc, char ** argv)
 	// Start timer
 	gettimeofday(&time0, NULL);
 
+	// Set RNG seed
+	srand((unsigned)time(NULL));  
+
 	// Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2);
+	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, doProfiling);
 
 	// Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
