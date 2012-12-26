@@ -1,11 +1,11 @@
 CC=gcc
 CFLAGS=-Wall -g -std=c99
 CLMACROS=-DATI_OS_LINUX
-CLINCLUDES=-I$AMDAPPSDKROOT/include
+CLINCLUDES=-I$$AMDAPPSDKROOT/include
 CLLIB=-lOpenCL
 OBJDIR = obj
 BUILDDIR = bin
-CLLIBDIR=-L$AMDAPPSDKROOT/lib/x86_64
+CLLIBDIR=-L$$AMDAPPSDKROOT/lib/x86_64
  
 all: mkdirs MyDeviceQuery clerrors.o fileutils.o bitstuff.o clinfo.o
 	
