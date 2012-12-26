@@ -16,7 +16,7 @@ Matmult: Matmult.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 Matmult.o: Matmult.c 
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -c $< -o $(OBJDIR)/$@
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
 
 PredPreyCommon.o:
 	cd $(BASEDIR); make $@
