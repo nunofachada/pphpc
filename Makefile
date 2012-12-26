@@ -4,49 +4,57 @@ CLMACROS = -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
 LFLAGS = -lOpenCL -lm
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
+OBJDIR = obj
 BUILDDIR = bin
-UTILOBJS = utils/ocl/clerrors.o utils/ocl/fileutils.o utils/ocl/bitstuff.o utils/ocl/clinfo.o
+UTILSDIR = utils
+UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clerrors.o $(UTILSDIR)/$(OBJDIR)/fileutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clinfo.o
  
-all: Test PredPreyGPUSort PredPreyGPU PredPreyCPU cleanobjs
+all: makeutils mkdirs Test PredPreyGPUSort PredPreyGPU PredPreyCPU
 
 profiler: CLMACROS += -DCLPROFILER
 profiler: all
-	
+
 PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 	
 PredPreyGPU: PredPreyGPU.o PredPreyCommon.o PredPreyGPUProfiler.o PredPreyGPUEvents.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 PredPreyCPU: PredPreyCPU.o PredPreyCommon.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
 PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
 PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 	
-PredPreyGPUProfiler.o: PredPreyGPUProfiler.c PredPreyGPUProfiler.h PredPreyGPUEvents.o PredPreyCommon.o
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+PredPreyGPUProfiler.o: PredPreyGPUProfiler.c PredPreyGPUProfiler.h
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
 PredPreyGPUEvents.o: PredPreyGPUEvents.c PredPreyGPUEvents.h PredPreyCommon.o
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $@ -c $<
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $(OBJDIR)/$@ -c $<
 
 Test.o: Test.c
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
 Test: Test.o PredPreyCommon.o PredPreyGPUProfiler.o PredPreyGPUEvents.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
-clean: cleanobjs
-	rm -f $(BUILDDIR)/*
+.PHONY: clean mkdirs makeutils
+
+makeutils:
+	cd $(UTILSDIR); make
+
+mkdirs:
+	mkdir -p $(BUILDDIR)
+	mkdir -p $(OBJDIR)
 	
-cleanobjs:
-	rm -f *.o
+clean:
+	rm -rf $(OBJDIR)/* $(BUILDDIR)/*

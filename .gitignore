@@ -3,8 +3,5 @@
 .nfs*
 *.[oa]
 bin/
-versions/
 stats*.txt
-utils/
 config.txt
-utils

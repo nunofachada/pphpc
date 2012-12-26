@@ -12,10 +12,10 @@
 #include <time.h>
 #include <math.h>
 #include <limits.h>
-#include "utils/ocl/clerrors.h"
-#include "utils/ocl/clinfo.h"
-#include "utils/ocl/fileutils.h"
-#include "utils/ocl/bitstuff.h"
+#include "utils/clerrors.h"
+#include "utils/clinfo.h"
+#include "utils/fileutils.h"
+#include "utils/bitstuff.h"
 
 #define CONFIG_FILE "config.txt"
 

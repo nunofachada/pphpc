@@ -4,14 +4,29 @@ CLMACROS = -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
 LFLAGS = -lOpenCL -lm
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
+BASEDIR = ..
+OBJDIR = obj
 BUILDDIR = bin
-UTILOBJS = ../utils/ocl/clerrors.o ../utils/ocl/fileutils.o ../utils/ocl/bitstuff.o ../utils/ocl/clinfo.o
+UTILSDIR = $(BASEDIR)/utils
+UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clerrors.o $(UTILSDIR)/$(OBJDIR)/fileutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clinfo.o
+
+all: mkdirs Matmult
  
-Matmult: Matmult.c PredPreyCommon.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $^ $(UTILOBJS) $(LFLAGS)
+Matmult: Matmult.o PredPreyCommon.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
-PredPreyCommon.o: ../PredPreyCommon.c ../PredPreyCommon.h
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $@ -c $<
+Matmult.o: Matmult.c 
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -c $< -o $(OBJDIR)/$@
 
+PredPreyCommon.o:
+	cd $(BASEDIR); make $@
+	cp $(BASEDIR)/$(OBJDIR)/$@ $(OBJDIR)
+
+.PHONY: clean mkdirs
+
+mkdirs:
+	mkdir -p $(BUILDDIR)
+	mkdir -p $(OBJDIR)
+	
 clean:
 	rm -f *.o bin/*
