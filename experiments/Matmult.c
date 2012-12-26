@@ -1,8 +1,8 @@
 #include "../PredPreyCommon.h"
 
-#define A_ROWS 14
-#define A_COLS 7
-#define B_ROWS 11
+#define A_ROWS 200
+#define A_COLS 1234
+#define B_ROWS 253
 #define B_COLS A_ROWS
 
 #define LWS_GPU_PREF_2D_X 8
@@ -123,8 +123,8 @@ int main(int argc, char ** argv)
 	
 	lws_matmult[0] = LWS_GPU_PREF_2D_X;
 	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
-	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) B_COLS) / LWS_GPU_PREF_2D_X);
-	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
+	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) A_COLS) / LWS_GPU_PREF_2D_X);
+	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) B_ROWS) / LWS_GPU_PREF_2D_Y);
 	
 	printf("\n------------------------------------------------\n");
 	printf("Local work size  : (%zu, %zu)\n", lws_matmult[0], lws_matmult[1]);
@@ -220,7 +220,7 @@ int main(int argc, char ** argv)
 	}
 	printf("Error (GPU-CPU)               : %d\n\n", error);
 
-
+/*
 	printf("\nMatrix A:\n");
 	for (unsigned int i = 0; i < A_ROWS; i++) {
 		printf("|\t");
@@ -257,7 +257,7 @@ int main(int argc, char ** argv)
 		printf("|\n");
 	}
 
-
+*/
 	/////////////////
 	// Free stuff! //
 	/////////////////
