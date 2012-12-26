@@ -8,12 +8,12 @@ __kernel void matmult1(__global int * A, __global int * B, __global int * C, con
 	uint col = get_global_id(0);
 	
 	// Multiply!
-	if ((row < mdims.z) && (col < mdims.y)) {
+	if ((row < mdims.x) && (col < mdims.w)) {
 		int sum = 0;
-		for (uint i = 0; i < mdims.x; i++) {
-			sum += A[mdims.y * i + col] * B[mdims.w * row + i];
+		for (uint i = 0; i < mdims.y; i++) {
+			sum += A[row * mdims.y + i] * B[i * mdims.w + col];
 		}
-		C[row * mdims.y + col] = sum;
+		C[row * mdims.w + col] = sum;
 	}
 }
 

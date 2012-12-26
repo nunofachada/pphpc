@@ -2,8 +2,8 @@
 
 #define A_ROWS 200
 #define A_COLS 1234
-#define B_ROWS 253
-#define B_COLS A_ROWS
+#define B_ROWS A_COLS
+#define B_COLS 250
 
 #define LWS_GPU_PREF_2D_X 8
 #define LWS_GPU_PREF_2D_Y 8
@@ -71,7 +71,7 @@ int main(int argc, char ** argv)
 		matrixB_host[i] = (rand() % RANGE_MATRIX) - RANGE_MATRIX / 2;
 	
 	// Matrix C (result)
-	size_t sizeMatrixCInBytes = A_COLS * B_ROWS * sizeof(cl_int);
+	size_t sizeMatrixCInBytes = B_COLS * A_ROWS * sizeof(cl_int);
 	cl_int *matrixC_host = (cl_int*) malloc(sizeMatrixCInBytes);
 
 	///////////////////////////
@@ -123,8 +123,8 @@ int main(int argc, char ** argv)
 	
 	lws_matmult[0] = LWS_GPU_PREF_2D_X;
 	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
-	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) A_COLS) / LWS_GPU_PREF_2D_X);
-	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) B_ROWS) / LWS_GPU_PREF_2D_Y);
+	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) B_COLS) / LWS_GPU_PREF_2D_X);
+	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
 	
 	printf("\n------------------------------------------------\n");
 	printf("Local work size  : (%zu, %zu)\n", lws_matmult[0], lws_matmult[1]);
@@ -189,16 +189,16 @@ int main(int argc, char ** argv)
 	gettimeofday(&time0, NULL);
 
 	// Multiply!
-	int matrixC_test[A_COLS * B_ROWS];
-	for (unsigned int i = 0; i < B_ROWS; i++) {
-		for (unsigned j = 0; j < A_COLS; j++) {
-			matrixC_test[A_COLS * i + j] = 0;
-			for (unsigned int k = 0; k < A_ROWS; k++) {
-				matrixC_test[A_COLS * i + j] += matrixA_host[A_COLS * k + j] * matrixB_host[B_COLS * i + k];
+	int matrixC_test[B_COLS * A_ROWS];
+	for (unsigned int col = 0; col < B_COLS; col++) {
+		for (unsigned row = 0; row < A_ROWS; row++) {
+			matrixC_test[row * B_COLS + col] = 0;
+			for (unsigned int i = 0; i < A_COLS; i++) {
+				matrixC_test[row * B_COLS + col] += matrixA_host[row * A_COLS + i] * matrixB_host[i * B_COLS + col];
 			}
 		}
 	}
-
+	
 	// Get finishing time	
 	gettimeofday(&time1, NULL);  
 
@@ -213,10 +213,9 @@ int main(int argc, char ** argv)
 	
 	// Check for correctness
 	int error = 0;
-	for (unsigned int i = 0; i < B_ROWS; i++) {
-		for (unsigned j = 0; j < A_COLS; j++) {
-			error += matrixC_host[A_COLS * i + j] - matrixC_test[A_COLS * i + j];
-		}
+	unsigned int sizeC = B_COLS * A_ROWS;
+	for (unsigned int index = 0; index < sizeC; index++) {
+		error += matrixC_host[index] - matrixC_test[index];
 	}
 	printf("Error (GPU-CPU)               : %d\n\n", error);
 
