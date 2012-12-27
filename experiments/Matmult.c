@@ -1,14 +1,16 @@
 #include "../PredPreyCommon.h"
 
-#define A_ROWS 200
-#define A_COLS 1234
+#define A_ROWS 4
+#define A_COLS 8
 #define B_ROWS A_COLS
-#define B_COLS 250
+#define B_COLS 6
 
 #define LWS_GPU_PREF_2D_X 8
 #define LWS_GPU_PREF_2D_Y 8
 
 #define RANGE_MATRIX 4
+
+#define KERNEL_TO_RUN "matmult2"
 
 // Global work sizes
 size_t gws_matmult[2];
@@ -46,7 +48,7 @@ int main(int argc, char ** argv)
 	cl_event events[4];
 	
 	// Kernel
-	cl_kernel kernel_matmult = clCreateKernel( zone.program, "matmult1", &status );
+	cl_kernel kernel_matmult = clCreateKernel( zone.program, KERNEL_TO_RUN, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
 
 	// Show kernel info - this should then influence the stuff above
@@ -100,6 +102,20 @@ int main(int argc, char ** argv)
 	status = clEnqueueWriteBuffer (	zone.queues[0], matrixB_device, CL_TRUE, 0, sizeMatrixBInBytes, matrixB_host, 0, NULL, &(events[1]) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "matrix A device"); return(-1); }
 
+	//////////////////////////
+	//  Determine worksizes //
+	//////////////////////////
+	
+	lws_matmult[0] = LWS_GPU_PREF_2D_X;
+	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
+	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) B_COLS) / LWS_GPU_PREF_2D_X);
+	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
+	
+	printf("\n------------------------------------------------\n");
+	printf("Local work size  : (%zu, %zu)\n", lws_matmult[0], lws_matmult[1]);
+	printf("Global work size : (%zu, %zu)\n", gws_matmult[0], gws_matmult[1]);
+	printf("------------------------------------------------\n\n");
+	
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
 	/////////////////////////////////
@@ -117,19 +133,10 @@ int main(int argc, char ** argv)
 	status = clSetKernelArg(kernel_matmult, 3, sizeof(cl_uint4), (void *) &dims);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
 	
-	//////////////////////////
-	//  Determine worksizes //
-	//////////////////////////
-	
-	lws_matmult[0] = LWS_GPU_PREF_2D_X;
-	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
-	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) B_COLS) / LWS_GPU_PREF_2D_X);
-	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
-	
-	printf("\n------------------------------------------------\n");
-	printf("Local work size  : (%zu, %zu)\n", lws_matmult[0], lws_matmult[1]);
-	printf("Global work size : (%zu, %zu)\n", gws_matmult[0], gws_matmult[1]);
-	printf("------------------------------------------------\n\n");
+	if (strcmp(KERNEL_TO_RUN, "matmult2") == 0) {
+		status = clSetKernelArg(kernel_matmult, 4, lws_matmult[0] * lws_matmult[1] * sizeof(cl_int), NULL);
+		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
+	}
 	
 
 	//////////////////
@@ -137,7 +144,7 @@ int main(int argc, char ** argv)
 	//////////////////
 	
 	status = clEnqueueNDRangeKernel( zone.queues[0], kernel_matmult, 2, NULL, gws_matmult, lws_matmult, 0, NULL, &(events[2]));
-	if (status != CL_SUCCESS) { PrintErrorEnqueueNDRangeKernel(status, "Matmult kernel"); return(-1); }
+	if (status != CL_SUCCESS) { PrintErrorEnqueueNDRangeKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
 
 	/////////////////////////////
 	//  Get result from device //
@@ -219,7 +226,7 @@ int main(int argc, char ** argv)
 	}
 	printf("Error (GPU-CPU)               : %d\n\n", error);
 
-/*
+
 	printf("\nMatrix A:\n");
 	for (unsigned int i = 0; i < A_ROWS; i++) {
 		printf("|\t");
@@ -239,24 +246,24 @@ int main(int argc, char ** argv)
 	}
 
 	printf("\nGPU matrix C:\n");
-	for (unsigned int i = 0; i < B_ROWS; i++) {
+	for (unsigned int i = 0; i < B_COLS; i++) {
 		printf("|\t");
-		for (unsigned j = 0; j < A_COLS; j++) {
-			printf("%d\t", matrixC_host[A_COLS * i + j]);
+		for (unsigned j = 0; j < A_ROWS; j++) {
+			printf("%d\t", matrixC_host[B_COLS * j + i]);
 		}
 		printf("|\n");
 	}
 
 	printf("\nCPU matrix C:\n");
-	for (unsigned int i = 0; i < B_ROWS; i++) {
+	for (unsigned int i = 0; i < B_COLS; i++) {
 		printf("|\t");
-		for (unsigned j = 0; j < A_COLS; j++) {
-			printf("%d\t", matrixC_test[A_COLS * i + j]);
+		for (unsigned j = 0; j < A_ROWS; j++) {
+			printf("%d\t", matrixC_test[B_COLS * j + i]);
 		}
 		printf("|\n");
 	}
 
-*/
+
 	/////////////////
 	// Free stuff! //
 	/////////////////
