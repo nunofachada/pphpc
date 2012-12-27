@@ -132,10 +132,13 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues
 		queue_properties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
 	// Get number of platforms
 	cl_uint numPlatforms;
-	clGetPlatformIDs(0, NULL, &numPlatforms);
+	status = clGetPlatformIDs(0, NULL, &numPlatforms);
+	if (status != CL_SUCCESS) { PrintErrorGetPlatformIDs(status, "I was getting the number of platforms!\n"); exit(EXIT_FAILURE); }
+	
 	// Get existing platforms
 	cl_platform_id platfIds[numPlatforms];
-	clGetPlatformIDs(numPlatforms, platfIds, NULL);
+	status = clGetPlatformIDs(numPlatforms, platfIds, NULL);
+	if (status != CL_SUCCESS) { PrintErrorGetPlatformIDs(status, "I was getting the platform IDs...\n"); exit(EXIT_FAILURE); }
 	// Cycle through platforms, get specified devices in existing platforms
 	DEVICE_INFO devInfos[MAX_DEVICES_TOTAL];
 	unsigned int totalNumDevices = 0;

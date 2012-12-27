@@ -19,6 +19,7 @@
 
 #define CONFIG_FILE "config.txt"
 
+#define MAX_PLATFORMS 10
 #define MAX_DEVICES_PER_PLATFORM 10
 #define MAX_DEVICES_TOTAL 20
 #define MAX_AUX_BUFF 500

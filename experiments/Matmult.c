@@ -1,28 +1,29 @@
 #include "../PredPreyCommon.h"
 
-#define A_ROWS 4
-#define A_COLS 8
+#define A_ROWS 3000
+#define A_COLS 1500
 #define B_ROWS A_COLS
-#define B_COLS 6
+#define B_COLS 4000
 
-#define LWS_GPU_PREF_2D_X 8
-#define LWS_GPU_PREF_2D_Y 8
+#define LWS_GPU_PREF_2D_X 512
+#define LWS_GPU_PREF_2D_Y 1
 
 #define RANGE_MATRIX 4
 
-#define KERNEL_TO_RUN "matmult2"
+#define KERNEL_ID 2
 
-// Global work sizes
-size_t gws_matmult[2];
+//#define DEBUG
 
-// Local work sizes
-size_t lws_matmult[2];
+typedef struct matDims {
+	uint rowsA;
+	uint colsA;
+	uint rowsB;
+	uint colsB;
+} MAT_DIMS;
 
-// Kernels
-;
 
 // Main stuff
-int main(int argc, char ** argv)
+int main(int argc, char *argv[])
 {
 
 #ifdef CLPROFILER
@@ -44,11 +45,20 @@ int main(int argc, char ** argv)
 	// Set RNG seed
 	srand((unsigned)time(NULL));  
 	
+	// Global work sizes
+	size_t gws_matmult[2];
+
+	// Local work sizes
+	size_t lws_matmult[2];
+
 	// Events
 	cl_event events[4];
 	
 	// Kernel
-	cl_kernel kernel_matmult = clCreateKernel( zone.program, KERNEL_TO_RUN, &status );
+	char * kernelName = (char*) malloc(9 * sizeof(char));
+	strcpy(kernelName, "matmult?");
+	kernelName[7] = KERNEL_ID + '0';
+	cl_kernel kernel_matmult = clCreateKernel( zone.program, kernelName, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
 
 	// Show kernel info - this should then influence the stuff above
@@ -56,7 +66,7 @@ int main(int argc, char ** argv)
 	getWorkGroupInfo(kernel_matmult, zone.device, &kwgi);
 	printWorkGroupInfo(kwgi);
 	
-	////////////////////////////////////////
+	////////////////////////////////////////ZE:	
 	// Create and initialize host buffers //
 	////////////////////////////////////////
 	
@@ -116,6 +126,19 @@ int main(int argc, char ** argv)
 	printf("Global work size : (%zu, %zu)\n", gws_matmult[0], gws_matmult[1]);
 	printf("------------------------------------------------\n\n");
 	
+	/////////////////////////////////////////
+	// Determine and print required memory //
+	/////////////////////////////////////////
+
+	size_t globalMemSizeInBytes = sizeof(cl_int) * (A_ROWS * A_COLS + B_ROWS * B_COLS + A_ROWS * B_COLS);
+	printf("\nGlobal memory required        : %zu bytes (%zu Kb = %zu Mb)", globalMemSizeInBytes, globalMemSizeInBytes / 1024, globalMemSizeInBytes / 1024 / 1024);
+	size_t localMemSizeInBytes = 0;
+	
+	if (KERNEL_ID == 2)
+			localMemSizeInBytes = A_COLS * lws_matmult[1] * sizeof(cl_int);
+	
+	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeInBytes, localMemSizeInBytes / 1024);
+
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
 	/////////////////////////////////
@@ -129,12 +152,12 @@ int main(int argc, char ** argv)
 	status = clSetKernelArg(kernel_matmult, 2, sizeof(cl_mem), (void *) &matrixC_device);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of matmult kernel"); exit(EXIT_FAILURE); }
 	
-	cl_uint4 dims = {{ A_ROWS, A_COLS, B_ROWS, B_COLS }};
-	status = clSetKernelArg(kernel_matmult, 3, sizeof(cl_uint4), (void *) &dims);
+	MAT_DIMS dims = { .rowsA = A_ROWS, .colsA = A_COLS, .rowsB = B_ROWS, .colsB = B_COLS };
+	status = clSetKernelArg(kernel_matmult, 3, sizeof(MAT_DIMS), (void *) &dims);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
 	
-	if (strcmp(KERNEL_TO_RUN, "matmult2") == 0) {
-		status = clSetKernelArg(kernel_matmult, 4, lws_matmult[0] * lws_matmult[1] * sizeof(cl_int), NULL);
+	if (KERNEL_ID >= 2) {
+		status = clSetKernelArg(kernel_matmult, 4, localMemSizeInBytes, NULL);
 		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
 	}
 	
@@ -196,7 +219,7 @@ int main(int argc, char ** argv)
 	gettimeofday(&time0, NULL);
 
 	// Multiply!
-	int matrixC_test[B_COLS * A_ROWS];
+	int *matrixC_test = (int*) malloc(B_COLS * A_ROWS * sizeof(int));
 	for (unsigned int col = 0; col < B_COLS; col++) {
 		for (unsigned row = 0; row < A_ROWS; row++) {
 			matrixC_test[row * B_COLS + col] = 0;
@@ -227,6 +250,7 @@ int main(int argc, char ** argv)
 	printf("Error (GPU-CPU)               : %d\n\n", error);
 
 
+#ifdef DEBUG
 	printf("\nMatrix A:\n");
 	for (unsigned int i = 0; i < A_ROWS; i++) {
 		printf("|\t");
@@ -246,23 +270,23 @@ int main(int argc, char ** argv)
 	}
 
 	printf("\nGPU matrix C:\n");
-	for (unsigned int i = 0; i < B_COLS; i++) {
+	for (unsigned row = 0; row < A_ROWS; row++) {
 		printf("|\t");
-		for (unsigned j = 0; j < A_ROWS; j++) {
-			printf("%d\t", matrixC_host[B_COLS * j + i]);
+		for (unsigned int col = 0; col < B_COLS; col++) {
+			printf("%d\t", matrixC_host[B_COLS * row + col]);
 		}
 		printf("|\n");
 	}
 
 	printf("\nCPU matrix C:\n");
-	for (unsigned int i = 0; i < B_COLS; i++) {
+	for (unsigned row = 0; row < A_ROWS; row++) {
 		printf("|\t");
-		for (unsigned j = 0; j < A_ROWS; j++) {
-			printf("%d\t", matrixC_test[B_COLS * j + i]);
+		for (unsigned int col = 0; col < B_COLS; col++) {
+			printf("%d\t", matrixC_test[B_COLS * row + col]);
 		}
 		printf("|\n");
 	}
-
+#endif
 
 	/////////////////
 	// Free stuff! //
@@ -283,6 +307,7 @@ int main(int argc, char ** argv)
 	free(matrixA_host);
 	free(matrixB_host);
 	free(matrixC_host);
+	free(matrixC_test);
 	
 	return 0;
 
