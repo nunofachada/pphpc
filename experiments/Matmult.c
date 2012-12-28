@@ -1,18 +1,18 @@
 #include "../PredPreyCommon.h"
 
-#define A_ROWS 3000
-#define A_COLS 1500
+#define A_ROWS 6000
+#define A_COLS 300
 #define B_ROWS A_COLS
-#define B_COLS 4000
+#define B_COLS 3000
 
-#define LWS_GPU_PREF_2D_X 512
-#define LWS_GPU_PREF_2D_Y 1
+#define LWS_GPU_PREF_2D_X 64
+#define LWS_GPU_PREF_2D_Y 4
 
 #define RANGE_MATRIX 4
 
 #define KERNEL_ID 2
 
-//#define DEBUG
+#define DEBUG 0
 
 typedef struct matDims {
 	uint rowsA;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	getWorkGroupInfo(kernel_matmult, zone.device, &kwgi);
 	printWorkGroupInfo(kwgi);
 	
-	////////////////////////////////////////ZE:	
+	////////////////////////////////////////	
 	// Create and initialize host buffers //
 	////////////////////////////////////////
 	
@@ -132,12 +132,15 @@ int main(int argc, char *argv[])
 
 	size_t globalMemSizeInBytes = sizeof(cl_int) * (A_ROWS * A_COLS + B_ROWS * B_COLS + A_ROWS * B_COLS);
 	printf("\nGlobal memory required        : %zu bytes (%zu Kb = %zu Mb)", globalMemSizeInBytes, globalMemSizeInBytes / 1024, globalMemSizeInBytes / 1024 / 1024);
-	size_t localMemSizeInBytes = 0;
+	size_t localMemSizeAInBytes = 0;
+	size_t localMemSizeBInBytes = 0;
 	
-	if (KERNEL_ID == 2)
-			localMemSizeInBytes = A_COLS * lws_matmult[1] * sizeof(cl_int);
+	if (KERNEL_ID >= 2)
+			localMemSizeAInBytes = A_COLS * lws_matmult[1] * sizeof(cl_int);
+	if (KERNEL_ID >= 3)
+			localMemSizeBInBytes = lws_matmult[0] * B_ROWS * sizeof(cl_int);
 	
-	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeInBytes, localMemSizeInBytes / 1024);
+	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeBInBytes, (localMemSizeAInBytes + localMemSizeBInBytes) / 1024);
 
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
@@ -157,8 +160,12 @@ int main(int argc, char *argv[])
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
 	
 	if (KERNEL_ID >= 2) {
-		status = clSetKernelArg(kernel_matmult, 4, localMemSizeInBytes, NULL);
+		status = clSetKernelArg(kernel_matmult, 4, localMemSizeAInBytes, NULL);
 		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
+	}
+	if (KERNEL_ID >= 3) {
+		status = clSetKernelArg(kernel_matmult, 5, localMemSizeBInBytes, NULL);
+		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 5 of matmult kernel"); exit(EXIT_FAILURE); }
 	}
 	
 
@@ -250,43 +257,43 @@ int main(int argc, char *argv[])
 	printf("Error (GPU-CPU)               : %d\n\n", error);
 
 
-#ifdef DEBUG
-	printf("\nMatrix A:\n");
-	for (unsigned int i = 0; i < A_ROWS; i++) {
-		printf("|\t");
-		for (unsigned j = 0; j < A_COLS; j++) {
-			printf("%d\t", matrixA_host[A_COLS * i + j]);
+	if (DEBUG) {
+		printf("\nMatrix A:\n");
+		for (unsigned int i = 0; i < A_ROWS; i++) {
+			printf("|\t");
+			for (unsigned j = 0; j < A_COLS; j++) {
+				printf("%d\t", matrixA_host[A_COLS * i + j]);
+			}
+			printf("|\n");
 		}
-		printf("|\n");
-	}
 
-	printf("\nMatrix B:\n");
-	for (unsigned int i = 0; i < B_ROWS; i++) {
-		printf("|\t");
-		for (unsigned j = 0; j < B_COLS; j++) {
-			printf("%d\t", matrixB_host[B_COLS * i + j]);
+		printf("\nMatrix B:\n");
+		for (unsigned int i = 0; i < B_ROWS; i++) {
+			printf("|\t");
+			for (unsigned j = 0; j < B_COLS; j++) {
+				printf("%d\t", matrixB_host[B_COLS * i + j]);
+			}
+			printf("|\n");
 		}
-		printf("|\n");
-	}
 
-	printf("\nGPU matrix C:\n");
-	for (unsigned row = 0; row < A_ROWS; row++) {
-		printf("|\t");
-		for (unsigned int col = 0; col < B_COLS; col++) {
-			printf("%d\t", matrixC_host[B_COLS * row + col]);
+		printf("\nGPU matrix C:\n");
+		for (unsigned row = 0; row < A_ROWS; row++) {
+			printf("|\t");
+			for (unsigned int col = 0; col < B_COLS; col++) {
+				printf("%d\t", matrixC_host[B_COLS * row + col]);
+			}
+			printf("|\n");
 		}
-		printf("|\n");
-	}
 
-	printf("\nCPU matrix C:\n");
-	for (unsigned row = 0; row < A_ROWS; row++) {
-		printf("|\t");
-		for (unsigned int col = 0; col < B_COLS; col++) {
-			printf("%d\t", matrixC_test[B_COLS * row + col]);
+		printf("\nCPU matrix C:\n");
+		for (unsigned row = 0; row < A_ROWS; row++) {
+			printf("|\t");
+			for (unsigned int col = 0; col < B_COLS; col++) {
+				printf("%d\t", matrixC_test[B_COLS * row + col]);
+			}
+			printf("|\n");
 		}
-		printf("|\n");
 	}
-#endif
 
 	/////////////////
 	// Free stuff! //
