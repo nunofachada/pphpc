@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g -std=gnu99
+CFLAGS = -Wall -g -std=gnu99 -fopenmp
 CLMACROS = -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
 LFLAGS = -lOpenCL -lm
