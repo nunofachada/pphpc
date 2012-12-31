@@ -1,25 +1,22 @@
+
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define A_ROWS 11137
-#define A_COLS 180
-#define B_ROWS A_COLS
-#define B_COLS 11543
+#define A_ROWS 1234
+#define A_COLS 741
 
 #define LWS_GPU_PREF_2D_X 32
 #define LWS_GPU_PREF_2D_Y 32
 
 #define RANGE_MATRIX 100
 
-#define KERNEL_ID 3
+#define KERNEL_ID 1
 
 #define DEBUG 0
 
 typedef struct matDims {
 	cl_uint rowsA;
 	cl_uint colsA;
-	cl_uint rowsB;
-	cl_uint colsB;
 } MAT_DIMS;
 
 
@@ -35,7 +32,7 @@ int main(int argc, char *argv[])
 	struct timeval time1, time0;
 	
 	// Get the required CL zone.
-	CLZONE zone = getClZone("Matmult_kernels.cl", CL_DEVICE_TYPE_GPU, 1, 1);
+	CLZONE zone = getClZone("MatmultT_kernels.cl", CL_DEVICE_TYPE_GPU, 1, 1);
 	
 	// Set RNG seed
 	srand((unsigned)time(NULL));  
@@ -66,14 +63,8 @@ int main(int argc, char *argv[])
 	for (unsigned int i = 0; i < A_ROWS * A_COLS; i++)
 		matrixA_host[i] = (rand() % RANGE_MATRIX) - RANGE_MATRIX / 2;
 	
-	// Matrix B
-	size_t sizeMatrixBInBytes = B_ROWS * B_COLS * sizeof(cl_int);
-	cl_int *matrixB_host = (cl_int*) malloc(sizeMatrixBInBytes);
-	for (unsigned int i = 0; i < B_ROWS * B_COLS; i++)
-		matrixB_host[i] = (rand() % RANGE_MATRIX) - RANGE_MATRIX / 2;
-	
 	// Matrix C (result)
-	size_t sizeMatrixCInBytes = B_COLS * A_ROWS * sizeof(cl_int);
+	size_t sizeMatrixCInBytes = A_ROWS * A_ROWS * sizeof(cl_int);
 	cl_int *matrixC_host = (cl_int*) malloc(sizeMatrixCInBytes);
 
 	///////////////////////////
@@ -84,10 +75,6 @@ int main(int argc, char *argv[])
 	cl_mem matrixA_device = clCreateBuffer(zone.context, CL_MEM_READ_ONLY, sizeMatrixAInBytes, NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "matrix A device"); return(-1); }
 	
-	// Matrix B
-	cl_mem matrixB_device = clCreateBuffer(zone.context, CL_MEM_READ_ONLY, sizeMatrixBInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "matrix B device"); return(-1); }
-
 	// Matrix C
 	cl_mem matrixC_device = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sizeMatrixCInBytes, NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "matrix C device"); return(-1); }
@@ -99,16 +86,13 @@ int main(int argc, char *argv[])
 	status = clEnqueueWriteBuffer (	zone.queues[0], matrixA_device, CL_TRUE, 0, sizeMatrixAInBytes, matrixA_host, 0, NULL, &(events[0]) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "matrix A device"); return(-1); }
 
-	status = clEnqueueWriteBuffer (	zone.queues[0], matrixB_device, CL_TRUE, 0, sizeMatrixBInBytes, matrixB_host, 0, NULL, &(events[1]) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "matrix A device"); return(-1); }
-
 	//////////////////////////
 	//  Determine worksizes //
 	//////////////////////////
 	
 	lws_matmult[0] = LWS_GPU_PREF_2D_X;
 	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
-	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) B_COLS) / LWS_GPU_PREF_2D_X);
+	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) A_COLS) / LWS_GPU_PREF_2D_X);
 	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
 	
 	printf("\n------------------------------------------------\n");
@@ -120,17 +104,15 @@ int main(int argc, char *argv[])
 	// Determine and print required memory //
 	/////////////////////////////////////////
 
-	size_t globalMemSizeInBytes = sizeMatrixAInBytes + sizeMatrixBInBytes + sizeMatrixCInBytes;
+	size_t globalMemSizeInBytes = sizeMatrixAInBytes + sizeMatrixCInBytes;
 	printf("\nGlobal memory required        : %zu bytes (%zu Kb = %zu Mb)", globalMemSizeInBytes, globalMemSizeInBytes / 1024, globalMemSizeInBytes / 1024 / 1024);
 	size_t localMemSizeAInBytes = 0;
 	size_t localMemSizeBInBytes = 0;
 	
-	if (KERNEL_ID >= 2)
-			localMemSizeAInBytes = A_COLS * lws_matmult[1] * sizeof(cl_int);
-	if (KERNEL_ID >= 3)
-			localMemSizeBInBytes = lws_matmult[0] * B_ROWS * sizeof(cl_int);
+	if (KERNEL_ID == 2)
+			localMemSizeAInBytes = lws_matmult[0] * lws_matmult[1] * sizeof(cl_int);
 	
-	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeBInBytes, (localMemSizeAInBytes + localMemSizeBInBytes) / 1024);
+	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeAInBytes, (localMemSizeAInBytes + localMemSizeAInBytes) / 1024);
 
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
@@ -139,23 +121,19 @@ int main(int argc, char *argv[])
 	status = clSetKernelArg(kernel_matmult, 0, sizeof(cl_mem), (void *) &matrixA_device);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of matmult kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(kernel_matmult, 1, sizeof(cl_mem), (void *) &matrixB_device);
+	status = clSetKernelArg(kernel_matmult, 1, sizeof(cl_mem), (void *) &matrixC_device);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of matmult kernel"); exit(EXIT_FAILURE); }
-
-	status = clSetKernelArg(kernel_matmult, 2, sizeof(cl_mem), (void *) &matrixC_device);
+	
+	MAT_DIMS dims = { .rowsA = A_ROWS, .colsA = A_COLS };
+	status = clSetKernelArg(kernel_matmult, 2, sizeof(MAT_DIMS), (void *) &dims);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of matmult kernel"); exit(EXIT_FAILURE); }
 	
-	MAT_DIMS dims = { .rowsA = A_ROWS, .colsA = A_COLS, .rowsB = B_ROWS, .colsB = B_COLS };
-	status = clSetKernelArg(kernel_matmult, 3, sizeof(MAT_DIMS), (void *) &dims);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
-	
-	if (KERNEL_ID >= 2) {
+	if (KERNEL_ID == 2) {
+		status = clSetKernelArg(kernel_matmult, 3, localMemSizeAInBytes, NULL);
+		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
+
 		status = clSetKernelArg(kernel_matmult, 4, localMemSizeAInBytes, NULL);
 		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
-	}
-	if (KERNEL_ID >= 3) {
-		status = clSetKernelArg(kernel_matmult, 5, localMemSizeBInBytes, NULL);
-		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 5 of matmult kernel"); exit(EXIT_FAILURE); }
 	}
 	
 
@@ -163,14 +141,14 @@ int main(int argc, char *argv[])
 	//  Run kernel! //
 	//////////////////
 	
-	status = clEnqueueNDRangeKernel( zone.queues[0], kernel_matmult, 2, NULL, gws_matmult, lws_matmult, 0, NULL, &(events[2]));
+	status = clEnqueueNDRangeKernel( zone.queues[0], kernel_matmult, 2, NULL, gws_matmult, lws_matmult, 0, NULL, &(events[1]));
 	if (status != CL_SUCCESS) { PrintErrorEnqueueNDRangeKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
 
 	/////////////////////////////
 	//  Get result from device //
 	/////////////////////////////
 
-	status = clEnqueueReadBuffer ( zone.queues[0], matrixC_device, CL_TRUE, 0, sizeMatrixCInBytes, matrixC_host, 1, &(events[2]), &(events[3]));
+	status = clEnqueueReadBuffer ( zone.queues[0], matrixC_device, CL_TRUE, 0, sizeMatrixCInBytes, matrixC_host, 1, &(events[1]), &(events[2]));
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "Read matrix C"); return(-1); }
 
 	status = clFinish(zone.queues[0]); 
@@ -178,9 +156,9 @@ int main(int argc, char *argv[])
 	//////////////////////////
 	//  Show profiling info //
 	//////////////////////////
-	cl_ulong startEv, finishEv, durationEvs[4], totalEv = 0;
+	cl_ulong startEv, finishEv, durationEvs[3], totalEv = 0;
 	
-	for (unsigned int i = 0; i < 4; i++) {
+	for (unsigned int i = 0; i < 3; i++) {
 		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &startEv, NULL);
 		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "event profiling start");  return(-1); }
 		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &finishEv, NULL);
@@ -193,17 +171,15 @@ int main(int argc, char *argv[])
 	// Event 0 - transfer matrix A to device
 	printf("Transfer matrix A to device   : %fms (%3.4f%%)\n", durationEvs[0] * 1e-6, 100*((double) durationEvs[0])/((double) totalEv));
 	// Event 1 - transfer matrix B to device
-	printf("Transfer matrix B to device   : %fms (%3.4f%%)\n", durationEvs[1] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
-	// Event 2 - Perform multiplication
-	printf("Kernel execution (matmult)    : %fms (%3.4f%%)\n", durationEvs[2] * 1e-6, 100*((double) durationEvs[2])/((double) totalEv));
+	printf("Kernel execution (matmult)    : %fms (%3.4f%%)\n", durationEvs[2] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
 	// Event 3 - transfer matrix C from device
-	printf("Transfer matrix C from device : %fms (%3.4f%%)\n\n", durationEvs[3] * 1e-6, 100*((double) durationEvs[3])/((double) totalEv));
+	printf("Transfer matrix C from device : %fms (%3.4f%%)\n\n", durationEvs[3] * 1e-6, 100*((double) durationEvs[2])/((double) totalEv));
 	// Total GPU time
 	printf("Total GPU time                : %fms\n\n", (double) totalEv * 1e-6);
 	
 	
 	// Release events
-	for (unsigned int i = 0; i < 4; i++) {
+	for (unsigned int i = 0; i < 3; i++) {
 		status = clReleaseEvent( events[i] );
 		if (status != CL_SUCCESS) { sprintf(msg, "release event %d", i); PrintErrorReleaseEvent(status, msg); return(-1); }
 	}
@@ -216,13 +192,13 @@ int main(int argc, char *argv[])
 	gettimeofday(&time0, NULL);
 
 	// Multiply!
-	int *matrixC_test = (int*) malloc(B_COLS * A_ROWS * sizeof(int));
+	int *matrixC_test = (int*) malloc(A_COLS * A_ROWS * sizeof(int));
 	#pragma omp parallel for
-	for (unsigned int col = 0; col < B_COLS; col++) {
+	for (unsigned int col = 0; col < A_COLS; col++) {
 		for (unsigned row = 0; row < A_ROWS; row++) {
-			matrixC_test[row * B_COLS + col] = 0;
+			matrixC_test[row * A_COLS + col] = 0;
 			for (unsigned int i = 0; i < A_COLS; i++) {
-				matrixC_test[row * B_COLS + col] += matrixA_host[row * A_COLS + i] * matrixB_host[i * B_COLS + col];
+				matrixC_test[row * A_COLS + col] += matrixA_host[row * A_COLS + i] * matrixA_host[i * A_COLS + col];
 			}
 		}
 	}
@@ -241,7 +217,7 @@ int main(int argc, char *argv[])
 	
 	// Check for correctness
 	int error = 0;
-	unsigned int sizeC = B_COLS * A_ROWS;
+	unsigned int sizeC = A_COLS * A_ROWS;
 	for (unsigned int index = 0; index < sizeC; index++) {
 		error += matrixC_host[index] - matrixC_test[index];
 	}
@@ -258,20 +234,11 @@ int main(int argc, char *argv[])
 			printf("|\n");
 		}
 
-		printf("\nMatrix B:\n");
-		for (unsigned int i = 0; i < B_ROWS; i++) {
-			printf("|\t");
-			for (unsigned j = 0; j < B_COLS; j++) {
-				printf("%d\t", matrixB_host[B_COLS * i + j]);
-			}
-			printf("|\n");
-		}
-
 		printf("\nGPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
 			printf("|\t");
-			for (unsigned int col = 0; col < B_COLS; col++) {
-				printf("%d\t", matrixC_host[B_COLS * row + col]);
+			for (unsigned int col = 0; col < A_COLS; col++) {
+				printf("%d\t", matrixC_host[A_COLS * row + col]);
 			}
 			printf("|\n");
 		}
@@ -279,8 +246,8 @@ int main(int argc, char *argv[])
 		printf("\nCPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
 			printf("|\t");
-			for (unsigned int col = 0; col < B_COLS; col++) {
-				printf("%d\t", matrixC_test[B_COLS * row + col]);
+			for (unsigned int col = 0; col < A_COLS; col++) {
+				printf("%d\t", matrixC_test[A_COLS * row + col]);
 			}
 			printf("|\n");
 		}
@@ -295,7 +262,6 @@ int main(int argc, char *argv[])
 	
 	// Release OpenCL memory objects
 	clReleaseMemObject(matrixA_device);
-	clReleaseMemObject(matrixB_device);
 	clReleaseMemObject(matrixC_device);
 
 	// Release OpenCL zone (program, command queue, context)
@@ -303,7 +269,6 @@ int main(int argc, char *argv[])
 
 	// Free host resources
 	free(matrixA_host);
-	free(matrixB_host);
 	free(matrixC_host);
 	free(matrixC_test);
 	
