@@ -2,17 +2,17 @@
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define A_ROWS 2400
-#define A_COLS 170
+#define A_ROWS 5134
+#define A_COLS 97
 
-#define LWS_GPU_PREF_2D_X 32
-#define LWS_GPU_PREF_2D_Y 32
+#define LWS_GPU_PREF_2D_X 16
+#define LWS_GPU_PREF_2D_Y 16
 
 #define RANGE_MATRIX 4
 
 #define KERNEL_ID 2
 
-#define DEBUG 1
+#define DEBUG 0
 
 typedef struct matDims {
 	cl_uint rowsA;
@@ -226,44 +226,45 @@ int main(int argc, char *argv[])
 
 
 	if (DEBUG) {
-		FILE *fpA = fopen("A.tsv", "w");
-		FILE *fpC_GPU = fopen("CGPU.tsv", "w");
-		FILE *fpC_CPU = fopen("CCPU.tsv", "w");
-		//printf("\nMatrix A:\n");
+
+		FILE *fpA, *fpC_GPU, *fpC_CPU;
+		if (DEBUG == 2) {
+			fpA = fopen("A.tsv", "w");
+			fpC_GPU = fopen("CGPU.tsv", "w");
+			fpC_CPU = fopen("CCPU.tsv", "w");
+		}
+
+		if (DEBUG == 1) printf("\nMatrix A:\n");
 		for (unsigned int i = 0; i < A_ROWS; i++) {
-			//printf("|\t");
+			if (DEBUG == 1) printf("|\t");
 			for (unsigned j = 0; j < A_COLS; j++) {
-				//printf("%d\t", matrixA_host[A_COLS * i + j]);
-				fprintf(fpA, "%d\t", matrixA_host[A_COLS * i + j]);
+				DEBUG == 1 ? printf("%d\t", matrixA_host[A_COLS * i + j]) : fprintf(fpA, "%d\t", matrixA_host[A_COLS * i + j]);
 			}
-			//printf("|\n");
-			fprintf(fpA, "\n");
+			DEBUG == 1 ? printf("|\n") : fprintf(fpA, "\n");
 		}
 
-		//printf("\nGPU matrix C:\n");
+		if (DEBUG == 1) printf("\nGPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
-			//printf("|\t");
+			if (DEBUG == 1) printf("|\t");
 			for (unsigned int col = 0; col < A_ROWS; col++) {
-				//printf("%d\t", matrixC_host[A_ROWS * row + col]);
-				fprintf(fpC_GPU, "%d\t", matrixC_host[A_ROWS * row + col]);
+				DEBUG == 1 ? printf("%d\t", matrixC_host[A_ROWS * row + col]) : fprintf(fpC_GPU, "%d\t", matrixC_host[A_ROWS * row + col]);
 			}
-			//printf("|\n");
-			fprintf(fpC_GPU, "\n");
+			DEBUG == 1 ? printf("|\n") : fprintf(fpC_GPU, "\n");
 		}
 
-		//printf("\nCPU matrix C:\n");
+		if (DEBUG == 1) printf("\nCPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
-			//printf("|\t");
+			if (DEBUG == 1) printf("|\t");
 			for (unsigned int col = 0; col < A_ROWS; col++) {
-				//printf("%d\t", matrixC_test[A_ROWS * row + col]);
-				fprintf(fpC_CPU, "%d\t", matrixC_test[A_ROWS * row + col]);
+				DEBUG == 1 ? printf("%d\t", matrixC_test[A_ROWS * row + col]) : fprintf(fpC_CPU, "%d\t", matrixC_test[A_ROWS * row + col]);
 			}
-			fprintf(fpC_CPU, "\n");
-			//printf("|\n");
+			DEBUG == 1 ? printf("|\n") : fprintf(fpC_CPU, "\n");;
 		}
-		fclose(fpA);
-		fclose(fpC_GPU);
-		fclose(fpC_CPU);
+		if (DEBUG == 2) {
+			fclose(fpA);
+			fclose(fpC_GPU);
+			fclose(fpC_CPU);
+		}
 	}
 
 	/////////////////

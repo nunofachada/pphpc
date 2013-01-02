@@ -26,7 +26,7 @@ __kernel void matmult1(__global int * A, __global int * C, const MAT_DIMS d)
 /*
  * Matmult kernel coalesced loads
  */
-__kernel void matmult2(__global int * A, __global int * C, const MAT_DIMS d, __local int * rowsOfA, __local int * colsOfA)
+__kernel void matmult2(__global int * A, __global int * C, const MAT_DIMS d, __local int * tileOfA, __local int * tileOfAT)
 {
 	// Variable used to control reads from global memory into local memory
 	uint loops;
@@ -45,7 +45,20 @@ __kernel void matmult2(__global int * A, __global int * C, const MAT_DIMS d, __l
 	for (uint i = 0; i < loops; i++) {
 		uint tileCol = i * localCols + lCol;
 		if (tileCol < d.colsA)
-			rowsOfA[lRow * d.colsA + tileCol] = A[gRow * d.colsA + tileCol];
+			tileOfA[lRow * d.colsA + tileCol] = A[gRow * d.colsA + tileCol];
+	}
+
+	// Load of a tile of A^T into local memory (coalesced for width of work-group, localCols)
+	uint localRows = min(get_local_size(1), d.rowsA);
+	loops = (d.colsA % localRows == 0) ? (d.colsA / localRows) : (d.colsA / localRows + 1);
+	for (uint i = 0; i < loops; i++) {
+		uint stripSize = d.colsA * localCols;
+		uint globalPos = stripSize * get_group_id(0);
+		uint localPos = i * localCols * localRows;
+		uint localIndex = lRow * localCols + lCol;
+		uint globalIndex = globalPos + localPos + localIndex;
+		if (globalIndex < stripSize * (get_group_id(0) + 1))
+			tileOfAT[localPos + localIndex] = A[globalIndex];
 	}
 
 	// Sync. locally
@@ -57,8 +70,8 @@ __kernel void matmult2(__global int * A, __global int * C, const MAT_DIMS d, __l
 		// Multiply!
 		int sum = 0;
 		for (uint i = 0; i < d.colsA; i++) {
-			sum += rowsOfA[lRow * d.colsA + i] * A[gCol * d.colsA + i];
+			sum += tileOfA[lRow * d.colsA + i] * tileOfAT[lCol * d.colsA + i];
 		}
-		C[gRow * d.rowsA + gCol] = sum;
+		C[gRow * d.rowsA + gCol] = sum; //tileOfAT[get_local_size(0) * lRow + lCol];
 	}
 }
