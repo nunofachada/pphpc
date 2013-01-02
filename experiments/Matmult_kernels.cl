@@ -33,7 +33,7 @@ __kernel void matmult2(__global int * A, __global int * B, __global int * C, con
 	uint gRow = get_global_id(1); 
 	uint gCol = get_global_id(0);
 
-	// Global matrix position for this work-item
+	// Local matrix position for this work-item
 	uint lRow = get_local_id(1); 
 	uint lCol = get_local_id(0);
 		
@@ -73,7 +73,7 @@ __kernel void matmult3(__global int * A, __global int * B, __global int * C, con
 	uint gRow = get_global_id(1); 
 	uint gCol = get_global_id(0);
 
-	// Global matrix position for this work-item
+	// Local matrix position for this work-item
 	uint lRow = get_local_id(1); 
 	uint lCol = get_local_id(0);
 		

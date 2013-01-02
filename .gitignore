@@ -2,6 +2,7 @@
 .~*#
 .nfs*
 *.[oa]
+*.tsv
 bin/
 stats*.txt
 config.txt

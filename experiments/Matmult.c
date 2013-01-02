@@ -1,10 +1,10 @@
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define A_ROWS 11137
-#define A_COLS 180
+#define A_ROWS 4096
+#define A_COLS 128
 #define B_ROWS A_COLS
-#define B_COLS 11543
+#define B_COLS 8192
 
 #define LWS_GPU_PREF_2D_X 32
 #define LWS_GPU_PREF_2D_Y 32
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	int *matrixC_test = (int*) malloc(B_COLS * A_ROWS * sizeof(int));
 	#pragma omp parallel for
 	for (unsigned int col = 0; col < B_COLS; col++) {
-		for (unsigned row = 0; row < A_ROWS; row++) {
+		for (unsigned int row = 0; row < A_ROWS; row++) {
 			matrixC_test[row * B_COLS + col] = 0;
 			for (unsigned int i = 0; i < A_COLS; i++) {
 				matrixC_test[row * B_COLS + col] += matrixA_host[row * A_COLS + i] * matrixB_host[i * B_COLS + col];

@@ -2,17 +2,17 @@
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define A_ROWS 1234
-#define A_COLS 741
+#define A_ROWS 2400
+#define A_COLS 170
 
 #define LWS_GPU_PREF_2D_X 32
 #define LWS_GPU_PREF_2D_Y 32
 
-#define RANGE_MATRIX 100
+#define RANGE_MATRIX 4
 
-#define KERNEL_ID 1
+#define KERNEL_ID 2
 
-#define DEBUG 0
+#define DEBUG 1
 
 typedef struct matDims {
 	cl_uint rowsA;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	
 	lws_matmult[0] = LWS_GPU_PREF_2D_X;
 	lws_matmult[1] = LWS_GPU_PREF_2D_Y;
-	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) A_COLS) / LWS_GPU_PREF_2D_X);
+	gws_matmult[0] = LWS_GPU_PREF_2D_X * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_X);
 	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
 	
 	printf("\n------------------------------------------------\n");
@@ -106,13 +106,14 @@ int main(int argc, char *argv[])
 
 	size_t globalMemSizeInBytes = sizeMatrixAInBytes + sizeMatrixCInBytes;
 	printf("\nGlobal memory required        : %zu bytes (%zu Kb = %zu Mb)", globalMemSizeInBytes, globalMemSizeInBytes / 1024, globalMemSizeInBytes / 1024 / 1024);
-	size_t localMemSizeAInBytes = 0;
-	size_t localMemSizeBInBytes = 0;
+	size_t localMemSizeAInBytes = 0, localMemSizeATInBytes = 0;
 	
-	if (KERNEL_ID == 2)
-			localMemSizeAInBytes = lws_matmult[0] * lws_matmult[1] * sizeof(cl_int);
+	if (KERNEL_ID == 2) {
+		localMemSizeAInBytes = lws_matmult[1] * A_COLS * sizeof(cl_int);
+		localMemSizeATInBytes = lws_matmult[0] * A_COLS * sizeof(cl_int);
+	}
 	
-	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeAInBytes, (localMemSizeAInBytes + localMemSizeAInBytes) / 1024);
+	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeATInBytes, (localMemSizeAInBytes + localMemSizeATInBytes) / 1024);
 
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
@@ -132,7 +133,7 @@ int main(int argc, char *argv[])
 		status = clSetKernelArg(kernel_matmult, 3, localMemSizeAInBytes, NULL);
 		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
 
-		status = clSetKernelArg(kernel_matmult, 4, localMemSizeAInBytes, NULL);
+		status = clSetKernelArg(kernel_matmult, 4, localMemSizeATInBytes, NULL);
 		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
 	}
 	
@@ -171,9 +172,9 @@ int main(int argc, char *argv[])
 	// Event 0 - transfer matrix A to device
 	printf("Transfer matrix A to device   : %fms (%3.4f%%)\n", durationEvs[0] * 1e-6, 100*((double) durationEvs[0])/((double) totalEv));
 	// Event 1 - transfer matrix B to device
-	printf("Kernel execution (matmult)    : %fms (%3.4f%%)\n", durationEvs[2] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
+	printf("Kernel execution (matmult)    : %fms (%3.4f%%)\n", durationEvs[1] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
 	// Event 3 - transfer matrix C from device
-	printf("Transfer matrix C from device : %fms (%3.4f%%)\n\n", durationEvs[3] * 1e-6, 100*((double) durationEvs[2])/((double) totalEv));
+	printf("Transfer matrix C from device : %fms (%3.4f%%)\n\n", durationEvs[2] * 1e-6, 100*((double) durationEvs[2])/((double) totalEv));
 	// Total GPU time
 	printf("Total GPU time                : %fms\n\n", (double) totalEv * 1e-6);
 	
@@ -192,13 +193,13 @@ int main(int argc, char *argv[])
 	gettimeofday(&time0, NULL);
 
 	// Multiply!
-	int *matrixC_test = (int*) malloc(A_COLS * A_ROWS * sizeof(int));
+	int *matrixC_test = (int*) malloc(A_ROWS * A_ROWS * sizeof(int));
 	#pragma omp parallel for
-	for (unsigned int col = 0; col < A_COLS; col++) {
-		for (unsigned row = 0; row < A_ROWS; row++) {
-			matrixC_test[row * A_COLS + col] = 0;
+	for (unsigned int row = 0; row < A_ROWS; row++) {
+		for (unsigned int col = 0; col < A_ROWS; col++) {
+			matrixC_test[row * A_ROWS + col] = 0;
 			for (unsigned int i = 0; i < A_COLS; i++) {
-				matrixC_test[row * A_COLS + col] += matrixA_host[row * A_COLS + i] * matrixA_host[i * A_COLS + col];
+				matrixC_test[row * A_ROWS + col] += matrixA_host[row * A_COLS + i] * matrixA_host[col * A_COLS + i];
 			}
 		}
 	}
@@ -217,7 +218,7 @@ int main(int argc, char *argv[])
 	
 	// Check for correctness
 	int error = 0;
-	unsigned int sizeC = A_COLS * A_ROWS;
+	unsigned int sizeC = A_ROWS * A_ROWS;
 	for (unsigned int index = 0; index < sizeC; index++) {
 		error += matrixC_host[index] - matrixC_test[index];
 	}
@@ -225,32 +226,44 @@ int main(int argc, char *argv[])
 
 
 	if (DEBUG) {
-		printf("\nMatrix A:\n");
+		FILE *fpA = fopen("A.tsv", "w");
+		FILE *fpC_GPU = fopen("CGPU.tsv", "w");
+		FILE *fpC_CPU = fopen("CCPU.tsv", "w");
+		//printf("\nMatrix A:\n");
 		for (unsigned int i = 0; i < A_ROWS; i++) {
-			printf("|\t");
+			//printf("|\t");
 			for (unsigned j = 0; j < A_COLS; j++) {
-				printf("%d\t", matrixA_host[A_COLS * i + j]);
+				//printf("%d\t", matrixA_host[A_COLS * i + j]);
+				fprintf(fpA, "%d\t", matrixA_host[A_COLS * i + j]);
 			}
-			printf("|\n");
+			//printf("|\n");
+			fprintf(fpA, "\n");
 		}
 
-		printf("\nGPU matrix C:\n");
+		//printf("\nGPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
-			printf("|\t");
-			for (unsigned int col = 0; col < A_COLS; col++) {
-				printf("%d\t", matrixC_host[A_COLS * row + col]);
+			//printf("|\t");
+			for (unsigned int col = 0; col < A_ROWS; col++) {
+				//printf("%d\t", matrixC_host[A_ROWS * row + col]);
+				fprintf(fpC_GPU, "%d\t", matrixC_host[A_ROWS * row + col]);
 			}
-			printf("|\n");
+			//printf("|\n");
+			fprintf(fpC_GPU, "\n");
 		}
 
-		printf("\nCPU matrix C:\n");
+		//printf("\nCPU matrix C:\n");
 		for (unsigned row = 0; row < A_ROWS; row++) {
-			printf("|\t");
-			for (unsigned int col = 0; col < A_COLS; col++) {
-				printf("%d\t", matrixC_test[A_COLS * row + col]);
+			//printf("|\t");
+			for (unsigned int col = 0; col < A_ROWS; col++) {
+				//printf("%d\t", matrixC_test[A_ROWS * row + col]);
+				fprintf(fpC_CPU, "%d\t", matrixC_test[A_ROWS * row + col]);
 			}
-			printf("|\n");
+			fprintf(fpC_CPU, "\n");
+			//printf("|\n");
 		}
+		fclose(fpA);
+		fclose(fpC_GPU);
+		fclose(fpC_CPU);
 	}
 
 	/////////////////
