@@ -1,4 +1,5 @@
-#define STRIDE 16
+// If STRIDE=16 there will be lots of bank conflicts and kernel will be slower
+#define STRIDE 2
 
 /*
  * Testing bank conflicts
@@ -22,10 +23,8 @@ __kernel void bankconf(__global int * globalData, __local int * localData)
 	
 	// Do some conflicts!
 	int sum = 0;
-	for (uint i = 0; i < 10000; i++) {
-		uint next = lIndex + i*STRIDE;
-		next = next % lTotElems;
-		sum += localData[next];
+	for (uint i = 0; i < 10; i++) {
+		sum += localData[lCol * STRIDE + i];
 	}
 
 	// Copy to global memory

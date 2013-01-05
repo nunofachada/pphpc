@@ -3,8 +3,8 @@
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define WS_X 1024
-#define WS_Y 1024
+#define WS_X 4096
+#define WS_Y 4096
 
 #define LWS_GPU_PREF_2D_X 32
 #define LWS_GPU_PREF_2D_Y 32

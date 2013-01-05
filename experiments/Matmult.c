@@ -112,8 +112,8 @@ int main(int argc, char *argv[])
 	gws_matmult[1] = LWS_GPU_PREF_2D_Y * ceil(((float) A_ROWS) / LWS_GPU_PREF_2D_Y);
 	
 	printf("\n------------------------------------------------\n");
-	printf("Local work size  : (%zu, %zu)\n", lws_matmult[0], lws_matmult[1]);
-	printf("Global work size : (%zu, %zu)\n", gws_matmult[0], gws_matmult[1]);
+	printf("Local work size  : (%lu, %lu)\n", (unsigned long) lws_matmult[0], (unsigned long) lws_matmult[1]);
+	printf("Global work size : (%lu, %lu)\n", (unsigned long) gws_matmult[0], (unsigned long) gws_matmult[1]);
 	printf("------------------------------------------------\n\n");
 	
 	/////////////////////////////////////////
@@ -121,7 +121,10 @@ int main(int argc, char *argv[])
 	/////////////////////////////////////////
 
 	size_t globalMemSizeInBytes = sizeMatrixAInBytes + sizeMatrixBInBytes + sizeMatrixCInBytes;
-	printf("\nGlobal memory required        : %zu bytes (%zu Kb = %zu Mb)", globalMemSizeInBytes, globalMemSizeInBytes / 1024, globalMemSizeInBytes / 1024 / 1024);
+	printf("\nGlobal memory required        : %lu bytes (%lu Kb = %lu Mb)", 
+		(unsigned long) globalMemSizeInBytes, 
+		(unsigned long) (globalMemSizeInBytes / 1024), 
+		(unsigned long) (globalMemSizeInBytes / 1024 / 1024));
 	size_t localMemSizeAInBytes = 0;
 	size_t localMemSizeBInBytes = 0;
 	
@@ -130,7 +133,9 @@ int main(int argc, char *argv[])
 	if (KERNEL_ID >= 3)
 			localMemSizeBInBytes = lws_matmult[0] * B_ROWS * sizeof(cl_int);
 	
-	printf("\nLocal memory required         : %zu bytes (%zu Kb)\n\n", localMemSizeAInBytes + localMemSizeBInBytes, (localMemSizeAInBytes + localMemSizeBInBytes) / 1024);
+	printf("\nLocal memory required         : %lu bytes (%lu Kb)\n\n", 
+		(unsigned long) (localMemSizeAInBytes + localMemSizeBInBytes), 
+		(unsigned long) ((localMemSizeAInBytes + localMemSizeBInBytes) / 1024));
 
 	/////////////////////////////////
 	//  Set fixed kernel arguments //
