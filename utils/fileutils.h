@@ -2,4 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-char* importKernel( const char * filename );
+char* loadSource( const char * filename );
+
+void freeSource( char* );

@@ -1,30 +1,28 @@
 /*** Functions to import OpenCL kernels ***/
 #include "fileutils.h"
 
-char* importKernel( const char * filename ) 
+char* loadSource( const char * filename ) 
 {
 	FILE * fp = fopen(filename, "r");
+	char * sourcetmp;
 
 	if (!fp) {
-		char * sourcetmp = (char*) malloc(sizeof(char));
+		sourcetmp = (char*) malloc(sizeof(char));
 		sourcetmp[0] = '\0';
 		return sourcetmp;
 	}
 	
 	fseek(fp, 0L, SEEK_END);
-	int kernel_size = (int) ftell(fp);
-	char * sourcetmp = (char*) malloc((kernel_size + 1)*sizeof(char));
+	int prog_size = (int) ftell(fp);
+	sourcetmp = (char*) malloc((prog_size + 1)*sizeof(char));
 	rewind(fp);
-	int ch;
-	int cnt = 0;
-	while((ch = fgetc(fp)) != EOF) {
-		sourcetmp[cnt] = (char) ch;
-		cnt++;
-	}
-	sourcetmp[cnt] = '\0';
+	fread(sourcetmp, sizeof(char), prog_size, fp);
+	sourcetmp[prog_size] = '\0';
 	fclose(fp);
 	return sourcetmp;
 }
 
-
+void freeSource( char* source) {
+	free(source);
+}
 

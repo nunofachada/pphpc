@@ -215,6 +215,7 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues
 	zone.context = context;
 	
 	// Create the specified command queues on that device
+	zone.numQueues = numQueues;
 	zone.queues = (cl_command_queue*) malloc(numQueues * sizeof(cl_command_queue));
 	for (unsigned int i = 0; i < numQueues; i++) {
 		cl_command_queue queue = clCreateCommandQueue( context, zone.device, queue_properties, &status );
@@ -223,24 +224,31 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues
 	}
 	
 	// Import kernels
-	const char * source1 = importKernel("PredPreyCommon_Kernels.cl");
-	const char * source2 = importKernel(kernels_file);
-	const char ** source = (const char**) malloc(2 * sizeof(const char*));
+	char * source1 = loadSource("PredPreyCommon_Kernels.cl");
+	char * source2 = loadSource(kernels_file);
+	char ** source = (char**) malloc(2 * sizeof(char*));
 	source[0] = source1;
 	source[1] = source2;
 	
 	// Create program and perform runtime source compilation
-	cl_program program = clCreateProgramWithSource( zone.context, 2, source, NULL, &status );
+	cl_program program = clCreateProgramWithSource( zone.context, 2, (const char**) source, NULL, &status );
+	freeSource(source1); freeSource(source2); free(source);
 	if (status != CL_SUCCESS) { PrintErrorCreateProgramWithSource(status, NULL); exit(-1); }
 	status = clBuildProgram( program, 1, &zone.device, NULL, NULL, NULL );
 	if (status != CL_SUCCESS) {
+		size_t logsize;
 		PrintErrorBuildProgram( status, NULL );
-		//exit(-1);
-		char buildLog[15000];
-		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, 15000*sizeof(char), buildLog, NULL);
-		if (status == CL_SUCCESS) printf("******************** Start of Build Log *********************:\n\n%s\n******************** End of Build Log *********************\n", buildLog);
-		else PrintErrorGetProgramBuildInfo(status, NULL);
-		exit(-1);
+		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logsize);
+		if (status != CL_SUCCESS) PrintErrorGetProgramBuildInfo(status, NULL);
+		char * buildLog = (char*) malloc(logsize + 1);
+		buildLog[logsize] = '\0';
+		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, logsize + 1, buildLog, NULL);
+		if (status == CL_SUCCESS) 
+			printf("******************** Start of Build Log *********************:\n\n%s\n******************** End of Build Log *********************\n", buildLog);
+		else 
+			PrintErrorGetProgramBuildInfo(status, NULL);
+		free(buildLog);
+		exit(EXIT_FAILURE);
 	}
 	zone.program = program;
 
@@ -250,10 +258,10 @@ CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues
 
 // Destroy a CL zone
 void destroyClZone(CLZONE zone) {
-    if (zone.program) clReleaseProgram(zone.program);
-    for (unsigned int i = 0; i < zone.numQueues; i++)
+	for (unsigned int i = 0; i < zone.numQueues; i++)
 		if (zone.queues[i]) clReleaseCommandQueue(zone.queues[i]);
 	free(zone.queues);
-    if (zone.context) clReleaseContext(zone.context);
+	if (zone.program) clReleaseProgram(zone.program);
+	if (zone.context) clReleaseContext(zone.context);
 }
 

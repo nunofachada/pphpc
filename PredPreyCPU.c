@@ -412,16 +412,16 @@ int main(int argc, char ** argv)
 	// 12. Free stuff!
 	printf("Press enter to free memory...");
 	getchar();
+	// Release memory objects
+	if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
+	if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
+	if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
+	if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
 	// Release kernels
 	if (step1_kernel) clReleaseKernel(step1_kernel);  
 	if (step2_kernel) clReleaseKernel(step2_kernel);
-    // Release memory objects
-    if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
-    if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
-    if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
-    if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
-    // Release program, command queues and context
-    destroyClZone(zone);
+	// Release program, command queues and context
+	destroyClZone(zone);
 
 	printf("Press enter to bail out...");
 	getchar();
