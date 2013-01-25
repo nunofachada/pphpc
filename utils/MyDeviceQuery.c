@@ -28,6 +28,7 @@ int main(int argc, char ** argv)
 		cl_device_type dtypeaux;
 		cl_device_local_mem_type dlmt;
 		cl_bool boolaux;
+		cl_command_queue_properties cqpaux;
 		clGetPlatformInfo(platforms[i], CL_PLATFORM_VENDOR, sizeof(pbuff), pbuff, NULL);
 		printf("Platform #%d: %s\n", i, pbuff);
 		// Get devices in platform
@@ -55,6 +56,35 @@ int main(int argc, char ** argv)
 			printf("\t           Local mem. size (type): %ld Kb (%s)\n", (unsigned long int) ulongaux / 1024l, (dlmt == CL_LOCAL ? "local" : "global"));
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(sizetaux), &sizetaux, NULL);
 			printf("\t           Max. work-group size: %d\n", (int) sizetaux);
+			// Print extra info if any arg is given
+			if (argc > 1) {
+
+				clGetDeviceInfo(devices[j], CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(ulongaux), &ulongaux, NULL);
+				printf("\t           Max. constant buffer size: %ld Kb\n", ulongaux / 1024l);
+
+				clGetDeviceInfo(devices[j], CL_DEVICE_ENDIAN_LITTLE, sizeof(boolaux), &boolaux, NULL);
+				printf("\t           Endianness: %s\n", boolaux ? "Little" : "Big");
+				
+				printf("\t           Pref. vec. width:");
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, sizeof(uintaux), &uintaux, NULL);
+				printf(" Char=%d,", uintaux);
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_SHORT, sizeof(uintaux), &uintaux, NULL);
+				printf(" Short=%d,", uintaux);
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, sizeof(uintaux), &uintaux, NULL);
+				printf(" Long=%d,", uintaux);
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, sizeof(uintaux), &uintaux, NULL);
+				printf(" Float=%d,", uintaux);
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE, sizeof(uintaux), &uintaux, NULL);
+				printf(" Double=%d,", uintaux);
+				clGetDeviceInfo(devices[j], CL_DEVICE_PREFERRED_VECTOR_WIDTH_HALF, sizeof(uintaux), &uintaux, NULL);
+				printf(" Half=%d.\n", uintaux);
+
+				clGetDeviceInfo(devices[j], CL_DEVICE_QUEUE_PROPERTIES, sizeof(cqpaux), &cqpaux, NULL);
+				printf("\t           Command queue properties:");
+				if (cqpaux & CL_QUEUE_PROFILING_ENABLE) printf(" Prof. OK,"); else printf("Prof. KO,");
+				if (cqpaux & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) printf(" Out-of-order OK\n"); else printf(" Out-of-order KO\n");
+
+			}
 
 		}
 	}
