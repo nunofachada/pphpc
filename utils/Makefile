@@ -7,12 +7,18 @@ OBJDIR = obj
 BUILDDIR = bin
 CLLIBDIR=-L$$AMDAPPSDKROOT/lib/x86_64
  
-all: mkdirs MyDeviceQuery clerrors.o fileutils.o bitstuff.o clinfo.o
+all: mkdirs MyDeviceQuery kernelInfo clerrors.o fileutils.o bitstuff.o clinfo.o
 	
 MyDeviceQuery: MyDeviceQuery.o clinfo.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(patsubst %,$(OBJDIR)/%,$^) $(CLINCLUDES) $(CLLIB) $(CLLIBDIR) -o $(BUILDDIR)/$@
 	
 MyDeviceQuery.o: MyDeviceQuery.c
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
+	
+kernelInfo: kernelInfo.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(patsubst %,$(OBJDIR)/%,$^) $(CLINCLUDES) $(CLLIB) $(CLLIBDIR) -o $(BUILDDIR)/$@
+	
+kernelInfo.o: kernelInfo.c
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
 	
 clerrors.o: clerrors.c clerrors.h

@@ -1,13 +1,13 @@
 #include "../PredPreyCommon.h"
 #include <omp.h>
 
-#define A_ROWS 4096
-#define A_COLS 128
+#define A_ROWS 512
+#define A_COLS 256
 #define B_ROWS A_COLS
-#define B_COLS 8192
+#define B_COLS 1024
 
-#define LWS_GPU_PREF_2D_X 32
-#define LWS_GPU_PREF_2D_Y 32
+#define LWS_GPU_PREF_2D_X 8
+#define LWS_GPU_PREF_2D_Y 8
 
 #define RANGE_MATRIX 100
 
