@@ -9,26 +9,17 @@
 #define LWS_GPU_PREF_2D_X 16
 #define LWS_GPU_PREF_2D_Y 8
 
-#define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
-
-#define ITERS_STATS_TRANSFER 500
-
 // Global work sizes
 size_t grass_gws[2];
-size_t grasscount1_gws;
-size_t grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
+size_t grasscount_gws;
 
 // Local work sizes
 size_t grass_lws[2];
-size_t grasscount1_lws;
-size_t grasscount2_lws;
-
-int effectiveNextGrassToCount[MAX_GRASS_COUNT_LOOPS];
+size_t grasscount_lws;
 
 // Kernels
 cl_kernel grass_kernel;
-cl_kernel countgrass1_kernel;
-cl_kernel countgrass2_kernel;
+cl_kernel countgrass_kernel;
 
 // Main stuff
 int main(int argc, char ** argv)
@@ -50,6 +41,9 @@ int main(int argc, char ** argv)
 	cl_int status;
 	char msg[MAX_AUX_BUFF];
 	
+	// Events
+	cl_event ev_writeGrass, ev_writeRng, ev_grass, ev_readStats;
+	
 	// Timmings
 	struct timeval time1, time0;
 	
@@ -66,19 +60,13 @@ int main(int argc, char ** argv)
 	PARAMS params = loadParams(CONFIG_FILE);
 
 	// Compute work sizes for different kernels and print them to screen
-	unsigned int numGrassCount2Loops;
-	computeWorkSizes(params, zone.device_type, zone.cu, &numGrassCount2Loops);	
-	printFixedWorkSizes(numGrassCount2Loops);
+	computeWorkSizes(params);
+	unsigned int numGrassCountLoops =  tzc(nlpo2(grasscount_gws)) / tzc(nlpo2(grasscount_lws));
+	printFixedWorkSizes(numGrassCountLoops);
 
-	// Events
-	EVENTS_CL* events = newEventsCL(numGrassCount2Loops);
-	
 	// Obtain kernels entry points
 	getKernelEntryPoints(zone.program);
-	
-	// Show kernel info - this should then influence the stuff above
-	showKernelInfo(zone);
-	
+
 	////////////////////////////////////////
 	// Create and initialize host buffers //
 	////////////////////////////////////////
@@ -105,12 +93,8 @@ int main(int argc, char ** argv)
 	// Create device buffers //
 	///////////////////////////
 
-	// Iteration counter in device memory
-	cl_mem iterDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "iterDevice"); return(-1); }
-	
-	// Statistics kept in device memory before transfer to host
-	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, ITERS_STATS_TRANSFER * sizeof(STATS), NULL, &status );
+	// Statistics in device memory
+	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sizeof(STATS), NULL, &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
 
 	// Grass matrix
@@ -129,13 +113,10 @@ int main(int argc, char ** argv)
 	// Initialize device buffers //
 	///////////////////////////////
 	
-	status = clEnqueueWriteBuffer (	zone.queues[0], iterDevice, CL_FALSE, 0, sizeof(cl_uint), &iter, 0, NULL, &(events->writeIter) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "iterDevice"); return(-1); }
-
-	status = clEnqueueWriteBuffer (	zone.queues[0], grassMatrixDevice, CL_FALSE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, &(events->writeGrass) );
+	status = clEnqueueWriteBuffer (	zone.queues[0], grassMatrixDevice, CL_FALSE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, &ev_writeGrass) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "grassMatrixDevice"); return(-1); }
 	
-	status = clEnqueueWriteBuffer (	zone.queues[0], rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &(events->writeRng) );
+	status = clEnqueueWriteBuffer (	zone.queues[0], rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &ev_writeRng) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "rngSeedsDevice"); return(-1); }
 
 	/////////////////////////////////
@@ -151,31 +132,31 @@ int main(int argc, char ** argv)
 
 
 	// Count grass
-	setCountGrassKernelArgs(grassMatrixDevice, grassCountDevice, statsDevice, iterDevice, sim_params);
+	setCountGrassKernelArgs(grassMatrixDevice, grassCountDevice, statsDevice, sim_params);
 	
 	//////////////////
 	//  SIMULATION! //
 	//////////////////
 	
 	// Guarantee all memory transfers are performed
-	cl_event writeEvents[3];
-	writeEvents[0] = events->writeIter;
-	writeEvents[1] = events->writeGrass;
-	writeEvents[2] = events->writeRng;
+	cl_event writeEvents[2];
+	writeEvents[0] = ev_writeGrass;
+	writeEvents[1] = ev_writeRng;
 	
-	status = clWaitForEvents(3, writeEvents);
+	status = clWaitForEvents(2, writeEvents);
 	if (status != CL_SUCCESS) { PrintErrorWaitForEvents(status, "write events"); return(-1); }
 	
 #ifdef CLPROFILER
 		// Update data transfer profiling info
-		updateSetupProfile(profiling, events);
+		updateEventProfile(profiling, "writeGrass", ev_writeGrass);
+		updateEventProfile(profiling, "writeRng", ev_writeRng);
 #endif
 	
 	// Release data transfer events	
-	status = clReleaseEvent( events->writeGrass );
+	status = clReleaseEvent( ev_writeGrass );
 	if (status != CL_SUCCESS) { PrintErrorReleaseEvent(status, "write grass"); return(-1); }
 	
-	status = clReleaseEvent( events->writeRng );
+	status = clReleaseEvent( ev_writeRng );
 	if (status != CL_SUCCESS) { PrintErrorReleaseEvent(status, "write rng"); return(-1); }
 	
 	// SIMULATION LOOP
@@ -185,10 +166,33 @@ int main(int argc, char ** argv)
 		
 		//printf("Grass kernel iter %d\n", iter);
 		// Grass kernel: grow grass, set number of prey to zero
-		status = clEnqueueNDRangeKernel( zone.queues[1], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &(events->grass));
+		status = clEnqueueNDRangeKernel( zone.queues[1], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &ev_grass));
 		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d, gws=%d lws=%d ", iter, (int) *grass_gws, (int) *grass_lws); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
+/*
 		///// Gather statistics //////
+		size_t grasscount_gws_loop = grasscount_gws;
+		size_t grasscount_lws_loop = grasscount_lws;
+		for (unsigned int i = 0; i < numGrassCountLoops) {
+			status = clEnqueueBarrier(zone.queues[1]);
+			if (status != CL_SUCCESS) { sprintf(msg, "in grass count loops, iteration %d", iter); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+			status = clEnqueueNDRangeKernel( 
+				zone.queues[1], 
+				countgrass_kernel, 
+				1, 
+				NULL,
+				&grasscount2_gws_loops, 
+				&grasscount2_lws_loops, 
+				0, 
+				NULL, 
+				events->grasscount + i
+			);
+			if (status != CL_SUCCESS) { sprintf(msg, "countgrass_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
+			grasscount_gws_loop = grasscount_gws_loop / grasscount_lws_loop;
+			grasscount_lws_loop = grasscount_gws_loop < grasscount_lws_loop ? grasscount_gws_loop : grasscount_lws_loop;
+			
+		}
+
 		
 		//printf("Count grass 1 iter %d\n", iter);
 		// Count grass, part 1
@@ -221,18 +225,12 @@ int main(int argc, char ** argv)
 
 		}
 		
-		// Check if its time to read back statistics
-		char willReadStats = (iter % ITERS_STATS_TRANSFER == 0) || (iter == params.iters);
+		// Get statistics 
+		//printf("Read back stats iter %d, will read %d iters of stats\n", iter, numItersToRead);
+		status = clEnqueueReadBuffer ( zone.queues[0], statsDevice, CL_FALSE, 0, sizeof(STATS), statsArray + iter - 1, 0, NULL, &(events->readStats));
+		if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorEnqueueReadWriteBuffer(status, msg); return(-1); }
 		
-		// Copy statistics back if it's the right time
-		if (willReadStats) {
-			unsigned int numItersToRead = (iter % ITERS_STATS_TRANSFER == 0) ? ITERS_STATS_TRANSFER : iter % ITERS_STATS_TRANSFER;
-			//printf("Read back stats iter %d, will read %d iters of stats\n", iter, numItersToRead);
-			status = clEnqueueReadBuffer ( zone.queues[0], statsDevice, CL_FALSE, 0, numItersToRead * sizeof(STATS), statsArray + 1 + iter - numItersToRead, 0, NULL, &(events->readStats));
-			if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorEnqueueReadWriteBuffer(status, msg); return(-1); }
-		}
-		
-
+*/
 		// WE CAN OPTIMIZE THIS WITHOUT BARRIER OR CLFINISH, AND START NEW ITERATION EVEN IF STATISTICS ARE NOT YET BACK (if profiling is off)
 		// Guarantee all tasks in queue are terminated...
 		status = clFinish(zone.queues[0]); 
@@ -241,22 +239,22 @@ int main(int argc, char ** argv)
 
 #ifdef CLPROFILER
 		// Update simulation profiling info
-		updateSimProfile(profiling, events, willReadStats);
+		updateEventProfile(profiling, "grass", ev_grass);
+
 #endif
+		status = clReleaseEvent( ev_grass );
+		if (status != CL_SUCCESS) { sprintf(msg, "grass, iteration %d", iter); PrintErrorReleaseEvent(status, msg); return(-1); }
 		
 		// Release current iteration events
-		if (willReadStats) {
-			status = clReleaseEvent( events->readStats );
-			if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorReleaseEvent(status, msg); return(-1); }
-		}
-		
+/*		status = clReleaseEvent( events->readStats );
+		if (status != CL_SUCCESS) { sprintf(msg, "read stats, iteration %d", iter); PrintErrorReleaseEvent(status, msg); return(-1); }
 		status = clReleaseEvent( events->grass );
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1, iteration %d", iter); PrintErrorReleaseEvent(status, msg); return(-1); }
 		
 		for (int i = 0; i < numGrassCount2Loops; i++) {
 			status = clReleaseEvent( *(events->grasscount2 + i) );
 			if (status != CL_SUCCESS) { sprintf(msg, "countgrass2, iteration %d", iter); PrintErrorReleaseEvent(status, msg); return(-1); }
-		}
+		}*/
 
 	
 		
@@ -312,25 +310,15 @@ int main(int argc, char ** argv)
 }
 
 // Compute worksizes depending on the device type and number of available compute units
-void computeWorkSizes(PARAMS params, cl_uint device_type, cl_uint cu, unsigned int* numGrassCount2Loops) {
+void computeWorkSizes(PARAMS params) {
 	// grass growth worksizes
 	grass_lws[0] = LWS_GPU_PREF_2D_X;
 	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
 	grass_lws[1] = LWS_GPU_PREF_2D_Y;
 	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
 	// grass count worksizes
-	grasscount1_lws = LWS_GPU_MAX;
-	grasscount1_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
-	grasscount2_lws = LWS_GPU_MAX;
-	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
-	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
-	// Determine number of loops of secondary count required to perform complete reduction
-	*numGrassCount2Loops = 1;
-	while ( grasscount2_gws[*numGrassCount2Loops - 1] > grasscount2_lws) {
-		effectiveNextGrassToCount[*numGrassCount2Loops] = grasscount2_gws[*numGrassCount2Loops - 1] / grasscount2_lws;
-		grasscount2_gws[*numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[*numGrassCount2Loops]) / LWS_GPU_MAX);
-		(*numGrassCount2Loops)++;
-	}
+	grasscount_lws = LWS_GPU_MAX;
+	grasscount_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
 	
 }
 
@@ -356,20 +344,6 @@ void getKernelEntryPoints(cl_program program) {
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass1 kernel"); exit(EXIT_FAILURE); }
 	countgrass2_kernel = clCreateKernel( program, "CountGrass2", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass2 kernel"); exit(EXIT_FAILURE); }
-}
-
-// Show kernel info
-void showKernelInfo(CLZONE zone) {
-	KERNEL_WORK_GROUP_INFO kwgi;
-	printf("\n-------- grass_kernel information --------\n");	
-	getWorkGroupInfo(grass_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
-	printf("\n-------- countgrass1_kernel information --------\n");	
-	getWorkGroupInfo(countgrass1_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
-	printf("\n-------- countgrass2_kernel information --------\n");	
-	getWorkGroupInfo(countgrass2_kernel, zone.device, &kwgi);
-	printWorkGroupInfo(kwgi);
 }
 
 // Initialize statistics array in host
@@ -434,7 +408,7 @@ void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params) {
 }
 
 // Set grass count kernels fixed parameters
-void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, cl_mem iterDevice, SIM_PARAMS sim_params) {
+void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, SIM_PARAMS sim_params) {
 	
 	cl_uint status;
 
@@ -461,12 +435,7 @@ void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, 
 	status = clSetKernelArg(countgrass2_kernel, 3, sizeof(cl_mem), (void *) &statsDevice);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 	
-	status = clSetKernelArg(countgrass2_kernel, 4, sizeof(cl_mem), (void *) &iterDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 
-	cl_uint iterStatsTransfer = ITERS_STATS_TRANSFER;
-	status = clSetKernelArg(countgrass2_kernel, 5, sizeof(cl_uint), (void *) &iterStatsTransfer);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 5 of countgrass2 kernel"); exit(EXIT_FAILURE); }
 
 }
 

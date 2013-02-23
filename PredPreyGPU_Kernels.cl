@@ -1,5 +1,3 @@
-
-
 typedef struct cell {
 	uint grass;
 	ushort numpreys_start;
@@ -18,7 +16,7 @@ typedef struct sim_params {
 /*
  * Grass kernel
  */
-__kernel void Grass(__global CELL * matrix, 
+__kernel void grass(__global CELL * matrix, 
 			const SIM_PARAMS sim_params,
 			__global ulong * seeds)
 {
@@ -43,6 +41,14 @@ __kernel void Grass(__global CELL * matrix,
 	}
 }
 
+__kernel void countGrass(__global CELL * grass,
+			__global uint * gcounter,
+			__local uint * lcounter,
+			const SIM_PARAMS sim_params)
+
+
+
+// OLD REDUCTION CODE, REMOVE
 /*
  * Reduction code for grass count kernels
  */
@@ -91,9 +97,7 @@ __kernel void CountGrass1(__global CELL * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global STATS * stats,
-			__global unsigned int * iter,
-			const uint iterStatsTransfer)
+			__global STATS * stats)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -107,14 +111,12 @@ __kernel void CountGrass2(__global uint * gcounter,
 	if (lid == 0) {
 		gcounter[wgid] = lcounter[lid];
 		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats[*iter % iterStatsTransfer].grass = lcounter[0];
+			stats[0].grass = lcounter[0];
 			
 			// REMOVE THIS
-			stats[*iter % iterStatsTransfer].sheep = 0;
-			stats[*iter % iterStatsTransfer].wolves = 0;
+			stats[0].sheep = 0;
+			stats[0].wolves = 0;
 			
-			// Increment iteration
-			(*iter)++;
 		}
 	}
 
