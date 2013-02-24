@@ -1,33 +1,9 @@
 #include "PredPreyGPUProfiler.h"
 
 /** 
- * TODO REMOVE
- * Creates a new event ID.
- *
- * @param id The ID to set.
- * @return A new event ID or NULL if operation failed. 
+ * @detail Create a new OpenCL events profile.
  */
-ProfCLEid profcl_eid_new(guint id) {
-	ProfCLEid eid = (profcl_eid) malloc(sizeof(guint));
-	return eid;
-}
-
-/** 
- * TODO REMOVE
- * Frees an event ID.
- * 
- * @param eid A unique event ID. 
- */
- void profcl_eid_free(ProfCLEid eid) {
-	free(eid);
-}
-
-/** 
- * Create a new OpenCL events profile.
- * 
- * @return A new profile or NULL if operation failed. 
- */
-ProfEvCL* profcl_profile_new() {
+ProfCLProfile* profcl_profile_new() {
 	
 	/* Allocate memory for new profile data structure. */
 	ProfCLProfile* profile = (ProfCLProfile*) malloc(sizeof(ProfCLProfile));
@@ -47,9 +23,7 @@ ProfEvCL* profcl_profile_new() {
 }
 
 /** 
- * Free an OpenCL events profile.
- * 
- * @param profile OpenCL events profile to destroy. 
+ * @detail Free an OpenCL events profile.
  */
 void profcl_profile_free(ProfCLProfile* profile) {
 	/* Destroy table of unique events. */
@@ -61,16 +35,8 @@ void profcl_profile_free(ProfCLProfile* profile) {
 }
 
 /**
- * Add OpenCL event to events profile.
- * 
- * Add OpenCL event to events profile, more specifically adds the start
+ * @detail Add OpenCL event to events profile, more specifically adds the start
  * and end instants of the given event to the profile.
- * 
- * @param profile OpenCL events profile.
- * @param event_name Event name.
- * @param ev CL event data structure.
- * @return CL_SUCCESS if operation successful, or a flag returned by 
- *          clGetEventProfilingInfo otherwise.
  */ 
 cl_uint profcl_profile_add(ProfCLProfile* profile, const char* event_name, cl_event ev) {
 	
@@ -80,10 +46,10 @@ cl_uint profcl_profile_add(ProfCLProfile* profile, const char* event_name, cl_ev
 	cl_ulong instant;
 	
 	/* Check if event is already registered in the unique events table... */
-	if (!g_hash_table_lookup_extended(profile->unique_events, event_name, NULL, NULL) {
+	if (!g_hash_table_contains(profile->unique_events, event_name)) {
 		/* ...if not, register it. */
-		ProfCLEid unique_event_id = GUINT_TO_POINTER(g_hash_table_size(profile->unique_events));
-		g_hash_table_insert(profile->unique_events, event_name, unique_event_id);
+		guint* unique_event_id = GUINT_TO_POINTER(g_hash_table_size(profile->unique_events));
+		g_hash_table_insert(profile->unique_events, (gpointer) event_name, (gpointer) unique_event_id);
 	}
 	
 	/* Update number of event instants, and get an ID for the given event. */
@@ -107,15 +73,9 @@ cl_uint profcl_profile_add(ProfCLProfile* profile, const char* event_name, cl_ev
 }
 
 /** 
- * Create new event instant.
- * 
- * @param eventName Name of event.
- * @param id Id of event.
- * @param instant Even instant in nanoseconds.
- * @param type Type of event instant: PROFCL_EV_START or PROFCL_EV_END
- * @return A new event instant or NULL if operation failed.
+ * @detail Create new event instant.
  */
-ProfCLEvInst* profcl_evinst_new(char* eventName, guint id, cl_ulong instant, ProfCLEvInstType type) {
+ProfCLEvInst* profcl_evinst_new(const char* eventName, guint id, cl_ulong instant, ProfCLEvInstType type) {
 	
 	/* Allocate memory for event instant data structure. */
 	ProfCLEvInst* event_instant = (ProfCLEvInst*) malloc(sizeof(ProfCLEvInst));
@@ -123,7 +83,7 @@ ProfCLEvInst* profcl_evinst_new(char* eventName, guint id, cl_ulong instant, Pro
 	if (event_instant != NULL) {
 		/* ...initialize structure fields. */
 		event_instant->eventName = eventName;
-		event_instant->id = profcl_eid_new(id);
+		event_instant->id = id;
 		event_instant->instant = instant;
 		event_instant->type = type;
 	}
@@ -132,49 +92,34 @@ ProfCLEvInst* profcl_evinst_new(char* eventName, guint id, cl_ulong instant, Pro
 }
 
 /**
- * Free an event instant.
- * 
- * @param event_instant Event instant to destroy. 
+ * @detail Free an event instant.
  */
-void profcl_evinst_free(ProfCLEvInst* event_instant) {
-	profcl_eid_free(event_instant->id);
+void profcl_evinst_free(gpointer event_instant) {
 	free(event_instant);
 }
 
 /**
- * Compares two event instants for sorting purposes.
- * 
- * Compares two event instants for sorting within a GList. It is an
- * implementation of GCompareFunc() from GLib.
- * 
- * @param a First event instant to compare.
- * @param b Second event instant to compare.
- * @return Negative value if a < b; zero if a = b; positive value if a > b.
+ * @detail Compares two event instants for sorting purposes.
  */
 gint profcl_evinst_comp(gconstpointer a, gconstpointer b) {
 	/* Cast input parameters to event instant data structures. */
 	ProfCLEvInst* evInst1 = (ProfCLEvInst*) a;
 	ProfCLEvInst* evInst2 = (ProfCLEvInst*) b;
 	/* Perform comparison. */
-	if (evInst1.instant > evInst2.instant) return  1;
-	if (evInst1.instant < evInst2.instant) return -1;
+	if (evInst1->instant > evInst2->instant) return  1;
+	if (evInst1->instant < evInst2->instant) return -1;
 	return 0;
 }
 
 /**
- * Frees an event overlap matrix.
- * 
- * @param An event overlap matrix.
+ * @detail Frees an event overlap matrix.
  */
  void profcl_overmat_free(ProfCLOvermat overmat) {
 	free(overmat);
 }
 	
 /**
- * Create new event overlap matrix given an OpenCL events profile.
- * 
- * @param profile An OpenCL events profile.
- * @return A new event overlap matrix or NULL if operation failed.
+ * @detail Create new event overlap matrix given an OpenCL events profile.
  */
 ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 	
@@ -182,12 +127,12 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 	guint numUniqEvts = g_hash_table_size(profile->unique_events);
 	
 	/* Initialize overlap matrix. */
-	ProfCLOvermat overlapMatrix = (profcl_overmat) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
-	for (guint i = 0; i < numEvents * numEvents; i++)
+	ProfCLOvermat overlapMatrix = (ProfCLOvermat) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
+	for (guint i = 0; i < numUniqEvts * numUniqEvts; i++)
 		overlapMatrix[i] = 0;
 		
 	/* Initialize helper table to account for all overlapping events. */
-	GHashTable* overlaps = g_hash_table_new(g_int_hash, g_int_equal);
+	GHashTable* overlaps = g_hash_table_new(g_direct_hash, g_direct_equal);
 	
 	/* Setup ocurring events table (key: eventID, value: uniqueEventID) */
 	GHashTable* eventsOccurring = g_hash_table_new(g_int_hash, g_int_equal);
@@ -203,167 +148,89 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 		ProfCLEvInst* currEvInst = (ProfCLEvInst*) currEvInstContainer->data;
 		
 		/* Check if event time is START or END time */
-		if (evInst->type == PROFCL_EV_START) { 
+		if (currEvInst->type == PROFCL_EV_START) { 
 			/* Event START instant. */
 			
 			/* 1 - Check for overlaps with ocurring events */
 			GHashTableIter iter;
-			gpointer key_eid, value_ueid;
-			g_hash_table_iter_init (&iter, eventsOccurring);
-			while (g_hash_table_iter_next (&iter, &key_eid, &value_ueid)) {
-				guint row = et[i].event < otherEvent ? et[i].event : otherEvent;
-				guint col = et[i].event > otherEvent ? et[i].event : otherEvent;
-				overlapMatrix[row * numEvents + col] = et[i].instant;
+			gpointer key_eid;
+			g_hash_table_iter_init(&iter, eventsOccurring);
+			while (g_hash_table_iter_next (&iter, &key_eid, NULL)) {
+				/* Inner hash table (is value for overlap hash table). */
+				GHashTable* innerTable;
+				/* The first hash table key will be the smaller event id. */
+				guint eid_key1 = currEvInst->id <= *((guint*) key_eid) ? currEvInst->id : *((guint*) key_eid);
+				/* The second hash table key will be the larger event id. */
+				guint eid_key2 = currEvInst->id > *((guint*) key_eid) ? currEvInst->id : *((guint*) key_eid);
+				/* Check if the first key (smaller id) is already in the hash table... */
+				if (!g_hash_table_lookup_extended(overlaps, &eid_key1, NULL, (gpointer) innerTable)) {
+					/* ...if not in table, add it to table, creating a new 
+					 * inner table as value. Inner table will be initalized 
+					 * with second key (larger id) as key and event start 
+					 * instant as value. */
+					innerTable = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify) g_hash_table_destroy);
+					g_hash_table_insert(overlaps, GUINT_TO_POINTER(eid_key1), innerTable);
+				}
+				/* Add second key (larger id) to inner tabler, setting the 
+				 * start instant as the value. */
+				g_hash_table_insert(innerTable, GUINT_TO_POINTER(eid_key2), &(currEvInst->instant));
 			}
 
-			
 			/* 2 - Add event to occurring events. */
-			eventsOccurring = g_list_prepend(eventsOccurring, (gpointer) evInst->id);
+			g_hash_table_insert(
+				eventsOccurring, 
+				&(currEvInst->id), /* eid */
+				g_hash_table_lookup(profile->unique_events, currEvInst->eventName) /* ueid */
+			); 
 			
-			for (guint otherEvent = 0; otherEvent < numEvents; otherEvent++) {
-				if (eventsOcurring[otherEvent]) {
-					unsigned int row = et[i].event < otherEvent ? et[i].event : otherEvent;
-					unsigned int col = et[i].event > otherEvent ? et[i].event : otherEvent;
-					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
-				}
-			}
-			// 2 - Add event to ocurring events 
-			eventsOcurring[et[i].event] = 1;
+		} else {
+			/* Event END instant. */
 			
-		} else { /* Event END instant. */
-			// 1 - Remove event from ocurring events
-			eventsOcurring[et[i].event] = 0;
-			// 2 - Check for overlap termination with current events
-			for (unsigned int otherEvent = 0; otherEvent < numEvents; otherEvent++) {
-				if (eventsOcurring[otherEvent]) {
-					unsigned int row = et[i].event > otherEvent ? et[i].event : otherEvent;
-					unsigned int col = et[i].event < otherEvent ? et[i].event : otherEvent;
-					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
-				}
-			}
+			/* 1 - Remove event from ocurring events */
+			g_hash_table_remove(eventsOccurring, &(currEvInst->id));
+			
+			/* 2 - Check for overlap termination with current events */
+			GHashTableIter iter;
+			gpointer key_eid, ueid_curr_ev, ueid_occu_ev;
+			g_hash_table_iter_init(&iter, eventsOccurring);
+			while (g_hash_table_iter_next (&iter, &key_eid, &ueid_occu_ev)) {
+				/* Inner hash table (is value for overlap hash table). */
+				GHashTable* innerTable;
+				/* The first hash table key will be the smaller event id. */
+				guint eid_key1 = currEvInst->id <= *((guint*) key_eid) ? currEvInst->id : *((guint*) key_eid);
+				/* The second hash table key will be the larger event id. */
+				guint eid_key2 = currEvInst->id > *((guint*) key_eid) ? currEvInst->id : *((guint*) key_eid);
+				/* Get effective overlap in nanoseconds. */
+				innerTable = g_hash_table_lookup(overlaps, GUINT_TO_POINTER(eid_key1));
+				cl_ulong effOverlap = currEvInst->instant - *((cl_ulong*) g_hash_table_lookup(innerTable, GUINT_TO_POINTER(eid_key2)));
+				/* Add overlap to overlap matrix. */
+				ueid_curr_ev = g_hash_table_lookup(profile->unique_events, currEvInst->eventName);
+				guint ueid_min = *((guint*) ueid_curr_ev) <= *((guint*) ueid_occu_ev) ? *((guint*) ueid_curr_ev) : *((guint*) ueid_occu_ev);
+				guint ueid_max = *((guint*) ueid_curr_ev) > *((guint*) ueid_occu_ev) ? *((guint*) ueid_curr_ev) : *((guint*) ueid_occu_ev);
+				overlapMatrix[ueid_min * numUniqEvts + ueid_max] += effOverlap;
+			}	
 		}
 		
 		/* Get next event instant. */
-		currEvInst = currEvInst->next;
+		currEvInstContainer = currEvInstContainer->next;
 	}
 	
-	// Return current overlap matrix
+	/* Free overlaps hash table. */
+	g_hash_table_destroy(overlaps);
+	
+	/* Free eventsOccurring hash table. */
+	g_hash_table_destroy(eventsOccurring);
+	
+	/* Return the overlap matrix. */
 	return overlapMatrix;
 }
 
 
-
-
-
-
-
-
-
-
-
-// Update simulation profiling data
-void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
-	
-	unsigned int numEvents = 4;
-	cl_uint status;
-	EVENT_TIME et[8];
-	cl_ulong grasscount2start, grasscount2end;
-
-	// Grass kernel profiling
-	et[0].event = 0; et[0].type = EV_START; 
-	et[1].event = 0; et[1].type = EV_END;
-	status = clGetEventProfilingInfo (events->grass, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &et[0].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grass start");  exit(EXIT_FAILURE); }
-	status = clGetEventProfilingInfo (events->grass, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &et[1].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grass end");  exit(EXIT_FAILURE); }
-	profile->grass += et[1].instant - et[0].instant;
-
-	// Count grass 1 kernel profiling
-	et[2].event = 1; et[2].type = EV_START; 
-	et[3].event = 1; et[3].type = EV_END;
-	status = clGetEventProfilingInfo (events->grasscount1, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &et[2].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grasscount1 start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->grasscount1, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &et[3].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grasscount1 end");  exit(EXIT_FAILURE); }
-	profile->grasscount1 += et[3].instant - et[2].instant;
-
-	// Grass count 2 kernel profiling
-	et[4].event = 2; et[4].type = EV_START; 
-	et[5].event = 2; et[5].type = EV_END;
-	for (unsigned int i = 0; i < events->grasscount2_num_loops; i++) {
-
-		status = clGetEventProfilingInfo (events->grasscount2[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grasscount2start, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grasscount2 start");  exit(EXIT_FAILURE); }
-		if (i == 0) et[4].instant = grasscount2start;
-
-		status = clGetEventProfilingInfo (events->grasscount2[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grasscount2end, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling grasscount2 end");  exit(EXIT_FAILURE); }
-		if (i == events->grasscount2_num_loops - 1) et[5].instant = grasscount2end;
-
-		profile->grasscount2 += &grasscount2end - &grasscount2start;
-	}
-	
-	// Profile stats transfer
-	et[6].event = 0; et[6].type = EV_START; 
-	et[7].event = 0; et[7].type = EV_END;
-	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &et[6].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->readStats, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &et[7].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling readStats end");  exit(EXIT_FAILURE); }
-	profile->readStats += et[7].instant - et[6].instant;
-	
-	// Find overlaps
-	cl_ulong * currentOverlapMatrix = findOverlaps(et, numEvents);
-	
-	// Add overlaps to global overlap matrix
-	addOverlaps(profile, currentOverlapMatrix, 2, 2 + numEvents - 1);
-
-	// Free current overlap matrix
-	free(currentOverlapMatrix);
-
-
-
-}
-
-// Update setup data transfer profiling data
-void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events) {
-
-	cl_uint status;
-	EVENT_TIME et[4];
-
-	// Write grass profiling
-	et[0].event = 1; et[0].type = EV_START; 
-	et[1].event = 1; et[1].type = EV_END;
-	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &et[2].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->writeGrass, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &et[3].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass end");  exit(EXIT_FAILURE); }
-	profile->writeGrass += et[1].instant - et[0].instant;
-
-	// Write Rng profiling
-	et[2].event = 1; et[2].type = EV_START; 
-	et[3].event = 1; et[3].type = EV_END;
-	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &et[4].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrasss start"); exit(EXIT_FAILURE);  }
-	status = clGetEventProfilingInfo (events->writeRng, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &et[5].instant, NULL);
-	if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "profiling writeGrass end");  exit(EXIT_FAILURE); }
-	profile->writeRng += et[3].instant - et[2].instant;
-	
-	// Find overlaps
-	cl_ulong * currentOverlapMatrix = findOverlaps(et, 2);
-	
-	// Add overlaps to global overlap matrix
-	addOverlaps(profile, currentOverlapMatrix, 0, 1);
-
-	// Free current overlap matrix
-	free(currentOverlapMatrix);
-
-
-}
-
-// Print profiling info
-void printProfilingInfo(PROFILE_DATA* profile, double dt) {
-	cl_ulong gpu_profile_total =
+/**
+ * @detail Print profiling info.
+ */
+void printProfilingInfo(ProfCLProfile* profile, double dt) {
+	/*cl_ulong gpu_profile_total =
 		profile->writeGrass +
 		profile->writeRng +
 		profile->grass + 
@@ -388,72 +255,7 @@ void printProfilingInfo(PROFILE_DATA* profile, double dt) {
 			printf("%4.4ld\t", profile->overlapMatrix[i][j]);
 		}
 		printf("|\n");
-	}
+	}*/
 
-	
-}
-
-// Function which compares two event times for sorting purposes
-int comp (const void * elem1, const void * elem2) {
-	EVENT_TIME f = *((EVENT_TIME*) elem1);
-	EVENT_TIME s = *((EVENT_TIME*) elem2);
-	if (f.instant > s.instant) return  1;
-	if (f.instant < s.instant) return -1;
-	return 0;
-}
-
-cl_ulong * findOverlaps(EVENT_TIME * et, unsigned int numEvents) {
-	
-	// Setup current overlap matrix
-	cl_ulong *currentOverlapMatrix = (cl_ulong *) malloc(numEvents * numEvents * sizeof(cl_ulong));
-	for (unsigned int i = 0; i < numEvents * numEvents; i++)
-		currentOverlapMatrix[i] = 0;
-	
-	// Setup ocurring events array
-	unsigned char eventsOcurring[numEvents];
-	for (unsigned int i = 0; i < numEvents; i++)
-		eventsOcurring[i] = 0;
-	// Sort et (event times array)
-	qsort(et, (size_t) 2 * numEvents, sizeof(EVENT_TIME), comp);
-	
-	// Iterate through each element of et (event times)
-	for (unsigned int i = 0; i < numEvents * 2; i++) {
-	
-		// Check if event time is START or END time
-		if (et[i].type == EV_START) {
-			// 1 - Check for new overlap with ocurring events
-			for (unsigned int otherEvent = 0; otherEvent < numEvents; otherEvent++) {
-				if (eventsOcurring[otherEvent]) {
-					unsigned int row = et[i].event < otherEvent ? et[i].event : otherEvent;
-					unsigned int col = et[i].event > otherEvent ? et[i].event : otherEvent;
-					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
-				}
-			}
-			// 2 - Add event to ocurring events 
-			eventsOcurring[et[i].event] = 1;
-		} else {
-			// 1 - Remove event from ocurring events
-			eventsOcurring[et[i].event] = 0;
-			// 2 - Check for overlap termination with current events
-			for (unsigned int otherEvent = 0; otherEvent < numEvents; otherEvent++) {
-				if (eventsOcurring[otherEvent]) {
-					unsigned int row = et[i].event > otherEvent ? et[i].event : otherEvent;
-					unsigned int col = et[i].event < otherEvent ? et[i].event : otherEvent;
-					currentOverlapMatrix[row * numEvents + col] = et[i].instant;
-				}
-			}
-		}
-
-	}
-	// Return current overlap matrix
-	return currentOverlapMatrix;
-}
-
-void addOverlaps(PROFILE_DATA * profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx) {
-	unsigned int numEvents = endIdx - startIdx + 1;
-	for (unsigned int i = 0; i < numEvents; i++) {
-		for (unsigned int j = i + 1; j < numEvents; j++) {
-			profile->overlapMatrix[startIdx + i][startIdx + j] += currentOverlapMatrix[j * numEvents + i] - currentOverlapMatrix[i * numEvents + j];
-		}
-	}
+	return;
 }

@@ -1,5 +1,5 @@
 #include "PredPreyGPU.h"
-
+/*
 void result(char* testName, int testResult) {
 	if (testResult) {
 		printf("OK: %s\n", testName);
@@ -75,9 +75,9 @@ int testProfilingOverlaps() {
 	
 	
 }
-
+*/
 int main(int argc, char ** argv) {
-	result("ProfilingOverlaps", testProfilingOverlaps());
+	//result("ProfilingOverlaps", testProfilingOverlaps());
 	return 0;
 
 }

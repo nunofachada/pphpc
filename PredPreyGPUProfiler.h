@@ -4,8 +4,6 @@
 #include <glib.h>
 #include "PredPreyCommon.h"
 
-typedef guint* ProfCLEid;
-
 typedef cl_ulong* ProfCLOvermat;
 
 typedef struct profcl_profile { 
@@ -17,25 +15,89 @@ typedef struct profcl_profile {
 typedef enum {PROFCL_EV_START, PROFCL_EV_END} ProfCLEvInstType;
 
 typedef struct profcl_evinst { 
-	char* eventName;
-	ProfCLEid id;
+	const char* eventName;
+	guint id;
 	cl_ulong instant;
 	ProfCLEvInstType type;
 } ProfCLEvInst;
 
+/** 
+ * @brief Create a new OpenCL events profile.
+ * 
+ * @return A new profile or NULL if operation failed. 
+ */
+ProfCLProfile* profcl_profile_new();
 
-typedef struct profcl_evpair {
-	ProfCLEid ev1;
-	ProfCLEid ev2;
-} ProfCLEvPair;
+/** 
+ * @brief Free an OpenCL events profile.
+ * 
+ * @param profile OpenCL events profile to destroy. 
+ */
+void profcl_profile_free(ProfCLProfile* profile);
 
-ProfileEvCL* newProfile();
-void freeProfile(PROFILE_DATA* profile);
-void updateSimProfile(PROFILE_DATA* profile, EVENTS_CL* events);
-void updateSetupProfile(PROFILE_DATA* profile, EVENTS_CL* events);
-void printProfilingInfo(PROFILE_DATA* profile, double dt);
-cl_ulong * findOverlaps(EVENT_TIME * et, unsigned int numEvents);
-void addOverlaps(PROFILE_DATA * profile, cl_ulong *currentOverlapMatrix, unsigned int startIdx, unsigned int endIdx);
+/**
+ * @brief Add OpenCL event to events profile, more specifically adds 
+ * the start and end instants of the given event to the profile.
+ * 
+ * @param profile OpenCL events profile.
+ * @param event_name Event name.
+ * @param ev CL event data structure.
+ * @return CL_SUCCESS if operation successful, or a flag returned by 
+ *          clGetEventProfilingInfo otherwise.
+ */ 
+cl_uint profcl_profile_add(ProfCLProfile* profile, const char* event_name, cl_event ev);
+
+/** 
+ * @brief Create new event instant.
+ * 
+ * @param eventName Name of event.
+ * @param id Id of event.
+ * @param instant Even instant in nanoseconds.
+ * @param type Type of event instant: PROFCL_EV_START or PROFCL_EV_END
+ * @return A new event instant or NULL if operation failed.
+ */
+ProfCLEvInst* profcl_evinst_new(const char* eventName, guint id, cl_ulong instant, ProfCLEvInstType type);
+
+/**
+ * @brief Free an event instant.
+ * 
+ * @param event_instant Event instant to destroy. 
+ */
+void profcl_evinst_free(gpointer event_instant);
+
+/**
+ * @brief Compares two event instants for sorting within a GList. It is
+ * an implementation of GCompareFunc() from GLib.
+ * 
+ * @param a First event instant to compare.
+ * @param b Second event instant to compare.
+ * @return Negative value if a < b; zero if a = b; positive value if a > b.
+ */
+gint profcl_evinst_comp(gconstpointer a, gconstpointer b);
+
+/**
+ * @brief Frees an event overlap matrix.
+ * 
+ * @param An event overlap matrix.
+ */
+ void profcl_overmat_free(ProfCLOvermat overmat);
+	
+/**
+ * @brief Create new event overlap matrix given an OpenCL events profile.
+ * 
+ * @param profile An OpenCL events profile.
+ * @return A new event overlap matrix or NULL if operation failed.
+ */
+ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile);
+
+/**
+ * @brief Print profiling info.
+ * 
+ * @param profile An OpenCL events profile.
+ * @param dt
+  */
+void printProfilingInfo(ProfCLProfile* profile, double dt);
+
 #endif
 
 

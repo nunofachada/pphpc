@@ -2,7 +2,6 @@
 #define PREDPREYGPU_H
 
 #include "PredPreyCommon.h"
-#include "PredPreyGPUEvents.h"
 #include "PredPreyGPUProfiler.h"
 
 typedef struct cell {
