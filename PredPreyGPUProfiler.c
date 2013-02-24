@@ -1,103 +1,224 @@
 #include "PredPreyGPUProfiler.h"
 
-// Create new profile data
+/** 
+ * TODO REMOVE
+ * Creates a new event ID.
+ *
+ * @param id The ID to set.
+ * @return A new event ID or NULL if operation failed. 
+ */
+ProfCLEid profcl_eid_new(guint id) {
+	ProfCLEid eid = (profcl_eid) malloc(sizeof(guint));
+	return eid;
+}
+
+/** 
+ * TODO REMOVE
+ * Frees an event ID.
+ * 
+ * @param eid A unique event ID. 
+ */
+ void profcl_eid_free(ProfCLEid eid) {
+	free(eid);
+}
+
+/** 
+ * Create a new OpenCL events profile.
+ * 
+ * @return A new profile or NULL if operation failed. 
+ */
 ProfEvCL* profcl_profile_new() {
+	
+	/* Allocate memory for new profile data structure. */
 	ProfCLProfile* profile = (ProfCLProfile*) malloc(sizeof(ProfCLProfile));
+
+	/* If allocation successful... */
 	if (profile != NULL) {
+		/* ... create table of unique events, ... */
 		profile->unique_events = g_hash_table_new(g_str_hash, g_str_equal);
-		profile->all_events = NULL;
+		/* ... create list of all event instants, ... */
+		profile->event_instants = NULL;
+		/* ... and set number of event instants to zero. */
+		profile->num_event_instants = 0;
 	}
+
+	/* Return new profile data structure */
 	return profile;
 }
 
-// Free profile data
+/** 
+ * Free an OpenCL events profile.
+ * 
+ * @param profile OpenCL events profile to destroy. 
+ */
 void profcl_profile_free(ProfCLProfile* profile) {
+	/* Destroy table of unique events. */
 	g_hash_table_destroy(profile->unique_events);
-	g_list_free_full(profile->all_events, profcl_evinst_free);
+	/* Destroy list of all event instants. */
+	g_list_free_full(profile->event_instants, profcl_evinst_free);
+	/* Destroy profile data structure. */
 	free(profile);
 }
 
-// Add event to profile
+/**
+ * Add OpenCL event to events profile.
+ * 
+ * Add OpenCL event to events profile, more specifically adds the start
+ * and end instants of the given event to the profile.
+ * 
+ * @param profile OpenCL events profile.
+ * @param event_name Event name.
+ * @param ev CL event data structure.
+ * @return CL_SUCCESS if operation successful, or a flag returned by 
+ *          clGetEventProfilingInfo otherwise.
+ */ 
 cl_uint profcl_profile_add(ProfCLProfile* profile, const char* event_name, cl_event ev) {
 	
+	/* Status flag for OpenCL functions. */
 	cl_uint status;
+	/* Aux. var. for keeping event instants. */
 	cl_ulong instant;
 	
-	const char* event_name_ref = event_name;
-	
+	/* Check if event is already registered in the unique events table... */
 	if (!g_hash_table_lookup_extended(profile->unique_events, event_name, NULL, NULL) {
-		g_hash_table_replace(profile->unique_events, event_name, event_name);
-	} else {
-		event_name_ref = (const char*) g_hash_table_lookup(profile->unique_events, (gconstpointer) event_name);
+		/* ...if not, register it. */
+		ProfCLEid unique_event_id = GUINT_TO_POINTER(g_hash_table_size(profile->unique_events));
+		g_hash_table_insert(profile->unique_events, event_name, unique_event_id);
 	}
 	
+	/* Update number of event instants, and get an ID for the given event. */
+	guint event_id = ++profile->num_event_instants;
+	
+	/* Add event start instant to list of event instants. */
 	status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &instant, NULL);
 	if (status != CL_SUCCESS) return status;
-	ProfCLEvInst* evinst_start = profcl_evinst_new(event_name_ref, instant, PROFCL_EV_START);
-	profile->all_events = g_list_prepend(profile->all_events, (gpointer) evinst_start);
+	ProfCLEvInst* evinst_start = profcl_evinst_new(event_name, event_id, instant, PROFCL_EV_START);
+	profile->event_instants = g_list_prepend(profile->event_instants, (gpointer) evinst_start);
 
+	/* Add event end instant to list of event instants. */
 	status = clGetEventProfilingInfo(ev, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &instant, NULL);
 	if (status != CL_SUCCESS) return status;
-	ProfCLEvInst* evinst_end = profcl_evinst_new(event_name_ref, instant, PROFCL_EV_END);
-	profile->all_events = g_list_prepend(profile->all_events, (gpointer) evinst_end);
+	ProfCLEvInst* evinst_end = profcl_evinst_new(event_name, event_id, instant, PROFCL_EV_END);
+	profile->event_instants = g_list_prepend(profile->event_instants, (gpointer) evinst_end);
 	
+	/* Return success flag. */
 	return CL_SUCCESS;
 	
 }
 
-// Create new profiled event instant
-ProfCLEvInst* profcl_evinst_new(char* eventName, cl_ulong instant, ProfCLEvInstType type) {
+/** 
+ * Create new event instant.
+ * 
+ * @param eventName Name of event.
+ * @param id Id of event.
+ * @param instant Even instant in nanoseconds.
+ * @param type Type of event instant: PROFCL_EV_START or PROFCL_EV_END
+ * @return A new event instant or NULL if operation failed.
+ */
+ProfCLEvInst* profcl_evinst_new(char* eventName, guint id, cl_ulong instant, ProfCLEvInstType type) {
+	
+	/* Allocate memory for event instant data structure. */
 	ProfCLEvInst* event_instant = (ProfCLEvInst*) malloc(sizeof(ProfCLEvInst));
+	/* If allocation successful... */
 	if (event_instant != NULL) {
+		/* ...initialize structure fields. */
 		event_instant->eventName = eventName;
+		event_instant->id = profcl_eid_new(id);
 		event_instant->instant = instant;
 		event_instant->type = type;
 	}
+	/* Return event instant data structure. */
 	return event_instant;	
 }
 
-// Free a profiled event instant 
+/**
+ * Free an event instant.
+ * 
+ * @param event_instant Event instant to destroy. 
+ */
 void profcl_evinst_free(ProfCLEvInst* event_instant) {
+	profcl_eid_free(event_instant->id);
 	free(event_instant);
 }
 
-// Function which compares two event instants for sorting purposes
-gint profcl_evinst_comp (gconstpointer a, gconstpointer b) {
+/**
+ * Compares two event instants for sorting purposes.
+ * 
+ * Compares two event instants for sorting within a GList. It is an
+ * implementation of GCompareFunc() from GLib.
+ * 
+ * @param a First event instant to compare.
+ * @param b Second event instant to compare.
+ * @return Negative value if a < b; zero if a = b; positive value if a > b.
+ */
+gint profcl_evinst_comp(gconstpointer a, gconstpointer b) {
+	/* Cast input parameters to event instant data structures. */
 	ProfCLEvInst* evInst1 = (ProfCLEvInst*) a;
 	ProfCLEvInst* evInst2 = (ProfCLEvInst*) b;
+	/* Perform comparison. */
 	if (evInst1.instant > evInst2.instant) return  1;
 	if (evInst1.instant < evInst2.instant) return -1;
 	return 0;
 }
 
-
-// Find event overlaps
-cl_ulong * profcl_profile_find_overlaps(ProfCLProfile* profile) {
+/**
+ * Frees an event overlap matrix.
+ * 
+ * @param An event overlap matrix.
+ */
+ void profcl_overmat_free(ProfCLOvermat overmat) {
+	free(overmat);
+}
 	
+/**
+ * Create new event overlap matrix given an OpenCL events profile.
+ * 
+ * @param profile An OpenCL events profile.
+ * @return A new event overlap matrix or NULL if operation failed.
+ */
+ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
+	
+	/* Determine number of unique events. */
 	guint numUniqEvts = g_hash_table_size(profile->unique_events);
 	
-	// Setup overlap matrix
-	cl_ulong *overlapMatrix = (cl_ulong *) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
+	/* Initialize overlap matrix. */
+	ProfCLOvermat overlapMatrix = (profcl_overmat) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
 	for (guint i = 0; i < numEvents * numEvents; i++)
 		overlapMatrix[i] = 0;
+		
+	/* Initialize helper table to account for all overlapping events. */
+	GHashTable* overlaps = g_hash_table_new(g_int_hash, g_int_equal);
 	
-	// Setup ocurring events array
-	GList* eventsOcurring = NULL;
+	/* Setup ocurring events table (key: eventID, value: uniqueEventID) */
+	GHashTable* eventsOccurring = g_hash_table_new(g_int_hash, g_int_equal);
 		
-	// Sort all events
-	profile->all_events = g_list_sort(profile->all_events, profcl_evinst_comp);
+	/* Sort all event instants. */
+	profile->event_instants = g_list_sort(profile->event_instants, profcl_evinst_comp);
 	
-	// Iterate through all event instants
-	GList* currEvInst = sortedEvInsts;
-	while (currEvInst) {
+	/* Iterate through all event instants */
+	GList* currEvInstContainer = profile->event_instants;
+	while (currEvInstContainer) {
 		
-		ProfCLEvInst* evInst = (ProfCLEvInst*) currEvInst->data;
+		/* Get current event instant. */
+		ProfCLEvInst* currEvInst = (ProfCLEvInst*) currEvInstContainer->data;
 		
-		// Check if event time is START or END time
-		if (evInst->type == PROFCL_EV_START) {
-			// 1 - Check for new overlap with ocurring events
+		/* Check if event time is START or END time */
+		if (evInst->type == PROFCL_EV_START) { 
+			/* Event START instant. */
 			
+			/* 1 - Check for overlaps with ocurring events */
+			GHashTableIter iter;
+			gpointer key_eid, value_ueid;
+			g_hash_table_iter_init (&iter, eventsOccurring);
+			while (g_hash_table_iter_next (&iter, &key_eid, &value_ueid)) {
+				guint row = et[i].event < otherEvent ? et[i].event : otherEvent;
+				guint col = et[i].event > otherEvent ? et[i].event : otherEvent;
+				overlapMatrix[row * numEvents + col] = et[i].instant;
+			}
+
 			
+			/* 2 - Add event to occurring events. */
+			eventsOccurring = g_list_prepend(eventsOccurring, (gpointer) evInst->id);
 			
 			for (guint otherEvent = 0; otherEvent < numEvents; otherEvent++) {
 				if (eventsOcurring[otherEvent]) {
@@ -108,7 +229,8 @@ cl_ulong * profcl_profile_find_overlaps(ProfCLProfile* profile) {
 			}
 			// 2 - Add event to ocurring events 
 			eventsOcurring[et[i].event] = 1;
-		} else {
+			
+		} else { /* Event END instant. */
 			// 1 - Remove event from ocurring events
 			eventsOcurring[et[i].event] = 0;
 			// 2 - Check for overlap termination with current events
@@ -121,7 +243,7 @@ cl_ulong * profcl_profile_find_overlaps(ProfCLProfile* profile) {
 			}
 		}
 		
-		
+		/* Get next event instant. */
 		currEvInst = currEvInst->next;
 	}
 	
