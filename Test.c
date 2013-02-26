@@ -1,5 +1,5 @@
 #include "PredPreyGPU.h"
-/*
+
 void result(char* testName, int testResult) {
 	if (testResult) {
 		printf("OK: %s\n", testName);
@@ -11,73 +11,97 @@ void result(char* testName, int testResult) {
 int testProfilingOverlaps() {
 	
 	unsigned int numEvents = 5;
-	EVENT_TIME et[2 * numEvents];
-	PROFILE_DATA* profile = newProfile();
+	
+
+	ProfCLProfile* profile = profcl_profile_new();
 
 	// Test with 5 events, 3 overlaps, one of the overlaps has three events
-	et[0].event = 0; et[0].type = EV_START; et[0].instant = 10;
-	et[1].event = 0; et[1].type = EV_END; et[1].instant = 15;
-	et[2].event = 1; et[2].type = EV_START; et[2].instant = 16;
-	et[3].event = 1; et[3].type = EV_END; et[3].instant = 20;
-	et[4].event = 2; et[4].type = EV_START; et[4].instant = 17;
-	et[5].event = 2; et[5].type = EV_END; et[5].instant = 30;
-	et[6].event = 3; et[6].type = EV_START; et[6].instant = 19;
-	et[7].event = 3; et[7].type = EV_END; et[7].instant = 25;
-	et[8].event = 4; et[8].type = EV_START; et[8].instant = 29;
-	et[9].event = 4; et[9].type = EV_END; et[9].instant = 40;
-	
-	// Expected matrices
-	cl_ulong expectedOverlapMatrix[5][5] = 
+	ProfCLEvInfo ev1;
+	ev1.eventName = "Event 1";
+	ev1.instantStart = 10;
+	ev1.instantEnd = 15;
+	profcl_profile_add(profile, ev1);
+
+	ProfCLEvInfo ev2;
+	ev2.eventName = "Event 2";
+	ev2.instantStart = 16;
+	ev2.instantEnd = 20;
+	profcl_profile_add(profile, ev2);
+
+	ProfCLEvInfo ev3;
+	ev3.eventName = "Event 3";
+	ev3.instantStart = 17;
+	ev3.instantEnd = 30;
+	profcl_profile_add(profile, ev3);
+
+	ProfCLEvInfo ev4;
+	ev4.eventName = "Event 4";
+	ev4.instantStart = 19;
+	ev4.instantEnd = 25;
+	profcl_profile_add(profile, ev4);
+
+	ProfCLEvInfo ev5;
+	ev5.eventName = "Event 5";
+	ev5.instantStart = 29;
+	ev5.instantEnd = 40;
+	profcl_profile_add(profile, ev5);
+
+	ProfCLEvInfo ev6;
+	ev6.eventName = "Event 1";
+	ev6.instantStart = 35;
+	ev6.instantEnd = 45;
+	profcl_profile_add(profile, ev6);
+
+	ProfCLEvInfo ev7;
+	ev7.eventName = "Event 1";
+	ev7.instantStart = 68;
+	ev7.instantEnd = 69;
+	profcl_profile_add(profile, ev7);
+
+	ProfCLEvInfo ev8;
+	ev8.eventName = "Event 1";
+	ev8.instantStart = 50;
+	ev8.instantEnd = 70;
+	profcl_profile_add(profile, ev8);
+
+
+
+	ProfCLOvermat overmat = profcl_overmat_new(profile);
+
+	// Expected matrix
+	cl_ulong expectedOvermat[5][5] = 
 	{
+		{1, 0, 0, 0, 5},
+		{0, 0, 3, 1, 0},
+		{0, 0, 0, 6, 1},
 		{0, 0, 0, 0, 0},
-		{0, 0, 17, 19, 0},
-		{0, 20, 0, 19, 29},
-		{0, 20, 25, 0, 0},
-		{0, 0, 30, 0, 0}
+		{0, 0, 0, 0, 0}
 	};
 	
-	
-
-	
-	// Find overlaps
-	cl_ulong * currentOverlapMatrix = findOverlaps(et, numEvents);
-	
+	int success = 1;
 	// Test if currentOverlapMatrix is as expected
 	for (unsigned int i = 0; i < numEvents; i++) {
 		for (unsigned int j = 0; j < numEvents; j++) {
-			if (currentOverlapMatrix[i * numEvents + j] != expectedOverlapMatrix[i][j]) {
+			if (overmat[i * numEvents + j] != expectedOvermat[i][j]) {
 				// Fail!
-				return 0;
+				success = 0;
+				break;
 			}
 		}
 	}
 
-	// Add overlaps to global overlap matrix
-	addOverlaps(profile, currentOverlapMatrix, 0, numEvents - 1);
-
-
-	// Free current overlap matrix
-	free(currentOverlapMatrix);
-	
-	// Check if final overlap matrix is as expected
-	if (profile->overlapMatrix[1][2] != 3)
-		return 0;
-	if (profile->overlapMatrix[1][3] != 1)
-		return 0;
-	if (profile->overlapMatrix[2][3] != 6)
-		return 0;
-	if (profile->overlapMatrix[2][4] != 1)
-		return 0;
+	profcl_overmat_free(overmat);
+	profcl_profile_free(profile);
 	
 	
 	// Return test result
-	return 1;
+	return success;
 	
 	
 }
-*/
+
 int main(int argc, char ** argv) {
-	//result("ProfilingOverlaps", testProfilingOverlaps());
+	result("ProfilingOverlaps", testProfilingOverlaps());
 	return 0;
 
 }
