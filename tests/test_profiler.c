@@ -1,21 +1,15 @@
-#include "PredPreyGPU.h"
+#include <glib.h>
+#include "../PredPreyGPU.h"
 
-void result(char* testName, int testResult) {
-	if (testResult) {
-		printf("OK: %s\n", testName);
-	} else {
-		printf("FAIL: %s\n", testName);
-	};	
-}
 
-int testProfilingOverlaps() {
+static void profilerTest() {
 	
-	unsigned int numEvents = 5;
+	guint numEvents = 5;
 	
 
 	ProfCLProfile* profile = profcl_profile_new();
 
-	// Test with 5 events, 3 overlaps, one of the overlaps has three events
+	// Test with 5 unique events
 	ProfCLEvInfo ev1;
 	ev1.eventName = "Event 1";
 	ev1.instantStart = 10;
@@ -64,8 +58,6 @@ int testProfilingOverlaps() {
 	ev8.instantEnd = 70;
 	profcl_profile_add(profile, ev8);
 
-
-
 	ProfCLOvermat overmat = profcl_overmat_new(profile);
 
 	// Expected matrix
@@ -78,30 +70,22 @@ int testProfilingOverlaps() {
 		{0, 0, 0, 0, 0}
 	};
 	
-	int success = 1;
 	// Test if currentOverlapMatrix is as expected
-	for (unsigned int i = 0; i < numEvents; i++) {
-		for (unsigned int j = 0; j < numEvents; j++) {
-			if (overmat[i * numEvents + j] != expectedOvermat[i][j]) {
-				// Fail!
-				success = 0;
-				break;
-			}
+	for (guint i = 0; i < numEvents; i++) {
+		for (guint j = 0; j < numEvents; j++) {
+			g_assert_cmpuint(overmat[i * numEvents + j], ==, expectedOvermat[i][j]);
 		}
 	}
 
 	profcl_overmat_free(overmat);
 	profcl_profile_free(profile);
 	
-	
-	// Return test result
-	return success;
-	
-	
 }
 
-int main(int argc, char ** argv) {
-	result("ProfilingOverlaps", testProfilingOverlaps());
-	return 0;
 
+int main(int argc, char** argv) {
+    g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/common/profiler", profilerTest);
+    return g_test_run();
 }
+

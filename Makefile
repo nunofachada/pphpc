@@ -10,11 +10,12 @@ OBJDIR = obj
 BUILDDIR = bin
 UTILSDIR = utils
 UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clerrors.o $(UTILSDIR)/$(OBJDIR)/fileutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clinfo.o
- 
-all: makeutils mkdirs Test PredPreyGPUSort PredPreyGPU PredPreyCPU
+TESTSDIR = tests
 
-profiler: CLMACROS += -DCLPROFILER
-profiler: all
+all: makeutils mkdirs Tests PredPreyGPUSort PredPreyGPU PredPreyCPU
+
+profiling: CLMACROS += -DCLPROFILER
+profiling: all
 
 PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
@@ -40,11 +41,14 @@ PredPreyGPUProfiler.o: PredPreyGPUProfiler.c PredPreyGPUProfiler.h
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $(OBJDIR)/$@ -c $<
 
-Test.o: Test.c PredPreyGPU.h
+Tests: test_profiler
+
+test_profiler: test_profiler.o PredPreyCommon.o PredPreyGPUProfiler.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS) $(LFLAGS_GLIB)
+	
+test_profiler.o: $(TESTSDIR)/test_profiler.c 
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
 
-Test: Test.o PredPreyCommon.o PredPreyGPUProfiler.o
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS) $(LFLAGS_GLIB)
 
 .PHONY: clean mkdirs makeutils
 
