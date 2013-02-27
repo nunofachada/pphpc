@@ -3,6 +3,8 @@
 .nfs*
 *.[oa]
 *.tsv
+docs/
 bin/
+obj/
 stats*.txt
 config.txt
