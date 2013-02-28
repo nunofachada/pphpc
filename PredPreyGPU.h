@@ -2,7 +2,7 @@
 #define PREDPREYGPU_H
 
 #include "PredPreyCommon.h"
-#include "PredPreyGPUProfiler.h"
+#include "Profiler.h"
 
 typedef struct cell {
 	cl_uint grass;

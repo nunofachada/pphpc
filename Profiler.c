@@ -1,4 +1,4 @@
-#include "PredPreyGPUProfiler.h"
+#include "Profiler.h"
 
 /** 
  * @detail Get a structure containing info about a given event. 

@@ -31,7 +31,8 @@ cl_kernel grass_kernel, agentmov_kernel, agentupdate_kernel, sort_kernel, agenta
 // Main stuff
 int main(int argc, char ** argv)
 {
-
+	
+	//TODO Put this as preprocessor defines
 	char doProfiling;
 #ifdef CLPROFILER
 	printf("Profiling is ON!\n");
