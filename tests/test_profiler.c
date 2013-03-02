@@ -107,7 +107,7 @@ static void profilerTest() {
 		}
 	}
 	
-	//profcl_print_info(profile);
+	//gigprofcl_print_info(profile);
 
 	/* Free profile. */
 	profcl_profile_free(profile);
