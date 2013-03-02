@@ -5,7 +5,6 @@
 static void profilerTest() {
 	
 	guint numEvents = 5;
-	
 
 	ProfCLProfile* profile = profcl_profile_new();
 
@@ -58,9 +57,40 @@ static void profilerTest() {
 	ev8.instantEnd = 70;
 	profcl_profile_add(profile, ev8);
 
-	ProfCLOvermat overmat = profcl_overmat_new(profile);
+	profcl_profile_aggregate(profile);
+	profcl_profile_overmat(profile);
+	
+	/* ************************* */
+	/* Test aggregate statistics */
+	/* ************************* */
+	
+	ProfCLEvAggregate* agg;
+	
+	agg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, "Event 1");
+	g_assert_cmpuint(agg->totalTime, ==, 36);
+	g_assert_cmpfloat(agg->relativeTime - 0.51728, <, 0.0001);
+	
+	agg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, "Event 2");
+	g_assert_cmpuint(agg->totalTime, ==, 4);
+	g_assert_cmpfloat(agg->relativeTime - 0.05714, <, 0.0001);
 
-	// Expected matrix
+	agg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, "Event 3");
+	g_assert_cmpuint(agg->totalTime, ==, 13);
+	g_assert_cmpfloat(agg->relativeTime - 0.18571, <, 0.0001);
+
+	agg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, "Event 4");
+	g_assert_cmpuint(agg->totalTime, ==, 6);
+	g_assert_cmpfloat(agg->relativeTime - 0.08571, <, 0.0001);
+
+	agg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, "Event 5");
+	g_assert_cmpuint(agg->totalTime, ==, 11);
+	g_assert_cmpfloat(agg->relativeTime - 0.15714, <, 0.0001);
+
+	/* ********************* */
+	/* Test overlap matrix */
+	/* ********************* */
+	
+	/* Expected overlap matrix */
 	cl_ulong expectedOvermat[5][5] = 
 	{
 		{1, 0, 0, 0, 5},
@@ -70,14 +100,16 @@ static void profilerTest() {
 		{0, 0, 0, 0, 0}
 	};
 	
-	// Test if currentOverlapMatrix is as expected
+	/* Test if currentOverlapMatrix is as expected */
 	for (guint i = 0; i < numEvents; i++) {
 		for (guint j = 0; j < numEvents; j++) {
-			g_assert_cmpuint(overmat[i * numEvents + j], ==, expectedOvermat[i][j]);
+			g_assert_cmpuint(profile->overmat[i * numEvents + j], ==, expectedOvermat[i][j]);
 		}
 	}
+	
+	//profcl_print_info(profile);
 
-	profcl_overmat_free(overmat);
+	/* Free profile. */
 	profcl_profile_free(profile);
 	
 }

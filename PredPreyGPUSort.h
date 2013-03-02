@@ -2,6 +2,7 @@
 #define PREDPREYGPUSORT_H
 
 #include "PredPreyCommon.h"
+#include "Profiler.h"
 
 typedef struct agent {
 	cl_uint x;

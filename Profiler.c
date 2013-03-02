@@ -47,6 +47,15 @@ ProfCLProfile* profcl_profile_new() {
 		profile->event_instants = NULL;
 		/* ... and set number of event instants to zero. */
 		profile->num_event_instants = 0;
+		/* ... and create table of aggregate statistics. */
+		profile->aggregate = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, profcl_aggregate_free);
+		/* ... and set overlap matrix to NULL. */
+		profile->overmat = NULL;
+		/* ... and set timer structure to NULL. */
+		profile->timer = NULL;
+		/* ... and set total times to 0. */
+		profile->totalEventsTime = 0;
+		profile->totalEventsEffTime = 0;
 	}
 
 	/* Return new profile data structure */
@@ -64,6 +73,14 @@ void profcl_profile_free(ProfCLProfile* profile) {
 	g_hash_table_destroy(profile->unique_events);
 	/* Destroy list of all event instants. */
 	g_list_free_full(profile->event_instants, profcl_evinst_free);
+	/* Destroy table of aggregate statistics. */
+	g_hash_table_destroy(profile->aggregate);
+	/* Free the overlap matrix. */
+	if (profile->overmat != NULL)
+		free(profile->overmat);
+	/* Destroy timer. */
+	if (profile->timer != NULL)
+		g_timer_destroy(profile->timer);
 	/* Destroy profile data structure. */
 	free(profile);
 }
@@ -135,44 +152,50 @@ void profcl_evinst_free(gpointer event_instant) {
 
 /**
  * @detail Compares two event instants for sorting within a GList. It is
- * an implementation of GCompareFunc() from GLib.
+ * an implementation of GCompareDataFunc from GLib.
  * 
  * @param a First event instant to compare.
  * @param b Second event instant to compare.
+ * @param userdata Defines what type of sorting to do.
  * @return Negative value if a < b; zero if a = b; positive value if a > b.
  */
-gint profcl_evinst_comp(gconstpointer a, gconstpointer b) {
+gint profcl_evinst_comp(gconstpointer a, gconstpointer b, gpointer userdata) {
 	/* Cast input parameters to event instant data structures. */
 	ProfCLEvInst* evInst1 = (ProfCLEvInst*) a;
 	ProfCLEvInst* evInst2 = (ProfCLEvInst*) b;
+	ProfCLEvSort* sortType = (ProfCLEvSort*) userdata;
 	/* Perform comparison. */
-	if (evInst1->instant > evInst2->instant) return  1;
-	if (evInst1->instant < evInst2->instant) return -1;
+	if (*sortType == PROFCL_EV_SORT_INSTANT) {
+		/* Sort by instant */
+		if (evInst1->instant > evInst2->instant) return  1;
+		if (evInst1->instant < evInst2->instant) return -1;
+	} else if (*sortType == PROFCL_EV_SORT_ID) {
+		/* Sort by ID */
+		if (evInst1->id > evInst2->id) return 1;
+		if (evInst1->id < evInst2->id) return -1;
+		if (evInst1->type == PROFCL_EV_END) return 1;
+		if (evInst1->type == PROFCL_EV_START) return -1;
+	}
 	return 0;
 }
 
+
 /**
- * @detail Frees an event overlap matrix.
- * 
- * @param An event overlap matrix.
- */ 
- void profcl_overmat_free(ProfCLOvermat overmat) {
-	free(overmat);
-}
-	
-/**
- * @detail Create new event overlap matrix given an OpenCL events profile.
+ * @detail Determine overlap matrix for the given OpenCL events profile.
+ *         Must be called after profcl_profile_aggregate.
  * 
  * @param profile An OpenCL events profile.
- * @return A new event overlap matrix or NULL if operation failed.
  */ 
-ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
+void profcl_profile_overmat(ProfCLProfile* profile) {
+	
+	/* Total overlap time. */
+	cl_ulong totalOverlap = 0;
 	
 	/* Determine number of unique events. */
 	guint numUniqEvts = g_hash_table_size(profile->unique_events);
 	
 	/* Initialize overlap matrix. */
-	ProfCLOvermat overlapMatrix = (ProfCLOvermat) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
+	cl_ulong* overlapMatrix = (cl_ulong*) malloc(numUniqEvts * numUniqEvts * sizeof(cl_ulong));
 	for (guint i = 0; i < numUniqEvts * numUniqEvts; i++)
 		overlapMatrix[i] = 0;
 		
@@ -183,7 +206,8 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 	GHashTable* eventsOccurring = g_hash_table_new(g_int_hash, g_int_equal);
 		
 	/* Sort all event instants. */
-	profile->event_instants = g_list_sort(profile->event_instants, profcl_evinst_comp);
+	ProfCLEvSort sortType = PROFCL_EV_SORT_INSTANT;
+	profile->event_instants = g_list_sort_with_data(profile->event_instants, profcl_evinst_comp, (gpointer) &sortType);
 	
 	/* Iterate through all event instants */
 	GList* currEvInstContainer = profile->event_instants;
@@ -257,6 +281,7 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 					? GPOINTER_TO_UINT(ueid_curr_ev) 
 					: GPOINTER_TO_UINT(ueid_occu_ev);
 				overlapMatrix[ueid_min * numUniqEvts + ueid_max] += effOverlap;
+				totalOverlap += effOverlap;
 			}	
 		}
 		
@@ -270,8 +295,96 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
 	/* Free eventsOccurring hash table. */
 	g_hash_table_destroy(eventsOccurring);
 	
-	/* Return the overlap matrix. */
-	return overlapMatrix;
+	/* Add a pointer to overlap matrix to the profile. */
+	profile->overmat = overlapMatrix;
+	
+	/* Determine and save effective events time. */
+	profile->totalEventsEffTime = profile->totalEventsTime - totalOverlap;
+}
+
+/** 
+ * @detail Determine aggregate statistics for the given OpenCL events 
+ *         profile. 
+ * */
+void profcl_profile_aggregate(ProfCLProfile* profile) {
+	
+	/* Initalize table, and set aggregate values to zero. */
+	GHashTableIter iter;
+	gpointer eventName;
+	g_hash_table_iter_init(&iter, profile->unique_events);
+	while (g_hash_table_iter_next(&iter, &eventName, NULL)) {
+		ProfCLEvAggregate* evagg = profcl_aggregate_new();
+		evagg->totalTime = 0;
+		g_hash_table_insert(profile->aggregate, eventName, (gpointer) evagg);
+	}
+	
+	/* Sort event instants by eid, and then by START, END order. */
+	ProfCLEvSort sortType = PROFCL_EV_SORT_ID;
+	profile->event_instants = g_list_sort_with_data(profile->event_instants, profcl_evinst_comp, (gpointer) &sortType);
+
+	/* Iterate through all event instants and determine total times. */
+	GList* currEvInstContainer = profile->event_instants;
+	while (currEvInstContainer) {
+		
+		ProfCLEvInst* currEvInst;
+		
+		/* Get START event instant. */
+		currEvInst = (ProfCLEvInst*) currEvInstContainer->data;
+		cl_ulong startInst = currEvInst->instant;
+		
+		/* Get END event instant */
+		currEvInstContainer = currEvInstContainer->next;
+		currEvInst = (ProfCLEvInst*) currEvInstContainer->data;
+		cl_ulong endInst = currEvInst->instant;
+		
+		/* Add new interval to respective aggregate value. */
+		ProfCLEvAggregate* currAgg = (ProfCLEvAggregate*) g_hash_table_lookup(profile->aggregate, currEvInst->eventName);
+		currAgg->totalTime += endInst - startInst;
+		profile->totalEventsTime += endInst - startInst;
+		
+		/* Get next START event instant. */
+		currEvInstContainer = currEvInstContainer->next;
+	}
+	
+	/* Determine relative times. */
+	gpointer valueAgg;
+	g_hash_table_iter_init(&iter, profile->aggregate);
+	while (g_hash_table_iter_next(&iter, &eventName, &valueAgg)) {
+		ProfCLEvAggregate* currAgg = (ProfCLEvAggregate*) valueAgg;
+		currAgg->relativeTime = ((double) currAgg->totalTime) / ((double) profile->totalEventsTime);
+	}	
+	
+}
+
+/** 
+ * @detail Create a new aggregate statistic for events of a given type.
+ * */
+ProfCLEvAggregate* profcl_aggregate_new(ProfCLProfile* profile) {
+	ProfCLEvAggregate* agg = (ProfCLEvAggregate*) malloc(sizeof(ProfCLEvAggregate));
+	return agg;
+}
+
+/** 
+ * @detail Free an aggregate statistic. 
+ * */
+void profcl_aggregate_free(gpointer agg) {
+	free(agg);
+}
+
+/** 
+* @detail Indication that profiling sessions has started. Starts the
+* global profiler timer. 
+* */
+void profcl_profile_start(ProfCLProfile* profile) {
+	profile->timer = g_timer_new();
+}
+
+/** 
+ * @detail Indication that profiling sessions has ended. Stops the 
+ * global profiler timer.
+ * */
+void profcl_profile_stop(ProfCLProfile* profile) {
+	g_timer_stop(profile->timer);
 }
 
 /**
@@ -280,33 +393,74 @@ ProfCLOvermat profcl_overmat_new(ProfCLProfile* profile) {
  * @param profile An OpenCL events profile.
  * @param dt
   */ 
-void printProfilingInfo(ProfCLProfile* profile, double dt) {
-	/*cl_ulong gpu_profile_total =
-		profile->writeGrass +
-		profile->writeRng +
-		profile->grass + 
-		profile->grasscount1 + 
-		profile->grasscount2 +
-		profile->readStats;
-	double gpu_exclusive = gpu_profile_total * 1e-9;
-	double cpu_exclusive = dt - gpu_exclusive;
-	printf(", of which %f (%f%%) is CPU and %f (%f%%) is GPU.\n", cpu_exclusive, 100*cpu_exclusive/dt, gpu_exclusive, 100*gpu_exclusive/dt);
-	printf("\nGPU timmings:\n\n");
-	printf("write grass: %fms (%f%%)\n", profile->writeGrass*1e-6, 100*((double) profile->writeGrass)/((double) gpu_profile_total));
-	printf("write rng: %fms (%f%%)\n", profile->writeRng*1e-6, 100*((double) profile->writeRng)/((double) gpu_profile_total));
-	printf("grass: %fms (%f%%)\n", profile->grass*1e-6, 100*((double) profile->grass)/((double) gpu_profile_total));
-	printf("grasscount1: %fms (%f%%)\n", profile->grasscount1*1e-6, 100*((double) profile->grasscount1)/((double) gpu_profile_total));
-	printf("grasscount2: %fms (%f%%)\n", profile->grasscount2*1e-6, 100*((double) profile->grasscount2)/((double) gpu_profile_total));
-	printf("read stats: %fms (%f%%)\n", profile->readStats*1e-6, 100*((double) profile->readStats)/((double) gpu_profile_total));
-	printf("\n");
-	printf("Overlap matrix:\n\n");
-	for (unsigned int i = 0; i < NUM_EVENTS; i++) {
-		printf("|\t");
-		for (unsigned int j = 0; j < NUM_EVENTS; j++) {
-			printf("%4.4ld\t", profile->overlapMatrix[i][j]);
+void profcl_print_info(ProfCLProfile* profile) {
+	
+	printf("\n=========================== Timming/Profiling ===========================\n\n");
+	
+	/* Show total ellapsed time */
+	if (profile->timer) {
+		printf("- Total ellapsed time:\t%fs\n", g_timer_elapsed(profile->timer, NULL));
+	}
+	
+	/* Show total events time */
+	if (profile->totalEventsTime > 0) {
+		printf("- Total of all events:\t%fs (100%%)\n", profile->totalEventsTime * 1e-9);
+	}
+	
+	/* Show aggregate event times */
+	if (g_hash_table_size(profile->aggregate) > 0) {
+		printf("- Aggregate times by event:\n");
+		GHashTableIter iter;
+		gpointer pEventName, pAgg;
+		g_hash_table_iter_init(&iter, profile->aggregate);
+		while (g_hash_table_iter_next(&iter, &pEventName, &pAgg)) {
+			ProfCLEvAggregate* agg = (ProfCLEvAggregate*) pAgg;
+			const char* eventName = (const char*) pEventName;
+			printf("\t- '%s':\t%fs (%f%%)\n", eventName, agg->totalTime * 1e-9, agg->relativeTime * 100.0);
 		}
-		printf("|\n");
-	}*/
+	}
+	
+	/* Show overlaps */
+	if (profile->overmat) {
+		/* Create new temporary hash table which is the reverse in 
+		 * terms of key-values of profile->unique_events. */
+		GHashTable* tmp = g_hash_table_new(g_direct_hash, g_direct_equal);
+		/* Populate temporary hash table. */
+		GHashTableIter iter;
+		gpointer pEventName, pId;
+		g_hash_table_iter_init(&iter, profile->unique_events);
+		while (g_hash_table_iter_next(&iter, &pEventName, &pId)) {
+			g_hash_table_insert(tmp, pId, pEventName);
+		}
+		/* Get number of unique events. */
+		guint numUniqEvts = g_hash_table_size(profile->unique_events);
+		/* Show overlaps. */
+		gboolean showMsg = FALSE;
+		for (guint i = 0; i < numUniqEvts; i++) {
+			for (guint j = 0; j < numUniqEvts; j++) {
+				if (profile->overmat[i * numUniqEvts + j] > 0) {
+					if (!showMsg) {
+						/* Show total events effective time (discount overlaps) */
+						printf("- Tot. of all events (eff.):\t%fs (saved %fs with overlaps)\n", profile->totalEventsEffTime * 1e-9, (profile->totalEventsTime - profile->totalEventsEffTime) * 1e-9);
+						/* Title the several overlaps. */
+						printf("- Event overlap times:\n");
+						/* Flag this message has shown. */
+						showMsg = TRUE;
+					}
+					printf(
+						"\t- '%s' + '%s':\t%fs\n", 
+						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(i)),
+						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(j)),
+						profile->overmat[i * numUniqEvts + j] * 1e-9
+					);
+				}
+			}
+		}
+				 
+		/* Free the hash table. */
+		g_hash_table_destroy(tmp);
+	}
+	
+	printf("\n=========================================================================\n");
 
-	return;
 }

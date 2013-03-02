@@ -19,6 +19,13 @@
 
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
+#ifdef CLPROFILER
+	#define DO_PROFILING 1
+#else
+	#define DO_PROFILING 0
+#endif
+
+
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
 // Local work sizes
@@ -32,29 +39,17 @@ cl_kernel grass_kernel, agentmov_kernel, agentupdate_kernel, sort_kernel, agenta
 int main(int argc, char ** argv)
 {
 	
-	//TODO Put this as preprocessor defines
-	char doProfiling;
-#ifdef CLPROFILER
-	printf("Profiling is ON!\n");
-	doProfiling = 1;
-#else
-	printf("Profiling is OFF!\n");
-	doProfiling = 0;
-#endif
-
-
 	// Status var aux
 	cl_int status;	
 	
 	// Init random number generator
 	srandom((unsigned)(time(0)));
 
-	// Timmings
-	struct timeval time1, time0;
-	double dt = 0;
+	// Profiling / Timmings
+	ProfCLProfile* profile = profcl_profile_new();
 
 	// 1. Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1, doProfiling);
+	CLZONE zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1, DO_PROFILING);
 
 	// 2. Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
@@ -322,7 +317,7 @@ int main(int argc, char ** argv)
 	cl_uint agentsort_event_index = 0, agentcount2_event_index = 0, grasscount2_event_index = 0;
 	char msg[500];
 	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
-	gettimeofday(&time0, NULL);
+	profcl_profile_start(profile);
 	for (iter = 1; iter <= params.iters; iter++) {
 		//printf("iter %d\n", iter);
 
@@ -428,8 +423,8 @@ int main(int argc, char ** argv)
 	// Guarantee all kernels have really terminated...
 	clFinish(zone.queues[0]);
 
-	// Get finishing time	
-	gettimeofday(&time1, NULL);  
+	// Finish profiling
+	profcl_profile_stop(profile);  
 
 	// Get statistics
 	status = clEnqueueReadBuffer(zone.queues[0], statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
@@ -441,113 +436,60 @@ int main(int argc, char ** argv)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep, statsArrayHost[i].wolves, statsArrayHost[i].grass );
 	fclose(fp1);
 
-	// 10. Print timmings
-	dt = time1.tv_sec - time0.tv_sec;
-	if (time1.tv_usec >= time0.tv_usec)
-		dt = dt + (time1.tv_usec - time0.tv_usec) * 1e-6;
-	else
-		dt = (dt-1) + (1e6 + time1.tv_usec - time0.tv_usec) * 1e-6;
-	printf("Total Simulation Time = %f", dt);
-
-#ifdef CLPROFILER
-	// Calculate and show profiling info
-
-	cl_ulong agentaction_move_profile = 0, grass_profile = 0, agentaction_profile = 0, agentsort_profile = 0, agentcount1_profile = 0, agentcount2_profile = 0, agentupdate_profile = 0, grasscount1_profile = 0, grasscount2_profile = 0, readNumAgents_profile = 0;
-	cl_ulong agentaction_move_profile_start, grass_profile_start, agentaction_profile_start, agentsort_profile_start, agentcount1_profile_start, agentcount2_profile_start, agentupdate_profile_start, grasscount1_profile_start, grasscount2_profile_start, readNumAgents_profile_start;
-	cl_ulong agentaction_move_profile_end, grass_profile_end, agentaction_profile_end, agentsort_profile_end, agentcount1_profile_end, agentcount2_profile_end, agentupdate_profile_end, grasscount1_profile_end, grasscount2_profile_end, readNumAgents_profile_end;
-
+	/* Analyze and release events */
 	for (unsigned int i = 0; i < params.iters; i++) {
-		// Agent movement kernel profiling
-		status = clGetEventProfilingInfo (agentaction_move_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentaction_move_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentaction_move start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		status = clGetEventProfilingInfo (agentaction_move_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentaction_move_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentaction_move end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		agentaction_move_profile += agentaction_move_profile_end - agentaction_move_profile_start;
-		// Grass kernel profiling
-		status = clGetEventProfilingInfo (grass_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grass_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grass start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		status = clGetEventProfilingInfo (grass_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grass_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grass end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		grass_profile += grass_profile_end - grass_profile_start;
-		// Update agent number kernel profiling
-		status = clGetEventProfilingInfo (agentupdate_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentupdate_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentupdate start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1); }
-		status = clGetEventProfilingInfo (agentupdate_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentupdate_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentupdate end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1); }
-		agentupdate_profile += agentupdate_profile_end - agentupdate_profile_start;
-		// Agent actions kernel profiling
-		status = clGetEventProfilingInfo (agentaction_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentaction_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentaction start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1); }
-		status = clGetEventProfilingInfo (agentaction_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentaction_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentaction end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		agentaction_profile += agentaction_profile_end - agentaction_profile_start;
-		// Count agents 1 kernel profiling
-		status = clGetEventProfilingInfo (agentcount1_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentcount1_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentcount1 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1);  }
-		status = clGetEventProfilingInfo (agentcount1_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentcount1_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentcount1 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		agentcount1_profile += agentcount1_profile_end - agentcount1_profile_start;
-		// Count grass 1 kernel profiling
-		status = clGetEventProfilingInfo (grasscount1_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grasscount1_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount1 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1);  }
-		status = clGetEventProfilingInfo (grasscount1_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grasscount1_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount1 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		grasscount1_profile += grasscount1_profile_end - grasscount1_profile_start;
-		// Get total number of agents profiling
-		status = clGetEventProfilingInfo (readNumAgents_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &readNumAgents_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling readNumAgents start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1);  }
-		status = clGetEventProfilingInfo (readNumAgents_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &readNumAgents_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling readNumAgents end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg); return(-1);  }
-		readNumAgents_profile += readNumAgents_profile_end - readNumAgents_profile_start;
+		
+#ifdef CLPROFILER 
+		profcl_profile_add(profile, profcl_evinfo_get("agentaction_move", agentaction_move_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("grass", grass_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("agentupdate", agentupdate_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("agentaction", agentaction_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("agentcount1", agentcount1_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("grasscount1", grasscount1_event[i], &status));
+		profcl_profile_add(profile, profcl_evinfo_get("readNumAgents", readNumAgents_event[i], &status));
+#endif
+		
+		clReleaseEvent(agentaction_move_event[i]);
+		clReleaseEvent(grass_event[i]);
+		clReleaseEvent(agentupdate_event[i]);
+		clReleaseEvent(agentaction_event[i]);
+		clReleaseEvent(agentcount1_event[i]);
+		clReleaseEvent(grasscount1_event[i]);
+		clReleaseEvent(readNumAgents_event[i]);
 	}
 
 	for (unsigned int i = 0; i < agentsort_event_index; i++) {
-		// Agent sort kernel profiling
-		status = clGetEventProfilingInfo (agentsort_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentsort_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentsort start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		status = clGetEventProfilingInfo (agentsort_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentsort_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentsort end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		agentsort_profile += agentsort_profile_end - agentsort_profile_start;
+#ifdef CLPROFILER 
+		profcl_profile_add(profile, profcl_evinfo_get("agentsort", agentsort_event[i], &status));
+#endif
+		clReleaseEvent(agentsort_event[i]);
 	}
 
 	for (unsigned int i = 0; i < grasscount2_event_index; i++) {
-		// Grass count 2 kernel profiling
-		status = clGetEventProfilingInfo (grasscount2_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &grasscount2_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount2 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		status = clGetEventProfilingInfo (grasscount2_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &grasscount2_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling grasscount2 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		grasscount2_profile += grasscount2_profile_end - grasscount2_profile_start;
+#ifdef CLPROFILER 
+		profcl_profile_add(profile, profcl_evinfo_get("grasscount2", grasscount2_event[i], &status));
+#endif
+		clReleaseEvent(grasscount2_event[i]);
 	}
 
 	for (unsigned int i = 0; i < agentcount2_event_index; i++) {
-		// Agent count 2 kernel profiling
-		status = clGetEventProfilingInfo (agentcount2_event[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &agentcount2_profile_start, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentcount2 start, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		status = clGetEventProfilingInfo (agentcount2_event[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &agentcount2_profile_end, NULL);
-		if (status != CL_SUCCESS) { sprintf(msg, "profiling agentcount2 end, iteration %d", i); PrintErrorGetEventProfilingInfo(status, msg);  return(-1); }
-		agentcount2_profile += agentcount2_profile_end - agentcount2_profile_start;
-	}
-
-	cl_ulong gpu_profile_total = agentaction_move_profile + grass_profile + agentaction_profile + agentsort_profile + agentcount1_profile + agentcount2_profile + agentupdate_profile + grasscount1_profile + grasscount2_profile + readNumAgents_profile;
-	double gpu_exclusive = gpu_profile_total * 1e-9;
-	double cpu_exclusive = dt - gpu_exclusive;
-	printf(", of which %f (%f%%) is CPU and %f (%f%%) is GPU.\n", cpu_exclusive, 100*cpu_exclusive/dt, gpu_exclusive, 100*gpu_exclusive/dt);
-	printf("agentaction_move: %fms (%f%%)\n", agentaction_move_profile*1e-6, 100*((double) agentaction_move_profile)/((double) gpu_profile_total));
-	printf("grass: %fms (%f%%)\n", grass_profile*1e-6, 100*((double) grass_profile)/((double) gpu_profile_total));
-	printf("agentaction: %fms (%f%%)\n", agentaction_profile*1e-6, 100*((double) agentaction_profile)/((double) gpu_profile_total));
-	printf("agentsort: %fms (%f%%)\n", agentsort_profile*1e-6, 100*((double) agentsort_profile)/((double) gpu_profile_total));
-	printf("agentcount1: %fms (%f%%)\n", agentcount1_profile*1e-6, 100*((double) agentcount1_profile)/((double) gpu_profile_total));
-	printf("agentcount2: %fms (%f%%)\n", agentcount2_profile*1e-6, 100*((double) agentcount2_profile)/((double) gpu_profile_total));
-	printf("agentupdate: %fms (%f%%)\n", agentupdate_profile*1e-6, 100*((double) agentupdate_profile)/((double) gpu_profile_total));
-	printf("grasscount1: %fms (%f%%)\n", grasscount1_profile*1e-6, 100*((double) grasscount1_profile)/((double) gpu_profile_total));
-	printf("grasscount2: %fms (%f%%)\n", grasscount2_profile*1e-6, 100*((double) grasscount2_profile)/((double) gpu_profile_total));
-	printf("readNumAgents: %fms (%f%%)\n", readNumAgents_profile*1e-6, 100*((double) readNumAgents_profile)/((double) gpu_profile_total));
+#ifdef CLPROFILER 
+		profcl_profile_add(profile, profcl_evinfo_get("agentcount2", agentcount2_event[i], &status));
 #endif
-
-	printf("\n");
+		clReleaseEvent(agentcount2_event[i]);
+	}
+	
+	/* Show timmings and profiling info. */
+#ifdef CLPROFILER 
+	profcl_profile_aggregate(profile);
+	profcl_profile_overmat(profile);	
+#endif
+	profcl_print_info(profile);
 
 	// 11. Free stuff!
 	
+	profcl_profile_free(profile);
+
 	// Free OpenCL kernels
 	clReleaseKernel(grass_kernel);
 	clReleaseKernel(agentmov_kernel);
