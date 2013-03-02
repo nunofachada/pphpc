@@ -303,18 +303,7 @@ int main(int argc, char ** argv)
 
 	//printf("sort: %d\t agc2: %d\t gc2: %d\n", params.iters * sum(tzc(nlpo2(MAX_AGENTS))), params.iters * (MAX_AGENTS/4) / agentcount2_lws, params.iters * numGrassCount2Loops);
 
-        // 8. Run the show
-	cl_event *agentaction_move_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *grass_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *agentaction_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *agentsort_event = (cl_event*) malloc(sizeof(cl_event) * params.iters * sum(tzc(nlpo2(MAX_AGENTS)))); //Worse case usage scenario
-	cl_event *agentcount1_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *agentcount2_event = (cl_event*) malloc(sizeof(cl_event) * params.iters * (MAX_AGENTS/4) / agentcount2_lws); // Optimistic usage to save memory => may break
-	cl_event *agentupdate_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *grasscount1_event = (cl_event*) malloc(sizeof(cl_event) * params.iters); 
-	cl_event *grasscount2_event = (cl_event*) malloc(sizeof(cl_event) * params.iters * numGrassCount2Loops); // Exact usage scenario
-	cl_event *readNumAgents_event = (cl_event*) malloc(sizeof(cl_event) * params.iters);
-	cl_uint agentsort_event_index = 0, agentcount2_event_index = 0, grasscount2_event_index = 0;
+	// 8. Run the show
 	char msg[500];
 	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
 	profcl_profile_start(profile);
@@ -329,11 +318,11 @@ int main(int argc, char ** argv)
 		cl_uint iterbase = iter - 1;
 
 		// Agent movement
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentaction_move_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, &agentaction_move_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentmov_kernel, iteration %d ", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 		// Grass growth and agent number reset
-		status = clEnqueueNDRangeKernel( zone.queues[0], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, grass_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, &grass_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "grass_kernel, iteration %d, gws=%d lws=%d ", iter, (int) *grass_gws, (int) *grass_lws); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 		// Sort agent array
@@ -342,8 +331,14 @@ int main(int argc, char ** argv)
 		while (agentsort_gws % agentsort_lws != 0)
 			agentsort_lws = agentsort_lws / 2;
 		cl_uint totalStages = (cl_uint) tzc(agentsort_gws * 2);
-		status = clEnqueueWaitForEvents(zone.queues[0], 1, agentaction_move_event + iterbase);
+		status = clEnqueueWaitForEvents(zone.queues[0], 1, &agentaction_move_event);
 		if (status != CL_SUCCESS) {  sprintf(msg, "clEnqueueWaitForEvents after agent mov, iteration %d", iter); PrintErrorEnqueueWaitForEvents(status, msg); return(-1); }
+		/* Deal with agentaction_move_event */
+#ifdef CLPROFILER
+		profcl_profile_add(profile, profcl_evinfo_get("agentaction_move", agentaction_move_event, &status));
+#endif
+		clReleaseEvent(agentaction_move_event);
+		
 		for (unsigned int currentStage = 1; currentStage <= totalStages; currentStage++) {
 			cl_uint step = currentStage;
 			for (int currentStep = step; currentStep > 0; currentStep--) {
@@ -351,29 +346,40 @@ int main(int argc, char ** argv)
 				if (status != CL_SUCCESS) { sprintf(msg, "argument 1 of sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorSetKernelArg(status, msg); return(-1); }
 				status = clSetKernelArg(sort_kernel, 2, sizeof(cl_uint), (void *) &currentStep);
 				if (status != CL_SUCCESS) {  sprintf(msg, "argument 2 of sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorSetKernelArg(status, msg); return(-1); }
-				status = clEnqueueNDRangeKernel( zone.queues[0], sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, agentsort_event + agentsort_event_index);
+				status = clEnqueueNDRangeKernel( zone.queues[0], sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, &agentsort_event);
 				if (status != CL_SUCCESS) {  sprintf(msg, "sort_kernel, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 				status = clEnqueueBarrier(zone.queues[0]);
 				if (status != CL_SUCCESS) {  sprintf(msg, "in sort agents loop, iteration %d, stage %d, step %d", iter, currentStage, currentStep); PrintErrorEnqueueBarrier(status, msg); return(-1); }
+				/* Deal with agentaction_move_event */
+#ifdef CLPROFILER
+				profcl_profile_add(profile, profcl_evinfo_get("agentsort", agentsort_event, &status));
+#endif
+				clReleaseEvent(agentsort_event);
 
-				agentsort_event_index++;
 			}
 		}
+		
+		/* Deal with grass_event */
+#ifdef CLPROFILER
+		profcl_profile_add(profile, profcl_evinfo_get("grass", grass_event, &status));
+#endif
+		clReleaseEvent(grass_event);
+		
 
 		// Update agent number in grid
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentupdate_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentupdate_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], agentupdate_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, &agentupdate_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentupdate_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
 		// agent actions
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, agentupdate_event + iterbase, agentaction_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, &agentupdate_event, &agentaction_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "agentaction_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); }
 
 		// Gather statistics
 		// Count agents, part 1
-		status = clEnqueueNDRangeKernel( zone.queues[0], countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, agentaction_event + iterbase, agentcount1_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, &agentaction_event, &agentcount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countagents1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 		// Count grass, part 1
-		status = clEnqueueNDRangeKernel( zone.queues[0], countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, agentaction_event + iterbase, grasscount1_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone.queues[0], countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, &agentaction_event, &grasscount1_event);
 		if (status != CL_SUCCESS) { sprintf(msg, "countgrass1_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 		// Count agents, part 2
 		do {
@@ -382,7 +388,7 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(countagents2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextAgentsToCount);
 			if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countagents2 kernel"); return(-1); }
 
-			status = clEnqueueNDRangeKernel( zone.queues[0], countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, agentcount1_event + iterbase, agentcount2_event + agentcount2_event_index);
+			status = clEnqueueNDRangeKernel( zone.queues[0], countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, &agentcount1_event, &agentcount2_event);
 			if (status != CL_SUCCESS) { sprintf(msg, "countagents2_kernel, iteration %d", iter); PrintErrorEnqueueNDRangeKernel(status, msg); return(-1); }
 
 			effectiveNextAgentsToCount = agentcount2_gws / agentcount2_lws;
@@ -390,7 +396,11 @@ int main(int argc, char ** argv)
 			status = clEnqueueBarrier(zone.queues[0]);
 			if (status != CL_SUCCESS) {  sprintf(msg, "in agent count loops"); PrintErrorEnqueueBarrier(status, msg); return(-1); }
 
-			agentcount2_event_index++;
+			/* Deal with agentaction_move_event */
+#ifdef CLPROFILER
+			profcl_profile_add(profile, profcl_evinfo_get("agentsort", agentsort_event, &status));
+#endif
+			clReleaseEvent(agentsort_event);
 
 		} while (effectiveNextAgentsToCount > 1);
 
