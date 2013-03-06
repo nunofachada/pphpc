@@ -1,8 +1,48 @@
+/* 
+ * Expected preprocessor defines:
+ * 
+ * REDUCE_GRASS_VECSIZE - Vector size used in reductions 
+ * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction (equivalent to get_global_size(0))
+ * CELL_NUM - Number of cells in simulation 
+ *  */
+
+/* Grass reduction pre defines */
+#if REDUCE_GRASS_VECSIZE == 1
+	#define REDUCE_GRASS_ZERO 0
+	#define REDUCE_GRASS_FINAL_SUM(x) (x)
+	typedef uint uintx;
+	typedef uchar ucharx;
+#elif REDUCE_GRASS_VECSIZE == 2
+	#define REDUCE_GRASS_ZERO (uint2) (0, 0)
+	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1)
+	typedef uint2 uintx;
+	typedef uchar2 ucharx;
+#elif REDUCE_GRASS_VECSIZE == 4
+	#define REDUCE_GRASS_ZERO (uint4) (0, 0, 0, 0)
+	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	typedef uint4 uintx;
+	typedef uchar4 ucharx;
+#elif REDUCE_GRASS_VECSIZE == 8
+	#define REDUCE_GRASS_ZERO (uint8) (0, 0, 0, 0, 0, 0, 0, 0)
+	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	typedef uint8 uintx;
+	typedef uchar8 ucharx;
+#elif REDUCE_GRASS_VECSIZE == 16
+	#define REDUCE_GRASS_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.s10 + x.s11 + x.s12 + x.s13 + x.s14 + x.s15)
+	typedef uint16 uintx;
+	typedef uchar16 ucharx;
+#endif
+
+#define CELL_VECTOR_NUM = CELL_NUM / REDUCE_GRASS_VECSIZE;
+#define REDUCE_GRASS_SERIAL_COUNT = CELL_VECTOR_NUM / REDUCE_GRASS_NUM_WORKITEMS;
+
 typedef struct cell {
-	uint grass;
-	ushort numpreys_start;
-	ushort numpreys_end;
-} CELL __attribute__ ((aligned (8)));
+	uchar* grass_alive;
+	ushort* grass_timer;
+	ushort* agents_number;
+	ushort* agents_index;
+} CELL;
 
 typedef struct sim_params {
 	uint size_x;
@@ -12,7 +52,6 @@ typedef struct sim_params {
 	uint grass_restart;
 } SIM_PARAMS;
 
-
 /*
  * Grass kernel
  */
@@ -21,106 +60,100 @@ __kernel void grass(__global CELL * matrix,
 			__global ulong * seeds)
 {
 	// Grid position for this work-item
-	uint x = get_global_id(0);
-	uint y = get_global_id(1);
+	uint gid = get_global_id(0);
+
 	// Check if this thread will do anything
-	if ((x < sim_params.size_x) && (y < sim_params.size_y)) {
+	if (gid < CELL_NUM) {
+		
 		// Decrement counter if grass is dead
 		uint index = x + sim_params.size_x * y;
-		if (matrix[index].grass > 0)
-			matrix[index].grass--;
-			
-		// REMOVE THIS
-		if (randomNextInt(seeds, 10) < 1)
-			matrix[index].grass = randomNextInt(seeds, 30);
-			
-			
-		// Set number of prey to zero
-		matrix[index].numpreys_start = 0;
-		matrix[index].numpreys_end = 0;
+		if (!matrix->grass_alive[index]) {
+			ushort timer = --matrix->grass_timer[index];
+			if (timer == 0) {
+				matrix->grass_alive[index] = 1;
+			}
+		} else if (randomNextInt(seeds, 10) < 1) {
+			// REMOVE THIS
+			matrix->grass_alive[index] = 0;
+			matrix->grass_timer[index] = randomNextInt(seeds, 30);
+		}
+
 	}
 }
 
-__kernel void countGrass(__global CELL * grass,
-			__global uint * gcounter,
-			__local uint * lcounter,
-			const SIM_PARAMS sim_params)
-
-
-
-// OLD REDUCTION CODE, REMOVE
-/*
- * Reduction code for grass count kernels
- */
-void reduceGrass(__local uint * lcounter, uint lid) 
-{
+__kernel void reduceGrass1(
+			__global ucharx * grass_alive,
+			__local uintx * partial_sums,
+			__global uintx * output) {
+				
+	// Global and local work-item IDs
+	uint gid = get_global_id(0);
+	uint lid = get_local_id(0);
+	uint group_size = get_local_size(0);
+	
+	// Serial sum
+	uintx sum = REDUCE_GRASS_ZERO;
+	
+	// Serial count
+	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT; i++) {
+		uint index = i * REDUCE_GRASS_NUM_WORKITEMS + gid;
+		if (index < CELL_VECTOR_NUM) {
+			sum += grass_alive[index];
+		}
+	}
+	
+	// Put serial sum in local memory
+	partial_sums[lid] = sum; 
+	
+	// Wait for all work items to perform previous operation
 	barrier(CLK_LOCAL_MEM_FENCE);
-	/* Determine number of stages/loops. */
-	uint lsbits = 8*sizeof(uint) - clz(get_local_size(0)) - 1;
-	uint stages = ((1 << lsbits) == get_local_size(0)) ? lsbits : lsbits + 1;
-	/* Perform loops/stages. */
-	for (int i = 0; i < stages; i++) {
-		uint stride = (uint) 1 << i; 
-		uint divisible = (uint) stride * 2;
-		if ((lid % divisible) == 0) {
-			if (lid + stride < get_local_size(0)) {
-				lcounter[lid] += lcounter[lid + stride];
-			}
+	
+	// Reduce
+	for (uint i = group_size / 2; i > 0; i >>= 1) {
+		if (lid < i) {
+			partial_sums[lid] += partial_sums[lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-}
-
-/*
- * Count grass part 1.
- */
-__kernel void CountGrass1(__global CELL * grass,
-			__global uint * gcounter,
-			__local uint * lcounter,
-			const SIM_PARAMS sim_params)
-{
-	uint gid = get_global_id(0);
-	uint lid = get_local_id(0);
-	if (gid < sim_params.size_xy) {
-		lcounter[lid] = (grass[gid].grass == 0 ? 1 : 0);
-	} else {
-		lcounter[lid] = 0;
-	}
-	reduceGrass(lcounter, lid);
-	if (lid == 0)
-		gcounter[get_group_id(0)] = lcounter[lid];
-}
-
-/*
- * Count grass part 2.
- */
-__kernel void CountGrass2(__global uint * gcounter,
-			__local uint * lcounter,
-			const uint maxgid,
-			__global STATS * stats)
-{
-	uint gid = get_global_id(0);
-	uint lid = get_local_id(0);
-	uint wgid = get_group_id(0);
-
-	if (gid < maxgid)
-		lcounter[lid] = gcounter[wgid * get_local_size(0) + lid];
-	else
-		lcounter[lid] = 0;
-	reduceGrass(lcounter, lid);
+	
+	// Put in global memory
 	if (lid == 0) {
-		gcounter[wgid] = lcounter[lid];
-		if ((gid == 0) && (get_num_groups(0) == 1)) {
-			stats[0].grass = lcounter[0];
-			
-			// REMOVE THIS
-			stats[0].sheep = 0;
-			stats[0].wolves = 0;
-			
-		}
+		output[get_group_id(0)] = partial_sums[0];
 	}
-
-
+		
 }
+
+__kernel void reduceGrass2(
+			__global ucharx * grass_alive,
+			__local uintx * partial_sums,
+			__global uint * total_grass) {
+				
+	// Global and local work-item IDs
+	uint lid = get_local_id(0);
+	uint group_size = get_local_size(0);
+	
+	// Load partial sum in local memory
+	partial_sums[lid] = grass_alive[lid]; 
+	
+	// Wait for all work items to perform previous operation
+	barrier(CLK_LOCAL_MEM_FENCE);
+	
+	// Reduce
+	for (uint i = group_size / 2; i > 0; i >>= 1) {
+		if (lid < i) {
+			partial_sums[lid] += partial_sums[lid + i];
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	}
+	
+	// Put in global memory
+	if (lid == 0) {
+		total_grass[0] = REDUCE_GRASS_FINAL_SUM(partial_sums[0]);
+	}
+		
+}
+
+
+
 
 

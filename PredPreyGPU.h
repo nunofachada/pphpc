@@ -5,10 +5,12 @@
 #include "Profiler.h"
 
 typedef struct cell {
-	cl_uint grass;
-	cl_ushort numpreys_start;
-	cl_ushort numpreys_end;
-} CELL __attribute__ ((aligned (8)));
+	cl_uchar* grass_alive;
+	cl_ushort* grass_timer;
+	cl_ushort* agents_number;
+	cl_ushort* agents_index;
+} CELL;
+
 
 typedef struct sim_params {
 	cl_uint size_x;
@@ -18,8 +20,8 @@ typedef struct sim_params {
 	cl_uint grass_restart;
 } SIM_PARAMS;
 
-void computeWorkSizes(PARAMS params);
-void printFixedWorkSizes(unsigned int numGrassCount2Loops);
+void computeWorkSizes(PARAMS params, cl_device device);
+void printWorkSizes(unsigned int numGrassCount2Loops);
 void getKernelEntryPoints(cl_program program);
 STATS* initStatsArray(PARAMS params, size_t statsSizeInBytes) ;
 CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArrayHost);

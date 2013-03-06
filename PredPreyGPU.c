@@ -2,40 +2,35 @@
 
 #define MAX_AGENTS 1048576
 
-#define LWS_GPU_MAX 256 //512
-#define LWS_GPU_PREF 64 //128
-#define LWS_GPU_MIN 8
+//#define LWS_GRASS 256
+//#define LWS_REDUCEGRASS1 256
 
-#define LWS_GPU_PREF_2D_X 16
-#define LWS_GPU_PREF_2D_Y 8
+#define SEED 0
+
+#ifdef CLPROFILER
+	#define DO_PROFILING 1
+#else
+	#define DO_PROFILING 0
+#endif
 
 // Global work sizes
-size_t grass_gws[2];
-size_t grasscount_gws;
+size_t grass_gws;
+size_t reducegrass1_gws;
+size_t reducegrass2_gws;
 
 // Local work sizes
-size_t grass_lws[2];
-size_t grasscount_lws;
+size_t grass_lws;
+size_t reducegrass1_lws;
+size_t reducegrass2_lws;
 
 // Kernels
 cl_kernel grass_kernel;
-cl_kernel countgrass_kernel;
+cl_kernel reducegrass1_kernel;
+cl_kernel reducegrass2_kernel;
 
 // Main stuff
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
-
-	char doProfiling;
-#ifdef CLPROFILER
-	printf("Profiling is ON!\n");
-	PROFILE_DATA* profiling = newProfile();
-	doProfiling = 1;
-#else
-	printf("Profiling is OFF!\n");
-	doProfiling = 0;
-#endif
-
-
 
 	// Aux vars
 	cl_int status;
@@ -44,25 +39,25 @@ int main(int argc, char ** argv)
 	// Events
 	cl_event ev_writeGrass, ev_writeRng, ev_grass, ev_readStats;
 	
-	// Timmings
-	struct timeval time1, time0;
+	// Create RNG and set seed
+#ifdef SEED
+	GRand* rng = g_rand_new_with_seed(SEED);
+#elif
+	GRand* rng = g_rand_new();
+#endif	
 	
-	// Start timer
-	gettimeofday(&time0, NULL);
-
-	// Set RNG seed
-	srand((unsigned)time(NULL));  
+	// Profiling / Timmings
+	ProfCLProfile* profile = profcl_profile_new();
 
 	// Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, doProfiling);
+	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, DO_PROFILING);
 
 	// Get simulation parameters
 	PARAMS params = loadParams(CONFIG_FILE);
 
 	// Compute work sizes for different kernels and print them to screen
-	computeWorkSizes(params);
-	unsigned int numGrassCountLoops =  tzc(nlpo2(grasscount_gws)) / tzc(nlpo2(grasscount_lws));
-	printFixedWorkSizes(numGrassCountLoops);
+	computeWorkSizes(params, zone.device);
+	printWorkSizes();
 
 	// Obtain kernels entry points
 	getKernelEntryPoints(zone.program);
@@ -310,40 +305,59 @@ int main(int argc, char ** argv)
 }
 
 // Compute worksizes depending on the device type and number of available compute units
-void computeWorkSizes(PARAMS params) {
-	// grass growth worksizes
-	grass_lws[0] = LWS_GPU_PREF_2D_X;
-	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
-	grass_lws[1] = LWS_GPU_PREF_2D_Y;
-	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
-	// grass count worksizes
-	grasscount_lws = LWS_GPU_MAX;
-	grasscount_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
+void computeWorkSizes(PARAMS params, cl_device device) {
 	
+	/* Variable which will keep the maximum workgroup size */
+	size_t maxWorkGroupSize;
+	
+	/* Get the maximum workgroup size. */
+	cl_int status = clGetDeviceInfo(
+		device, 
+		CL_DEVICE_MAX_WORK_GROUP_SIZE,
+		sizeof(size_t),
+		&maxWorkGroupSize,
+		NULL);
+	
+	/* Check for errors on the OpenCL call */
+	if (status != CL_SUCCESS) {PrintErrorGetDeviceInfo( status, "Get maximum workgroup size." ); exit(EXIT_FAILURE); }
+
+	/* grass growth worksizes */
+#ifdef LWS_GRASS
+	grass_lws = LWS_GRASS;
+#else
+	grass_lws = maxWorkGroupSize;
+#endif
+	grass_gws = grass_lws * ceil(((float) (params.grid_x * params.grix_y)) / grass_lws);
+	
+	/* grass count worksizes */
+#ifdef LWS_REDUCEGRASS1
+	reducegrass1_lws = LWS_REDUCEGRASS1;
+#else
+	reducegrass1_lws = maxWorkGroupSize;
+#endif	
+	reducegrass1_gws = reducegrass1_lws * reducegrass1_lws;
+	reducegrass2_lws = reducegrass1_lws;
+	reducegrass2_gws = reducegrass1_lws;	
 }
 
 // Print worksizes
-void printFixedWorkSizes(unsigned int numGrassCount2Loops) {
-	printf("Fixed kernel sizes:\n");
-	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
-	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
-	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
-	for (int i = 0; i < numGrassCount2Loops; i++) {
-		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n", i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
-	}
-	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
+void printWorkSizes(unsigned int numGrassCount2Loops) {
+	printf("Kernel work sizes:\n");
+	printf("grass_gws=%d\tgrass_lws=%d\n", (int) grass_gws, (int) grass_lws);
+	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) reducegrass1_gws, (int) reducegrass1_lws);
+	printf("grasscount2_lws/gws=%d\n", (int) reducegrass2_lws);
 
 }
 
 // Get kernel entry points
 void getKernelEntryPoints(cl_program program) {
 	cl_int status;
-	grass_kernel = clCreateKernel( program, "Grass", &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Grass kernel"); exit(EXIT_FAILURE); }
-	countgrass1_kernel = clCreateKernel( program, "CountGrass1", &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass1 kernel"); exit(EXIT_FAILURE); }
-	countgrass2_kernel = clCreateKernel( program, "CountGrass2", &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "CountGrass2 kernel"); exit(EXIT_FAILURE); }
+	grass_kernel = clCreateKernel( program, "grass", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "grass kernel"); exit(EXIT_FAILURE); }
+	countgrass1_kernel = clCreateKernel( program, "reduceGrass1", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "reduceGrass1 kernel"); exit(EXIT_FAILURE); }
+	countgrass2_kernel = clCreateKernel( program, "reduceGrass2", &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "reduceGrass2 kernel"); exit(EXIT_FAILURE); }
 }
 
 // Initialize statistics array in host
