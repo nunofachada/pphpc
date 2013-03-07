@@ -1,6 +1,8 @@
 #include "PredPreyGPU.h"
 
 #define MAX_AGENTS 1048576
+#define MAX_GWS 1048576
+#define REDUCE_GRASS_VECSIZE 4
 
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
@@ -13,97 +15,112 @@
 	#define DO_PROFILING 0
 #endif
 
-// Global work sizes
-size_t grass_gws;
-size_t reducegrass1_gws;
-size_t reducegrass2_gws;
-
-// Local work sizes
-size_t grass_lws;
-size_t reducegrass1_lws;
-size_t reducegrass2_lws;
-
-// Kernels
-cl_kernel grass_kernel;
-cl_kernel reducegrass1_kernel;
-cl_kernel reducegrass2_kernel;
-
-// Main stuff
+/**
+ *  @detail Main program.
+ * */
 int main(int argc, char **argv)
 {
 
-	// Aux vars
+	/* Program vars */
+	GlobalWorkSizes gws;
+	LocalWorkSizes lws;
+	Kernels krnls;
+	Events evts;
+	DataSizes dataSizes;
+	BuffersHost buffersHost;
+	BuffersDevice buffersDevice;
+
+	/* Aux vars. */
 	cl_int status;
 	char msg[MAX_AUX_BUFF];
 	
-	// Events
-	cl_event ev_writeGrass, ev_writeRng, ev_grass, ev_readStats;
-	
-	// Create RNG and set seed
+	/* Create RNG and set seed. */
 #ifdef SEED
 	GRand* rng = g_rand_new_with_seed(SEED);
 #elif
 	GRand* rng = g_rand_new();
 #endif	
 	
-	// Profiling / Timmings
+	/* Profiling / Timmings */
 	ProfCLProfile* profile = profcl_profile_new();
 
-	// Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, DO_PROFILING);
+	/* Get the required CL zone. */ //TODO Must accept compiler options
+	CLZone zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, DO_PROFILING);
 
-	// Get simulation parameters
-	PARAMS params = loadParams(CONFIG_FILE);
+	/* Get simulation parameters */
+	Parameters params = loadParams(CONFIG_FILE);
 
-	// Compute work sizes for different kernels and print them to screen
-	computeWorkSizes(params, zone.device);
+	/* Set simulation parameters in a format more adequate for this program. */
+	SimParams simParams = initSimParams(params);
+
+	/* Compute work sizes for different kernels and print them to screen. */
+	computeWorkSizes(params, zone.device, &gws, &lws);
 	printWorkSizes();
 
-	// Obtain kernels entry points
-	getKernelEntryPoints(zone.program);
+	/* Create kernels. */
+	createKernels(zone.program, &krnls);
+	
+	/* Determine size in bytes for host and device data structures. */
+	getDataSizesInBytes(params, &dataSizes);
 
-	////////////////////////////////////////
-	// Create and initialize host buffers //
-	////////////////////////////////////////
-	
-	// Statistics
-	size_t statsSizeInBytes = (params.iters + 1) * sizeof(STATS);
-	STATS * statsArray = initStatsArray(params, statsSizeInBytes);
-	
-	// Grass matrix 
-	size_t grassSizeInBytes = params.grid_x * params.grid_y * sizeof(CELL);
-	CELL * grassMatrixHost = initGrassMatrixHost(params, grassSizeInBytes, statsArray);
-	
-	// RNG seeds
-	size_t rngSeedsSizeInBytes = MAX_AGENTS * sizeof(cl_ulong);
-	cl_ulong * rngSeedsHost = initRngSeedsHost(rngSeedsSizeInBytes) ;
+	/* Initialize host buffers. */
+	createHostBuffers(&buffersHost, &dataSizes, params, rng);
 
-	// Sim parameters
-	SIM_PARAMS sim_params = initSimParams(params);
+	/* Create device buffers */
+	createDeviceBuffers(&buffersHost, &buffersDevice, gws);
+
+	/* Create events data structure. */
+	createEventsDataStructure(params, &evts);
+
+	/*  Set fixed kernel arguments. */
+	setFixedKernelArgs(&krnls, simParams);
 	
+	/* Start basic timming / profiling. */
+	profcl_profile_start(profile);
+
+	/* Simulation!! */
+	simulate();
+
+	/* Stop basic timing / profiling. */
+	profcl_profile_stop(profile);  
+	
+	/* Output results to file */
+	saveResults("stats.txt", buffersHost->stats, params);
+
+	/* Analyze events, show profiling info. */
+	profilingAnalysis(&evts);
+
+	/* Release OpenCL kernels */
+	freeKernels(krnls);
+	
+	/* Release OpenCL memory objects */
+	freeDeviceBuffers(buffersDevice);
+
+	/* Release OpenCL zone (program, command queue, context) */
+	destroyClZone(zone);
+
+	/* Free host resources */
+	freeHostBuffers(buffersHost);
+	
+	/* Free events */
+	freeEventsDataStructure(&evts); 
+	
+	/* Free profile data structure */
+	profcl_profile_free(profile);
+
+	/* Free RNG */
+	g_rand_free(rng);
+	
+	/* Bye bye. */
+	return 0;
+	
+}
+
+void simulate() {
 	// Current iteration
 	cl_uint iter = 0; 
-	
-	///////////////////////////
-	// Create device buffers //
-	///////////////////////////
+		
 
-	// Statistics in device memory
-	cl_mem statsDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sizeof(STATS), NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "statsDevice"); return(-1); }
-
-	// Grass matrix
-	cl_mem grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grassSizeInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassMatrixDevice"); return(-1); }
-
-	// Grass count
-	cl_mem grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws[0] * sizeof(cl_uint), NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "grassCountDevice"); return(-1); }
-
-	// RNG seeds
-	cl_mem rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, rngSeedsSizeInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "rngSeedsDevice"); return(-1); }
-	
 	///////////////////////////////
 	// Initialize device buffers //
 	///////////////////////////////
@@ -114,21 +131,7 @@ int main(int argc, char **argv)
 	status = clEnqueueWriteBuffer (	zone.queues[0], rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &ev_writeRng) );
 	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "rngSeedsDevice"); return(-1); }
 
-	/////////////////////////////////
-	//  Set fixed kernel arguments //
-	/////////////////////////////////
 
-	// Grass kernel
-	setGrassKernelArgs(grassMatrixDevice, sim_params);
-	
-	// TEMPORARY, REMOVE!
-	status = clSetKernelArg(grass_kernel, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of grass kernel"); exit(EXIT_FAILURE); }
-
-
-	// Count grass
-	setCountGrassKernelArgs(grassMatrixDevice, grassCountDevice, statsDevice, sim_params);
-	
 	//////////////////
 	//  SIMULATION! //
 	//////////////////
@@ -258,54 +261,25 @@ int main(int argc, char **argv)
 	// Guarantee all activity has terminated...
 	clFinish(zone.queues[0]);
 	clFinish(zone.queues[1]);
-
-	// Get finishing time	
-	gettimeofday(&time1, NULL);  
-
-	// Output results to file
-	saveResults("stats.txt", statsArray, params.iters);
-
-	// Print timmings
-#ifdef CLPROFILER
-	// Calculate and show profiling info
-	double totalTime = printTimmings(time0, time1);
-	printProfilingInfo(profiling, totalTime);
-#else
-	printTimmings(time0, time1);
-#endif
-
-	/////////////////
-	// Free stuff! //
-	/////////////////
-	
-	// Release OpenCL kernels
-	releaseKernels();
-	
-	// Release OpenCL memory objects
-	clReleaseMemObject(statsDevice);
-	clReleaseMemObject(grassMatrixDevice);
-	clReleaseMemObject(grassCountDevice);
-	clReleaseMemObject(rngSeedsDevice);
-
-	// Release OpenCL zone (program, command queue, context)
-	destroyClZone(zone);
-
-	// Free host resources
-	free(statsArray);
-	free(grassMatrixHost);
-	free(rngSeedsHost);
-	freeEventsCL(events); // This only frees host memory which contained events, its not a releaseEvent
-	
-#ifdef CLPROFILER
-	freeProfile(profiling);
-#endif
-
-	return 0;
 	
 }
 
+// Perform profiling analysis
+void profilingAnalysis(Events* evts, Parameters params) {
+#ifdef CLPROFILER
+	/* Perform detailed analysis. */
+	for (guint i = 0; i < params.iters; i++) {
+		//TODO Add events to profiling info
+	}
+	profcl_profile_aggregate(profile);
+	profcl_profile_overmat(profile);	
+#endif
+	/* Show profiling info. */
+	profcl_print_info(profile);
+}
+
 // Compute worksizes depending on the device type and number of available compute units
-void computeWorkSizes(PARAMS params, cl_device device) {
+void computeWorkSizes(Parameters params, cl_device device, GlobalWorkSizes *gws, LocalWorkSizes *lws) {
 	
 	/* Variable which will keep the maximum workgroup size */
 	size_t maxWorkGroupSize;
@@ -316,166 +290,248 @@ void computeWorkSizes(PARAMS params, cl_device device) {
 		CL_DEVICE_MAX_WORK_GROUP_SIZE,
 		sizeof(size_t),
 		&maxWorkGroupSize,
-		NULL);
+		NULL
+	);
 	
 	/* Check for errors on the OpenCL call */
 	if (status != CL_SUCCESS) {PrintErrorGetDeviceInfo( status, "Get maximum workgroup size." ); exit(EXIT_FAILURE); }
 
 	/* grass growth worksizes */
 #ifdef LWS_GRASS
-	grass_lws = LWS_GRASS;
+	lws->grass = LWS_GRASS;
 #else
-	grass_lws = maxWorkGroupSize;
+	lws->grass = maxWorkGroupSize;
 #endif
-	grass_gws = grass_lws * ceil(((float) (params.grid_x * params.grix_y)) / grass_lws);
+	gws->grass = lws->grass * ceil(((float) (params.grid_x * params.grix_y)) / lws->grass);
 	
 	/* grass count worksizes */
-#ifdef LWS_REDUCEGRASS1
-	reducegrass1_lws = LWS_REDUCEGRASS1;
+#ifdef LWS_REDUCEGRASS1 //TODO This should depend on number of cells, vector width, etc.
+	lws->reducegrass1 = LWS_REDUCEGRASS1; 
 #else
-	reducegrass1_lws = maxWorkGroupSize;
+	lws->reducegrass1 = maxWorkGroupSize;
 #endif	
-	reducegrass1_gws = reducegrass1_lws * reducegrass1_lws;
-	reducegrass2_lws = reducegrass1_lws;
-	reducegrass2_gws = reducegrass1_lws;	
+	gws->reducegrass1 = lws->reducegrass1 * lws->reducegrass1;
+	lws->reducegrass2 = lws->reducegrass1;
+	gws->reducegrass2 = lws->reducegrass1;	
 }
 
 // Print worksizes
-void printWorkSizes(unsigned int numGrassCount2Loops) {
+void printWorkSizes(GlobalWorkSizes *gws, LocalWorkSizes *lws) {
 	printf("Kernel work sizes:\n");
-	printf("grass_gws=%d\tgrass_lws=%d\n", (int) grass_gws, (int) grass_lws);
-	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) reducegrass1_gws, (int) reducegrass1_lws);
-	printf("grasscount2_lws/gws=%d\n", (int) reducegrass2_lws);
-
+	printf("grass_gws=%d\tgrass_lws=%d\n", (int) gws->grass, (int) lws->grass);
+	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) gws->reducegrass1, (int) lws->reducegrass1);
+	printf("grasscount2_lws/gws=%d\n", (int) lws->reducegrass2);
 }
 
 // Get kernel entry points
-void getKernelEntryPoints(cl_program program) {
+void createKernels(cl_program program, Kernels* krnls) {
 	cl_int status;
-	grass_kernel = clCreateKernel( program, "grass", &status );
+	krnls->grass = clCreateKernel( program, "grass", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "grass kernel"); exit(EXIT_FAILURE); }
-	countgrass1_kernel = clCreateKernel( program, "reduceGrass1", &status );
+	krnls->reduce_grass1 = clCreateKernel( program, "reduceGrass1", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "reduceGrass1 kernel"); exit(EXIT_FAILURE); }
-	countgrass2_kernel = clCreateKernel( program, "reduceGrass2", &status );
+	krnls->reduce_grass2 = clCreateKernel( program, "reduceGrass2", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "reduceGrass2 kernel"); exit(EXIT_FAILURE); }
 }
 
-// Initialize statistics array in host
-STATS* initStatsArray(PARAMS params, size_t statsSizeInBytes) 
-{
-	STATS* statsArray = (STATS*) malloc(statsSizeInBytes);
-	statsArray[0].sheep = params.init_sheep;
-	statsArray[0].wolves = params.init_wolves;
-	statsArray[0].grass = 0;
-	return statsArray;
+// Release kernels
+void freeKernels(Kernels* krnls) {
+	clReleaseKernel(krnls->grass);
+	clReleaseKernel(krnls->reduce_grass1); 
+	clReleaseKernel(krnls->reduce_grass2);
 }
 
-// Initialize grass matrix in host
-CELL* initGrassMatrixHost(PARAMS params, size_t grassSizeInBytes, STATS* statsArray) 
-{
-
-	CELL * grassMatrixHost = (CELL *) malloc(grassSizeInBytes);
-	for(unsigned int i = 0; i < params.grid_x; i++)
-	{
-		for (unsigned int j = 0; j < params.grid_y; j++)
-		{
-			unsigned int gridIndex = i + j*params.grid_x;
-			grassMatrixHost[gridIndex].grass = (rand() % 2) == 0 ? 0 : 1 + (rand() % params.grass_restart);
-			if (grassMatrixHost[gridIndex].grass == 0)
-				statsArray[0].grass++;
-		}
-	}
-	return grassMatrixHost;
-}
-
-// Initialize random seeds array in host
-cl_ulong* initRngSeedsHost(size_t rngSeedsSizeInBytes) {
-	cl_ulong * rngSeedsHost = (cl_ulong*) malloc(rngSeedsSizeInBytes);
-	for (int i = 0; i < MAX_AGENTS; i++) {
-		rngSeedsHost[i] = rand();
-	}
-	return rngSeedsHost;
-}
 
 // Initialize simulation parameters in host, to be sent to GPU
-SIM_PARAMS initSimParams(PARAMS params) {
-	SIM_PARAMS sim_params;
-	sim_params.size_x = params.grid_x;
-	sim_params.size_y = params.grid_y;
-	sim_params.size_xy = params.grid_x * params.grid_y;
-	sim_params.max_agents = MAX_AGENTS;
-	sim_params.grass_restart = params.grass_restart;
-	return sim_params;
+SimParams initSimParams(Parameters params) {
+	SimParams simParams;
+	simParams.size_x = params.grid_x;
+	simParams.size_y = params.grid_y;
+	simParams.size_xy = params.grid_x * params.grid_y;
+	simParams.max_agents = MAX_AGENTS;
+	simParams.grass_restart = params.grass_restart;
+	return simParams;
 }
 
-// Set grass kernel parameters
-void setGrassKernelArgs(cl_mem grassMatrixDevice, SIM_PARAMS sim_params) {
+//  Set fixed kernel arguments.
+void setFixedKernelArgs(Kernels* krnls, BuffersDevice* buffersDevice, SimParams simParams, LocalWorkSizes lws) {
 
 	cl_int status;
-
-	status = clSetKernelArg(grass_kernel, 0, sizeof(cl_mem), (void *) &grassMatrixDevice);
+	
+	/* Grass kernel */
+	status = clSetKernelArg(krnls->grass, 0, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_alive);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of grass kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(grass_kernel, 1, sizeof(SIM_PARAMS), (void *) &sim_params);
+	status = clSetKernelArg(krnls->grass, 1, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_timer);
 	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of grass kernel"); exit(EXIT_FAILURE); }
 
-}
+	status = clSetKernelArg(grass_kernel, 2, sizeof(SIM_PARAMS), (void *) &simParams);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of grass kernel"); exit(EXIT_FAILURE); }
 
-// Set grass count kernels fixed parameters
-void setCountGrassKernelArgs(cl_mem grassMatrixDevice, cl_mem grassCountDevice, cl_mem statsDevice, SIM_PARAMS sim_params) {
 	
-	cl_uint status;
+	status = clSetKernelArg(grass_kernel, 3, sizeof(cl_mem), (void *) &bufferDevice->rng_seeds);//TODO TEMPORARY, REMOVE!
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of grass kernel"); exit(EXIT_FAILURE); }//TODO TEMPORARY, REMOVE!
 
-	// Grass count kernel 1
-	status = clSetKernelArg(countgrass1_kernel, 0, sizeof(cl_mem), (void *) &grassMatrixDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countgrass1 kernel"); exit(EXIT_FAILURE); }
+	/* reduce_grass1 kernel */
+	status = clSetKernelArg(krnls->reduce_grass1, 0, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_alive);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of reduce_grass1 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass1_kernel, 1, sizeof(cl_mem), (void *) &grassCountDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass1 kernel"); exit(EXIT_FAILURE); }
+	status = clSetKernelArg(krnls->reduce_grass1, 1, lws->reduce_grass1 * sizeof(cl_uint), NULL);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of reduce_grass1 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass1_kernel, 2, grasscount1_lws*sizeof(cl_uint), NULL);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of countgrass1 kernel"); exit(EXIT_FAILURE); }
+	status = clSetKernelArg(krnls->reduce_grass1, 2, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of reduce_grass1 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass1_kernel, 3, sizeof(SIM_PARAMS), (void *) &sim_params);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countgrass1 kernel"); exit(EXIT_FAILURE); }
+	/* reduce_grass2 kernel */
+	status = clSetKernelArg(krnls->reduce_grass2, 0, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of reduce_grass2 kernel"); exit(EXIT_FAILURE); }
 
-	// Grass count kernel 2
-	status = clSetKernelArg(countgrass2_kernel, 0, sizeof(cl_mem), (void *) &grassCountDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of countgrass2 kernel"); exit(EXIT_FAILURE); }
+	status = clSetKernelArg(krnls->reduce_grass2, 1, lws->reduce_grass2 * sizeof(cl_uint), NULL);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of reduce_grass2 kernel"); exit(EXIT_FAILURE); }
 
-	status = clSetKernelArg(countgrass2_kernel, 1, grasscount2_gws[0]*sizeof(cl_uint), NULL);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of countgrass2 kernel"); exit(EXIT_FAILURE); }
-
-	status = clSetKernelArg(countgrass2_kernel, 3, sizeof(cl_mem), (void *) &statsDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of countgrass2 kernel"); exit(EXIT_FAILURE); }
+	status = clSetKernelArg(krnls->reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice->stats);
+	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of reduce_grass2 kernel"); exit(EXIT_FAILURE); }
 	
-
-
-}
-
-// Release kernels
-void releaseKernels() {
-	clReleaseKernel(grass_kernel);
-	clReleaseKernel(countgrass1_kernel); 
-	clReleaseKernel(countgrass2_kernel);
 }
 
 // Save results
-void saveResults(char* filename, STATS* statsArray, unsigned int iters) {
+void saveResults(char* filename, Statistics* statsArray, Parameters params) {
 	FILE * fp1 = fopen(filename,"w");
-	for (unsigned int i = 0; i <= iters; i++)
+	for (unsigned int i = 0; i <= params.iters; i++)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass );
 	fclose(fp1);
 }
 
-// Print timmings
-double printTimmings(struct timeval time0, struct timeval time1) {
-	double dt = time1.tv_sec - time0.tv_sec;
-	if (time1.tv_usec >= time0.tv_usec)
-		dt = dt + (time1.tv_usec - time0.tv_usec) * 1e-6;
-	else
-		dt = (dt-1) + (1e6 + time1.tv_usec - time0.tv_usec) * 1e-6;
-	printf("Total Simulation Time = %f", dt);
-	return dt;
+// Determine buffer sizes
+void getDataSizesInBytes(Parameters params, DataSizes* dataSizes, GlobalWorkSizes gws) {
+
+	/* Statistics */
+	dataSizes->stats = (params.iters + 1) * sizeof(STATS);
+	
+	/* Environment cells */
+	dataSizes->cells_grass_alive = (params.grid_xy + REDUCE_GRASS_VECSIZE) * sizeof(cl_uchar);
+	dataSizes->cells_grass_timer = params.grid_xy * sizeof(cl_short);
+	dataSizes->cells_agents_number = params.grid_xy * sizeof(cl_short);
+	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_short);
+	
+	/* Grass reduction. */
+	dataSizes->reduce_grass_local = lws->reduce_grass1 * sizeof(cl_uint);
+	dataSizes->reduce_grass_global = gws->reduce_grass2 * sizeof(cl_uint);
+	
+	/* Rng seeds */
+	dataSizes->rng_seeds = MAX_GWS * sizeof(cl_ulong);
+
 }
 
+// Initialize host buffers
+void createHostBuffers(BuffersHost* buffersHost, DataSizes* dataSizes, Parameters params, GRand* rng) {
+	
+	/* Statistics */
+	buffersHost->stats = (Statistics*) malloc(dataSizes->stats);
+	buffersHost->stats[0].sheep = params.init_sheep;
+	buffersHost->stats[0].wolves = params.init_wolves;
+	buffersHost->stats[0].grass = 0;
+	
+	/* Environment cells */
+	buffersHost->cell_grass_alive = (cl_uchar*) malloc(dataSizes->cells_grass_alive);
+	buffersHost->cell_grass_timer = (cl_ushort*) malloc(dataSizes->cells_grass_timer);
+	buffersHost->cell_agents_number = (cl_ushort*) malloc(dataSizes->cells_agents_number);
+	buffersHost->cell_agents_index = (cl_ushort*) malloc(dataSizes->cells_agents_index);
+	
+	for(guint i = 0; i < params.grid_x; i++) {
+		for (guint j = 0; j < params.grid_y; j++) {
+			guint gridIndex = i + j * params.grid_x;
+			buffersHost->cell_grass_timer[gridIndex] = 
+				g_rand_int_range(rng, 0, 2) == 0 
+				? 0 
+				: g_rand_int_range(rng, 1, params.grass_restart + 1);
+			if (buffersHost->cell_grass_timer[gridIndex] == 0) {
+				buffersHost->stats[0].grass++;
+				buffersHost->cell_grass_alive[gridIndex] = 1;
+			} else {
+				buffersHost->cell_grass_alive[gridIndex] = 0;
+			}
+		}
+	}
+	
+	/* RNG seeds */
+	buffersHost->rng_seeds = (cl_ulong*) malloc(dataSizes->rng_seeds);
+	for (int i = 0; i < MAX_GWS; i++) {
+		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
+	}	
+	
+}
+
+// Free host buffers
+void freeHostBuffers(BuffersHost* buffersHost) {
+	free(buffersHost->stats);
+	free(buffersHost->cell_grass_alive);
+	free(buffersHost->cell_grass_timer);
+	free(buffersHost->cell_agents_number);
+	free(buffersHost->cell_agents_index);
+	free(buffersHost->rng_seeds);
+}
+
+// Initialize device buffers
+void createDeviceBuffers(cl_context context, BuffersHost* buffersHost, BuffersDevice* buffersDevice, DataSizes* dataSizes) {
+	
+	cl_int status;
+	
+	/* Statistics */
+	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(Statistics), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->stats"); exit(EXIT_FAILURE); }
+
+	/* Cells */
+	buffersDevice->cells_grass_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_grass_alive), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->cells_grass_alive"); exit(EXIT_FAILURE); }
+	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_grass_timer), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->cells_grass_timer"); exit(EXIT_FAILURE); }
+	buffersDevice->cells_agents_number = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_agents_number), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->cells_agents_number"); exit(EXIT_FAILURE); }
+	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_agents_index), NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->cells_agents_index"); exit(EXIT_FAILURE); }
+
+	/* Grass reduction (count) */
+	buffersDevice->reduce_grass_global = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, dataSizes->reduce_grass_global, NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->reduce_grass_global"); exit(EXIT_FAILURE); }
+
+	/* RNG seeds. */
+	buffersDevice->rng_seeds = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, dataSizes->rng_seeds, NULL, &status );
+	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "buffersDevice->rng_seeds"); exit(EXIT_FAILURE); }
+}
+
+// Free device buffers
+void freeDeviceBuffers(BuffersDevice* buffersDevice) {
+	clReleaseMemObject(buffersDevice->stats);
+	clReleaseMemObject(buffersDevice->cells_grass_alive);
+	clReleaseMemObject(buffersDevice->cells_grass_timer);
+	clReleaseMemObject(buffersDevice->cells_agents_number);
+	clReleaseMemObject(buffersDevice->cells_agents_index);
+	clReleaseMemObject(buffersDevice->reduce_grass);
+	clReleaseMemObject(buffersDevice->rng_seeds);
+}
+
+// Create event data structure
+void createEventsDataStructure(Parameters params, Events* evts) {
+
+	evts->grass = (cl_event*) malloc(params.iters * sizeof(cl_event));
+	evts->read_stats = (cl_event*) malloc(params.iters * sizeof(cl_event));
+	evts->reduce_grass1 = (cl_event*) malloc(params.iters * sizeof(cl_event));
+	evts->reduce_grass2 = (cl_event*) malloc(params.iters * sizeof(cl_event));
+}
+
+// Free event data structure
+void freeEventsDataStructure(Parameters params, Events* evts) {
+	clReleaseEvent(evts->write_grass);
+	clReleaseEvent(evts->write_rng);
+	for (guint i = 0; i < params.iters; i++) {
+		clReleaseEvent(evts->grass[i]);
+		clReleaseEvent(evts->read_stats[i]);
+		clReleaseEvent(evts->reduce_grass1[i]);
+		clReleaseEvent(evts->reduce_grass2[i]);
+	}
+	free(evts->grass);
+	free(evts->read_stats);
+	free(evts->reduce_grass1);
+	free(evts->reduce_grass2);
+}

@@ -1,14 +1,14 @@
-typedef struct stats {
+typedef struct statistics {
 	uint sheep;
 	uint wolves;
 	uint grass;
-} STATS;
+} Statistics;
 
 typedef struct agent_params {
 	uint gain_from_food;
 	uint reproduce_threshold;
 	uint reproduce_prob; /* between 1 and 100 */
-} AGENT_PARAMS;
+} AgentParams;
 
 /*
  * RNG utility function, not to be called directly from kernels.

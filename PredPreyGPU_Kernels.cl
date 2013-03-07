@@ -37,13 +37,6 @@
 #define CELL_VECTOR_NUM = CELL_NUM / REDUCE_GRASS_VECSIZE;
 #define REDUCE_GRASS_SERIAL_COUNT = CELL_VECTOR_NUM / REDUCE_GRASS_NUM_WORKITEMS;
 
-typedef struct cell {
-	uchar* grass_alive;
-	ushort* grass_timer;
-	ushort* agents_number;
-	ushort* agents_index;
-} CELL;
-
 typedef struct sim_params {
 	uint size_x;
 	uint size_y;
@@ -55,7 +48,9 @@ typedef struct sim_params {
 /*
  * Grass kernel
  */
-__kernel void grass(__global CELL * matrix, 
+__kernel void grass(
+			__global uchar* grass_alive, 
+			__global uchar* grass_timer, 
 			const SIM_PARAMS sim_params,
 			__global ulong * seeds)
 {
@@ -66,16 +61,15 @@ __kernel void grass(__global CELL * matrix,
 	if (gid < CELL_NUM) {
 		
 		// Decrement counter if grass is dead
-		uint index = x + sim_params.size_x * y;
-		if (!matrix->grass_alive[index]) {
-			ushort timer = --matrix->grass_timer[index];
+		if (!grass_alive[gid]) {
+			ushort timer = --grass_timer[gid];
 			if (timer == 0) {
-				matrix->grass_alive[index] = 1;
+				grass_alive[gid] = 1;
 			}
 		} else if (randomNextInt(seeds, 10) < 1) {
 			// REMOVE THIS
-			matrix->grass_alive[index] = 0;
-			matrix->grass_timer[index] = randomNextInt(seeds, 30);
+			grass_alive[gid] = 0;
+			grass_timer[gid] = randomNextInt(seeds, 30);
 		}
 
 	}
@@ -84,7 +78,7 @@ __kernel void grass(__global CELL * matrix,
 __kernel void reduceGrass1(
 			__global ucharx * grass_alive,
 			__local uintx * partial_sums,
-			__global uintx * output) {
+			__global uintx * reduce_grass_global) {
 				
 	// Global and local work-item IDs
 	uint gid = get_global_id(0);
@@ -118,22 +112,22 @@ __kernel void reduceGrass1(
 	
 	// Put in global memory
 	if (lid == 0) {
-		output[get_group_id(0)] = partial_sums[0];
+		reduce_grass_global[get_group_id(0)] = partial_sums[0];
 	}
 		
 }
 
 __kernel void reduceGrass2(
-			__global ucharx * grass_alive,
+			__global uintx * reduce_grass_global,
 			__local uintx * partial_sums,
-			__global uint * total_grass) {
+			__global Statistics * stats) {
 				
 	// Global and local work-item IDs
 	uint lid = get_local_id(0);
 	uint group_size = get_local_size(0);
 	
 	// Load partial sum in local memory
-	partial_sums[lid] = grass_alive[lid]; 
+	partial_sums[lid] = reduce_grass_global[lid]; 
 	
 	// Wait for all work items to perform previous operation
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -148,7 +142,7 @@ __kernel void reduceGrass2(
 	
 	// Put in global memory
 	if (lid == 0) {
-		total_grass[0] = REDUCE_GRASS_FINAL_SUM(partial_sums[0]);
+		stats[0].grass = REDUCE_GRASS_FINAL_SUM(partial_sums[0]);
 	}
 		
 }

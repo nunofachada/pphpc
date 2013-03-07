@@ -24,7 +24,7 @@
 #define MAX_DEVICES_TOTAL 20
 #define MAX_AUX_BUFF 500
 
-typedef struct clzone {
+typedef struct cl_zone {
 	cl_platform_id platform;
 	cl_device_id device;
 	cl_uint device_type;
@@ -33,22 +33,22 @@ typedef struct clzone {
 	cl_command_queue * queues;
 	cl_program program;
 	unsigned int numQueues;
-} CLZONE;
+} CLZone;
 
-typedef struct deviceInfo {
+typedef struct device_info {
 	cl_device_id id;
 	char name[MAX_AUX_BUFF];
 	cl_platform_id platformId;
 	char platformName[MAX_AUX_BUFF];
-} DEVICE_INFO;
+} DeviceInfo;
 
-typedef struct stats {
+typedef struct statistics {
 	cl_uint sheep;
 	cl_uint wolves;
 	cl_uint grass;
-} STATS;
+} Statistics;
 
-typedef struct params {
+typedef struct parameters {
 	unsigned int init_sheep;
 	unsigned int sheep_gain_from_food;
 	unsigned int sheep_reproduce_threshold;
@@ -61,17 +61,17 @@ typedef struct params {
 	unsigned int grid_x;
 	unsigned int grid_y;
 	unsigned int iters;
-} PARAMS;
+} Parameters;
 
 typedef struct agent_params {
 	cl_uint gain_from_food;
 	cl_uint reproduce_threshold;
 	cl_uint reproduce_prob; /* between 1 and 100 */
-} AGENT_PARAMS;
+} AgentParams;
 
-CLZONE getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues, char profile);
+CLZone getClZone(const char* kernels_file, cl_uint deviceType, cl_uint numQueues, char profile);
 
-void destroyClZone(CLZONE zone);
+void destroyClZone(CLZone zone);
 PARAMS loadParams(const char * paramsFile);
 
 #endif

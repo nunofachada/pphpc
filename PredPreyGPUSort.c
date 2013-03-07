@@ -49,10 +49,10 @@ int main(int argc, char ** argv)
 	ProfCLProfile* profile = profcl_profile_new();
 
 	// 1. Get the required CL zone.
-	CLZONE zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1, DO_PROFILING);
+	CLZone zone = getClZone("PredPreyGPUSort_Kernels.cl", CL_DEVICE_TYPE_GPU, 1, DO_PROFILING);
 
 	// 2. Get simulation parameters
-	PARAMS params = loadParams(CONFIG_FILE);
+	Parameters params = loadParams(CONFIG_FILE);
 
 	// 3. Compute work sizes for different kernels and print them to screen
 	computeWorkSizes(params, zone.device_type, zone.cu);	
