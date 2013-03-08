@@ -116,6 +116,7 @@ int main(int argc, char **argv)
 	
 }
 
+// Perform simulation
 void simulate() {
 	// Current iteration
 	cl_uint iter = 0; 
