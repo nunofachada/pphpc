@@ -9,7 +9,7 @@ CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
 OBJDIR = obj
 BUILDDIR = bin
 UTILSDIR = utils
-UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clerrors.o $(UTILSDIR)/$(OBJDIR)/fileutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clinfo.o
+UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o
 TESTSDIR = tests
 
 all: makeutils mkdirs Tests PredPreyGPUSort PredPreyCPU PredPreyGPU 

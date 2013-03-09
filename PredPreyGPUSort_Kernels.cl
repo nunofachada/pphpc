@@ -3,44 +3,44 @@
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store: enable
 
 #define CELL_GRASS_OFFSET 0
-#define CELL_NUMAGENTS_OFFSET 1
+#define CELL_NUMPPGSAgentS_OFFSET 1
 #define CELL_AGINDEX_OFFSET 2
 
 #define SHEEP_ID 0
 #define WOLF_ID 1
 #define GRASS_ID 2
-#define TOTALAGENTS_ID 3
+#define TOTALPPGSAgentS_ID 3
 
-typedef struct sim_params {
+typedef struct pp_gs_sim_params {
 	uint size_x;
 	uint size_y;
 	uint size_xy;
 	uint max_agents;
 	uint grass_restart;
 	uint grid_cell_space;
-} SIM_PARAMS;
+} PPGSSimParams;
 
-typedef struct agent {
+typedef struct pp_gs_agent {
 	uint x;
 	uint y;
 	uint alive;
 	ushort energy;
 	ushort type;
-} AGENT __attribute__ ((aligned (16)));
+} PPGSAgent __attribute__ ((aligned (16)));
 
 /*
  * Agent movement kernel.
  * Also increments iteration number.
  */
-__kernel void RandomWalk(__global AGENT * agents,
+__kernel void RandomWalk(__global PPGSAgent * agents,
 				__global ulong * seeds,
-				const SIM_PARAMS sim_params,
+				const PPGSSimParams sim_params,
 				__global uint * iter)
 {
 	// Global id for this work-item
 	uint gid = get_global_id(0);
 	// Pseudo-randomly determine direction
-	AGENT agent = agents[gid];
+	PPGSAgent agent = agents[gid];
 	if (agent.alive)
 	{
 		uint direction = randomNextInt(seeds, 5);
@@ -83,19 +83,19 @@ __kernel void RandomWalk(__global AGENT * agents,
 /*
  * Update agents in grid
  */
-__kernel void AgentsUpdateGrid(__global AGENT * agents, 
+__kernel void AgentsUpdateGrid(__global PPGSAgent * agents, 
 			__global uint * matrix,
-			const SIM_PARAMS sim_params)
+			const PPGSSimParams sim_params)
 {
 	// Global id for this work-item
 	uint gid = get_global_id(0);
 	// Get my agent
-	AGENT agent = agents[gid];
+	PPGSAgent agent = agents[gid];
 	if (agent.alive) {
 		// Update grass matrix by...
 		uint index = sim_params.grid_cell_space*(agent.x + sim_params.size_x * agent.y);
 		// ...increment number of agents...
-		atom_inc(&matrix[index + CELL_NUMAGENTS_OFFSET]);
+		atom_inc(&matrix[index + CELL_NUMPPGSAgentS_OFFSET]);
 		// ...and setting lowest agent vector index with agents in this place.
 		atom_min(&matrix[index + CELL_AGINDEX_OFFSET], gid); 
 	}
@@ -105,7 +105,7 @@ __kernel void AgentsUpdateGrid(__global AGENT * agents,
 /*
  * Bitonic sort kernel
  */
-__kernel void BitonicSort(__global AGENT * agents,
+__kernel void BitonicSort(__global PPGSAgent * agents,
 				const uint stage,
 				const uint step)
 {
@@ -117,8 +117,8 @@ __kernel void BitonicSort(__global AGENT * agents,
 	uint index1 = gid + (gid / pair_stride) * pair_stride;
 	uint index2 = index1 + pair_stride;
 	// Get values from global memory
-	AGENT agent1 = agents[index1];
-	AGENT agent2 = agents[index2];
+	PPGSAgent agent1 = agents[index1];
+	PPGSAgent agent2 = agents[index2];
 	// Determine if ascending or descending
 	bool desc = (bool) (0x1 & (gid >> stage - 1));
 	// Determine if agent1 > agent2 according to our criteria
@@ -159,7 +159,7 @@ __kernel void BitonicSort(__global AGENT * agents,
  * Grass kernel
  */
 __kernel void Grass(__global uint * matrix, 
-			const SIM_PARAMS sim_params)
+			const PPGSSimParams sim_params)
 {
 	// Grid position for this work-item
 	uint x = get_global_id(0);
@@ -171,7 +171,7 @@ __kernel void Grass(__global uint * matrix,
 		if (matrix[index] > 0)
 			matrix[index]--;
 		// Set number of agents in this place to zero
-		matrix[index + CELL_NUMAGENTS_OFFSET] = 0;
+		matrix[index + CELL_NUMPPGSAgentS_OFFSET] = 0;
 		matrix[index + CELL_AGINDEX_OFFSET] = sim_params.max_agents;
 	}
 }
@@ -224,7 +224,7 @@ void reduceGrass(__local uint * lcounter, uint lid)
 /*
  * Count agents part 1.
  */
-__kernel void CountAgents1(__global AGENT * agents,
+__kernel void CountAgents1(__global PPGSAgent * agents,
 			__global uint2 * gcounter,
 			__local uint2 * lcounter)
 {
@@ -252,7 +252,7 @@ __kernel void CountAgents2(__global uint2 * gcounter,
 			__local uint2 * lcounter,
 			const uint maxgid,
 			__global uint * num_agents,
-			__global STATS * stats,
+			__global PPStatistics * stats,
 			__global uint * iter)
 {
 	uint gid = get_global_id(0);
@@ -283,7 +283,7 @@ __kernel void CountAgents2(__global uint2 * gcounter,
 __kernel void CountGrass1(__global uint * grass,
 			__global uint * gcounter,
 			__local uint * lcounter,
-			const SIM_PARAMS sim_params)
+			const PPGSSimParams sim_params)
 {
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
@@ -303,7 +303,7 @@ __kernel void CountGrass1(__global uint * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global STATS * stats,
+			__global PPStatistics * stats,
 			__global uint * iter)
 {
 	uint gid = get_global_id(0);
@@ -328,14 +328,14 @@ __kernel void CountGrass2(__global uint * gcounter,
 /*
  * Agent reproduction function for agents action kernel
  */
-AGENT agentReproduction(__global AGENT * agents, AGENT agent, __global AGENT_PARAMS * params, __global uint * num_agents, __global ulong * seeds)
+PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParams * params, __global uint * num_agents, __global ulong * seeds)
 {
 	// Perhaps agent will reproduce if energy > reproduce_threshold
 	if (agent.energy > params[agent.type].reproduce_threshold) {
 		// Throw some kind of dice to see if agent reproduces
 		if (randomNextInt(seeds, 100) < params[agent.type].reproduce_prob ) {
 			// Agent will reproduce! Let's see if there is space...
-			AGENT newAgent;
+			PPGSAgent newAgent;
 			uint position = atom_inc(num_agents);
 			if (position < get_global_size(0) - 2)
 			{
@@ -354,10 +354,10 @@ AGENT agentReproduction(__global AGENT * agents, AGENT agent, __global AGENT_PAR
 /*
  * Sheep actions
  */
-AGENT sheepAction( AGENT sheep,
+PPGSAgent sheepAction( PPGSAgent sheep,
 		__global uint * matrix, 
-		const SIM_PARAMS sim_params, 
-		__global AGENT_PARAMS * params)
+		const PPGSSimParams sim_params, 
+		__global PPAgentParams * params)
 {
 	// If there is grass, eat it (and I can be the only one to do so)!
 	uint index = (sheep.x + sheep.y * sim_params.size_x) * sim_params.grid_cell_space;
@@ -372,16 +372,16 @@ AGENT sheepAction( AGENT sheep,
 /*
  * Wolf actions
  */
-AGENT wolfAction( AGENT wolf,
-		__global AGENT * agents,
+PPGSAgent wolfAction( PPGSAgent wolf,
+		__global PPGSAgent * agents,
 		__global uint * matrix,
-		const SIM_PARAMS sim_params, 
-		__global AGENT_PARAMS * params)
+		const PPGSSimParams sim_params, 
+		__global PPAgentParams * params)
 {
 	// Get index of this location
 	uint index = (wolf.x + wolf.y * sim_params.size_x) * sim_params.grid_cell_space;
 	// Get number of agents here
-	uint numAgents = matrix[index + CELL_NUMAGENTS_OFFSET];
+	uint numAgents = matrix[index + CELL_NUMPPGSAgentS_OFFSET];
 	if (numAgents > 0) {
 		// Get starting index of agents here from agent array
 		uint agentsIndex = matrix[index + CELL_AGINDEX_OFFSET];
@@ -406,17 +406,17 @@ AGENT wolfAction( AGENT wolf,
 /*
  * Agents action kernel
  */
-__kernel void AgentAction( __global AGENT * agents, 
+__kernel void AgentAction( __global PPGSAgent * agents, 
 			__global uint * matrix, 
-			const SIM_PARAMS sim_params, 
-			__global AGENT_PARAMS * params,
+			const PPGSSimParams sim_params, 
+			__global PPAgentParams * params,
 			__global ulong * seeds,
 			__global uint * num_agents)
 {
 	// Global id for this work-item
 	uint gid = get_global_id(0);
 	// Get my agent
-	AGENT agent = agents[gid];
+	PPGSAgent agent = agents[gid];
 	// If agent is alive, do stuff
 	if (agent.alive) {
 		// Perform specific agent actions

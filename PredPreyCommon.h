@@ -12,19 +12,18 @@
 #include <time.h>
 #include <math.h>
 #include <limits.h>
-#include "utils/clerrors.h"
-#include "utils/clframework.h"
+#include "utils/clutils.h"
 #include "utils/bitstuff.h"
 
 #define CONFIG_FILE "config.txt"
 
-typedef struct statistics {
+typedef struct pp_statistics {
 	cl_uint sheep;
 	cl_uint wolves;
 	cl_uint grass;
-} Statistics;
+} PPStatistics;
 
-typedef struct parameters {
+typedef struct pp_parameters {
 	unsigned int init_sheep;
 	unsigned int sheep_gain_from_food;
 	unsigned int sheep_reproduce_threshold;
@@ -37,14 +36,14 @@ typedef struct parameters {
 	unsigned int grid_x;
 	unsigned int grid_y;
 	unsigned int iters;
-} Parameters;
+} PPParameters;
 
-typedef struct agent_params {
+typedef struct pp_agent_params {
 	cl_uint gain_from_food;
 	cl_uint reproduce_threshold;
 	cl_uint reproduce_prob; /* between 1 and 100 */
-} AgentParams;
+} PPAgentParams;
 
-PARAMS loadParams(const char * paramsFile);
+PPParameters loadParams(const char * paramsFile);
 
 #endif

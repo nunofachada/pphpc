@@ -3,15 +3,15 @@
 
 #include "PredPreyCommon.h"
 
-typedef struct agent {
+typedef struct pp_c_agent {
 	cl_uint energy;
 	cl_uint action;
 	cl_uint type;
 	cl_uint next;
-} AGENT __attribute__ ((aligned (16)));
+} PPCAgent __attribute__ ((aligned (16)));
 
 
-typedef struct sim_params {
+typedef struct pp_c_sim_params {
 	cl_uint size_x;
 	cl_uint size_y;
 	cl_uint size_xy;
@@ -19,11 +19,11 @@ typedef struct sim_params {
 	cl_uint null_agent_pointer;
 	cl_uint grass_restart;
 	cl_uint lines_per_thread;
-} SIM_PARAMS;
+} PPCSimParams;
 
-typedef struct cell {
+typedef struct pp_c_cell {
 	cl_uint grass;
 	cl_uint agent_pointer;
-} CELL;
+} PPCCell;
 
 #endif

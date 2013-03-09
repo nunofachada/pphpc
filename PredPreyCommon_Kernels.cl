@@ -1,14 +1,14 @@
-typedef struct statistics {
+typedef struct pp_statistics {
 	uint sheep;
 	uint wolves;
 	uint grass;
-} Statistics;
+} PPStatistics;
 
-typedef struct agent_params {
+typedef struct pp_agent_params {
 	uint gain_from_food;
 	uint reproduce_threshold;
 	uint reproduce_prob; /* between 1 and 100 */
-} AgentParams;
+} PPAgentParams;
 
 /*
  * RNG utility function, not to be called directly from kernels.

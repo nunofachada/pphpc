@@ -1,8 +1,8 @@
 #include "PredPreyCommon.h"
 
 // Load parameters
-PARAMS loadParams(const char* paramsFile) {
-	PARAMS parameters;
+PPParameters loadParams(const char* paramsFile) {
+	PPParameters parameters;
 	FILE * fp = fopen(paramsFile, "r");
 	if(fp == NULL) {
 		printf("Error: File 'config.txt' not found!\n");

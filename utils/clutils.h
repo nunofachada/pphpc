@@ -1,3 +1,7 @@
+#ifndef CLUTILS_H
+#define CLUTILS_H
+
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <CL/cl.h>
@@ -22,8 +26,9 @@
 
 #define CLU_NUM_INFO_MSGS 2
 
-#define clu_check_error_fatal(err, msg) if (err != CL_SUCCESS) { printf("Error %d!\n", err); perror(msg); exit(EXIT_FAILURE); }
-#define clu_check_error_return(err) if (err != CL_SUCCESS) return err
+#define clu_if_error_exit(err, msg) if (err != CL_SUCCESS) { printf("Error %d!\n", err); perror(msg); exit(EXIT_FAILURE); }
+#define clu_if_error_return(err) if (err != CL_SUCCESS) return err
+#define clu_if_error_goto(err, msg, dest) if (err != 0) { printf("Error %d!\n", err); perror(msg); goto dest; }
 
 typedef struct clu_kernel_work_group_info {
 	size_t preferred_work_group_size_multiple;
@@ -39,7 +44,7 @@ typedef struct clu_zone {
 	cl_uint device_type;
 	cl_uint cu;
 	cl_context context;
-	cl_command_queue * queues;
+	cl_command_queue* queues;
 	cl_program program;
 	cl_uint numQueues;
 	char* device_name;
@@ -60,10 +65,12 @@ void clu_print_workgroup_info(CLUKernelWorkgroupInfo kwgi);
 
 char* clu_get_device_type_str(cl_device_type cldt, int full, char* str, int strSize);
 
-CLUZone clu_zone_new(const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, int profile);
+cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties);
 
-void clu_zone_free(CLUZone zone);
+void clu_zone_free(CLUZone* zone);
 
 char* clu_load_source( const char* );
 
 void clu_free_source( char* );
+
+#endif
