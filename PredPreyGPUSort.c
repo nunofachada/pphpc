@@ -571,9 +571,7 @@ cleanup:
 	if (countagents2_kernel) clReleaseKernel(countagents2_kernel);
 	if (countgrass1_kernel) clReleaseKernel(countgrass1_kernel); 
 	if (countgrass2_kernel) clReleaseKernel(countgrass2_kernel);
-	// Free OpenCL program and command queue
-    //clReleaseProgram(zone.program);
-    //clReleaseCommandQueue(zone.queues[0]);
+
 	// Free OpenCL memory objects
 	if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
 	if (agentArrayDevice) clReleaseMemObject(agentArrayDevice);

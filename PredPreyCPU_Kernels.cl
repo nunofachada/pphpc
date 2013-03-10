@@ -1,18 +1,18 @@
-#define CELL_GRASS_OFFSET 0
-#define CELL_AGINDEX_OFFSET 1
+#define PPCCell_GRASS_OFFSET 0
+#define PPCCell_AGINDEX_OFFSET 1
 
 #define SHEEP_ID 0
 #define WOLF_ID 1
 #define GRASS_ID 2
 
-typedef struct agent {
+typedef struct pp_c_agent {
 	uint energy;
 	uint action;
 	uint type;
 	uint next;
-} AGENT __attribute__ ((aligned (16)));
+} PPCAgent __attribute__ ((aligned (16)));
 
-typedef struct sim_params {
+typedef struct pp_c_sim_params {
 	uint size_x;
 	uint size_y;
 	uint size_xy;
@@ -20,22 +20,22 @@ typedef struct sim_params {
 	uint null_agent_pointer;
 	uint grass_restart;
 	uint lines_per_thread;
-} SIM_PARAMS;
+} PPCSimParams;
 
-typedef struct cell {
+typedef struct pp_c_cell {
 	uint grass;
 	uint agent_pointer;
-} CELL;
+} PPCCell;
 
 /*
  * Remove agent from given cell
  */
-void removeAgentFromCell(__global AGENT * agents, 
-		__global CELL * matrix,
+void removeAgentFromCell(__global PPCAgent * agents, 
+		__global PPCCell * matrix,
 		uint cellIndex,
 		uint agentIndex,
 		uint previousAgentIndex,
-		SIM_PARAMS sim_params) {
+		PPCSimParams sim_params) {
 
 	// Determine if agent index is given by a cell or another agent
 	if (previousAgentIndex == sim_params.null_agent_pointer) {
@@ -51,8 +51,8 @@ void removeAgentFromCell(__global AGENT * agents,
 /*
  * Add agent to given cell
  */
-void addAgentToCell(__global AGENT * agents,
-		__global CELL * matrix,
+void addAgentToCell(__global PPCAgent * agents,
+		__global PPCCell * matrix,
 		uint agentIndex,
 		uint cellIndex) {
 	// Put agent in place and update cell
@@ -64,9 +64,9 @@ void addAgentToCell(__global AGENT * agents,
 /*
  * Find a place for the new agent to stay
  */
-uint allocateAgentIndex(__global AGENT * agents,
+uint allocateAgentIndex(__global PPCAgent * agents,
 			__global ulong * seeds,
-			SIM_PARAMS sim_params) {
+			PPCSimParams sim_params) {
 	// Find a place for the agent to stay
 	uint agentIndex;
 	do {
@@ -85,7 +85,7 @@ uint allocateAgentIndex(__global AGENT * agents,
  */
 uint getRandomWalkCellIndex(__global ulong * seeds, 
 				uint cellIndex, 
-				SIM_PARAMS sim_params) {
+				PPCSimParams sim_params) {
 	// Throw a coin
 	uint direction = randomNextInt(seeds, 5);
 	int toWalkIndex = cellIndex; // Default is don't walk (case 0)
@@ -131,7 +131,7 @@ uint getRandomWalkCellIndex(__global ulong * seeds,
  */
 __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 					__global ulong * seeds,
-					SIM_PARAMS sim_params)
+					PPCSimParams sim_params)
 {
 	for (uint i = 0; i < 20; i++) {
 		intarray[20*get_group_id(0) + i] = getRandomWalkCellIndex(seeds, 10, sim_params);
@@ -142,11 +142,11 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 /*
  * MoveAgentGrowGrass (step1) kernel
  */
-__kernel void step1(__global AGENT * agents, 
-			__global CELL * matrix,
+__kernel void step1(__global PPCAgent * agents, 
+			__global PPCCell * matrix,
 			__global ulong * seeds,
 			const uint turn,
-			const SIM_PARAMS sim_params)
+			const PPCSimParams sim_params)
 {
 	// Determine line to process
 	uint y = turn + get_group_id(0) * sim_params.lines_per_thread;
@@ -204,14 +204,14 @@ __kernel void step1(__global AGENT * agents,
 /*
  * AgentActionsGetStats (step2) kernel
  */
-__kernel void step2(__global AGENT * agents, 
-			__global CELL * matrix,
+__kernel void step2(__global PPCAgent * agents, 
+			__global PPCCell * matrix,
 			__global ulong * seeds,
-			__global STATS * stats,
+			__global PPStatistics * stats,
 			const uint iter,
 			const uint turn,
-			const SIM_PARAMS sim_params,
-			__global AGENT_PARAMS * agent_params)
+			const PPCSimParams sim_params,
+			__global PPAgentParams * agent_params)
 {
 	// Reset partial statistics
 	uint sheepCount = 0;
@@ -230,7 +230,7 @@ __kernel void step2(__global AGENT * agents,
 			uint agentPointer = matrix[index].agent_pointer;
 			while (agentPointer != sim_params.null_agent_pointer) {
 				/* Get agent from global memory to private memory. */
-				AGENT agent = agents[agentPointer];
+				PPCAgent agent = agents[agentPointer];
 				/* Set agent action as performed. */
 				agent.action = 0;
 				if (agent.energy > 0) {
@@ -282,7 +282,7 @@ __kernel void step2(__global AGENT * agents,
 							// Agent will reproduce! Let's find some space...
 							uint newAgentIndex = allocateAgentIndex(agents, seeds, sim_params);
 							// Create agent with half the energy of parent and pointing to first agent in this cell
-							AGENT newAgent;
+							PPCAgent newAgent;
 							newAgent.action = 0;
 							newAgent.type = agent.type;
 							newAgent.energy = agent.energy / 2;
