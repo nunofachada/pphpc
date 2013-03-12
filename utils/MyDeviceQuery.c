@@ -42,7 +42,7 @@ int main(int argc, char ** argv)
 			clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(pbuff), pbuff, NULL);
 			printf("\tDevice #%d: %s\n", j, pbuff);
 			clGetDeviceInfo(devices[j], CL_DEVICE_TYPE, sizeof(cl_device_type), &dtypeaux, NULL);
-			printf("\t           Type: %s\n", clu_get_device_type_str(dtypeaux, 0, pbuff, MAX_INFO_STRING));
+			printf("\t           Type: %s\n", clu_device_type_str_get(dtypeaux, 0, pbuff, MAX_INFO_STRING));
 			clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, sizeof(pbuff), pbuff, NULL);
 			printf("\t           %s\n", pbuff);
 			clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uintaux), &uintaux, NULL);

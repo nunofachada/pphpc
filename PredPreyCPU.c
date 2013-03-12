@@ -6,16 +6,13 @@
 #define SHEEP_ID 0
 #define WOLF_ID 1
 
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
-#else
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-#endif
-
 // Kernels
 cl_kernel step1_kernel, step2_kernel;
 // Number of threads
 size_t num_threads_sugested, num_threads_max, num_threads;
+
+// OpenCL kernel files
+const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyCPU_Kernels.cl"};
 
 // Main stuff
 int main(int argc, char ** argv)
@@ -44,10 +41,6 @@ int main(int argc, char ** argv)
 		rngSeedsDevice = NULL,
 		agentParamsDevice = NULL;
 	
-	// OpenCL kernel files
-	const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyCPU_Kernels.cl"};
-
-
 	// 1. Get the required CL zone.
 	CLUZone zone;
 	status = clu_zone_new(&zone, kernelFiles, 2, NULL, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES);
@@ -55,7 +48,7 @@ int main(int argc, char ** argv)
 
 
 	// 2. Get simulation parameters
-	PPParameters params = loadParams(CONFIG_FILE);
+	PPParameters params = pp_load_params(CONFIG_FILE);
 
 	// 3. Determine number of sugested threads to use
 	if (argc == 1) {
@@ -335,7 +328,6 @@ int main(int argc, char ** argv)
 	return 0;*/
 
         // 9. Run the show
-	char msg[500];
 	size_t num_work_items = 1;
 	cl_uint iter;
 	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
@@ -433,12 +425,7 @@ int main(int argc, char ** argv)
 	goto cleanup;
 	
 error:
-	if (zone.build_log)
-		printf(
-			"\n******************************* Build Log *******************************\n\
-			 \n%s\
-			 \n*************************************************************************\n\n", 
-			 zone.build_log);
+	if (zone.build_log) clu_build_log_print(&zone);
 
 cleanup:
 

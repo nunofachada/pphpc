@@ -1,6 +1,6 @@
 #include "clutils.h"
 
-cl_uint clu_get_workgroup_info(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi) {
+cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi) {
 
 	cl_uint status;
 
@@ -22,17 +22,17 @@ cl_uint clu_get_workgroup_info(cl_kernel kernel, cl_device_id device, CLUKernelW
 	return CL_SUCCESS;
 }
 
-void clu_print_workgroup_info(CLUKernelWorkgroupInfo kwgi) {
+void clu_workgroup_info_print(CLUKernelWorkgroupInfo* kwgi) {
 
-	printf("Preferred multiple of workgroup size: %d\n", (int) kwgi.preferred_work_group_size_multiple);
-	printf("WG size in __attribute__((reqd_work_gr oup_size(X, Y, Z))) qualifier: (%d, %d, %d)\n", (int) kwgi.compile_work_group_size[0], (int) kwgi.compile_work_group_size[1], (int) kwgi.compile_work_group_size[2]);
-	printf("Max. workgroup size: %d\n", (int) kwgi.max_work_group_size);
-	printf("Local memory used by kernel: %ld bytes\n", (long) kwgi.local_mem_size);
-	printf("Min. private memory used by each workitem: %ld bytes\n", (long) kwgi.private_mem_size);
+	printf("Preferred multiple of workgroup size: %d\n", (int) kwgi->preferred_work_group_size_multiple);
+	printf("WG size in __attribute__((reqd_work_gr oup_size(X, Y, Z))) qualifier: (%d, %d, %d)\n", (int) kwgi->compile_work_group_size[0], (int) kwgi->compile_work_group_size[1], (int) kwgi->compile_work_group_size[2]);
+	printf("Max. workgroup size: %d\n", (int) kwgi->max_work_group_size);
+	printf("Local memory used by kernel: %ld bytes\n", (long) kwgi->local_mem_size);
+	printf("Min. private memory used by each workitem: %ld bytes\n", (long) kwgi->private_mem_size);
 
 }
 
-char* clu_get_device_type_str(cl_device_type cldt, int full, char* str, int strSize) {
+char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strSize) {
 
 	int occuSpace = 0;
 	char temp[30];
@@ -200,14 +200,14 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	// Import kernels
 	char** source = (char**) malloc(numKernelFiles * sizeof(char*));
 	for (unsigned int i = 0; i < numKernelFiles; i++) {
-		char * partialSource = clu_load_source(kernelFiles[i]);
+		char * partialSource = clu_source_load(kernelFiles[i]);
 		source[i] = partialSource;
 	}
 	
 	// Load kernels sources and create program 
 	cl_program program = clCreateProgramWithSource( zone->context, numKernelFiles, (const char**) source, NULL, &status );
 	for (unsigned int i = 0; i < numKernelFiles; i++) {
-		clu_free_source(source[i]);
+		clu_source_free(source[i]);
 	}
 	free(source);
 	clu_if_error_return(status);
@@ -246,8 +246,7 @@ void clu_zone_free(CLUZone* zone) {
 
 }
 
-char* clu_load_source( const char * filename ) 
-{
+char* clu_source_load(const char * filename) {
 	FILE * fp = fopen(filename, "r");
 	char * sourcetmp;
 
@@ -267,7 +266,14 @@ char* clu_load_source( const char * filename )
 	return sourcetmp;
 }
 
-void clu_free_source( char* source) {
+void clu_source_free(char* source) {
 	free(source);
 }
 
+void clu_build_log_print(CLUZone* zone) {
+	printf(
+		"\n******************************* Build Log *******************************\n\
+		 \n%s\
+		 \n*************************************************************************\n\n", 
+		 zone->build_log);
+}

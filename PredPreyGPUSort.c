@@ -19,12 +19,8 @@
 
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
-#else
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-#endif
-
+// OpenCL kernel files
+const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPUSort_Kernels.cl"};
 
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
@@ -89,16 +85,13 @@ int main(int argc, char ** argv)
 	// Profiling / Timmings
 	ProfCLProfile* profile = profcl_profile_new();
 
-	// OpenCL kernel files
-	const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPUSort_Kernels.cl"};
-
 	// 1. Get the required CL zone.
 	CLUZone zone;
 	status = clu_zone_new(&zone, kernelFiles, 2, NULL, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES);
 	clu_if_error_goto(status, "Creating CLUZone", error);
 
 	// 2. Get simulation parameters
-	PPParameters params = loadParams(CONFIG_FILE);
+	PPParameters params = pp_load_params(CONFIG_FILE);
 
 	// 3. Compute work sizes for different kernels and print them to screen
 	computeWorkSizes(params, zone.device_type, zone.cu);	
@@ -483,12 +476,7 @@ int main(int argc, char ** argv)
 	goto cleanup;
 	
 error:
-	if (zone.build_log)
-		printf(
-			"\n******************************* Build Log *******************************\n\
-			 \n%s\
-			 \n*************************************************************************\n\n", 
-			 zone.build_log);
+	if (zone.build_log) clu_build_log_print(&zone);
 
 cleanup:
 	

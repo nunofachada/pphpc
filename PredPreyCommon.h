@@ -11,9 +11,16 @@
 #include <sys/time.h>
 #include <time.h>
 #include <math.h>
+#include <glib.h>
 #include <limits.h>
 #include "utils/clutils.h"
 #include "utils/bitstuff.h"
+
+#ifdef CLPROFILER
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
+#else
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+#endif
 
 #define CONFIG_FILE "config.txt"
 
@@ -44,6 +51,6 @@ typedef struct pp_agent_params {
 	cl_uint reproduce_prob; /* between 1 and 100 */
 } PPAgentParams;
 
-PPParameters loadParams(const char * paramsFile);
+PPParameters pp_load_params(const char * paramsFile);
 
 #endif

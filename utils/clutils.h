@@ -59,18 +59,12 @@ typedef struct clu_device_info {
 	char platformName[CLU_MAX_AUX_BUFF];
 } CLUDeviceInfo;
 
-cl_uint clu_get_workgroup_info(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi);
-
-void clu_print_workgroup_info(CLUKernelWorkgroupInfo kwgi);
-
-char* clu_get_device_type_str(cl_device_type cldt, int full, char* str, int strSize);
-
+cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi);
+void clu_workgroup_info_print(CLUKernelWorkgroupInfo* kwgi);
+char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strSize);
 cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties);
-
 void clu_zone_free(CLUZone* zone);
-
-char* clu_load_source( const char* );
-
-void clu_free_source( char* );
-
+char* clu_source_load(const char* filename);
+void clu_source_free(char* source);
+void clu_build_log_print(CLUZone* zone);
 #endif

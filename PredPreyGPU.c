@@ -9,11 +9,9 @@
 
 #define SEED 0
 
-#ifdef CLPROFILER
-	#define DO_PROFILING 1
-#else
-	#define DO_PROFILING 0
-#endif
+/* OpenCL kernel files */
+const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPUSort_Kernels.cl"};
+
 
 /**
  *  @detail Main program.
@@ -22,91 +20,107 @@ int main(int argc, char **argv)
 {
 
 	/* Program vars */
-	GlobalWorkSizes gws;
-	LocalWorkSizes lws;
-	Kernels krnls;
-	Events evts;
-	DataSizes dataSizes;
-	BuffersHost buffersHost;
-	BuffersDevice buffersDevice;
+	PPGGlobalWorkSizes gws;
+	PPGLocalWorkSizes lws;
+	PPGKernels krnls;
+	PPGEvents evts;
+	PPGDataSizes dataSizes;
+	PPGBuffersHost buffersHost;
+	PPGBuffersDevice buffersDevice;
 
 	/* Aux vars. */
 	cl_int status;
-	char msg[MAX_AUX_BUFF];
+	
+	/* Profiling / Timmings */
+	ProfCLProfile* profile = profcl_profile_new();
 	
 	/* Create RNG and set seed. */
 #ifdef SEED
 	GRand* rng = g_rand_new_with_seed(SEED);
-#elif
+#else
 	GRand* rng = g_rand_new();
 #endif	
 	
-	/* Profiling / Timmings */
-	ProfCLProfile* profile = profcl_profile_new();
-
-	/* Get the required CL zone. */ //TODO Must accept compiler options
-	CLZone zone = getClZone("PredPreyGPU_Kernels.cl", CL_DEVICE_TYPE_GPU, 2, DO_PROFILING);
-
 	/* Get simulation parameters */
-	Parameters params = loadParams(CONFIG_FILE);
+	PPParameters params = pp_load_params(CONFIG_FILE);
 
 	/* Set simulation parameters in a format more adequate for this program. */
-	SimParams simParams = initSimParams(params);
+	PPGSimParams simParams = ppg_simparams_init(params);
+
+	/* Compiler options. */
+	char* compilerOpts = ppg_compiler_opts_build(lws, simParams);
+	
+	/* Get the required CL zone. */
+	CLUZone zone;
+	status = clu_zone_new(&zone, kernelFiles, 2, compilerOpts, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES);
+	clu_if_error_goto(status, "Creating CLUZone", error);
+
 
 	/* Compute work sizes for different kernels and print them to screen. */
-	computeWorkSizes(params, zone.device, &gws, &lws);
-	printWorkSizes();
+	ppg_worksizes_compute(params, zone.device, &gws, &lws);
+	ppg_worksizes_print(gws, lws);
 
 	/* Create kernels. */
-	createKernels(zone.program, &krnls);
+	ppg_kernels_create(zone.program, &krnls);
 	
 	/* Determine size in bytes for host and device data structures. */
-	getDataSizesInBytes(params, &dataSizes);
+	ppg_datasizes_get(params, &dataSizes, gws);
 
 	/* Initialize host buffers. */
-	createHostBuffers(&buffersHost, &dataSizes, params, rng);
+	ppg_hostbuffers_create(&buffersHost, &dataSizes, params, rng);
 
 	/* Create device buffers */
-	createDeviceBuffers(&buffersHost, &buffersDevice, gws);
-
+	ppg_devicebuffers_create(zone.context, &buffersHost, &buffersDevice, &dataSizes);
+	
 	/* Create events data structure. */
-	createEventsDataStructure(params, &evts);
+	ppg_events_create(params, &evts);
 
 	/*  Set fixed kernel arguments. */
-	setFixedKernelArgs(&krnls, simParams);
+	ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws);
 	
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
 	/* Simulation!! */
-	simulate();
+	status = ppg_simulate(zone, gws, lws, krnls, evts, dataSizes, buffersHost, buffersDevice);
+	clu_if_error_goto(status, "Simulation", error);
 
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
 	
 	/* Output results to file */
-	saveResults("stats.txt", buffersHost->stats, params);
+	ppg_results_save("stats.txt", buffersHost.stats, params);
 
 	/* Analyze events, show profiling info. */
-	profilingAnalysis(&evts);
+	ppg_profiling_analyze(&evts, params);
 
+	/* If we get here, no need for error checking, jump to cleanup. */
+	goto cleanup;
+	
+error:
+	if (zone.build_log) clu_build_log_print(&zone);
+
+cleanup:
 	/* Release OpenCL kernels */
-	freeKernels(krnls);
+	ppg_kernels_free(&krnls);
 	
 	/* Release OpenCL memory objects */
-	freeDeviceBuffers(buffersDevice);
+	ppg_devicebuffers_free(&buffersDevice);
 
 	/* Release OpenCL zone (program, command queue, context) */
-	destroyClZone(zone);
+	clu_zone_free(&zone);
 
 	/* Free host resources */
-	freeHostBuffers(buffersHost);
+	ppg_hostbuffers_free(&buffersHost);
 	
 	/* Free events */
-	freeEventsDataStructure(&evts); 
+	ppg_events_free(params, &evts); 
 	
 	/* Free profile data structure */
 	profcl_profile_free(profile);
+	
+	/* Free compiler options. */
+	free(compilerOpts);
 
 	/* Free RNG */
 	g_rand_free(rng);
@@ -116,21 +130,30 @@ int main(int argc, char **argv)
 	
 }
 
-// Perform simulation
-void simulate() {
-	// Current iteration
+/** 
+ * @detail Perform simulation
+ * 
+ * */
+void ppg_simulate(CLUZone zone, 
+	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, 
+	PPGKernels krnls, PPGEvents evts, 
+	PPGDataSizes dataSizes, 
+	PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice) {
+
+	/* Aux. var. */
+	cl_int status;
+	
+	/* Current iteration. */
 	cl_uint iter = 0; 
 		
 
-	///////////////////////////////
-	// Initialize device buffers //
-	///////////////////////////////
+	/* Load device buffers. */
 	
 	status = clEnqueueWriteBuffer (	zone.queues[0], grassMatrixDevice, CL_FALSE, 0, grassSizeInBytes, grassMatrixHost, 0, NULL, &ev_writeGrass) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "grassMatrixDevice"); return(-1); }
+	clu_if_error_return(status);
 	
 	status = clEnqueueWriteBuffer (	zone.queues[0], rngSeedsDevice, CL_FALSE, 0, rngSeedsSizeInBytes, rngSeedsHost, 0, NULL, &ev_writeRng) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "rngSeedsDevice"); return(-1); }
+	clu_if_error_return(status);
 
 
 	//////////////////
@@ -266,7 +289,8 @@ void simulate() {
 }
 
 // Perform profiling analysis
-void profilingAnalysis(Events* evts, Parameters params) {
+void ppg_profiling_analyze(PPGEvents* evts, PPParameters params) {
+	
 #ifdef CLPROFILER
 	/* Perform detailed analysis. */
 	for (guint i = 0; i < params.iters; i++) {
@@ -280,7 +304,7 @@ void profilingAnalysis(Events* evts, Parameters params) {
 }
 
 // Compute worksizes depending on the device type and number of available compute units
-void computeWorkSizes(Parameters params, cl_device device, GlobalWorkSizes *gws, LocalWorkSizes *lws) {
+void ppg_worksizes_compute(PPParameters params, cl_device device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws) {
 	
 	/* Variable which will keep the maximum workgroup size */
 	size_t maxWorkGroupSize;
@@ -317,15 +341,15 @@ void computeWorkSizes(Parameters params, cl_device device, GlobalWorkSizes *gws,
 }
 
 // Print worksizes
-void printWorkSizes(GlobalWorkSizes *gws, LocalWorkSizes *lws) {
+void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 	printf("Kernel work sizes:\n");
-	printf("grass_gws=%d\tgrass_lws=%d\n", (int) gws->grass, (int) lws->grass);
-	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) gws->reducegrass1, (int) lws->reducegrass1);
-	printf("grasscount2_lws/gws=%d\n", (int) lws->reducegrass2);
+	printf("grass_gws=%d\tgrass_lws=%d\n", (int) gws.grass, (int) lws.grass);
+	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) gws.reducegrass1, (int) lws.reducegrass1);
+	printf("grasscount2_lws/gws=%d\n", (int) lws.reducegrass2);
 }
 
 // Get kernel entry points
-void createKernels(cl_program program, Kernels* krnls) {
+void ppg_kernels_create(cl_program program, Kernels* krnls) {
 	cl_int status;
 	krnls->grass = clCreateKernel( program, "grass", &status );
 	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "grass kernel"); exit(EXIT_FAILURE); }
@@ -336,7 +360,7 @@ void createKernels(cl_program program, Kernels* krnls) {
 }
 
 // Release kernels
-void freeKernels(Kernels* krnls) {
+void ppg_kernels_free(PPGKernels* krnls) {
 	clReleaseKernel(krnls->grass);
 	clReleaseKernel(krnls->reduce_grass1); 
 	clReleaseKernel(krnls->reduce_grass2);
@@ -344,8 +368,8 @@ void freeKernels(Kernels* krnls) {
 
 
 // Initialize simulation parameters in host, to be sent to GPU
-SimParams initSimParams(Parameters params) {
-	SimParams simParams;
+PPGSimParams ppg_simparams_init(PPParameters params) {
+	PPGSimParams simParams;
 	simParams.size_x = params.grid_x;
 	simParams.size_y = params.grid_y;
 	simParams.size_xy = params.grid_x * params.grid_y;
@@ -355,7 +379,7 @@ SimParams initSimParams(Parameters params) {
 }
 
 //  Set fixed kernel arguments.
-void setFixedKernelArgs(Kernels* krnls, BuffersDevice* buffersDevice, SimParams simParams, LocalWorkSizes lws) {
+void ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws) {
 
 	cl_int status;
 	
@@ -396,7 +420,7 @@ void setFixedKernelArgs(Kernels* krnls, BuffersDevice* buffersDevice, SimParams 
 }
 
 // Save results
-void saveResults(char* filename, Statistics* statsArray, Parameters params) {
+void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params) {
 	FILE * fp1 = fopen(filename,"w");
 	for (unsigned int i = 0; i <= params.iters; i++)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass );
@@ -404,7 +428,7 @@ void saveResults(char* filename, Statistics* statsArray, Parameters params) {
 }
 
 // Determine buffer sizes
-void getDataSizesInBytes(Parameters params, DataSizes* dataSizes, GlobalWorkSizes gws) {
+void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(STATS);
@@ -425,7 +449,7 @@ void getDataSizesInBytes(Parameters params, DataSizes* dataSizes, GlobalWorkSize
 }
 
 // Initialize host buffers
-void createHostBuffers(BuffersHost* buffersHost, DataSizes* dataSizes, Parameters params, GRand* rng) {
+void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng) {
 	
 	/* Statistics */
 	buffersHost->stats = (Statistics*) malloc(dataSizes->stats);
@@ -464,7 +488,7 @@ void createHostBuffers(BuffersHost* buffersHost, DataSizes* dataSizes, Parameter
 }
 
 // Free host buffers
-void freeHostBuffers(BuffersHost* buffersHost) {
+void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 	free(buffersHost->stats);
 	free(buffersHost->cell_grass_alive);
 	free(buffersHost->cell_grass_timer);
@@ -474,7 +498,7 @@ void freeHostBuffers(BuffersHost* buffersHost) {
 }
 
 // Initialize device buffers
-void createDeviceBuffers(cl_context context, BuffersHost* buffersHost, BuffersDevice* buffersDevice, DataSizes* dataSizes) {
+void ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes) {
 	
 	cl_int status;
 	
@@ -502,7 +526,7 @@ void createDeviceBuffers(cl_context context, BuffersHost* buffersHost, BuffersDe
 }
 
 // Free device buffers
-void freeDeviceBuffers(BuffersDevice* buffersDevice) {
+void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	clReleaseMemObject(buffersDevice->stats);
 	clReleaseMemObject(buffersDevice->cells_grass_alive);
 	clReleaseMemObject(buffersDevice->cells_grass_timer);
@@ -513,7 +537,7 @@ void freeDeviceBuffers(BuffersDevice* buffersDevice) {
 }
 
 // Create event data structure
-void createEventsDataStructure(Parameters params, Events* evts) {
+void void ppg_events_create(PPParameters params, PPGEvents* evts) {
 
 	evts->grass = (cl_event*) malloc(params.iters * sizeof(cl_event));
 	evts->read_stats = (cl_event*) malloc(params.iters * sizeof(cl_event));
@@ -522,7 +546,7 @@ void createEventsDataStructure(Parameters params, Events* evts) {
 }
 
 // Free event data structure
-void freeEventsDataStructure(Parameters params, Events* evts) {
+void ppg_events_free(PPParameters params, PPGEvents* evts) {
 	clReleaseEvent(evts->write_grass);
 	clReleaseEvent(evts->write_rng);
 	for (guint i = 0; i < params.iters; i++) {
@@ -536,3 +560,15 @@ void freeEventsDataStructure(Parameters params, Events* evts) {
 	free(evts->reduce_grass1);
 	free(evts->reduce_grass2);
 }
+
+char* ppg_compiler_opts_build(PPGLocalWorkSizes lws, PPGSimParams simParams) {
+	char* compilerOptsStr;
+	GString* compilerOpts = g_string_new("");
+	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", REDUCE_GRASS_VECSIZE);
+	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) lws.reduce_grass2);
+	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d", simParams.size_xy);
+	compilerOptsStr = compilerOpts->str;
+	g_string_free(compilerOpts, FALSE);
+	return compilerOptsStr;
+}
+

@@ -4,7 +4,6 @@
 #include "PredPreyCommon.h"
 #include "Profiler.h"
 
-
 // Simulation parameters useful for PredPreyGPU (TODO really?)
 typedef struct pp_g_sim_params {
 	cl_uint size_x;
@@ -78,23 +77,23 @@ typedef struct pp_g_buffers_device {
 	cl_mem rng_seeds;
 } PPGBuffersDevice;
 
-
-void simulate();
-void profilingAnalysis(PPGEvents* evts, PPParameters params);
-void computeWorkSizes(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws);
-void printWorkSizes(PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws);
-void createKernels(cl_program program, PPGKernels* krnls);
-void freeKernels(PPGKernels* krnls);
-PPGSimParams initSimParams(PPParameters params);
-void setFixedKernelArgs(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws);
-void saveResults(char* filename, PPStatistics* statsArray, PPParameters params);
-void getDataSizesInBytes(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws);
-void createHostBuffers(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng);
-void freeHostBuffers(PPGBuffersHost* buffersHost);
-void createDeviceBuffers(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes);
-void freeDeviceBuffers(PPGBuffersDevice* buffersDevice);
-void createEventsDataStructure(PPParameters params, PPGEvents* evts);
-void freeEventsDataStructure(PPParameters params, PPGEvents* evts) ;
+PPGSimParams ppg_simparams_init(PPParameters params);
+void ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws);
+void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
+char* ppg_compiler_opts_build(PPGLocalWorkSizes lws, PPGSimParams simParams);
+void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws);
+void ppg_kernels_create(cl_program program, PPGKernels* krnls);
+void ppg_kernels_free(PPGKernels* krnls);
+void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng);
+void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
+void ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes);
+void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
+void ppg_events_create(PPParameters params, PPGEvents* evts);
+void ppg_events_free(PPParameters params, PPGEvents* evts);
+void ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws);
+cl_int ppg_simulate(CLUZone zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice);
+void ppg_profiling_analyze(PPGEvents* evts, PPParameters params);
+void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
 
 #endif

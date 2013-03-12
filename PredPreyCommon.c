@@ -1,7 +1,7 @@
 #include "PredPreyCommon.h"
 
 // Load parameters
-PPParameters loadParams(const char* paramsFile) {
+PPParameters pp_load_params(const char* paramsFile) {
 	PPParameters parameters;
 	FILE * fp = fopen(paramsFile, "r");
 	if(fp == NULL) {
