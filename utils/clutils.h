@@ -24,11 +24,11 @@
 #define CLU_MAX_DEVICES_PER_PLATFORM 10
 #define CLU_MAX_DEVICES_TOTAL 20
 
-#define CLU_NUM_INFO_MSGS 2
+#define clu_if_error_exit(err, msg) if (err != CL_SUCCESS) { fprintf(stderr, "Error %d: %s!\n", err, msg); exit(EXIT_FAILURE); }
+#define clu_if_error_return(err, msg) if (err != CL_SUCCESS) { clu_error_msg = msg; return err; }
+#define clu_if_error_goto(err, msg, dest) if (err != 0) { fprintf(stderr, "Error %d: %s!\n", err, msg); goto dest; }
 
-#define clu_if_error_exit(err, msg) if (err != CL_SUCCESS) { printf("Error %d!\n", err); perror(msg); exit(EXIT_FAILURE); }
-#define clu_if_error_return(err) if (err != CL_SUCCESS) return err
-#define clu_if_error_goto(err, msg, dest) if (err != 0) { printf("Error %d!\n", err); perror(msg); goto dest; }
+extern const char* clu_error_msg;
 
 typedef struct clu_kernel_work_group_info {
 	size_t preferred_work_group_size_multiple;
