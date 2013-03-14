@@ -46,7 +46,10 @@ int main(int argc, char ** argv)
 {
 	
 	// Status var aux
-	cl_int status;	
+	cl_int status;
+	
+	// Error management
+	GError *err = NULL;
 	
 	// Host memory buffers
 	PPStatistics * statsArrayHost = NULL;
@@ -87,8 +90,8 @@ int main(int argc, char ** argv)
 
 	// 1. Get the required CL zone.
 	CLUZone zone;
-	status = clu_zone_new(&zone, kernelFiles, 2, NULL, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES);
-	clu_if_error_goto(status, "Creating CLUZone", error);
+	status = clu_zone_new(&zone, kernelFiles, 2, NULL, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, &err);
+	clu_if_error_goto(status, err, error);
 
 	// 2. Get simulation parameters
 	PPParameters params = pp_load_params(CONFIG_FILE);
@@ -476,6 +479,7 @@ int main(int argc, char ** argv)
 	goto cleanup;
 	
 error:
+	g_error_free(err);
 	if (zone.build_log) clu_build_log_print(&zone);
 
 cleanup:

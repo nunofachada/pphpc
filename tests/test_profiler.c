@@ -116,8 +116,8 @@ static void profilerTest() {
 
 
 int main(int argc, char** argv) {
-    g_test_init(&argc, &argv, NULL);
-    g_test_add_func("/common/profiler", profilerTest);
-    return g_test_run();
+	g_test_init(&argc, &argv, NULL);
+	g_test_add_func("/profiler/profiler", profilerTest);
+	return g_test_run();
 }
 

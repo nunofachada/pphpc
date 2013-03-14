@@ -1,23 +1,23 @@
 #include "clutils.h"
 
-cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi) {
+cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi, GError **err) {
 
 	cl_uint status;
 
 	status = clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &(kwgi->preferred_work_group_size_multiple), NULL);
-	clu_if_error_return(status, "clu_workgroup_info_get: Unable to get CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE");
+	clu_if_error_create_error_return(status, err, "clu_workgroup_info_get: Unable to get CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE");
 
 	status = clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, 3 * sizeof(size_t), kwgi->compile_work_group_size, NULL);
-	clu_if_error_return(status, "clu_workgroup_info_get: Unable to get CL_KERNEL_COMPILE_WORK_GROUP_SIZE");
+	clu_if_error_create_error_return(status, err, "clu_workgroup_info_get: Unable to get CL_KERNEL_COMPILE_WORK_GROUP_SIZE");
 
 	status = clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &(kwgi->max_work_group_size), NULL);
-	clu_if_error_return(status, "clu_workgroup_info_get: CL_KERNEL_WORK_GROUP_SIZE");
+	clu_if_error_create_error_return(status, err, "clu_workgroup_info_get: Unable to get CL_KERNEL_WORK_GROUP_SIZE");
 
 	status = clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &(kwgi->local_mem_size), NULL);
-	clu_if_error_return(status, "clu_workgroup_info_get: CL_KERNEL_LOCAL_MEM_SIZE");
+	clu_if_error_create_error_return(status, err, "clu_workgroup_info_get: Unable to get CL_KERNEL_LOCAL_MEM_SIZE");
 
 	status = clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &(kwgi->private_mem_size), NULL);
-	clu_if_error_return(status, "clu_workgroup_info_get: CL_KERNEL_PRIVATE_MEM_SIZE");
+	clu_if_error_create_error_return(status, err, "clu_workgroup_info_get: Unable to get CL_KERNEL_PRIVATE_MEM_SIZE");
 
 	return CL_SUCCESS;
 }
@@ -88,7 +88,7 @@ char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strS
 
 
 /* Get a CL zone with all the stuff required */
-cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties) {
+cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err) {
 	
 	/* Helper variables */
 	cl_int status;
@@ -106,12 +106,12 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	/* Get number of platforms */
 	cl_uint numPlatforms;
 	status = clGetPlatformIDs(0, NULL, &numPlatforms);
-	clu_if_error_return(status, "cl_int clu_zone_new: get number of platforms");
+	clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get number of platforms");
 	
 	/* Get existing platforms */
 	cl_platform_id platfIds[numPlatforms];
 	status = clGetPlatformIDs(numPlatforms, platfIds, NULL);
-	clu_if_error_return(status, "cl_int clu_zone_new: get platform Ids");
+	clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get platform Ids");
 
 	/* Cycle through platforms, get specified devices in existing platforms */
 	CLUDeviceInfo devInfos[CLU_MAX_DEVICES_TOTAL];
@@ -124,14 +124,14 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 		status = clGetDeviceIDs( platfIds[i], deviceType, CLU_MAX_DEVICES_PER_PLATFORM, devIds, &numDevices );
 		if (status != CL_DEVICE_NOT_FOUND) {
 			/* At least one device found, lets take note */
-			clu_if_error_return(status, "cl_int clu_zone_new: get device Ids");
+			clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get device Ids");
 			for (unsigned int j = 0; j < numDevices; j++) {
 				devInfos[totalNumDevices].id = devIds[j];
 				devInfos[totalNumDevices].platformId = platfIds[i];
 				status = clGetDeviceInfo(devIds[j], CL_DEVICE_NAME, sizeof(devInfos[totalNumDevices].name), devInfos[totalNumDevices].name, NULL);
-				clu_if_error_return(status, "cl_int clu_zone_new: get device info");
+				clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get device info");
 				status = clGetPlatformInfo( platfIds[i], CL_PLATFORM_VENDOR, sizeof(devInfos[totalNumDevices].platformName), devInfos[totalNumDevices].platformName, NULL);
-				clu_if_error_return(status, "cl_int clu_zone_new: get platform info");
+				clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get platform info");
 				totalNumDevices++;
 			}
 		}
@@ -141,7 +141,7 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	unsigned int deviceInfoIndex = 0;
 	if (totalNumDevices == 0) {
 		/* No devices of the specified type where found, return */
-		clu_if_error_return(CL_DEVICE_NOT_FOUND, "cl_int clu_zone_new: device not found");
+		//clu_if_error_return(CL_DEVICE_NOT_FOUND, "cl_int clu_zone_new: device not found");
 	} else if (totalNumDevices > 1) {
 		// Several compatible devices found, ask user to chose one
 		// TODO Outsource this question to another function given by the caller function
@@ -178,14 +178,14 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	// Determine number of compute units for that device
 	cl_uint compute_units;
 	status = clGetDeviceInfo( zone->device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &compute_units, NULL);
-	clu_if_error_return(status, "cl_int clu_zone_new: get target device info");
+	clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get target device info");
 	zone->cu = compute_units;
 	
 	// Create a context on that device.
 	cl_context_properties cps[3] = {
 		CL_CONTEXT_PLATFORM, (cl_context_properties) devInfos[deviceInfoIndex].platformId, 0};
 	cl_context context = clCreateContext( cps, 1, &zone->device, NULL, NULL, &status);
-	clu_if_error_return(status, "cl_int clu_zone_new: creating context");
+	clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: creating context");
 	zone->context = context;
 	
 	// Create the specified command queues on that device
@@ -193,7 +193,7 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	zone->queues = (cl_command_queue*) malloc(numQueues * sizeof(cl_command_queue));
 	for (unsigned int i = 0; i < numQueues; i++) {
 		cl_command_queue queue = clCreateCommandQueue( context, zone->device, queueProperties, &status );
-		clu_if_error_return(status, "cl_int clu_zone_new: creating command queue");
+		clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: creating command queue");
 		zone->queues[i] = queue;
 	}
 	
@@ -210,21 +210,21 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 		clu_source_free(source[i]);
 	}
 	free(source);
-	clu_if_error_return(status, "cl_int clu_zone_new: create program with source");
+	clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: create program with source");
 	
 	// Perform runtime source compilation of program
 	cl_int bpStatus = clBuildProgram( program, 1, &zone->device, compilerOpts, NULL, NULL );
 	if (bpStatus != CL_SUCCESS) {
 		size_t logsize;
 		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logsize);
-		clu_if_error_return(status, "cl_int clu_zone_new: get program build info (log size)");
+		clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get program build info (log size)");
 		char * buildLog = (char*) malloc(logsize + 1);
 		buildLog[logsize] = '\0';
 		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, logsize + 1, buildLog, NULL);
 		if (status == CL_SUCCESS) 
 			zone->build_log = buildLog;
 		else 
-			clu_if_error_return(status, "cl_int clu_zone_new: get program build info (build log)");
+			clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get program build info (build log)");
 		return bpStatus;
 	}
 	zone->program = program;
@@ -277,3 +277,8 @@ void clu_build_log_print(CLUZone* zone) {
 		 \n*************************************************************************\n\n", 
 		 zone->build_log);
 }
+
+GQuark clu_utils_error_quark() {
+	return g_quark_from_static_string("clu-utils-error-quark");
+}
+

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <CL/cl.h>
+#include <glib.h>
 
 #define CLU_DEVICE_TYPE_DEFAULT_STR_FULL "CL_DEVICE_TYPE_DEFAULT"
 #define CLU_DEVICE_TYPE_CPU_STR_FULL "CL_DEVICE_TYPE_CPU"
@@ -24,11 +25,11 @@
 #define CLU_MAX_DEVICES_PER_PLATFORM 10
 #define CLU_MAX_DEVICES_TOTAL 20
 
-#define clu_if_error_exit(err, msg) if (err != CL_SUCCESS) { fprintf(stderr, "Error %d: %s!\n", err, msg); exit(EXIT_FAILURE); }
-#define clu_if_error_return(err, msg) if (err != CL_SUCCESS) { clu_error_msg = msg; return err; }
-#define clu_if_error_goto(err, msg, dest) if (err != 0) { fprintf(stderr, "Error %d: %s!\n", err, msg); goto dest; }
-
-extern const char* clu_error_msg;
+#define CLU_UTILS_ERROR clu_utils_error_quark()
+#define clu_if_error_create_error_goto(code, err, dest, msg, ...) if (code != CL_SUCCESS) { g_set_error(err, CLU_UTILS_ERROR, code, msg, ##__VA_ARGS__); goto dest; }
+#define clu_if_error_create_error_return(code, err, msg, ...) if (code != CL_SUCCESS) { g_set_error(err, CLU_UTILS_ERROR, code, msg, ##__VA_ARGS__); return code; }
+#define clu_if_error_goto(code, err, dest) if (err != NULL) { g_assert(code != CL_SUCCESS); goto dest; }
+#define clu_if_error_return(code, err) if (err != NULL) { g_assert(code != CL_SUCCESS); return code; }
 
 typedef struct clu_kernel_work_group_info {
 	size_t preferred_work_group_size_multiple;
@@ -59,12 +60,13 @@ typedef struct clu_device_info {
 	char platformName[CLU_MAX_AUX_BUFF];
 } CLUDeviceInfo;
 
-cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi);
+cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi, GError **err);
 void clu_workgroup_info_print(CLUKernelWorkgroupInfo* kwgi);
 char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strSize);
-cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties);
+cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err);
 void clu_zone_free(CLUZone* zone);
 char* clu_source_load(const char* filename);
 void clu_source_free(char* source);
 void clu_build_log_print(CLUZone* zone);
+GQuark clu_utils_error_quark(void);
 #endif
