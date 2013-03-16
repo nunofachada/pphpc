@@ -10,32 +10,37 @@
 #if REDUCE_GRASS_VECSIZE == 1
 	#define REDUCE_GRASS_ZERO 0
 	#define REDUCE_GRASS_FINAL_SUM(x) (x)
+	#define convert_uintx(x) convert_uint(x)
 	typedef uint uintx;
 	typedef uchar ucharx;
 #elif REDUCE_GRASS_VECSIZE == 2
 	#define REDUCE_GRASS_ZERO (uint2) (0, 0)
 	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1)
+	#define convert_uintx(x) convert_uint2(x)
 	typedef uint2 uintx;
 	typedef uchar2 ucharx;
 #elif REDUCE_GRASS_VECSIZE == 4
 	#define REDUCE_GRASS_ZERO (uint4) (0, 0, 0, 0)
 	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_uintx(x) convert_uint4(x)
 	typedef uint4 uintx;
 	typedef uchar4 ucharx;
 #elif REDUCE_GRASS_VECSIZE == 8
 	#define REDUCE_GRASS_ZERO (uint8) (0, 0, 0, 0, 0, 0, 0, 0)
 	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_uintx(x) convert_uint8(x)
 	typedef uint8 uintx;
 	typedef uchar8 ucharx;
 #elif REDUCE_GRASS_VECSIZE == 16
 	#define REDUCE_GRASS_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.s10 + x.s11 + x.s12 + x.s13 + x.s14 + x.s15)
+	#define convert_uintx(x) convert_uint16(x)
 	typedef uint16 uintx;
 	typedef uchar16 ucharx;
 #endif
 
-#define CELL_VECTOR_NUM = CELL_NUM / REDUCE_GRASS_VECSIZE;
-#define REDUCE_GRASS_SERIAL_COUNT = CELL_VECTOR_NUM / REDUCE_GRASS_NUM_WORKITEMS;
+#define CELL_VECTOR_NUM() CELL_NUM/REDUCE_GRASS_VECSIZE
+#define REDUCE_GRASS_SERIAL_COUNT() CELL_VECTOR_NUM()/REDUCE_GRASS_NUM_WORKITEMS
 
 typedef struct sim_params {
 	uint size_x;
@@ -89,10 +94,10 @@ __kernel void reduceGrass1(
 	uintx sum = REDUCE_GRASS_ZERO;
 	
 	// Serial count
-	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT; i++) {
+	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT(); i++) {
 		uint index = i * REDUCE_GRASS_NUM_WORKITEMS + gid;
-		if (index < CELL_VECTOR_NUM) {
-			sum += grass_alive[index];
+		if (index < CELL_VECTOR_NUM()) {
+			sum += convert_uintx(grass_alive[index]);
 		}
 	}
 	
@@ -120,7 +125,7 @@ __kernel void reduceGrass1(
 __kernel void reduceGrass2(
 			__global uintx * reduce_grass_global,
 			__local uintx * partial_sums,
-			__global Statistics * stats) {
+			__global PPStatistics * stats) {
 				
 	// Global and local work-item IDs
 	uint lid = get_local_id(0);

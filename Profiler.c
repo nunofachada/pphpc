@@ -313,7 +313,7 @@ void profcl_profile_aggregate(ProfCLProfile* profile) {
 	gpointer eventName;
 	g_hash_table_iter_init(&iter, profile->unique_events);
 	while (g_hash_table_iter_next(&iter, &eventName, NULL)) {
-		ProfCLEvAggregate* evagg = profcl_aggregate_new();
+		ProfCLEvAggregate* evagg = profcl_aggregate_new(eventName);
 		evagg->totalTime = 0;
 		g_hash_table_insert(profile->aggregate, eventName, (gpointer) evagg);
 	}
@@ -359,8 +359,9 @@ void profcl_profile_aggregate(ProfCLProfile* profile) {
 /** 
  * @detail Create a new aggregate statistic for events of a given type.
  * */
-ProfCLEvAggregate* profcl_aggregate_new(ProfCLProfile* profile) {
+ProfCLEvAggregate* profcl_aggregate_new(const char* eventName) {
 	ProfCLEvAggregate* agg = (ProfCLEvAggregate*) malloc(sizeof(ProfCLEvAggregate));
+	agg->eventName = eventName;
 	return agg;
 }
 
@@ -369,6 +370,32 @@ ProfCLEvAggregate* profcl_aggregate_new(ProfCLProfile* profile) {
  * */
 void profcl_aggregate_free(gpointer agg) {
 	free(agg);
+}
+
+/**
+ * @detail Compares two aggregate event data instances for sorting 
+ * within a GList. It is an implementation of GCompareDataFunc from GLib.
+ * 
+ * @param a First aggregate event data instance to compare.
+ * @param b Second aggregate event data instance to compare.
+ * @param userdata Defines what type of sorting to do.
+ * @return Negative value if a < b; zero if a = b; positive value if a > b.
+ */
+gint profcl_evagg_comp(gconstpointer a, gconstpointer b, gpointer userdata) {
+	/* Cast input parameters to event instant data structures. */
+	ProfCLEvAggregate* evAgg1 = (ProfCLEvAggregate*) a;
+	ProfCLEvAggregate* evAgg2 = (ProfCLEvAggregate*) b;
+	ProfCLEvAggDataSort* sortType = (ProfCLEvAggDataSort*) userdata;
+	/* Perform comparison. */
+	if (*sortType == PROFCL_AGGEVDATA_SORT_NAME) {
+		/* Sort by event name */
+		return strcmp(evAgg1->eventName, evAgg2->eventName);
+	} else if (*sortType == PROFCL_AGGEVDATA_SORT_TIME) {
+		/* Sort by event time period */
+		if (evAgg1->totalTime < evAgg2->totalTime) return 1;
+		if (evAgg1->totalTime > evAgg2->totalTime) return -1;
+	}
+	return 0;
 }
 
 /** 
@@ -393,7 +420,7 @@ void profcl_profile_stop(ProfCLProfile* profile) {
  * @param profile An OpenCL events profile.
  * @param dt
   */ 
-void profcl_print_info(ProfCLProfile* profile) {
+void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType) {
 	
 	printf("\n=========================== Timming/Profiling ===========================\n\n");
 	
@@ -410,14 +437,22 @@ void profcl_print_info(ProfCLProfile* profile) {
 	/* Show aggregate event times */
 	if (g_hash_table_size(profile->aggregate) > 0) {
 		printf("- Aggregate times by event:\n");
-		GHashTableIter iter;
-		gpointer pEventName, pAgg;
-		g_hash_table_iter_init(&iter, profile->aggregate);
-		while (g_hash_table_iter_next(&iter, &pEventName, &pAgg)) {
-			ProfCLEvAggregate* agg = (ProfCLEvAggregate*) pAgg;
-			const char* eventName = (const char*) pEventName;
-			printf("\t- '%s':\t%fs (%f%%)\n", eventName, agg->totalTime * 1e-9, agg->relativeTime * 100.0);
+		GList* evAggList = g_hash_table_get_values(profile->aggregate);
+		evAggList = g_list_sort_with_data(evAggList, profcl_evagg_comp, &evAggSortType);
+		GList* evAggContainer = evAggList;
+		printf("\t------------------------------------------------------------\n");
+		printf("\t| Event name           | Rel. time (%%) | Abs. time (secs.) |\n");
+		printf("\t------------------------------------------------------------\n");
+		while (evAggContainer) {
+			ProfCLEvAggregate* evAgg = (ProfCLEvAggregate*) evAggContainer->data;
+			//gchar* eventName = g_strnfill(20, ' ');
+			//memcpy(eventName, evAgg->eventName, MIN(strlen(evAgg->eventName), 20) * sizeof(char));
+			printf("\t| %-20.20s | %13.4f | %17.4e |\n", evAgg->eventName, evAgg->relativeTime * 100.0, evAgg->totalTime * 1e-9);
+			//g_free(eventName);
+			evAggContainer = evAggContainer->next;
 		}
+		printf("\t------------------------------------------------------------\n");
+		g_list_free(evAggList);
 	}
 	
 	/* Show overlaps */
@@ -435,20 +470,13 @@ void profcl_print_info(ProfCLProfile* profile) {
 		/* Get number of unique events. */
 		guint numUniqEvts = g_hash_table_size(profile->unique_events);
 		/* Show overlaps. */
-		gboolean showMsg = FALSE;
+		GString* overlapString = g_string_new("");
 		for (guint i = 0; i < numUniqEvts; i++) {
 			for (guint j = 0; j < numUniqEvts; j++) {
 				if (profile->overmat[i * numUniqEvts + j] > 0) {
-					if (!showMsg) {
-						/* Show total events effective time (discount overlaps) */
-						printf("- Tot. of all events (eff.):\t%fs (saved %fs with overlaps)\n", profile->totalEventsEffTime * 1e-9, (profile->totalEventsTime - profile->totalEventsEffTime) * 1e-9);
-						/* Title the several overlaps. */
-						printf("- Event overlap times:\n");
-						/* Flag this message has shown. */
-						showMsg = TRUE;
-					}
-					printf(
-						"\t- '%s' + '%s':\t%fs\n", 
+					g_string_append_printf(
+						overlapString,
+						"\t| %-20.20s | %-20.20s | %17.4e |\n", 
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(i)),
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(j)),
 						profile->overmat[i * numUniqEvts + j] * 1e-9
@@ -456,6 +484,19 @@ void profcl_print_info(ProfCLProfile* profile) {
 				}
 			}
 		}
+		if (strlen(overlapString->str) > 0) {
+			/* Show total events effective time (discount overlaps) */
+			printf("- Tot. of all events (eff.): %es (saved %es with overlaps)\n", profile->totalEventsEffTime * 1e-9, (profile->totalEventsTime - profile->totalEventsEffTime) * 1e-9);
+			/* Title the several overlaps. */
+			printf("- Event overlap times:\n");
+			printf("\t-------------------------------------------------------------------\n");
+			printf("\t| Event 1              | Event2               | Overlap (secs.)   |\n");
+			printf("\t-------------------------------------------------------------------\n");
+			/* Show overlaps table. */
+			printf(overlapString->str);
+			printf("\t-------------------------------------------------------------------\n");
+		}
+		g_string_free(overlapString, TRUE);
 				 
 		/* Free the hash table. */
 		g_hash_table_destroy(tmp);

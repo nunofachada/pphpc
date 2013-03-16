@@ -81,21 +81,21 @@ typedef struct pp_g_buffers_device {
 } PPGBuffersDevice;
 
 PPGSimParams ppg_simparams_init(PPParameters params);
-cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws);
+cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 char* ppg_compiler_opts_build(PPGLocalWorkSizes lws, PPGSimParams simParams);
 void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
-cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls);
+cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
 void ppg_kernels_free(PPGKernels* krnls);
 void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng);
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
-cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes);
+cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err);
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
 void ppg_events_create(PPParameters params, PPGEvents* evts);
 void ppg_events_free(PPParameters params, PPGEvents* evts);
-cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws);
-cl_int ppg_simulate(PPParameters params, CLUZone zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice);
-void ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params);
+cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, GError** err);
+cl_int ppg_simulate(PPParameters params, CLUZone zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
+cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
 

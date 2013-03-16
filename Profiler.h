@@ -42,6 +42,8 @@ typedef enum {PROFCL_EV_START, PROFCL_EV_END} ProfCLEvInstType;
 
 typedef enum {PROFCL_EV_SORT_INSTANT, PROFCL_EV_SORT_ID} ProfCLEvSort;
 
+typedef enum {PROFCL_AGGEVDATA_SORT_NAME, PROFCL_AGGEVDATA_SORT_TIME}  ProfCLEvAggDataSort;
+
 typedef struct profcl_evinst { 
 	const char* eventName;
 	guint id;
@@ -49,7 +51,8 @@ typedef struct profcl_evinst {
 	ProfCLEvInstType type;
 } ProfCLEvInst;
 
-typedef struct profcl_aggregate {
+typedef struct profcl_ev_aggregate {
+	const char* eventName;
 	cl_ulong totalTime;
 	double relativeTime;
 } ProfCLEvAggregate;
@@ -89,13 +92,13 @@ void profcl_profile_overmat(ProfCLProfile* profile);
 void profcl_profile_aggregate(ProfCLProfile* profile);
 
 /** @brief Create a new aggregate statistic for events of a given type. */
-ProfCLEvAggregate* profcl_aggregate_new();
+ProfCLEvAggregate* profcl_aggregate_new(const char* eventName);
 
 /** @brief Free an aggregate statistic. */
 void profcl_aggregate_free(gpointer agg);
 
 /** @brief Print profiling info. */
-void profcl_print_info(ProfCLProfile* profile);
+void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType);
 
 
 #endif

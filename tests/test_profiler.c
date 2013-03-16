@@ -107,7 +107,7 @@ static void profilerTest() {
 		}
 	}
 	
-	//gigprofcl_print_info(profile);
+	//profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
 
 	/* Free profile. */
 	profcl_profile_free(profile);
