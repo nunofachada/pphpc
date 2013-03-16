@@ -194,7 +194,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			NULL, 
 			&evts.grass[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: grass");
+		clu_if_error_create_error_return(status, err, "Kernel exec.: grass, iteration %d", iter);
 
 		/* Perform grass reduction. */
 		status = clEnqueueNDRangeKernel(
@@ -208,7 +208,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&evts.grass[iter - 1], 
 			&evts.reduce_grass1[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass1");
+		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass1, iteration %d", iter);
 		
 		reduce_grass2_deps[0] = evts.reduce_grass1[iter - 1];
 		status = clEnqueueNDRangeKernel(
@@ -222,7 +222,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			reduce_grass2_deps, 
 			&evts.reduce_grass2[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass2");
+		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass2, iteration %d", iter);
 
 		/* Get statistics. */
 		status = clEnqueueReadBuffer(
@@ -236,7 +236,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&evts.reduce_grass2[iter - 1], 
 			&evts.read_stats[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Read back stats");
+		clu_if_error_create_error_return(status, err, "Read back stats, iteration %d", iter);
 		reduce_grass2_deps[1] = evts.read_stats[iter - 1];
 		
 	}
@@ -518,16 +518,16 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost,
 	clu_if_error_create_error_return(status, err, "Create device buffer: stats");
 
 	/* Cells */
-	buffersDevice->cells_grass_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_grass_alive), NULL, &status);
+	buffersDevice->cells_grass_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_grass_alive, NULL, &status);
 	clu_if_error_create_error_return(status, err, "Create device buffer: cells_grass_alive");
 
-	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_grass_timer), NULL, &status);
+	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_grass_timer, NULL, &status);
 	clu_if_error_create_error_return(status, err, "Create device buffer: cells_grass_timer");
 
-	buffersDevice->cells_agents_number = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_agents_number), NULL, &status);
+	buffersDevice->cells_agents_number = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_number, NULL, &status);
 	clu_if_error_create_error_return(status, err, "Create device buffer: cells_agents_number");
 
-	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(dataSizes->cells_agents_index), NULL, &status);
+	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_index, NULL, &status);
 	clu_if_error_create_error_return(status, err, "Create device buffer: cells_agents_index");
 
 	/* Grass reduction (count) */
