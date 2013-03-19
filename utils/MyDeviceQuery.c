@@ -7,8 +7,7 @@
 #define MAX_DEVICES_QUERY 10
 #define MAX_INFO_STRING 250
 
-int main(int argc, char ** argv)
-{
+int main(int argc, char ** argv) {
 
 	// Get platforms
 	cl_uint numPlatforms;

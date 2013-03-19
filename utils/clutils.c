@@ -88,7 +88,7 @@ char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strS
 
 
 /* Get a CL zone with all the stuff required */
-cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err) {
+cl_int clu_zone_new(CLUZone* zone, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err) {
 	
 	/* Helper variables */
 	cl_int status;
@@ -196,6 +196,16 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 		clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: creating command queue");
 		zone->queues[i] = queue;
 	}
+
+	// Success!
+	return CL_SUCCESS;
+	
+}
+
+cl_int clu_program_create(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, GError **err) {
+
+	/* Helper variables */
+	cl_int status;
 	
 	// Import kernels
 	char** source = (char**) malloc(numKernelFiles * sizeof(char*));
@@ -216,11 +226,11 @@ cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFi
 	cl_int bpStatus = clBuildProgram( program, 1, &zone->device, compilerOpts, NULL, NULL );
 	if (bpStatus != CL_SUCCESS) {
 		size_t logsize;
-		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logsize);
+		status = clGetProgramBuildInfo(program, zone->device, CL_PROGRAM_BUILD_LOG, 0, NULL, &logsize);
 		clu_if_error_create_error_return(status, err, "cl_int clu_zone_new: get program build info (log size)");
 		char * buildLog = (char*) malloc(logsize + 1);
 		buildLog[logsize] = '\0';
-		status = clGetProgramBuildInfo(program, devInfos[deviceInfoIndex].id, CL_PROGRAM_BUILD_LOG, logsize + 1, buildLog, NULL);
+		status = clGetProgramBuildInfo(program, zone->device, CL_PROGRAM_BUILD_LOG, logsize + 1, buildLog, NULL);
 		if (status == CL_SUCCESS) 
 			zone->build_log = buildLog;
 		else 

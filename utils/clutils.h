@@ -63,8 +63,9 @@ typedef struct clu_device_info {
 cl_uint clu_workgroup_info_get(cl_kernel kernel, cl_device_id device, CLUKernelWorkgroupInfo* kwgi, GError **err);
 void clu_workgroup_info_print(CLUKernelWorkgroupInfo* kwgi);
 char* clu_device_type_str_get(cl_device_type cldt, int full, char* str, int strSize);
-cl_int clu_zone_new(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err);
+cl_int clu_zone_new(CLUZone* zone, cl_uint deviceType, cl_uint numQueues, cl_int queueProperties, GError **err);
 void clu_zone_free(CLUZone* zone);
+cl_int clu_program_create(CLUZone* zone, const char** kernelFiles, cl_uint numKernelFiles, const char* compilerOpts, GError **err);
 char* clu_source_load(const char* filename);
 void clu_source_free(char* source);
 void clu_build_log_print(CLUZone* zone);

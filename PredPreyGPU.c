@@ -7,7 +7,7 @@
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
 
-#define SEED 0
+//#define SEED 0
 
 /* OpenCL kernel files */
 const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPU_Kernels.cl"};
@@ -50,18 +50,23 @@ int main(int argc, char **argv)
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPGSimParams simParams = ppg_simparams_init(params);
 
-	/* Compiler options. */
-	char* compilerOpts = ppg_compiler_opts_build(lws, simParams);
-	
 	/* Get the required CL zone. */
 	CLUZone zone;
-	status = clu_zone_new(&zone, kernelFiles, 2, compilerOpts, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, &err);
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Compute work sizes for different kernels and print them to screen. */
 	status = ppg_worksizes_compute(params, zone.device, &gws, &lws, &err);
 	clu_if_error_goto(status, err, error);
 	ppg_worksizes_print(gws, lws);
+
+	/* Compiler options. */
+	char* compilerOpts = ppg_compiler_opts_build(gws, lws, simParams);
+	printf("%s\n", compilerOpts);
+
+	/* Build program. */
+	status = clu_program_create(&zone, kernelFiles, 2, compilerOpts, &err);
+	clu_if_error_goto(status, err, error);
 
 	/* Create kernels. */
 	status = ppg_kernels_create(zone.program, &krnls, &err);
@@ -81,7 +86,7 @@ int main(int argc, char **argv)
 	ppg_events_create(params, &evts);
 
 	/*  Set fixed kernel arguments. */
-	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &err);
+	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &dataSizes, &err);
 	clu_if_error_goto(status, err, error);
 	
 	/* Start basic timming / profiling. */
@@ -335,9 +340,9 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 #else
 	lws->reduce_grass1 = maxWorkGroupSize;
 #endif	
-	gws->reduce_grass1 = lws->reduce_grass1 * lws->reduce_grass1;
-	lws->reduce_grass2 = lws->reduce_grass1;
-	gws->reduce_grass2 = lws->reduce_grass1;
+	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / REDUCE_GRASS_VECSIZE / lws->reduce_grass1));
+	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
+	gws->reduce_grass2 = lws->reduce_grass2;
 	
 	return CL_SUCCESS;
 }
@@ -387,7 +392,7 @@ PPGSimParams ppg_simparams_init(PPParameters params) {
 }
 
 //  Set fixed kernel arguments.
-cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, GError** err) {
+cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err) {
 
 	/* Aux. variable. */
 	cl_int status;
@@ -409,7 +414,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->reduce_grass1, 0, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_alive);
 	clu_if_error_create_error_return(status, err, "Set kernel args: arg 0 of reduce_grass1");
 
-	status = clSetKernelArg(krnls->reduce_grass1, 1, lws.reduce_grass1 * sizeof(cl_uint), NULL);
+	status = clSetKernelArg(krnls->reduce_grass1, 1, dataSizes->reduce_grass_local, NULL);
 	clu_if_error_create_error_return(status, err, "Set kernel args: arg 1 of reduce_grass1");
 
 	status = clSetKernelArg(krnls->reduce_grass1, 2, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
@@ -419,7 +424,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->reduce_grass2, 0, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
 	clu_if_error_create_error_return(status, err, "Set kernel args: arg 0 of reduce_grass2");
 
-	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 * sizeof(cl_uint), NULL);
+	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 *REDUCE_GRASS_VECSIZE*sizeof(cl_uint), NULL);//TODO Put this size in dataSizes
 	clu_if_error_create_error_return(status, err, "Set kernel args: arg 1 of reduce_grass2");
 
 	status = clSetKernelArg(krnls->reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice->stats);
@@ -451,8 +456,8 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->cells_agents_index = simParams.size_xy * sizeof(cl_short);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local = lws.reduce_grass1 * sizeof(cl_uint);
-	dataSizes->reduce_grass_global = gws.reduce_grass2 * sizeof(cl_uint);
+	dataSizes->reduce_grass_local = lws.reduce_grass1 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint);
+	dataSizes->reduce_grass_global = gws.reduce_grass2 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint);
 	
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX_GWS * sizeof(cl_ulong);
@@ -485,7 +490,8 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 				buffersHost->stats[0].grass++;
 				buffersHost->cells_grass_alive[gridIndex] = 1;
 			} else {
-				buffersHost->cells_grass_alive[gridIndex] = 0;
+				buffersHost->stats[0].grass++;
+				buffersHost->cells_grass_alive[gridIndex] = 1;
 			}
 		}
 	}
@@ -597,11 +603,12 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 }
 
 /* Create compiler options string. */
-char* ppg_compiler_opts_build(PPGLocalWorkSizes lws, PPGSimParams simParams) {
+char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams) {
 	char* compilerOptsStr;
 	GString* compilerOpts = g_string_new("");
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", REDUCE_GRASS_VECSIZE);
-	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) lws.reduce_grass2);
+	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
+	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d", simParams.size_xy);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);

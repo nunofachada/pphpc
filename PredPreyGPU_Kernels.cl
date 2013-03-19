@@ -2,7 +2,8 @@
  * Expected preprocessor defines:
  * 
  * REDUCE_GRASS_VECSIZE - Vector size used in reductions 
- * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction (equivalent to get_global_size(0))
+ * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
+ * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
  * CELL_NUM - Number of cells in simulation 
  *  */
 
@@ -40,7 +41,7 @@
 #endif
 
 #define CELL_VECTOR_NUM() CELL_NUM/REDUCE_GRASS_VECSIZE
-#define REDUCE_GRASS_SERIAL_COUNT() CELL_VECTOR_NUM()/REDUCE_GRASS_NUM_WORKITEMS
+#define REDUCE_GRASS_SERIAL_COUNT() ceil(CELL_VECTOR_NUM()/(float) REDUCE_GRASS_NUM_WORKITEMS)
 
 typedef struct sim_params {
 	uint size_x;
@@ -103,12 +104,13 @@ __kernel void reduceGrass1(
 	
 	// Put serial sum in local memory
 	partial_sums[lid] = sum; 
+	//partial_sums[lid] = (1, 1, 1, 1);
 	
 	// Wait for all work items to perform previous operation
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	// Reduce
-	for (uint i = group_size / 2; i > 0; i >>= 1) {
+	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
 		}
@@ -132,13 +134,16 @@ __kernel void reduceGrass2(
 	uint group_size = get_local_size(0);
 	
 	// Load partial sum in local memory
-	partial_sums[lid] = reduce_grass_global[lid]; 
+	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
+		partial_sums[lid] = reduce_grass_global[lid];
+	else
+		partial_sums[lid] = REDUCE_GRASS_ZERO;
 	
 	// Wait for all work items to perform previous operation
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	// Reduce
-	for (uint i = group_size / 2; i > 0; i >>= 1) {
+	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
 		}
@@ -148,6 +153,8 @@ __kernel void reduceGrass2(
 	// Put in global memory
 	if (lid == 0) {
 		stats[0].grass = REDUCE_GRASS_FINAL_SUM(partial_sums[0]);
+		stats[0].sheep = 2;
+		stats[0].wolves = 5;
 	}
 		
 }

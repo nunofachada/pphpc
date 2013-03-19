@@ -46,7 +46,11 @@ int main(int argc, char ** argv)
 	
 	// 1. Get the required CL zone.
 	CLUZone zone;
-	status = clu_zone_new(&zone, kernelFiles, 2, NULL, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, &err);
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, &err);
+	clu_if_error_goto(status, err, error);
+
+	/* Build program. */
+	status = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
 	clu_if_error_goto(status, err, error);
 
 	// 2. Get simulation parameters

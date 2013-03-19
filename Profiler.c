@@ -493,7 +493,7 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 			printf("\t| Event 1              | Event2               | Overlap (secs.)   |\n");
 			printf("\t-------------------------------------------------------------------\n");
 			/* Show overlaps table. */
-			printf(overlapString->str);
+			printf("%s", overlapString->str);
 			printf("\t-------------------------------------------------------------------\n");
 		}
 		g_string_free(overlapString, TRUE);
