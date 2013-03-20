@@ -2,7 +2,7 @@
 
 #define MAX_AGENTS 1048576
 #define MAX_GWS 1048576
-#define REDUCE_GRASS_VECSIZE 4
+#define REDUCE_GRASS_VECSIZE 8
 
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	profcl_profile_start(profile);
 
 	/* Simulation!! */
-	status = ppg_simulate(params, zone, gws, lws, krnls, evts, dataSizes, buffersHost, buffersDevice, &err);
+	status = ppg_simulate(params, zone, gws, lws, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Stop basic timing / profiling. */
@@ -150,7 +150,7 @@ cleanup:
  * */
 cl_int ppg_simulate(PPParameters params, CLUZone zone, 
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, 
-	PPGKernels krnls, PPGEvents evts, 
+	PPGKernels krnls, PPGEvents* evts, 
 	PPGDataSizes dataSizes, 
 	PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice,
 	GError** err) {
@@ -162,23 +162,23 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 	cl_uint iter = 0; 
 		
 	/* Load data into device buffers. */
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_alive, CL_FALSE, 0, dataSizes.cells_grass_alive, buffersHost.cells_grass_alive, 0, NULL, &evts.write_grass_alive);
+	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_alive, CL_FALSE, 0, dataSizes.cells_grass_alive, buffersHost.cells_grass_alive, 0, NULL, &evts->write_grass_alive);
 	clu_if_error_create_error_return(status, err, "Write device buffer: cells_grass_alive");
 	
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts.write_grass_timer);
+	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts->write_grass_timer);
 	clu_if_error_create_error_return(status, err, "Write device buffer: cells_grass_timer");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_number, CL_FALSE, 0, dataSizes.cells_agents_number, buffersHost.cells_agents_number, 0, NULL, &evts.write_agents_number);
+	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_number, CL_FALSE, 0, dataSizes.cells_agents_number, buffersHost.cells_agents_number, 0, NULL, &evts->write_agents_number);
 	clu_if_error_create_error_return(status, err, "Write device buffer: cells_agents_number");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_index, CL_FALSE, 0, dataSizes.cells_agents_index, buffersHost.cells_agents_index, 0, NULL, &evts.write_agents_index);
+	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_index, CL_FALSE, 0, dataSizes.cells_agents_index, buffersHost.cells_agents_index, 0, NULL, &evts->write_agents_index);
 	clu_if_error_create_error_return(status, err, "Write device buffer: cells_agents_index");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts.write_rng);
+	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	clu_if_error_create_error_return(status, err, "Write device buffer: rng_seeds");
 
 	/* Guarantee all memory transfers are performed. */
-	cl_event writeEvents[] = {evts.write_grass_alive, evts.write_grass_timer, evts.write_agents_number, evts.write_agents_index, evts.write_rng};
+	cl_event writeEvents[] = {evts->write_grass_alive, evts->write_grass_timer, evts->write_agents_number, evts->write_agents_index, evts->write_rng};
 	status = clWaitForEvents(5, writeEvents);
 	clu_if_error_create_error_return(status, err, "Wait for write events");
 	
@@ -197,7 +197,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&lws.grass, 
 			0, 
 			NULL, 
-			&evts.grass[iter - 1]
+			&evts->grass[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: grass, iteration %d", iter);
 
@@ -210,12 +210,12 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&gws.reduce_grass1, 
 			&lws.reduce_grass1, 
 			1, 
-			&evts.grass[iter - 1], 
-			&evts.reduce_grass1[iter - 1]
+			&evts->grass[iter - 1], 
+			&evts->reduce_grass1[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass1, iteration %d", iter);
 		
-		reduce_grass2_deps[0] = evts.reduce_grass1[iter - 1];
+		reduce_grass2_deps[0] = evts->reduce_grass1[iter - 1];
 		status = clEnqueueNDRangeKernel(
 			zone.queues[1], 
 			krnls.reduce_grass2, 
@@ -225,7 +225,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&lws.reduce_grass2, 
 			iter > 1 ? 2 : 1, 
 			reduce_grass2_deps, 
-			&evts.reduce_grass2[iter - 1]
+			&evts->reduce_grass2[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass2, iteration %d", iter);
 
@@ -238,11 +238,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			sizeof(PPStatistics), 
 			&buffersHost.stats[iter], 
 			1, 
-			&evts.reduce_grass2[iter - 1], 
-			&evts.read_stats[iter - 1]
+			&evts->reduce_grass2[iter - 1], 
+			&evts->read_stats[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Read back stats, iteration %d", iter);
-		reduce_grass2_deps[1] = evts.read_stats[iter - 1];
+		reduce_grass2_deps[1] = evts->read_stats[iter - 1];
 		
 	}
 	
@@ -456,7 +456,7 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->cells_agents_index = simParams.size_xy * sizeof(cl_short);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local = lws.reduce_grass1 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint);
+	dataSizes->reduce_grass_local = lws.reduce_grass1 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint); //TODO Verify that GPU supports this local memory requirement
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint);
 	
 	/* Rng seeds */
