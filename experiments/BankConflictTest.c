@@ -1,43 +1,61 @@
-
-
-#include "../PredPreyCommon.h"
-#include <omp.h>
+#include <math.h>
+#include <glib.h>
+#include "../utils/Profiler.h"
+#include "../utils/clutils.h"
 
 #define WS_X 4096
 #define WS_Y 4096
 
 #define LWS_GPU_PREF_2D_X 32
-#define LWS_GPU_PREF_2D_Y 32
+#define LWS_GPU_PREF_2D_Y 16
 
 // Main stuff
 int main(int argc, char *argv[])
 {
 
-	// Aux vars
+	/* Aux vars */
 	cl_int status;
-	char msg[MAX_AUX_BUFF];
-	
-	// Get the required CL zone.
-	CLZONE zone = getClZone("BankConflictTest_kernels.cl", CL_DEVICE_TYPE_GPU, 1, 1);
-	
-	// Global work sizes
+
+	/* Error management. */
+	GError *err = NULL;
+		
+	/* Profiling / Timmings */
+	ProfCLProfile* profile = profcl_profile_new();
+
+	/* Global work sizes */
 	size_t gws_bankconf[2];
 
-	// Local work sizes
+	/* Local work sizes */
 	size_t lws_bankconf[2];
 
-	// Events
-	cl_event events[2];
+	/* Events */
+	cl_event events[2] = {NULL, NULL};
 	
-	// Kernel
-	cl_kernel kernel_bankconf = clCreateKernel( zone.program, "bankconf", &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "bankconf kernel"); exit(EXIT_FAILURE); }
+	/* Kernel file */
+	const char* kernelFiles[] = {"BankConflictTest_kernels.cl"};
+	
+	/* Get the required CL zone. */
+	CLUZone zone;
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 1, CL_QUEUE_PROFILING_ENABLE, &err);
+	clu_if_error_goto(status, err, error);
+	
+	/* Build program. */
+	status = clu_program_create(&zone, kernelFiles, 1, NULL, &err);
+	clu_if_error_goto(status, err, error);
+
+	/* Kernel */
+	cl_kernel kernel_bankconf = NULL;
+	kernel_bankconf = clCreateKernel(zone.program, "bankconf", &status);
+	clu_if_error_create_error_goto(status, &err, error, "bankconf kernel: create");
+
+	/* Start basic timming / profiling. */
+	profcl_profile_start(profile);
 
 	////////////////////////////////////////	
 	// Create and initialize host buffers //
 	////////////////////////////////////////
 	
-	// Data in host
+	/* Data in host */
 	size_t sizeDataInBytes = WS_X * WS_Y * sizeof(cl_int);
 	cl_int *data_host = (cl_int*) malloc(sizeDataInBytes);
 	for (unsigned int i = 0; i < WS_Y * WS_X; i++)
@@ -47,16 +65,17 @@ int main(int argc, char *argv[])
 	// Create device buffers //
 	///////////////////////////
 
-	// Data in device
-	cl_mem data_device = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, sizeDataInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "data device"); return(-1); }
+	/* Data in device */
+	cl_mem data_device = NULL;
+	data_device = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, sizeDataInBytes, NULL, &status );
+	clu_if_error_create_error_goto(status, &err, error, "data device: create");
 	
 	///////////////////////////////
 	// Initialize device buffers //
 	///////////////////////////////
 	
-	status = clEnqueueWriteBuffer (	zone.queues[0], data_device, CL_TRUE, 0, sizeDataInBytes, data_host, 0, NULL, &(events[0]) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "data device"); return(-1); }
+	status = clEnqueueWriteBuffer(zone.queues[0], data_device, CL_TRUE, 0, sizeDataInBytes, data_host, 0, NULL, &(events[0]));
+	clu_if_error_create_error_goto(status, &err, error, "data device : write");
 
 	//////////////////////////
 	//  Determine worksizes //
@@ -87,67 +106,69 @@ int main(int argc, char *argv[])
 	/////////////////////////////////
 
 	status = clSetKernelArg(kernel_bankconf, 0, sizeof(cl_mem), (void *) &data_device);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of bankconf kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of bankconf kernel");
 
 	status = clSetKernelArg(kernel_bankconf, 1, localMemSizeInBytes, NULL);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of bankconf kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of bankconf kernel");
 	
-
 	//////////////////
 	//  Run kernel! //
 	//////////////////
 	
 	status = clEnqueueNDRangeKernel( zone.queues[0], kernel_bankconf, 2, NULL, gws_bankconf, lws_bankconf, 1, events, &(events[1]));
-	if (status != CL_SUCCESS) { PrintErrorEnqueueNDRangeKernel(status, "bankconf kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "bankconf kernel: execute");
+
+	status = clWaitForEvents(1, &(events[1]));
+	clu_if_error_create_error_goto(status, &err, error, "bankconf kernel: wait for events");
 
 	//////////////////////////
 	//  Show profiling info //
 	//////////////////////////
 	
-	status = clWaitForEvents(1, &(events[1]));
-	if (status != CL_SUCCESS) { PrintErrorWaitForEvents(status, "bankconf kernel"); exit(EXIT_FAILURE); }
+	profcl_profile_stop(profile); 
+
+	profcl_profile_add(profile, profcl_evinfo_get("Transfer matrix A to device", events[0], &status));
+	clu_if_error_create_error_return(status, &err, "Add event to profile: Transfer matrix A to device");
+
+	profcl_profile_add(profile, profcl_evinfo_get("Kernel execution (bankconf)", events[1], &status));
+	clu_if_error_create_error_return(status, &err, "Add event to profile: Kernel execution (bankconf)");
+
+	profcl_profile_aggregate(profile);
+
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
 	
-	cl_ulong startEv, finishEv, durationEvs[2], totalEv = 0;
+	/* If we get here, no need for error checking, jump to cleanup. */
+	goto cleanup;
 	
-	for (unsigned int i = 0; i < 2; i++) {
-		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &startEv, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "event profiling start");  return(-1); }
-		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &finishEv, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "event profiling finish");  return(-1); }
-		durationEvs[i] = finishEv - startEv;
-		totalEv += durationEvs[i];
-	}
-	
-	
-	// Event 0 - transfer matrix A to device
-	printf("Transfer matrix A to device   : %fms (%3.4f%%)\n", durationEvs[0] * 1e-6, 100*((double) durationEvs[0])/((double) totalEv));
-	// Event 1 - transfer matrix B to device
-	printf("Kernel execution (bankconf)   : %fms (%3.4f%%)\n", durationEvs[1] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
-	// Total GPU time
-	printf("Total GPU time                : %fms\n\n", (double) totalEv * 1e-6);
-	
-	
+error:
+	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
+	g_error_free(err);
+	if (zone.build_log) clu_build_log_print(&zone);
+
+cleanup:
+		
 	/////////////////
 	// Free stuff! //
 	/////////////////
 	
+	// Free profile
+	if (profile) profcl_profile_free(profile);
+	
 	// Release events
-	for (unsigned int i = 0; i < 2; i++) {
-		status = clReleaseEvent( events[i] );
-		if (status != CL_SUCCESS) { sprintf(msg, "release event %d", i); PrintErrorReleaseEvent(status, msg); return(-1); }
-	}
-
+	if (events[0]) clReleaseEvent(events[0]);
+	if (events[1]) clReleaseEvent(events[1]);
+	
 	// Release OpenCL kernels
-	clReleaseKernel(kernel_bankconf);
+	if (kernel_bankconf) clReleaseKernel(kernel_bankconf);
 	
 	// Release OpenCL memory objects
-	clReleaseMemObject(data_device);
+	if (data_device) clReleaseMemObject(data_device);
 
-	// Release OpenCL zone (program, command queue, context)
-	destroyClZone(zone);
+	// Free OpenCL zone
+	clu_zone_free(&zone);
 
 	// Free host resources
-	free(data_host);
+	if (data_host) free(data_host);
 	
 	return 0;
 

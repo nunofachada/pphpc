@@ -2,7 +2,6 @@
 #define PREDPREYGPU_H
 
 #include "PredPreyCommon.h"
-#include "Profiler.h"
 
 // Simulation parameters useful for PredPreyGPU (TODO really?)
 typedef struct pp_g_sim_params {

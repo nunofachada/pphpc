@@ -422,7 +422,7 @@ void profcl_profile_stop(ProfCLProfile* profile) {
   */ 
 void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType) {
 	
-	printf("\n=========================== Timming/Profiling ===========================\n\n");
+	printf("\n   =========================== Timming/Profiling ===========================\n\n");
 	
 	/* Show total ellapsed time */
 	if (profile->timer) {
@@ -440,18 +440,15 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 		GList* evAggList = g_hash_table_get_values(profile->aggregate);
 		evAggList = g_list_sort_with_data(evAggList, profcl_evagg_comp, &evAggSortType);
 		GList* evAggContainer = evAggList;
-		printf("\t------------------------------------------------------------\n");
-		printf("\t| Event name           | Rel. time (%%) | Abs. time (secs.) |\n");
-		printf("\t------------------------------------------------------------\n");
+		printf("   ----------------------------------------------------------------------\n");
+		printf("   | Event name                     | Rel. time (%%) | Abs. time (secs.) |\n");
+		printf("   ----------------------------------------------------------------------\n");
 		while (evAggContainer) {
 			ProfCLEvAggregate* evAgg = (ProfCLEvAggregate*) evAggContainer->data;
-			//gchar* eventName = g_strnfill(20, ' ');
-			//memcpy(eventName, evAgg->eventName, MIN(strlen(evAgg->eventName), 20) * sizeof(char));
-			printf("\t| %-20.20s | %13.4f | %17.4e |\n", evAgg->eventName, evAgg->relativeTime * 100.0, evAgg->totalTime * 1e-9);
-			//g_free(eventName);
+			printf("   | %-30.30s | %13.4f | %17.4e |\n", evAgg->eventName, evAgg->relativeTime * 100.0, evAgg->totalTime * 1e-9);
 			evAggContainer = evAggContainer->next;
 		}
-		printf("\t------------------------------------------------------------\n");
+		printf("   ----------------------------------------------------------------------\n");
 		g_list_free(evAggList);
 	}
 	
@@ -476,7 +473,7 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 				if (profile->overmat[i * numUniqEvts + j] > 0) {
 					g_string_append_printf(
 						overlapString,
-						"\t| %-20.20s | %-20.20s | %17.4e |\n", 
+						"   | %-20.20s | %-20.20s | %17.4e |\n", 
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(i)),
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(j)),
 						profile->overmat[i * numUniqEvts + j] * 1e-9
@@ -489,12 +486,12 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 			printf("- Tot. of all events (eff.): %es (saved %es with overlaps)\n", profile->totalEventsEffTime * 1e-9, (profile->totalEventsTime - profile->totalEventsEffTime) * 1e-9);
 			/* Title the several overlaps. */
 			printf("- Event overlap times:\n");
-			printf("\t-------------------------------------------------------------------\n");
-			printf("\t| Event 1              | Event2               | Overlap (secs.)   |\n");
-			printf("\t-------------------------------------------------------------------\n");
+			printf("   -------------------------------------------------------------------\n");
+			printf("   | Event 1              | Event2               | Overlap (secs.)   |\n");
+			printf("   -------------------------------------------------------------------\n");
 			/* Show overlaps table. */
 			printf("%s", overlapString->str);
-			printf("\t-------------------------------------------------------------------\n");
+			printf("   -------------------------------------------------------------------\n");
 		}
 		g_string_free(overlapString, TRUE);
 				 
@@ -502,6 +499,6 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 		g_hash_table_destroy(tmp);
 	}
 	
-	printf("\n=========================================================================\n");
+	printf("\n   =========================================================================\n");
 
 }

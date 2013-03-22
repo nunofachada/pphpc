@@ -2,7 +2,10 @@
 #define PREDPREYPROFILER_H
 
 #include <glib.h>
-#include "PredPreyCommon.h"
+#include <CL/cl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct profcl_ev_info {
 	const char* eventName;

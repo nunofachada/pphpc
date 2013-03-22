@@ -20,7 +20,7 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // OpenCL kernel files
-const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPUSort_Kernels.cl"};
+const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPUSort_Kernels.cl"};
 
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
@@ -483,6 +483,7 @@ int main(int argc, char ** argv)
 	goto cleanup;
 	
 error:
+	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
 	g_error_free(err);
 	if (zone.build_log) clu_build_log_print(&zone);
 

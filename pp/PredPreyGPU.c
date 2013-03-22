@@ -2,7 +2,7 @@
 
 #define MAX_AGENTS 1048576
 #define MAX_GWS 1048576
-#define REDUCE_GRASS_VECSIZE 8
+#define REDUCE_GRASS_VECSIZE 4
 
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
@@ -10,7 +10,7 @@
 //#define SEED 0
 
 /* OpenCL kernel files */
-const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyGPU_Kernels.cl"};
+const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPU_Kernels.cl"};
 
 
 /**

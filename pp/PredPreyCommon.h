@@ -13,8 +13,9 @@
 #include <math.h>
 #include <glib.h>
 #include <limits.h>
-#include "utils/clutils.h"
-#include "utils/bitstuff.h"
+#include "../utils/clutils.h"
+#include "../utils/bitstuff.h"
+#include "../utils/Profiler.h"
 
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE

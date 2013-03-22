@@ -1,38 +1,33 @@
 CC = gcc
-CFLAGS = -Wall -g -std=gnu99 -fopenmp
+CFLAGS = -Wall -g -std=gnu99 -fopenmp `pkg-config --cflags glib-2.0`
 CLMACROS = -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
-LFLAGS = -lOpenCL -lm
+LFLAGS = -lOpenCL -lm `pkg-config --libs glib-2.0`
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
-BASEDIR = ..
-OBJDIR = obj
-BUILDDIR = bin
-UTILSDIR = $(BASEDIR)/utils
-UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clerrors.o $(UTILSDIR)/$(OBJDIR)/fileutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clinfo.o
+OBJDIR = ../obj
+BUILDDIR = ../bin
+UTILSDIR = ../utils
+UTILOBJS = $(UTILSDIR)/$(OBJDIR)/bitstuff.o $(UTILSDIR)/$(OBJDIR)/clutils.o $(UTILSDIR)/$(OBJDIR)/Profiler.o
 
 all: mkdirs BankConflictTest Matmult MatmultT
 
-BankConflictTest: BankConflictTest.o PredPreyCommon.o
+BankConflictTest: BankConflictTest.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 BankConflictTest.o: BankConflictTest.c 
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
  
-Matmult: Matmult.o PredPreyCommon.o
+Matmult: Matmult.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 Matmult.o: Matmult.c 
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
 
-MatmultT: MatmultT.o PredPreyCommon.o
+MatmultT: MatmultT.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 MatmultT.o: MatmultT.c 
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -c $< -o $(OBJDIR)/$@
-	
-PredPreyCommon.o:
-	cd $(BASEDIR); make $@
-	cp $(BASEDIR)/$(OBJDIR)/$@ $(OBJDIR)
 
 .PHONY: clean mkdirs
 
@@ -41,4 +36,4 @@ mkdirs:
 	mkdir -p $(OBJDIR)
 	
 clean:
-	rm -f *.o bin/*
+	rm -rf $(OBJDIR)/* $(BUILDDIR)/*

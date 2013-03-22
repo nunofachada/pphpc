@@ -1,6 +1,4 @@
-#include <glib.h>
-#include "../PredPreyGPU.h"
-
+#include "../Profiler.h"
 
 static void profilerTest() {
 	

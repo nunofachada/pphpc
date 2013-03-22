@@ -12,7 +12,7 @@ cl_kernel step1_kernel, step2_kernel;
 size_t num_threads_sugested, num_threads_max, num_threads;
 
 // OpenCL kernel files
-const char* kernelFiles[] = {"PredPreyCommon_Kernels.cl", "PredPreyCPU_Kernels.cl"};
+const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
 // Main stuff
 int main(int argc, char ** argv)
@@ -431,6 +431,7 @@ int main(int argc, char ** argv)
 	goto cleanup;
 	
 error:
+	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
 	if (zone.build_log) clu_build_log_print(&zone);
 	g_error_free(err);
 

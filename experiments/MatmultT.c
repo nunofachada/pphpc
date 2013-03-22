@@ -1,6 +1,8 @@
-
-#include "../PredPreyCommon.h"
+#include <math.h>
+#include <glib.h>
 #include <omp.h>
+#include "../utils/Profiler.h"
+#include "../utils/clutils.h"
 
 #define A_ROWS 5134
 #define A_COLS 97
@@ -10,7 +12,7 @@
 
 #define RANGE_MATRIX 4
 
-#define KERNEL_ID 2
+#define KERNEL_ID 1
 
 #define DEBUG 0
 
@@ -24,46 +26,58 @@ typedef struct matDims {
 int main(int argc, char *argv[])
 {
 
-	// Aux vars
+	/* Aux vars */
 	cl_int status;
-	char msg[MAX_AUX_BUFF];
 	
-	// Timmings
-	struct timeval time1, time0;
+	/* Error management. */
+	GError *err = NULL;
 	
-	// Get the required CL zone.
-	CLZONE zone = getClZone("MatmultT_kernels.cl", CL_DEVICE_TYPE_GPU, 1, 1);
-	
-	// Set RNG seed
-	srand((unsigned)time(NULL));  
-	
-	// Global work sizes
+	/* Global work sizes */
 	size_t gws_matmult[2];
 
-	// Local work sizes
+	/* Local work sizes */
 	size_t lws_matmult[2];
 
-	// Events
-	cl_event events[4];
+	/* Events */
+	cl_event events[3] = {NULL, NULL, NULL};
+
+	/* Profiling / Timmings */
+	ProfCLProfile* profile = profcl_profile_new();
+	GTimer* cpuTimer = NULL;
 	
-	// Kernel
+	/* Kernel file */
+	const char* kernelFiles[] = {"MatmultT_kernels.cl"};	
+		
+	/* Get the required CL zone. */
+	CLUZone zone;
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 1, CL_QUEUE_PROFILING_ENABLE, &err);
+	clu_if_error_goto(status, err, error);
+	
+	/* Build program. */
+	status = clu_program_create(&zone, kernelFiles, 1, NULL, &err);
+	clu_if_error_goto(status, err, error);
+	
+	/* Set RNG seed */
+	srand((unsigned)time(NULL));  
+
+	/* Kernel */
 	char * kernelName = (char*) malloc(9 * sizeof(char));
 	strcpy(kernelName, "matmult?");
 	kernelName[7] = KERNEL_ID + '0';
 	cl_kernel kernel_matmult = clCreateKernel( zone.program, kernelName, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "MatmultT kernel: create");
 
 	////////////////////////////////////////	
 	// Create and initialize host buffers //
 	////////////////////////////////////////
 	
-	// Matrix A
+	/* Matrix A */
 	size_t sizeMatrixAInBytes = A_ROWS * A_COLS * sizeof(cl_int);
 	cl_int *matrixA_host = (cl_int*) malloc(sizeMatrixAInBytes);
 	for (unsigned int i = 0; i < A_ROWS * A_COLS; i++)
 		matrixA_host[i] = (rand() % RANGE_MATRIX) - RANGE_MATRIX / 2;
 	
-	// Matrix C (result)
+	/* Matrix C (result) */
 	size_t sizeMatrixCInBytes = A_ROWS * A_ROWS * sizeof(cl_int);
 	cl_int *matrixC_host = (cl_int*) malloc(sizeMatrixCInBytes);
 
@@ -71,20 +85,20 @@ int main(int argc, char *argv[])
 	// Create device buffers //
 	///////////////////////////
 
-	// Matrix A
+	/* Matrix A */
 	cl_mem matrixA_device = clCreateBuffer(zone.context, CL_MEM_READ_ONLY, sizeMatrixAInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "matrix A device"); return(-1); }
+	clu_if_error_create_error_goto(status, &err, error, "Matrix A device: create");
 	
-	// Matrix C
+	/* Matrix C */
 	cl_mem matrixC_device = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY, sizeMatrixCInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "matrix C device"); return(-1); }
+	clu_if_error_create_error_goto(status, &err, error, "Matrix C device: create");
 	
 	///////////////////////////////
 	// Initialize device buffers //
 	///////////////////////////////
 	
 	status = clEnqueueWriteBuffer (	zone.queues[0], matrixA_device, CL_TRUE, 0, sizeMatrixAInBytes, matrixA_host, 0, NULL, &(events[0]) );
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "matrix A device"); return(-1); }
+	clu_if_error_create_error_goto(status, &err, error, "Matrix A device: write");
 
 	//////////////////////////
 	//  Determine worksizes //
@@ -125,21 +139,21 @@ int main(int argc, char *argv[])
 	/////////////////////////////////
 
 	status = clSetKernelArg(kernel_matmult, 0, sizeof(cl_mem), (void *) &matrixA_device);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of matmult kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of matmult kernel");
 
 	status = clSetKernelArg(kernel_matmult, 1, sizeof(cl_mem), (void *) &matrixC_device);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of matmult kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of matmult kernel");
 	
 	MAT_DIMS dims = { .rowsA = A_ROWS, .colsA = A_COLS };
 	status = clSetKernelArg(kernel_matmult, 2, sizeof(MAT_DIMS), (void *) &dims);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of matmult kernel"); exit(EXIT_FAILURE); }
+	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of matmult kernel");
 	
 	if (KERNEL_ID == 2) {
 		status = clSetKernelArg(kernel_matmult, 3, localMemSizeAInBytes, NULL);
-		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 3 of matmult kernel"); exit(EXIT_FAILURE); }
+		clu_if_error_create_error_goto(status, &err, error, "Arg 3 of matmult kernel");
 
 		status = clSetKernelArg(kernel_matmult, 4, localMemSizeATInBytes, NULL);
-		if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 4 of matmult kernel"); exit(EXIT_FAILURE); }
+		clu_if_error_create_error_goto(status, &err, error, "Arg 4 of matmult kernel");
 	}
 	
 
@@ -147,57 +161,49 @@ int main(int argc, char *argv[])
 	//  Run kernel! //
 	//////////////////
 	
-	status = clEnqueueNDRangeKernel( zone.queues[0], kernel_matmult, 2, NULL, gws_matmult, lws_matmult, 0, NULL, &(events[1]));
-	if (status != CL_SUCCESS) { PrintErrorEnqueueNDRangeKernel(status, "Matmult kernel"); exit(EXIT_FAILURE); }
+	/* Start basic timming / profiling. */
+	profcl_profile_start(profile);
+	
+	/* Run kernel */ 
+	status = clEnqueueNDRangeKernel(zone.queues[0], kernel_matmult, 2, NULL, gws_matmult, lws_matmult, 0, NULL, &(events[1]));
+	clu_if_error_create_error_goto(status, &err, error, "Matmult kernel: execute");
 
 	/////////////////////////////
 	//  Get result from device //
 	/////////////////////////////
 
-	status = clEnqueueReadBuffer ( zone.queues[0], matrixC_device, CL_TRUE, 0, sizeMatrixCInBytes, matrixC_host, 1, &(events[1]), &(events[2]));
-	if (status != CL_SUCCESS) { PrintErrorEnqueueReadWriteBuffer(status, "Read matrix C"); return(-1); }
+	status = clEnqueueReadBuffer (zone.queues[0], matrixC_device, CL_TRUE, 0, sizeMatrixCInBytes, matrixC_host, 1, &(events[1]), &(events[2]));
+	clu_if_error_create_error_goto(status, &err, error, "Matrix C device: read");
 
 	status = clFinish(zone.queues[0]); 
+	clu_if_error_create_error_goto(status, &err, error, "Waiting for queue to finish");
 
 	//////////////////////////
 	//  Show profiling info //
 	//////////////////////////
-	cl_ulong startEv, finishEv, durationEvs[3], totalEv = 0;
-	
-	for (unsigned int i = 0; i < 3; i++) {
-		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &startEv, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "event profiling start");  return(-1); }
-		status = clGetEventProfilingInfo (events[i], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &finishEv, NULL);
-		if (status != CL_SUCCESS) { PrintErrorGetEventProfilingInfo(status, "event profiling finish");  return(-1); }
-		durationEvs[i] = finishEv - startEv;
-		totalEv += durationEvs[i];
-	}
-	
-	
-	// Event 0 - transfer matrix A to device
-	printf("Transfer matrix A to device   : %fms (%3.4f%%)\n", durationEvs[0] * 1e-6, 100*((double) durationEvs[0])/((double) totalEv));
-	// Event 1 - transfer matrix B to device
-	printf("Kernel execution (matmult)    : %fms (%3.4f%%)\n", durationEvs[1] * 1e-6, 100*((double) durationEvs[1])/((double) totalEv));
-	// Event 3 - transfer matrix C from device
-	printf("Transfer matrix C from device : %fms (%3.4f%%)\n\n", durationEvs[2] * 1e-6, 100*((double) durationEvs[2])/((double) totalEv));
-	// Total GPU time
-	printf("Total GPU time                : %fms\n\n", (double) totalEv * 1e-6);
-	
-	
-	// Release events
-	for (unsigned int i = 0; i < 3; i++) {
-		status = clReleaseEvent( events[i] );
-		if (status != CL_SUCCESS) { sprintf(msg, "release event %d", i); PrintErrorReleaseEvent(status, msg); return(-1); }
-	}
+	profcl_profile_stop(profile); 
 
+	profcl_profile_add(profile, profcl_evinfo_get("Transfer matrix A to device", events[0], &status));
+	clu_if_error_create_error_return(status, &err, "Add event to profile: Transfer matrix A to device");
+
+	profcl_profile_add(profile, profcl_evinfo_get("Kernel execution (Matmult)", events[1], &status));
+	clu_if_error_create_error_return(status, &err, "Add event to profile: Kernel execution (Matmult)");
+
+	profcl_profile_add(profile, profcl_evinfo_get("Transfer matrix C from device", events[2], &status));
+	clu_if_error_create_error_return(status, &err, "Add event to profile: Transfer matrix C from device");
+
+	profcl_profile_aggregate(profile);
+
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
+	
 	////////////////////////
 	// Do the same on CPU //
 	////////////////////////
 
-	// Start timer
-	gettimeofday(&time0, NULL);
-
-	// Multiply!
+	/*  Start timer */
+	cpuTimer = g_timer_new();
+	
+	/* Multiply! */
 	int *matrixC_test = (int*) malloc(A_ROWS * A_ROWS * sizeof(int));
 	#pragma omp parallel for
 	for (unsigned int row = 0; row < A_ROWS; row++) {
@@ -210,16 +216,11 @@ int main(int argc, char *argv[])
 	}
 	
 	// Get finishing time	
-	gettimeofday(&time1, NULL);  
+	g_timer_stop(cpuTimer); 
 
 	// Print CPU timmings
-	double dt = time1.tv_sec - time0.tv_sec;
-	if (time1.tv_usec >= time0.tv_usec)
-		dt = dt + (time1.tv_usec - time0.tv_usec) * 1e-6;
-	else
-		dt = (dt-1) + (1e6 + time1.tv_usec - time0.tv_usec) * 1e-6;
-	printf("Total CPU Time                : %fms\n\n", dt * 1000);
-	printf("SpeedUp                       : %fx\n\n", (dt * 1000) / (totalEv * 1e-6));
+	printf("Total CPU Time                : %fs\n\n", g_timer_elapsed(cpuTimer, NULL));
+	printf("SpeedUp                       : %fx\n\n", g_timer_elapsed(cpuTimer, NULL) / g_timer_elapsed(profile->timer, NULL));
 	
 	// Check for correctness
 	int error = 0;
@@ -271,20 +272,38 @@ int main(int argc, char *argv[])
 			fclose(fpC_CPU);
 		}
 	}
+	
+	/* If we get here, no need for error treatment, jump to cleanup. */
+	goto cleanup;
+	
+error:
+	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
+	g_error_free(err);
+	if (zone.build_log) clu_build_log_print(&zone);
 
+cleanup:
 	/////////////////
 	// Free stuff! //
 	/////////////////
 	
+	// Free profile and cpu timer
+	if (profile) profcl_profile_free(profile);
+	if (cpuTimer) g_timer_destroy(cpuTimer);
+	
+	// Release events
+	for (unsigned int i = 0; i < 3; i++) {
+		if (events[i]) status = clReleaseEvent(events[i]);
+	}
+
 	// Release OpenCL kernels
-	clReleaseKernel(kernel_matmult);
+	if (kernel_matmult) clReleaseKernel(kernel_matmult);
 	
 	// Release OpenCL memory objects
-	clReleaseMemObject(matrixA_device);
-	clReleaseMemObject(matrixC_device);
+	if (matrixA_device) clReleaseMemObject(matrixA_device);
+	if (matrixC_device) clReleaseMemObject(matrixC_device);
 
-	// Release OpenCL zone (program, command queue, context)
-	destroyClZone(zone);
+	/* Free OpenCL zone */
+	clu_zone_free(&zone);
 
 	// Free host resources
 	free(matrixA_host);

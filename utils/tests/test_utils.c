@@ -1,5 +1,4 @@
-#include <glib.h>
-#include "../utils/clutils.h"
+#include "../clutils.h"
 
 /* ************** */
 /* Aux. functions */
