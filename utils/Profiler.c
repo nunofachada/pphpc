@@ -473,7 +473,7 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 				if (profile->overmat[i * numUniqEvts + j] > 0) {
 					g_string_append_printf(
 						overlapString,
-						"   | %-20.20s | %-20.20s | %17.4e |\n", 
+						"   | %-22.22s | %-22.22s | %16.4e |\n", 
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(i)),
 						(const char*) g_hash_table_lookup(tmp, GUINT_TO_POINTER(j)),
 						profile->overmat[i * numUniqEvts + j] * 1e-9
@@ -486,12 +486,12 @@ void profcl_print_info(ProfCLProfile* profile, ProfCLEvAggDataSort evAggSortType
 			printf("- Tot. of all events (eff.): %es (saved %es with overlaps)\n", profile->totalEventsEffTime * 1e-9, (profile->totalEventsTime - profile->totalEventsEffTime) * 1e-9);
 			/* Title the several overlaps. */
 			printf("- Event overlap times:\n");
-			printf("   -------------------------------------------------------------------\n");
-			printf("   | Event 1              | Event2               | Overlap (secs.)   |\n");
-			printf("   -------------------------------------------------------------------\n");
+			printf("   ----------------------------------------------------------------------\n");
+			printf("   | Event 1                | Event2                 | Overlap (secs.)  |\n");
+			printf("   ----------------------------------------------------------------------\n");
 			/* Show overlaps table. */
 			printf("%s", overlapString->str);
-			printf("   -------------------------------------------------------------------\n");
+			printf("   ----------------------------------------------------------------------\n");
 		}
 		g_string_free(overlapString, TRUE);
 				 

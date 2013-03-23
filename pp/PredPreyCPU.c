@@ -6,6 +6,12 @@
 #define SHEEP_ID 0
 #define WOLF_ID 1
 
+#ifdef CLPROFILER
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
+#else
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+#endif
+
 // Kernels
 cl_kernel step1_kernel, step2_kernel;
 // Number of threads

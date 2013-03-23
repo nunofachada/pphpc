@@ -4,6 +4,12 @@
 #define MAX_GWS 1048576
 #define REDUCE_GRASS_VECSIZE 4
 
+#ifdef CLPROFILER
+	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
+#else
+	#define QUEUE_PROPERTIES 0
+#endif
+
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
 
@@ -52,7 +58,7 @@ int main(int argc, char **argv)
 
 	/* Get the required CL zone. */
 	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, &err);
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, CL_QUEUE_PROFILING_ENABLE, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Compute work sizes for different kernels and print them to screen. */
@@ -176,62 +182,61 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 
 	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	clu_if_error_create_error_return(status, err, "Write device buffer: rng_seeds");
-
-	/* Guarantee all memory transfers are performed. */
-	cl_event writeEvents[] = {evts->write_grass_alive, evts->write_grass_timer, evts->write_agents_number, evts->write_agents_index, evts->write_rng};
-	status = clWaitForEvents(5, writeEvents);
-	clu_if_error_create_error_return(status, err, "Wait for write events");
 	
 	/* SIMULATION LOOP */
 	for (iter = 1; iter <= params.iters; iter++) {
 		
-		/* Event dependencies list for reduce_grass2 */
-		cl_event reduce_grass2_deps[2];
-		
 		/* Grass kernel: grow grass, set number of prey to zero */
 		status = clEnqueueNDRangeKernel(
-			zone.queues[1], 
+			zone.queues[0], 
 			krnls.grass, 1, 
 			NULL, 
 			&gws.grass, 
 			&lws.grass, 
 			0, 
 			NULL, 
+#ifdef CLPROFILER
 			&evts->grass[iter - 1]
+#else
+			NULL
+#endif
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: grass, iteration %d", iter);
 
 		/* Perform grass reduction. */
 		status = clEnqueueNDRangeKernel(
-			zone.queues[1], 
+			zone.queues[0], 
 			krnls.reduce_grass1, 
 			1, 
 			NULL, 
 			&gws.reduce_grass1, 
 			&lws.reduce_grass1, 
-			1, 
-			&evts->grass[iter - 1], 
+			0, 
+			NULL,
+#ifdef CLPROFILER
 			&evts->reduce_grass1[iter - 1]
+#else
+			NULL
+#endif
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass1, iteration %d", iter);
 		
-		reduce_grass2_deps[0] = evts->reduce_grass1[iter - 1];
 		status = clEnqueueNDRangeKernel(
-			zone.queues[1], 
+			zone.queues[0], 
 			krnls.reduce_grass2, 
 			1, 
 			NULL, 
 			&gws.reduce_grass2, 
 			&lws.reduce_grass2, 
-			iter > 1 ? 2 : 1, 
-			reduce_grass2_deps, 
+			iter > 1 ? 1 : 0,  
+			iter > 1 ? &evts->read_stats[iter - 2] : NULL,
 			&evts->reduce_grass2[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass2, iteration %d", iter);
 
 		/* Get statistics. */
 		status = clEnqueueReadBuffer(
-			zone.queues[0], 
+			zone.queues[1], 
 			buffersDevice.stats, 
 			CL_FALSE, 
 			0, 
@@ -242,7 +247,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&evts->read_stats[iter - 1]
 		);
 		clu_if_error_create_error_return(status, err, "Read back stats, iteration %d", iter);
-		reduce_grass2_deps[1] = evts->read_stats[iter - 1];
 		
 	}
 	
@@ -563,9 +567,12 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 // Create event data structure
 void ppg_events_create(PPParameters params, PPGEvents* evts) {
 
+#ifdef CLPROFILER
 	evts->grass = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+#endif
+
+	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 }
 

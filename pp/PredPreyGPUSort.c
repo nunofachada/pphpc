@@ -19,6 +19,12 @@
 
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
+#ifdef CLPROFILER
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
+#else
+	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+#endif
+
 // OpenCL kernel files
 const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPUSort_Kernels.cl"};
 

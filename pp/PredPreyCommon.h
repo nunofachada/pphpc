@@ -17,12 +17,6 @@
 #include "../utils/bitstuff.h"
 #include "../utils/Profiler.h"
 
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
-#else
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
-#endif
-
 #define CONFIG_FILE "config.txt"
 
 typedef struct pp_statistics {
