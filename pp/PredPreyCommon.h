@@ -13,9 +13,9 @@
 #include <math.h>
 #include <glib.h>
 #include <limits.h>
-#include "../utils/clutils.h"
-#include "../utils/bitstuff.h"
-#include "../utils/Profiler.h"
+#include "clutils.h"
+#include "bitstuff.h"
+#include "clprofiler.h"
 
 #define CONFIG_FILE "config.txt"
 

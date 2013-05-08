@@ -8,3 +8,4 @@ bin/
 obj/
 stats*.txt
 config.txt
+opencl-utils

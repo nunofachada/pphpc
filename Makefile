@@ -1,22 +1,29 @@
-#CC = gcc
-#CFLAGS = -Wall -g -std=gnu99 `pkg-config --cflags glib-2.0`
-#CLMACROS = -DATI_OS_LINUX
-#CLINCLUDES = -I$$AMDAPPSDKROOT/include
-#LFLAGS = -lOpenCL -lm `pkg-config --libs glib-2.0`
-#CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64
-OBJDIR = obj
-BUILDDIR = bin
-#UTILSDIR = utils
-#UTILOBJS = $(UTILSDIR)/$(OBJDIR)/clutils.o $(UTILSDIR)/$(OBJDIR)/bitstuff.o
+# Define required directories
+export OBJDIR := ${CURDIR}/obj
+export BUILDDIR := ${CURDIR}/bin
 
-SUBDIRS = utils experiments pp
-    
+UTILSDIR := opencl-utils
+
+SUBDIRS = pp $(UTILSDIR)
+
+# Export utils include directory
+export UTILSINCLUDEDIR := ${CURDIR}/$(UTILSDIR)
+
+# Phony targets
+.PHONY: all $(SUBDIRS) clean mkdirs getutils
+
+# Targets and rules
 all: $(SUBDIRS)
 
 $(SUBDIRS): mkdirs
 	$(MAKE) -C $@
      
-pp experiments: utils
+pp: $(UTILSDIR)
+
+$(UTILSDIR): getutils
+
+getutils:
+	test -d $(UTILSDIR) || git clone http://www.laseeb.org/git/$(UTILSDIR)
 
 mkdirs:
 	mkdir -p $(BUILDDIR)
@@ -25,5 +32,5 @@ mkdirs:
 clean:
 	rm -rf $(OBJDIR) $(BUILDDIR)
 
-.PHONY: all $(SUBDIRS) clean mkdirs
+
      

@@ -1,15 +1,32 @@
+# Check if required directories are defined
+ifndef OBJDIR
+OBJDIR := ../obj
+$(warning OBJDIR is not defined, assuming default $(OBJDIR))
+endif
+ifndef BUILDDIR
+BUILDDIR := ../bin
+$(warning BUILDDIR is not defined, assuming default $(BUILDDIR))
+endif
+ifndef UTILSINCLUDEDIR
+UTILSINCLUDEDIR := ../opencl-utils
+$(warning UTILSINCLUDEDIR is not defined, assuming default $(UTILSINCLUDEDIR))
+endif
+
+# Define variables
 CC = gcc
-OBJDIR = ../obj
-BUILDDIR = ../bin
-UTILSDIR = ../utils
 CFLAGS = -Wall -g -std=gnu99 `pkg-config --cflags glib-2.0`
 CLMACROS = -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
+UTILSINCLUDES = -I$(UTILSINCLUDEDIR)
 LFLAGS = -lOpenCL -lm `pkg-config --libs glib-2.0`
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64 
-UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/bitstuff.o $(OBJDIR)/Profiler.o
+UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/bitstuff.o $(OBJDIR)/clprofiler.o
 TESTSDIR = tests
 
+# Phony targets
+.PHONY: all clean mkdirs utils profiling
+
+# Targets and rules
 all: utils mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU 
 
 profiling: CLMACROS += -DCLPROFILER
@@ -25,21 +42,20 @@ PredPreyCPU: PredPreyCPU.o PredPreyCommon.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
-	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
+	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
+	cp PredPreyGPUSort_Kernels.cl $(BUILDDIR)
 
 PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
-	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
+	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
+	cp PredPreyGPU_Kernels.cl $(BUILDDIR)
 
 PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
-	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) -o $(OBJDIR)/$@
+	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
+	cp PredPreyCPU_Kernels.cl $(BUILDDIR)
 
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
-	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) -o $(OBJDIR)/$@ -c $<
-
-.PHONY: clean mkdirs utils
-
-utils:
-	cd $(UTILSDIR); make
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@ -c $<
+	cp PredPreyCommon_Kernels.cl $(BUILDDIR)
 
 mkdirs:
 	mkdir -p $(BUILDDIR)
