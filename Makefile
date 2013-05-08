@@ -1,6 +1,7 @@
 # Define required directories
 export OBJDIR := ${CURDIR}/obj
 export BUILDDIR := ${CURDIR}/bin
+export CLMACROS
 
 UTILSDIR := opencl-utils
 
@@ -14,6 +15,9 @@ export UTILSINCLUDEDIR := ${CURDIR}/$(UTILSDIR)
 
 # Targets and rules
 all: $(SUBDIRS)
+
+profiling: CLMACROS=-DCLPROFILER
+profiling: all
 
 $(SUBDIRS): mkdirs
 	$(MAKE) -C $@
