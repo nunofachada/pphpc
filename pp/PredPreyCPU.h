@@ -1,3 +1,9 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL CPU data structures and function headers.
+ */
+ 
+
 #ifndef PREDPREYCPU_H
 #define PREDPREYCPU_H
 
@@ -28,5 +34,8 @@ typedef struct pp_c_cell {
 
 /** @brief Get number of threads to use. */
 int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
+
+/** @brief Print information about number of threads / work-items and compute units. */
+void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread, size_t num_threads_sugested, size_t num_threads_max);
 
 #endif

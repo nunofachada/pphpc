@@ -1,6 +1,15 @@
+/** 
+ * @file
+ * @brief Implementations of common functions for PredPrey simulation.
+ */
+
 #include "PredPreyCommon.h"
 
-// Load parameters
+/**
+ * @brief Load simulation parameters
+ * 
+ * @param paramsFile File containing simulation parameters.
+ * */
 PPParameters pp_load_params(const char* paramsFile) {
 	PPParameters parameters;
 	FILE * fp = fopen(paramsFile, "r");

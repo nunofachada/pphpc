@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL GPU w/ sorting implementation.
+ */
+
 #include "PredPreyGPUSort.h"
 
 #define MAX_AGENTS 1048576

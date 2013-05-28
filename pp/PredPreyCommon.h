@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief Common data structures and function headers for PredPrey simulation.
+ */
+
 #ifndef PREDPREYCOMMON_H
 #define PREDPREYCOMMON_H
 

@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief OpenCL GPU kernels and data structures for PredPrey simulation.
+ */
+
 /* 
  * Expected preprocessor defines:
  * 

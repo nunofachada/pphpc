@@ -1,3 +1,9 @@
+/** 
+ * @file
+ * @brief OpenCL GPU w/ sorting kernels and data structures for PredPrey simulation.
+ */
+
+
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store: enable

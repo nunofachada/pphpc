@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL GPU w/ sorting data structures and function headers.
+ */
+
 #ifndef PREDPREYGPUSORT_H
 #define PREDPREYGPUSORT_H
 

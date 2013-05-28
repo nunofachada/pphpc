@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief Common OpenCL kernels and data structures for PredPrey simulation.
+ */
+
 typedef struct pp_statistics {
 	uint sheep;
 	uint wolves;

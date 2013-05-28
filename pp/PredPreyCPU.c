@@ -1,9 +1,17 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL CPU implementation.
+ */
+ 
 #include "PredPreyCPU.h"
 
 #define MAX_AGENTS 16777216
 #define NULL_AGENT_POINTER UINT_MAX
 
-#define SHEEP_ID 0
+#define SHEEP_ID 0/** 
+ * @file
+ * @brief Common OpenCL kernels and data structures for PredPrey simulation.
+ */
 #define WOLF_ID 1
 
 #ifdef CLPROFILER
@@ -76,12 +84,9 @@ int main(int argc, char ** argv)
 		goto cleanup;
 	}
 	
-	// Print simulation info to screen
-	printf("-------- Compute Parameters --------\n");	
-	printf("Compute units: %d\n", zone.cu);
-	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
-	printf("Effective number of threads: %d\n", (int) num_threads);
-	printf("Lines per thread: %d\n", (int) lines_per_thread);
+	/* Print thread info to screen */
+	ppc_threadinfo_print(zone.cu, num_threads, lines_per_thread, num_threads_sugested, num_threads_max);
+	
 
 	// 5. obtain kernels entry points.
 	step1_kernel = clCreateKernel( zone.program, "step1", &status );
@@ -508,4 +513,15 @@ int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *nu
 	/* Return Ok. */
 	return 0;
 
+}
+
+/**
+ * @brief Print information about number of threads / work-items and compute units.
+ * */
+void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread, size_t num_threads_sugested, size_t num_threads_max) {
+	printf("-------- Compute Parameters --------\n");	
+	printf("Compute units: %d\n", cu);
+	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
+	printf("Effective number of threads: %d\n", (int) num_threads);
+	printf("Lines per thread: %d\n", (int) lines_per_thread);
 }

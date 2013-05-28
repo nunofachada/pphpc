@@ -1,3 +1,8 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL GPU data structures and function headers.
+ * */
+
 #ifndef PREDPREYGPU_H
 #define PREDPREYGPU_H
 

@@ -1,3 +1,9 @@
+/** 
+ * @file
+ * @brief PredPrey OpenCL GPU implementation.
+ * @todo Use radix sort or parallel prefix sum (scan)?
+ */
+
 #include "PredPreyGPU.h"
 
 #define MAX_AGENTS 1048576
@@ -20,7 +26,7 @@ const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPU_Ker
 
 
 /**
- *  @detail Main program.
+ *  @brief Main program.
  * */
 int main(int argc, char **argv)
 {
@@ -151,7 +157,7 @@ cleanup:
 }
 
 /** 
- * @detail Perform simulation
+ * @brief Perform simulation
  * 
  * */
 cl_int ppg_simulate(PPParameters params, CLUZone zone, 
