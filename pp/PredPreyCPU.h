@@ -26,4 +26,7 @@ typedef struct pp_c_cell {
 	cl_uint agent_pointer;
 } PPCCell;
 
+/** @brief Get number of threads to use. */
+int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
+
 #endif

@@ -12,45 +12,53 @@
 	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
 #endif
 
-// Kernels
-cl_kernel step1_kernel, step2_kernel;
-// Number of threads
-size_t num_threads_sugested, num_threads_max, num_threads;
+//#define SEED 0
 
-// OpenCL kernel files
+/* Kernels */
+cl_kernel step1_kernel, step2_kernel;
+
+/* OpenCL kernel files */
 const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
-// Main stuff
+/**
+ *  @brief Main program.
+ * */
 int main(int argc, char ** argv)
 {
 
-	// Status var aux
+	/* Status var aux */
 	cl_int status;	
 	
-	// Error management
+	/* Error management */
 	GError *err = NULL;
 	
-	// Init random number generator
-	srand((unsigned)(time(0)));
+	/* Number of threads */
+	size_t num_threads, lines_per_thread, num_threads_sugested, num_threads_max;
 
-	// Timmings
-	struct timeval time1, time0;
-	double dt = 0;
+	/* Create RNG and set seed. */
+#ifdef SEED
+	GRand* rng = g_rand_new_with_seed(SEED);
+#else
+	GRand* rng = g_rand_new();
+#endif	
+
+	/* Profiling / Timmings. */
+	ProfCLProfile* profile = profcl_profile_new();
 	
-	// Host buffers
+	/* Host buffers */
 	PPStatistics* statsArrayHost = NULL;
 	PPCCell* cellMatrixHost = NULL;
 	PPCAgent* agentsArrayHost = NULL;
 	cl_ulong* rngSeedsHost = NULL;
 	
-	// Device buffers	
+	/* Device buffers */	
 	cl_mem statsArrayDevice = NULL,
 		cellMatrixDevice = NULL,
 		agentsArrayDevice = NULL,
 		rngSeedsDevice = NULL,
 		agentParamsDevice = NULL;
 	
-	// 1. Get the required CL zone.
+	/* Get the required CL zone. */
 	CLUZone zone;
 	status = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, &err);
 	clu_if_error_goto(status, err, error);
@@ -59,30 +67,21 @@ int main(int argc, char ** argv)
 	status = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
 	clu_if_error_goto(status, err, error);
 
-	// 2. Get simulation parameters
+	/* Get simulation parameters */
 	PPParameters params = pp_load_params(CONFIG_FILE);
 
-	// 3. Determine number of sugested threads to use
-	if (argc == 1) {
-		num_threads_sugested = zone.cu;
-	} else if (argc == 2) {
-		num_threads_sugested = atoi(argv[1]);
-	} else {
+	/* Determine number of threads to use based on compute capabilities and user arguments */
+	if (ppc_numthreads_get(&num_threads, &lines_per_thread, &num_threads_sugested, &num_threads_max, zone.cu, params.grid_y, argc, argv) != 0) {
 		printf("Usage: %s [num_threads]\n", argv[0]);
+		goto cleanup;
 	}
-	// Determine maximum number of threads which can be used for current problem (each pair threads must process lines which are separated by two lines not being processed)
-	num_threads_max = params.grid_y / 3;
-	// Determine effective number of threads to use
-	num_threads = (num_threads_sugested < num_threads_max) ? num_threads_sugested : num_threads_max;
-	// ...and lines to be computed per thread
-	cl_uint lines_per_thread = params.grid_y / num_threads + (params.grid_y % num_threads > 0);
-
-	// 4. Print simulation info to screen
+	
+	// Print simulation info to screen
 	printf("-------- Compute Parameters --------\n");	
 	printf("Compute units: %d\n", zone.cu);
 	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
 	printf("Effective number of threads: %d\n", (int) num_threads);
-	printf("Lines per thread: %d\n", lines_per_thread);
+	printf("Lines per thread: %d\n", (int) lines_per_thread);
 
 	// 5. obtain kernels entry points.
 	step1_kernel = clCreateKernel( zone.program, "step1", &status );
@@ -149,7 +148,11 @@ int main(int argc, char ** argv)
 		{
 			cl_uint gridIndex = (i + j*params.grid_x);
 			/* Initialize grass. */
-			cl_uint grassState = (rand() % 2) == 0 ? 0 : 1 + (rand() % params.grass_restart);
+			cl_uint grassState = g_rand_int_range(rng, 0, 2) == 0 
+				? 0 
+				: g_rand_int_range(rng, 1, params.grass_restart + 1);
+			
+			
 			cellMatrixHost[gridIndex].grass = grassState;
 			if (grassState == 0)
 				statsArrayHost[0].grass++;
@@ -171,8 +174,8 @@ int main(int argc, char ** argv)
 		if (i < params.init_sheep + params.init_wolves)
 		{
 			/* There are still agents to initialize, chose a place to put next agent. */
-			cl_uint x = rand() % params.grid_x;
-			cl_uint y = rand() % params.grid_y;
+			cl_uint x = g_rand_int_range(rng, 0, params.grid_x);
+			cl_uint y = g_rand_int_range(rng, 0, params.grid_y);
 			/* Initialize generic agent stuff. */
 			agentsArrayHost[i].action = 0;
 			agentsArrayHost[i].next = NULL_AGENT_POINTER;
@@ -191,13 +194,13 @@ int main(int argc, char ** argv)
 			if (i < params.init_sheep)
 			{
 				/* Initialize sheep specific stuff. */
-				agentsArrayHost[i].energy = 1 + (rand() % (params.sheep_gain_from_food * 2));
+				agentsArrayHost[i].energy = g_rand_int_range(rng, 1, params.sheep_gain_from_food * 2 + 1);
 				agentsArrayHost[i].type = 0; // Sheep
 			}
 			else
 			{
 				/* Initialize wolf specific stuff. */
-				agentsArrayHost[i].energy = 1 + (rand() % (params.wolves_gain_from_food * 2));
+				agentsArrayHost[i].energy = g_rand_int_range(rng, 1, params.wolves_gain_from_food * 2 + 1);
 				agentsArrayHost[i].type = 1; // Wolf
 			}
 
@@ -224,7 +227,7 @@ int main(int argc, char ** argv)
 	clu_if_error_create_error_goto(status, &err, error, "Map rngSeedsHost");
 
 	for (unsigned int i = 0; i < num_threads; i++) {
-		rngSeedsHost[i] = rand();
+		rngSeedsHost[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
 	}
 
 	status = clEnqueueUnmapMemObject( zone.queues[0], rngSeedsDevice, rngSeedsHost, 0, NULL, NULL);
@@ -343,7 +346,10 @@ int main(int argc, char ** argv)
 	size_t num_work_items = 1;
 	cl_uint iter;
 	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
-	gettimeofday(&time0, NULL);
+
+	/* Start basic timming / profiling. */
+	profcl_profile_start(profile);
+
 	for (iter = 1; iter <= params.iters; iter++) {
 		// Step 1
 		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
@@ -382,7 +388,10 @@ int main(int argc, char ** argv)
 
 	}
 	clFinish(zone.queues[0]); // Guarantee all kernels have really terminated...
-	gettimeofday(&time1, NULL);
+
+	/* Stop basic timing / profiling. */
+	profcl_profile_stop(profile);  
+	
 	printf("Time stops now!\n");
 
 	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, statsSizeInBytes, 0, NULL, NULL, &status);
@@ -423,15 +432,8 @@ int main(int argc, char ** argv)
 
 
 
-
-
-	// 11. Print timmings
-	dt = time1.tv_sec - time0.tv_sec;
-	if (time1.tv_usec >= time0.tv_usec)
-		dt = dt + (time1.tv_usec - time0.tv_usec) * 1e-6;
-	else
-		dt = (dt-1) + (1e6 + time1.tv_usec - time0.tv_usec) * 1e-6;
-	printf("Time = %f\n", dt);
+	/* Show profiling info. */
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
@@ -448,7 +450,10 @@ cleanup:
 	getchar();
 	
 	//TODO Release events
-	
+
+	/* Free RNG */
+	g_rand_free(rng);
+		
 	// Release memory objects
 	if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
 	if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
@@ -467,3 +472,40 @@ cleanup:
 	return 0;
 }
 
+/**
+ * @brief Get number of threads to use.
+ * 
+ * @return 0 if success, -1 if invalid number of arguments was given, 2 if argument was not a positive integer.
+ * */
+int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]) {
+	
+	/* Check if user suggested any number of threads. */ 
+	if (argc == 1) {
+		/* No number of threads was suggested. */
+		*num_threads_sugested = (size_t) cu;
+	} else if (argc == 2) {
+		/* A number of threads was suggested. */
+		*num_threads_sugested = atoi(argv[1]);
+		/* Argument was not a positive integer. */
+		if (*num_threads_sugested < 1)
+			return -2;
+	} else {
+		/* Invalid number of arguments. */
+		return -1;
+	}
+	
+	/* Determine maximum number of threads which can be used for current 
+	 * problem (each pair threads must process lines which are separated 
+	 * by two lines not being processed) */
+	*num_threads_max = num_lines/ 3;
+	
+	/* Determine effective number of threads to use. */
+	*num_threads = MIN(*num_threads_sugested, *num_threads_max);
+	
+	/* Determine the lines to be computed per thread. */
+	*lines_per_thread = num_lines / *num_threads + (num_lines % *num_threads > 0);
+	
+	/* Return Ok. */
+	return 0;
+
+}
