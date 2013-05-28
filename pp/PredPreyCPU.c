@@ -8,10 +8,7 @@
 #define MAX_AGENTS 16777216
 #define NULL_AGENT_POINTER UINT_MAX
 
-#define SHEEP_ID 0/** 
- * @file
- * @brief Common OpenCL kernels and data structures for PredPrey simulation.
- */
+#define SHEEP_ID 0
 #define WOLF_ID 1
 
 #ifdef CLPROFILER
