@@ -32,11 +32,32 @@ typedef struct pp_c_cell {
 	cl_uint agent_pointer;
 } PPCCell;
 
+// Global work sizes
+typedef struct pp_c_global_work_sizes {
+	size_t step1;
+	size_t step2;
+} PPCGlobalWorkSizes;
+
+// Local work sizes
+typedef struct pp_c_local_work_sizes {
+	size_t step1;
+	size_t step2;
+} PPCLocalWorkSizes;
+
 // Kernels
 typedef struct pp_c_kernels {
 	cl_kernel step1;
 	cl_kernel step2;
 } PPCKernels;
+
+// Data sizes
+typedef struct pp_c_data_sizes {
+	size_t stats;
+	size_t matrix;
+	size_t agents;
+	size_t rng_seeds;
+	size_t agent_params;
+} PPCDataSizes;
 
 /** @brief Get number of threads to use. */
 int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
@@ -49,5 +70,11 @@ cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
 
 /** @brief Release kernels.  */
 void ppc_kernels_free(PPCKernels* krnls);
+
+/** @brief Initialize simulation parameters in host, to be sent to kernels. */
+PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, size_t lines_per_thread);
+
+/** @brief Determine buffer sizes. */
+void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCGlobalWorkSizes gws, PPCLocalWorkSizes lws, size_t num_threads);
 
 #endif

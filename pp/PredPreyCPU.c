@@ -28,7 +28,10 @@ const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Ker
 int main(int argc, char ** argv)
 {
 	/* Program vars. */
+	PPCGlobalWorkSizes gws;
+	PPCLocalWorkSizes lws;
 	PPCKernels krnls = {NULL, NULL};
+	PPCDataSizes dataSizes;
 
 	/* Status var aux */
 	cl_int status;	
@@ -73,13 +76,16 @@ int main(int argc, char ** argv)
 
 	/* Get simulation parameters */
 	PPParameters params = pp_load_params(CONFIG_FILE);
-
+	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
 	if (ppc_numthreads_get(&num_threads, &lines_per_thread, &num_threads_sugested, &num_threads_max, zone.cu, params.grid_y, argc, argv) != 0) {
 		printf("Usage: %s [num_threads]\n", argv[0]);
 		goto cleanup;
 	}
-	
+
+	/* Set simulation parameters in a format more adequate for this program. */
+	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, lines_per_thread);
+		
 	/* Print thread info to screen */
 	ppc_threadinfo_print(zone.cu, num_threads, lines_per_thread, num_threads_sugested, num_threads_max);
 	
@@ -87,42 +93,38 @@ int main(int argc, char ** argv)
 	status = ppc_kernels_create(zone.program, &krnls, &err);
 	clu_if_error_goto(status, err, error);
 
-	// 6. Create memory objects
-
+	/* Determine size in bytes for host and device data structures. */
+	ppc_datasizes_get(params, simParams, &dataSizes, gws, lws, num_threads);
+	
 	// Statistics
-	size_t statsSizeInBytes = (params.iters + 1) * sizeof(PPStatistics);
 
-	statsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, statsSizeInBytes, NULL, &status );
+	statsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats, NULL, &status );
 	clu_if_error_create_error_goto(status, &err, error, "Creating statsArrayDevice");
 
 	// Grass matrix
-	size_t cellMatrixSizeInBytes = params.grid_x * params.grid_y * sizeof(PPCCell);
 
-	cellMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, cellMatrixSizeInBytes, NULL, &status );
+	cellMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix, NULL, &status );
 	clu_if_error_create_error_goto(status, &err, error, "Creating cellMatrixDevice");
 
 	// Agent array
-	size_t agentsSizeInBytes = MAX_AGENTS * sizeof(PPCAgent);
 
-	agentsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, agentsSizeInBytes, NULL, &status );
+	agentsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents, NULL, &status );
 	clu_if_error_create_error_goto(status, &err, error, "Creating agentArrayDevice");
 
 	// Random number generator array of seeds
-	size_t rngSeedsSizeInBytes = num_threads * sizeof(cl_ulong);
 
-	rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, rngSeedsSizeInBytes, NULL, &status );
+	rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds, NULL, &status );
 	clu_if_error_create_error_goto(status, &err, error, "Creating rngSeedsDevice");
 
 	// Agent parameters
-	size_t agentParamsSizeInBytes = 2 * sizeof(PPAgentParams);
 
-	agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, agentParamsSizeInBytes, NULL, &status );
+	agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &status );
 	clu_if_error_create_error_goto(status, &err, error, "Creating agentParamsDevice");
 
 	// 7. Initialize memory objects
 
 	// Statistics
-	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, statsSizeInBytes, 0, NULL, NULL, &status);
+	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.stats, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map statsArrayHost");
 
 	statsArrayHost[0].sheep = params.init_sheep;
@@ -135,7 +137,7 @@ int main(int argc, char ** argv)
 	}
 
 	// Grass matrix
-	cellMatrixHost = (PPCCell *) clEnqueueMapBuffer( zone.queues[0], cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, cellMatrixSizeInBytes, 0, NULL, NULL, &status);
+	cellMatrixHost = (PPCCell *) clEnqueueMapBuffer( zone.queues[0], cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, dataSizes.matrix, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map cellMatrixHost");
 
 	for(cl_uint i = 0; i < params.grid_x; i++)
@@ -161,7 +163,7 @@ int main(int argc, char ** argv)
 	clu_if_error_create_error_goto(status, &err, error, "Unmap statsArrayHost");
 
 	// Agent array
-	agentsArrayHost = (PPCAgent *) clEnqueueMapBuffer( zone.queues[0], agentsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, agentsSizeInBytes, 0, NULL, NULL, &status);
+	agentsArrayHost = (PPCAgent *) clEnqueueMapBuffer( zone.queues[0], agentsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agents, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map agentsArrayHost");
 
 	for(cl_uint i = 0; i < MAX_AGENTS; i++)
@@ -219,7 +221,7 @@ int main(int argc, char ** argv)
 	clu_if_error_create_error_goto(status, &err, error, "Unmap cellMatrixHost");
 
 	// RNG seeds
-	rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, rngSeedsSizeInBytes, 0, NULL, NULL, &status);
+	rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.rng_seeds, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map rngSeedsHost");
 
 	for (unsigned int i = 0; i < num_threads; i++) {
@@ -230,7 +232,7 @@ int main(int argc, char ** argv)
 	clu_if_error_create_error_goto(status, &err, error, "Unmap rngSeedsHost");
 
 	// Agent parameters
-	PPAgentParams* agentParamsHost = (PPAgentParams *) clEnqueueMapBuffer( zone.queues[0], agentParamsDevice, CL_TRUE, CL_MAP_WRITE, 0, agentParamsSizeInBytes, 0, NULL, NULL, &status);
+	PPAgentParams* agentParamsHost = (PPAgentParams *) clEnqueueMapBuffer( zone.queues[0], agentParamsDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agent_params, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map agentParamsHost");
 
 	agentParamsHost[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
@@ -243,16 +245,6 @@ int main(int argc, char ** argv)
 	status = clEnqueueUnmapMemObject( zone.queues[0], agentParamsDevice, agentParamsHost, 0, NULL, NULL);
 	clu_if_error_create_error_goto(status, &err, error, "Unmap agentParamsHost");
 
-	// Sim parameters
-	PPCSimParams simParams;
-
-	simParams.size_x = params.grid_x;
-	simParams.size_y = params.grid_y;
-	simParams.size_xy = params.grid_x * params.grid_y;
-	simParams.max_agents = MAX_AGENTS;
-	simParams.null_agent_pointer = NULL_AGENT_POINTER;
-	simParams.grass_restart = params.grass_restart;
-	simParams.lines_per_thread = lines_per_thread;
 
 	// 8. Set fixed kernel arguments
 
@@ -390,7 +382,7 @@ int main(int argc, char ** argv)
 	
 	printf("Time stops now!\n");
 
-	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, statsSizeInBytes, 0, NULL, NULL, &status);
+	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, dataSizes.stats, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map statsArrayHost");
 
 	// 10. Output results to file
@@ -539,4 +531,41 @@ cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
 void ppc_kernels_free(PPCKernels* krnls) {
 	if (krnls->step1) clReleaseKernel(krnls->step1); 
 	if (krnls->step2) clReleaseKernel(krnls->step2);
+}
+
+/**
+ * @brief Initialize simulation parameters in host, to be sent to kernels.
+ * */
+PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, size_t lines_per_thread) {
+	PPCSimParams simParams;
+	simParams.size_x = params.grid_x;
+	simParams.size_y = params.grid_y;
+	simParams.size_xy = params.grid_x * params.grid_y;
+	simParams.max_agents = MAX_AGENTS;
+	simParams.null_agent_pointer = null_agent_pointer;
+	simParams.grass_restart = params.grass_restart;
+	simParams.lines_per_thread = (cl_uint) lines_per_thread;	
+	return simParams;
+}
+
+/**
+ * @brief Determine buffer sizes. 
+ * */
+void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCGlobalWorkSizes gws, PPCLocalWorkSizes lws, size_t num_threads) {
+
+	/* Statistics */
+	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
+	
+	/* Matrix */
+	dataSizes->matrix = params.grid_x * params.grid_y * sizeof(PPCCell);
+	
+	/* Agents. */
+	dataSizes->agents = MAX_AGENTS * sizeof(PPCAgent);
+	
+	/* Rng seeds */
+	dataSizes->rng_seeds = num_threads * sizeof(cl_ulong);
+
+	/* Agent parameters */
+	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
+
 }
