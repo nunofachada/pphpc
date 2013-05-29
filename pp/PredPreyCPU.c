@@ -19,9 +19,6 @@
 
 //#define SEED 0
 
-/* Kernels */
-cl_kernel step1_kernel, step2_kernel;
-
 /* OpenCL kernel files */
 const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
@@ -30,6 +27,8 @@ const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Ker
  * */
 int main(int argc, char ** argv)
 {
+	/* Program vars. */
+	PPCKernels krnls = {NULL, NULL};
 
 	/* Status var aux */
 	cl_int status;	
@@ -84,14 +83,9 @@ int main(int argc, char ** argv)
 	/* Print thread info to screen */
 	ppc_threadinfo_print(zone.cu, num_threads, lines_per_thread, num_threads_sugested, num_threads_max);
 	
-
-	// 5. obtain kernels entry points.
-	step1_kernel = clCreateKernel( zone.program, "step1", &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating step1 kernel");
-	step2_kernel = clCreateKernel( zone.program, "step2", &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating step2 kernel");
-	
-	printf("-------- Simulation start --------\n");	
+	/* Create kernels. */
+	status = ppc_kernels_create(zone.program, &krnls, &err);
+	clu_if_error_goto(status, err, error);
 
 	// 6. Create memory objects
 
@@ -263,35 +257,35 @@ int main(int argc, char ** argv)
 	// 8. Set fixed kernel arguments
 
 	// MoveAgentGrowGrass (step1) kernel
-	status = clSetKernelArg(step1_kernel, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
+	status = clSetKernelArg(krnls.step1, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step1_kernel");
 
-	status = clSetKernelArg(step1_kernel, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
+	status = clSetKernelArg(krnls.step1, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step1_kernel");
 
-	status = clSetKernelArg(step1_kernel, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
+	status = clSetKernelArg(krnls.step1, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step1_kernel");
 
-	status = clSetKernelArg(step1_kernel, 4, sizeof(PPCSimParams), (void *) &simParams);
+	status = clSetKernelArg(krnls.step1, 4, sizeof(PPCSimParams), (void *) &simParams);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 4 of step1_kernel");
 
 	// AgentActionsGetStats (step2) kernel
-	status = clSetKernelArg(step2_kernel, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
+	status = clSetKernelArg(krnls.step2, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step2_kernel");
 
-	status = clSetKernelArg(step2_kernel, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
+	status = clSetKernelArg(krnls.step2, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step2_kernel");
 
-	status = clSetKernelArg(step2_kernel, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
+	status = clSetKernelArg(krnls.step2, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step2_kernel");
 
-	status = clSetKernelArg(step2_kernel, 3, sizeof(cl_mem), (void *) &statsArrayDevice);
+	status = clSetKernelArg(krnls.step2, 3, sizeof(cl_mem), (void *) &statsArrayDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 3 of step2_kernel");
 
-	status = clSetKernelArg(step2_kernel, 6, sizeof(PPCSimParams), (void *) &simParams);
+	status = clSetKernelArg(krnls.step2, 6, sizeof(PPCSimParams), (void *) &simParams);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 6 of step2_kernel");
 
-	status = clSetKernelArg(step2_kernel, 7, sizeof(cl_mem), (void *) &agentParamsDevice);
+	status = clSetKernelArg(krnls.step2, 7, sizeof(cl_mem), (void *) &agentParamsDevice);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 7 of step2_kernel");
 
 
@@ -357,11 +351,11 @@ int main(int argc, char ** argv)
 		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
 			//printf("iter %d, kernel 1, turn %d\n", iter, turn);
 			// Set turn on step1_kernel
-			status = clSetKernelArg(step1_kernel, 3, sizeof(cl_uint), (void *) &turn);
+			status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
 			clu_if_error_create_error_goto(status, &err, error, "Arg 3 of step1_kernel");
 			
 			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queues[0], step1_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step1, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
 			clu_if_error_create_error_goto(status, &err, error, "step1_kernel");
 
 			// Barrier
@@ -370,16 +364,16 @@ int main(int argc, char ** argv)
 		}
 
 		// Step 2
-		status = clSetKernelArg(step2_kernel, 4, sizeof(cl_uint), (void *) &iter);
+		status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
 		clu_if_error_create_error_goto(status, &err, error, "Arg 4 of step2_kernel");
 
 		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
 			//printf("iter %d, kernel 2, turn %d\n", iter, turn);
 			// Set turn on step2_kernel
-			status = clSetKernelArg(step2_kernel, 5, sizeof(cl_uint), (void *) &turn);
+			status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
 			clu_if_error_create_error_goto(status, &err, error, "Arg 5 of step2_kernel");
 			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queues[0], step2_kernel, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step2, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
 			clu_if_error_create_error_goto(status, &err, error, "step2_kernel");
 			// Barrier
 			status = clEnqueueBarrier(zone.queues[0]);
@@ -446,6 +440,8 @@ error:
 	g_error_free(err);
 
 cleanup:
+	/* Release OpenCL kernels */
+	ppc_kernels_free(&krnls);
 
 	// 12. Free stuff!
 	printf("Press enter to free memory...");
@@ -461,9 +457,7 @@ cleanup:
 	if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
 	if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
 	if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
-	// Release kernels
-	if (step1_kernel) clReleaseKernel(step1_kernel);  
-	if (step2_kernel) clReleaseKernel(step2_kernel);
+
 	// Release program, command queues and context
 	clu_zone_free(&zone);
 
@@ -521,4 +515,28 @@ void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread
 	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
 	printf("Effective number of threads: %d\n", (int) num_threads);
 	printf("Lines per thread: %d\n", (int) lines_per_thread);
+}
+
+/**
+ * @brief Get kernel entry points.
+ * */
+cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
+	
+	cl_int status;
+	
+	krnls->step1 = clCreateKernel(program, "step1", &status);
+	clu_if_error_create_error_return(status, err, "Create kernel: step1");
+	
+	krnls->step2 = clCreateKernel(program, "step2", &status);
+	clu_if_error_create_error_return(status, err, "Create kernel: step2");
+	
+	return CL_SUCCESS;
+}
+
+/**
+ * @brief Release kernels. 
+ * */
+void ppc_kernels_free(PPCKernels* krnls) {
+	if (krnls->step1) clReleaseKernel(krnls->step1); 
+	if (krnls->step2) clReleaseKernel(krnls->step2);
 }

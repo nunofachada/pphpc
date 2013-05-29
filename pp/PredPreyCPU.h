@@ -32,10 +32,22 @@ typedef struct pp_c_cell {
 	cl_uint agent_pointer;
 } PPCCell;
 
+// Kernels
+typedef struct pp_c_kernels {
+	cl_kernel step1;
+	cl_kernel step2;
+} PPCKernels;
+
 /** @brief Get number of threads to use. */
 int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
 
 /** @brief Print information about number of threads / work-items and compute units. */
 void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread, size_t num_threads_sugested, size_t num_threads_max);
+
+/** @brief Get kernel entry points. */
+cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
+
+/** @brief Release kernels.  */
+void ppc_kernels_free(PPCKernels* krnls);
 
 #endif
