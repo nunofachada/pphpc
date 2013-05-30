@@ -59,6 +59,24 @@ typedef struct pp_c_data_sizes {
 	size_t agent_params;
 } PPCDataSizes;
 
+// Host buffers
+typedef struct pp_c_buffers_host {
+	PPStatistics* stats;
+	PPCCell* matrix;
+	PPCAgent *agents;
+	cl_ulong* rng_seeds;
+	PPAgentParams* agent_params;
+} PPCBuffersHost;
+
+// Device buffers
+typedef struct pp_c_buffers_device {
+	cl_mem stats;
+	cl_mem matrix;
+	cl_mem agents;
+	cl_mem rng_seeds;
+	cl_mem agent_params;
+} PPCBuffersDevice;
+
 /** @brief Get number of threads to use. */
 int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
 
@@ -75,6 +93,9 @@ void ppc_kernels_free(PPCKernels* krnls);
 PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, size_t lines_per_thread);
 
 /** @brief Determine buffer sizes. */
-void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCGlobalWorkSizes gws, PPCLocalWorkSizes lws, size_t num_threads);
+void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads);
+
+/** @brief Initialize and map host/device buffers. */
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPParameters params, GRand* rng, GError** err);
 
 #endif

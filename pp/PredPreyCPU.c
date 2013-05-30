@@ -32,6 +32,8 @@ int main(int argc, char ** argv)
 	PPCLocalWorkSizes lws;
 	PPCKernels krnls = {NULL, NULL};
 	PPCDataSizes dataSizes;
+	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
 
 	/* Status var aux */
 	cl_int status;	
@@ -51,19 +53,6 @@ int main(int argc, char ** argv)
 
 	/* Profiling / Timmings. */
 	ProfCLProfile* profile = profcl_profile_new();
-	
-	/* Host buffers */
-	PPStatistics* statsArrayHost = NULL;
-	PPCCell* cellMatrixHost = NULL;
-	PPCAgent* agentsArrayHost = NULL;
-	cl_ulong* rngSeedsHost = NULL;
-	
-	/* Device buffers */	
-	cl_mem statsArrayDevice = NULL,
-		cellMatrixDevice = NULL,
-		agentsArrayDevice = NULL,
-		rngSeedsDevice = NULL,
-		agentParamsDevice = NULL;
 	
 	/* Get the required CL zone. */
 	CLUZone zone;
@@ -94,190 +83,45 @@ int main(int argc, char ** argv)
 	clu_if_error_goto(status, err, error);
 
 	/* Determine size in bytes for host and device data structures. */
-	ppc_datasizes_get(params, simParams, &dataSizes, gws, lws, num_threads);
+	ppc_datasizes_get(params, simParams, &dataSizes, num_threads);
 	
-	// Statistics
-
-	statsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats, NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating statsArrayDevice");
-
-	// Grass matrix
-
-	cellMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix, NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating cellMatrixDevice");
-
-	// Agent array
-
-	agentsArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents, NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating agentArrayDevice");
-
-	// Random number generator array of seeds
-
-	rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds, NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating rngSeedsDevice");
-
-	// Agent parameters
-
-	agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating agentParamsDevice");
-
-	// 7. Initialize memory objects
-
-	// Statistics
-	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.stats, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map statsArrayHost");
-
-	statsArrayHost[0].sheep = params.init_sheep;
-	statsArrayHost[0].wolves = params.init_wolves;
-	statsArrayHost[0].grass = 0;
-	for (unsigned int i = 1; i <= params.iters; i++) {
-		statsArrayHost[i].sheep = 0;
-		statsArrayHost[i].wolves = 0;
-		statsArrayHost[i].grass = 0;
-	}
-
-	// Grass matrix
-	cellMatrixHost = (PPCCell *) clEnqueueMapBuffer( zone.queues[0], cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, dataSizes.matrix, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map cellMatrixHost");
-
-	for(cl_uint i = 0; i < params.grid_x; i++)
-	{
-		for (cl_uint j = 0; j < params.grid_y; j++)
-		{
-			cl_uint gridIndex = (i + j*params.grid_x);
-			/* Initialize grass. */
-			cl_uint grassState = g_rand_int_range(rng, 0, 2) == 0 
-				? 0 
-				: g_rand_int_range(rng, 1, params.grass_restart + 1);
-			
-			
-			cellMatrixHost[gridIndex].grass = grassState;
-			if (grassState == 0)
-				statsArrayHost[0].grass++;
-			/* Initialize agent pointer. */
-			cellMatrixHost[gridIndex].agent_pointer = NULL_AGENT_POINTER;
-		}
-	}
-
-	status = clEnqueueUnmapMemObject( zone.queues[0], statsArrayDevice, statsArrayHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap statsArrayHost");
-
-	// Agent array
-	agentsArrayHost = (PPCAgent *) clEnqueueMapBuffer( zone.queues[0], agentsArrayDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agents, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map agentsArrayHost");
-
-	for(cl_uint i = 0; i < MAX_AGENTS; i++)
-	{
-		/* Check if there are still agents to initialize. */
-		if (i < params.init_sheep + params.init_wolves)
-		{
-			/* There are still agents to initialize, chose a place to put next agent. */
-			cl_uint x = g_rand_int_range(rng, 0, params.grid_x);
-			cl_uint y = g_rand_int_range(rng, 0, params.grid_y);
-			/* Initialize generic agent stuff. */
-			agentsArrayHost[i].action = 0;
-			agentsArrayHost[i].next = NULL_AGENT_POINTER;
-			cl_uint gridIndex = (x + y*params.grid_x);
-			if (cellMatrixHost[gridIndex].agent_pointer == NULL_AGENT_POINTER) {
-				/* This cell had no agent, put it there. */
-				cellMatrixHost[gridIndex].agent_pointer = i;
-			} else {
-				/* Cell already has agent, put it at the end of the list. */
-				cl_uint agindex = cellMatrixHost[gridIndex].agent_pointer;
-				while (agentsArrayHost[agindex].next != NULL_AGENT_POINTER)
-					agindex = agentsArrayHost[agindex].next;
-				agentsArrayHost[agindex].next = i;
-			}
-			/* Perform agent specific initialization. */
-			if (i < params.init_sheep)
-			{
-				/* Initialize sheep specific stuff. */
-				agentsArrayHost[i].energy = g_rand_int_range(rng, 1, params.sheep_gain_from_food * 2 + 1);
-				agentsArrayHost[i].type = 0; // Sheep
-			}
-			else
-			{
-				/* Initialize wolf specific stuff. */
-				agentsArrayHost[i].energy = g_rand_int_range(rng, 1, params.wolves_gain_from_food * 2 + 1);
-				agentsArrayHost[i].type = 1; // Wolf
-			}
-
-		} 
-		else 
-		{
-			/* No more agents to initialize, initialize array position only. */
-			agentsArrayHost[i].energy = 0;
-			agentsArrayHost[i].type = 0;
-			agentsArrayHost[i].action = 0;
-			agentsArrayHost[i].next = NULL_AGENT_POINTER;
-		}
-
-	}
-
-	status = clEnqueueUnmapMemObject( zone.queues[0], agentsArrayDevice, agentsArrayHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap agentsArrayHost");
-
-	status = clEnqueueUnmapMemObject( zone.queues[0], cellMatrixDevice, cellMatrixHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap cellMatrixHost");
-
-	// RNG seeds
-	rngSeedsHost = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], rngSeedsDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.rng_seeds, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map rngSeedsHost");
-
-	for (unsigned int i = 0; i < num_threads; i++) {
-		rngSeedsHost[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
-	}
-
-	status = clEnqueueUnmapMemObject( zone.queues[0], rngSeedsDevice, rngSeedsHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap rngSeedsHost");
-
-	// Agent parameters
-	PPAgentParams* agentParamsHost = (PPAgentParams *) clEnqueueMapBuffer( zone.queues[0], agentParamsDevice, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agent_params, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map agentParamsHost");
-
-	agentParamsHost[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
-	agentParamsHost[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
-	agentParamsHost[SHEEP_ID].reproduce_prob = params.sheep_reproduce_prob;
-	agentParamsHost[WOLF_ID].gain_from_food = params.wolves_gain_from_food;
-	agentParamsHost[WOLF_ID].reproduce_threshold = params.wolves_reproduce_threshold;
-	agentParamsHost[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
-
-	status = clEnqueueUnmapMemObject( zone.queues[0], agentParamsDevice, agentParamsHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap agentParamsHost");
-
+	/* Initialize and map host/device buffers */
+	status = ppc_buffers_init(zone, num_threads, &buffersHost, &buffersDevice, dataSizes, params, rng, &err);
+	clu_if_error_goto(status, err, error);	
+	
 
 	// 8. Set fixed kernel arguments
 
 	// MoveAgentGrowGrass (step1) kernel
-	status = clSetKernelArg(krnls.step1, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
+	status = clSetKernelArg(krnls.step1, 0, sizeof(cl_mem), (void *) &buffersDevice.agents);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step1_kernel");
 
-	status = clSetKernelArg(krnls.step1, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
+	status = clSetKernelArg(krnls.step1, 1, sizeof(cl_mem), (void *) &buffersDevice.matrix);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step1_kernel");
 
-	status = clSetKernelArg(krnls.step1, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
+	status = clSetKernelArg(krnls.step1, 2, sizeof(cl_mem), (void *) &buffersDevice.rng_seeds);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step1_kernel");
 
 	status = clSetKernelArg(krnls.step1, 4, sizeof(PPCSimParams), (void *) &simParams);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 4 of step1_kernel");
 
 	// AgentActionsGetStats (step2) kernel
-	status = clSetKernelArg(krnls.step2, 0, sizeof(cl_mem), (void *) &agentsArrayDevice);
+	status = clSetKernelArg(krnls.step2, 0, sizeof(cl_mem), (void *) &buffersDevice.agents);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step2_kernel");
 
-	status = clSetKernelArg(krnls.step2, 1, sizeof(cl_mem), (void *) &cellMatrixDevice);
+	status = clSetKernelArg(krnls.step2, 1, sizeof(cl_mem), (void *) &buffersDevice.matrix);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step2_kernel");
 
-	status = clSetKernelArg(krnls.step2, 2, sizeof(cl_mem), (void *) &rngSeedsDevice);
+	status = clSetKernelArg(krnls.step2, 2, sizeof(cl_mem), (void *) &buffersDevice.rng_seeds);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step2_kernel");
 
-	status = clSetKernelArg(krnls.step2, 3, sizeof(cl_mem), (void *) &statsArrayDevice);
+	status = clSetKernelArg(krnls.step2, 3, sizeof(cl_mem), (void *) &buffersDevice.stats);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 3 of step2_kernel");
 
 	status = clSetKernelArg(krnls.step2, 6, sizeof(PPCSimParams), (void *) &simParams);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 6 of step2_kernel");
 
-	status = clSetKernelArg(krnls.step2, 7, sizeof(cl_mem), (void *) &agentParamsDevice);
+	status = clSetKernelArg(krnls.step2, 7, sizeof(cl_mem), (void *) &buffersDevice.agent_params);
 	clu_if_error_create_error_goto(status, &err, error, "Arg 7 of step2_kernel");
 
 
@@ -382,17 +226,17 @@ int main(int argc, char ** argv)
 	
 	printf("Time stops now!\n");
 
-	statsArrayHost = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], statsArrayDevice, CL_TRUE, CL_MAP_READ, 0, dataSizes.stats, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map statsArrayHost");
+	buffersHost.stats = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], buffersDevice.stats, CL_TRUE, CL_MAP_READ, 0, dataSizes.stats, 0, NULL, NULL, &status);
+	clu_if_error_create_error_goto(status, &err, error, "Map buffersHost.stats");
 
 	// 10. Output results to file
 	FILE * fp1 = fopen("stats.txt","w");
 	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep, statsArrayHost[i].wolves, statsArrayHost[i].grass );
+		fprintf(fp1, "%d\t%d\t%d\n", buffersHost.stats[i].sheep, buffersHost.stats[i].wolves, buffersHost.stats[i].grass );
 	fclose(fp1);
 
-	status = clEnqueueUnmapMemObject( zone.queues[0], statsArrayDevice, statsArrayHost, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap statsArrayHost");
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice.stats, buffersHost.stats, 0, NULL, NULL);
+	clu_if_error_create_error_goto(status, &err, error, "Unmap buffersHost.stats");
 
 		// TEST STUFF
 		/*agentsArrayHost = (AGENT *) clEnqueueMapBuffer( zone.queue, agentsArrayDevice, CL_TRUE, CL_MAP_READ, 0, agentsSizeInBytes, 0, NULL, NULL, &status);
@@ -432,26 +276,30 @@ error:
 	g_error_free(err);
 
 cleanup:
-	/* Release OpenCL kernels */
-	ppc_kernels_free(&krnls);
-
 	// 12. Free stuff!
 	printf("Press enter to free memory...");
 	getchar();
 	
+	/* Release OpenCL kernels */
+	ppc_kernels_free(&krnls);
+
+
 	//TODO Release events
 
 	/* Free RNG */
 	g_rand_free(rng);
 		
 	// Release memory objects
-	if (agentsArrayDevice) clReleaseMemObject(agentsArrayDevice);
-	if (cellMatrixDevice) clReleaseMemObject(cellMatrixDevice);
-	if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
-	if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
+	if (buffersDevice.stats) clReleaseMemObject(buffersDevice.stats);
+	if (buffersDevice.agents) clReleaseMemObject(buffersDevice.agents);
+	if (buffersDevice.matrix) clReleaseMemObject(buffersDevice.matrix);
+	if (buffersDevice.stats) clReleaseMemObject(buffersDevice.stats);
+	if (buffersDevice.rng_seeds) clReleaseMemObject(buffersDevice.rng_seeds);
 
 	// Release program, command queues and context
 	clu_zone_free(&zone);
+	
+	//TODO Don't I need to free host buffers?
 
 	printf("Press enter to bail out...");
 	getchar();
@@ -551,7 +399,7 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
 /**
  * @brief Determine buffer sizes. 
  * */
-void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCGlobalWorkSizes gws, PPCLocalWorkSizes lws, size_t num_threads) {
+void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -568,4 +416,167 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 	/* Agent parameters */
 	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
 
+}
+
+/**
+ * @brief Initialize and map host/device buffers.
+ * */
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPParameters params, GRand* rng, GError** err) {
+	
+	/* Aux. variable */
+	cl_int status;
+	
+	/* ************************* */
+	/* Initialize device buffers */
+	/* ************************* */
+	
+	/* Statistics */
+	buffersDevice->stats = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats, NULL, &status );
+	clu_if_error_create_error_return(status, err, "Creating buffersDevice->stats");
+	
+	/* Grass matrix */
+	buffersDevice->matrix = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix, NULL, &status );
+	clu_if_error_create_error_return(status, err, "Creating buffersDevice->matrix");
+
+	/* Agent array */
+	buffersDevice->agents = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents, NULL, &status );
+	clu_if_error_create_error_return(status, err, "Creating buffersDevice->agents");
+
+	/* Random number generator array of seeds */
+	buffersDevice->rng_seeds = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds, NULL, &status );
+	clu_if_error_create_error_return(status, err, "Creating buffersDevice->rng_seeds");
+
+	/* Agent parameters */
+	buffersDevice->agent_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &status );
+	clu_if_error_create_error_return(status, err, "buffersDevice->agent_params");
+
+	/* *********************************************************** */
+	/* Initialize host buffers, which are mapped to device buffers */
+	/* *********************************************************** */
+
+	/* Initialize statistics buffer */
+	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], buffersDevice->stats, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.stats, 0, NULL, NULL, &status);
+	clu_if_error_create_error_return(status, err, "Map buffersHost->stats");
+
+	buffersHost->stats[0].sheep = params.init_sheep;
+	buffersHost->stats[0].wolves = params.init_wolves;
+	buffersHost->stats[0].grass = 0;
+	for (unsigned int i = 1; i <= params.iters; i++) {
+		buffersHost->stats[i].sheep = 0;
+		buffersHost->stats[i].wolves = 0;
+		buffersHost->stats[i].grass = 0;
+	}
+
+	/* Initialize grass matrix */
+	buffersHost->matrix = (PPCCell *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->matrix, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, dataSizes.matrix, 0, NULL, NULL, &status);
+	clu_if_error_create_error_return(status, err, "Map buffersHost->matrix");
+
+	for(cl_uint i = 0; i < params.grid_x; i++) {
+		for (cl_uint j = 0; j < params.grid_y; j++) {
+			
+			/* Determine grid index. */
+			cl_uint gridIndex = (i + j*params.grid_x);
+			
+			/* Initialize grass. */
+			cl_uint grassState = g_rand_int_range(rng, 0, 2) == 0 
+				? 0 
+				: g_rand_int_range(rng, 1, params.grass_restart + 1);
+			buffersHost->matrix[gridIndex].grass = grassState;
+			if (grassState == 0)
+				buffersHost->stats[0].grass++;
+			
+			/* Initialize agent pointer. */
+			buffersHost->matrix[gridIndex].agent_pointer = NULL_AGENT_POINTER;
+		}
+	}
+
+	/* Unmap stats buffer from device */ 
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->stats, buffersHost->stats, 0, NULL, NULL);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost->stats");
+
+	/* Initialize agent array */
+	buffersHost->agents = (PPCAgent *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->agents, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agents, 0, NULL, NULL, &status);
+	clu_if_error_create_error_return(status, err, "Map buffersHost->agents");
+
+	for(cl_uint i = 0; i < MAX_AGENTS; i++) 	{
+		/* Check if there are still agents to initialize. */
+		if (i < params.init_sheep + params.init_wolves) {
+			
+			/* There are still agents to initialize, chose a place to put next agent. */
+			cl_uint x = g_rand_int_range(rng, 0, params.grid_x);
+			cl_uint y = g_rand_int_range(rng, 0, params.grid_y);
+			
+			/* Initialize generic agent parameters. */
+			buffersHost->agents[i].action = 0;
+			buffersHost->agents[i].next = NULL_AGENT_POINTER;
+			cl_uint gridIndex = (x + y*params.grid_x);
+			if (buffersHost->matrix[gridIndex].agent_pointer == NULL_AGENT_POINTER) {
+				/* This cell had no agent, put it there. */
+				buffersHost->matrix[gridIndex].agent_pointer = i;
+			} else {
+				/* Cell already has agent, put it at the end of the list. */
+				cl_uint agindex = buffersHost->matrix[gridIndex].agent_pointer;
+				while (buffersHost->agents [agindex].next != NULL_AGENT_POINTER)
+					agindex = buffersHost->agents [agindex].next;
+				buffersHost->agents [agindex].next = i;
+			}
+			
+			/* Perform agent specific initialization. */
+			if (i < params.init_sheep) {
+				/* Initialize sheep specific parameters. */
+				buffersHost->agents[i].energy = g_rand_int_range(rng, 1, params.sheep_gain_from_food * 2 + 1);
+				buffersHost->agents[i].type = SHEEP_ID;
+			} else {
+				/* Initialize wolf specific parameters. */
+				buffersHost->agents[i].energy = g_rand_int_range(rng, 1, params.wolves_gain_from_food * 2 + 1);
+				buffersHost->agents[i].type = WOLF_ID;
+			}
+
+		} else {
+			/* No more agents to initialize, initialize array position only. */
+			buffersHost->agents[i].energy = 0;
+			buffersHost->agents[i].type = 0;
+			buffersHost->agents[i].action = 0;
+			buffersHost->agents[i].next = NULL_AGENT_POINTER;
+		}
+
+	}
+
+	/* Unmap agents buffer from device */ 
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->agents, buffersHost->agents, 0, NULL, NULL);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost->agents");
+
+	/* Unmap matrix buffer from device */ 
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->matrix, buffersHost->matrix, 0, NULL, NULL);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost->matrix");
+
+	/* Initialize RNG seeds */
+	buffersHost->rng_seeds = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->rng_seeds, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.rng_seeds, 0, NULL, NULL, &status);
+	clu_if_error_create_error_return(status, err, "Map buffersHost->rng_seeds");
+
+	for (unsigned int i = 0; i < num_threads; i++) {
+		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
+	}
+
+	/* Unmap RNG seeds buffer from device */
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->rng_seeds, buffersHost->rng_seeds, 0, NULL, NULL);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost->rng_seeds");
+
+	/* Initialize agent parameters */
+	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->agent_params, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agent_params, 0, NULL, NULL, &status);
+	clu_if_error_create_error_return(status, err, "Map buffersHost->agent_params");
+
+	buffersHost->agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
+	buffersHost->agent_params[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
+	buffersHost->agent_params[SHEEP_ID].reproduce_prob = params.sheep_reproduce_prob;
+	buffersHost->agent_params[WOLF_ID].gain_from_food = params.wolves_gain_from_food;
+	buffersHost->agent_params[WOLF_ID].reproduce_threshold = params.wolves_reproduce_threshold;
+	buffersHost->agent_params[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
+
+	/* Unmap agent parameters buffer from device. */
+	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->agent_params, buffersHost->agent_params, 0, NULL, NULL);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost->agent_params"); 
+
+	return status;
+	
 }
