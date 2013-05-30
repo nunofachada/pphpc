@@ -89,92 +89,12 @@ int main(int argc, char ** argv)
 	status = ppc_buffers_init(zone, num_threads, &buffersHost, &buffersDevice, dataSizes, params, rng, &err);
 	clu_if_error_goto(status, err, error);	
 	
-
-	// 8. Set fixed kernel arguments
-
-	// MoveAgentGrowGrass (step1) kernel
-	status = clSetKernelArg(krnls.step1, 0, sizeof(cl_mem), (void *) &buffersDevice.agents);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step1_kernel");
-
-	status = clSetKernelArg(krnls.step1, 1, sizeof(cl_mem), (void *) &buffersDevice.matrix);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step1_kernel");
-
-	status = clSetKernelArg(krnls.step1, 2, sizeof(cl_mem), (void *) &buffersDevice.rng_seeds);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step1_kernel");
-
-	status = clSetKernelArg(krnls.step1, 4, sizeof(PPCSimParams), (void *) &simParams);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 4 of step1_kernel");
-
-	// AgentActionsGetStats (step2) kernel
-	status = clSetKernelArg(krnls.step2, 0, sizeof(cl_mem), (void *) &buffersDevice.agents);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 0 of step2_kernel");
-
-	status = clSetKernelArg(krnls.step2, 1, sizeof(cl_mem), (void *) &buffersDevice.matrix);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 1 of step2_kernel");
-
-	status = clSetKernelArg(krnls.step2, 2, sizeof(cl_mem), (void *) &buffersDevice.rng_seeds);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 2 of step2_kernel");
-
-	status = clSetKernelArg(krnls.step2, 3, sizeof(cl_mem), (void *) &buffersDevice.stats);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 3 of step2_kernel");
-
-	status = clSetKernelArg(krnls.step2, 6, sizeof(PPCSimParams), (void *) &simParams);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 6 of step2_kernel");
-
-	status = clSetKernelArg(krnls.step2, 7, sizeof(cl_mem), (void *) &buffersDevice.agent_params);
-	clu_if_error_create_error_goto(status, &err, error, "Arg 7 of step2_kernel");
+	/*  Set fixed kernel arguments. */
+	status = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
+	clu_if_error_goto(status, err, error);
 
 
-// TEST STUFF
-	/*FILE * fpa = fopen("agents.txt","w");
-	fprintf(fpa, "Id\tEnergy\tAction\tType\tNext\n");
-	for (unsigned int i = 0; i < MAX_AGENTS; i++)
-		fprintf(fpa, "%d\t%d\t%d\t%d\t%d\n", i, agentsArrayHost[i].energy, agentsArrayHost[i].action, agentsArrayHost[i].type, agentsArrayHost[i].next );
-	fclose(fpa);
-
-	FILE * fpc = fopen("matrix.txt","w");
-	fprintf(fpc, "Id\tGrass\tAgent\n");
-	for (unsigned int i = 0; i < simParams.size_xy; i++)
-		fprintf(fpc, "%d\t%d\t%d\n", i, cellMatrixHost[i].grass, cellMatrixHost[i].agent_pointer);
-	fclose(fpc);
-
-	status = clEnqueueUnmapMemObject( zone.queue, agentsArrayDevice, agentsArrayHost, 0, NULL, NULL);
-	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "--"); return(-1); }
-	status = clEnqueueUnmapMemObject( zone.queue, cellMatrixDevice, cellMatrixHost, 0, NULL, NULL);
-	if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "---"); return(-1); }
-
-	cl_kernel test_kernel = clCreateKernel( zone.program, "test", &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateKernel(status, "test_kernel"); exit(-1); }
-
-	size_t intArraySizeInBytes = 20 * num_threads * sizeof(cl_int);
-
-	cl_mem intArrayDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, intArraySizeInBytes, NULL, &status );
-	if (status != CL_SUCCESS) { PrintErrorCreateBuffer(status, "intArrayDevice"); return(-1); }
-
-	status = clSetKernelArg(test_kernel, 0, sizeof(cl_mem), (void *) &intArrayDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 0 of test_kernel"); return(-1); }
-
-	status = clSetKernelArg(test_kernel, 1, sizeof(cl_mem), (void *) &rngSeedsDevice);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 1 of test_kernel"); return(-1); }
-
-	status = clSetKernelArg(test_kernel, 2, sizeof(SIM_PARAMS), (void *) &simParams);
-	if (status != CL_SUCCESS) { PrintErrorSetKernelArg(status, "Arg 2 of test_kernel"); return(-1); }
-
-	size_t wi = 1;
-	status = clEnqueueNDRangeKernel( zone.queue, test_kernel, 1, NULL, &num_threads, &wi, 0, NULL, NULL);
-	if (status != CL_SUCCESS) {  PrintErrorEnqueueNDRangeKernel(status, "test_kernel"); }
-
-	cl_int* intArrayHost = (cl_int *) clEnqueueMapBuffer( zone.queue, intArrayDevice, CL_TRUE, CL_MAP_READ, 0, intArraySizeInBytes, 0, NULL, NULL, &status);
-	if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "intArrayHost"); return(-1); }
-
-	FILE * fpw = fopen("walks.txt","w");
-	for (unsigned int i = 0; i < 20 * num_threads; i++)
-		fprintf(fpw, "%d\n", intArrayHost[i]);
-	fclose(fpw);
-	
-	return 0;*/
-
-        // 9. Run the show
+    // 9. Run the show
 	size_t num_work_items = 1;
 	cl_uint iter;
 	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
@@ -237,32 +157,6 @@ int main(int argc, char ** argv)
 
 	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice.stats, buffersHost.stats, 0, NULL, NULL);
 	clu_if_error_create_error_goto(status, &err, error, "Unmap buffersHost.stats");
-
-		// TEST STUFF
-		/*agentsArrayHost = (AGENT *) clEnqueueMapBuffer( zone.queue, agentsArrayDevice, CL_TRUE, CL_MAP_READ, 0, agentsSizeInBytes, 0, NULL, NULL, &status);
-		if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "agentsArrayHost"); return(-1); }
-		char * agentsFile = (char*) malloc(40*sizeof(char));
-		sprintf(agentsFile, "agents%d.txt", iter);
-		FILE * fpa1 = fopen(agentsFile,"w");
-		fprintf(fpa1, "Id\tEnergy\tAction\tType\tNext\n");
-		for (unsigned int i = 0; i < MAX_AGENTS; i++)
-			fprintf(fpa1, "%d\t%d\t%d\t%d\t%d\n", i, agentsArrayHost[i].energy, agentsArrayHost[i].action, agentsArrayHost[i].type, agentsArrayHost[i].next );
-		fclose(fpa1);
-		cellMatrixHost = (CELL *) clEnqueueMapBuffer( zone.queue, cellMatrixDevice, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, cellMatrixSizeInBytes, 0, NULL, NULL, &status);
-		if (status != CL_SUCCESS) { PrintErrorEnqueueMapBuffer(status, "cellMatrixHost"); return(-1); }
-		char * matrixFile = (char*) malloc(40*sizeof(char));
-		sprintf(matrixFile, "matrix%d.txt", iter);
-		FILE * fpc1 = fopen(matrixFile,"w");
-		fprintf(fpc1, "Id\tGrass\tAgent\n");
-		for (unsigned int i = 0; i < simParams.size_xy; i++)
-			fprintf(fpc1, "%d\t%d\t%d\n", i, cellMatrixHost[i].grass, cellMatrixHost[i].agent_pointer);
-		fclose(fpc1);
-		status = clEnqueueUnmapMemObject( zone.queue, agentsArrayDevice, agentsArrayHost, 0, NULL, NULL);
-		if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "--"); return(-1); }
-		status = clEnqueueUnmapMemObject( zone.queue, cellMatrixDevice, cellMatrixHost, 0, NULL, NULL);
-		if (status != CL_SUCCESS) { PrintErrorEnqueueUnmapMemObject(status, "---"); return(-1); }*/
-
-
 
 	/* Show profiling info. */
 	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
@@ -579,4 +473,47 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 
 	return status;
 	
+}
+
+/**
+ * @brief Set fixed kernel arguments. 
+ * */
+cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err) {
+	
+	/* Aux. var. */
+	cl_int status;
+	
+	/* Step1 kernel - Move agents, grow grass */
+	status = clSetKernelArg(krnls->step1, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
+	clu_if_error_create_error_return(status, err, "Arg 0 of step1_kernel");
+
+	status = clSetKernelArg(krnls->step1, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
+	clu_if_error_create_error_return(status, err, "Arg 1 of step1_kernel");
+
+	status = clSetKernelArg(krnls->step1, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
+	clu_if_error_create_error_return(status, err, "Arg 2 of step1_kernel");
+
+	status = clSetKernelArg(krnls->step1, 4, sizeof(PPCSimParams), (void *) &simParams);
+	clu_if_error_create_error_return(status, err, "Arg 4 of step1_kernel");
+
+	/* Step2 kernel - Agent actions, get stats */
+	status = clSetKernelArg(krnls->step2, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
+	clu_if_error_create_error_return(status, err, "Arg 0 of step2_kernel");
+
+	status = clSetKernelArg(krnls->step2, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
+	clu_if_error_create_error_return(status, err, "Arg 1 of step2_kernel");
+
+	status = clSetKernelArg(krnls->step2, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
+	clu_if_error_create_error_return(status, err, "Arg 2 of step2_kernel");
+
+	status = clSetKernelArg(krnls->step2, 3, sizeof(cl_mem), (void *) &buffersDevice->stats);
+	clu_if_error_create_error_return(status, err, "Arg 3 of step2_kernel");
+
+	status = clSetKernelArg(krnls->step2, 6, sizeof(PPCSimParams), (void *) &simParams);
+	clu_if_error_create_error_return(status, err, "Arg 6 of step2_kernel");
+
+	status = clSetKernelArg(krnls->step2, 7, sizeof(cl_mem), (void *) &buffersDevice->agent_params);
+	clu_if_error_create_error_return(status, err, "Arg 7 of step2_kernel");
+
+	return CL_SUCCESS;
 }

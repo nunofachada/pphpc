@@ -98,4 +98,7 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 /** @brief Initialize and map host/device buffers. */
 cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPParameters params, GRand* rng, GError** err);
 
+/** @brief Set fixed kernel arguments.  */
+cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
+
 #endif
