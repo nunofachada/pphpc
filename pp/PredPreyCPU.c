@@ -100,20 +100,17 @@ int main(int argc, char ** argv)
 	status = ppc_simulate(num_threads, lines_per_thread, params, zone, krnls, dataSizes, buffersHost, buffersDevice, &err);
 	clu_if_error_goto(status, err, error);
 
-	/* Stop basic timing / profiling. */
-	profcl_profile_stop(profile);  
-	
-	printf("Time stops now!\n");
-
+	/* Map stats host buffer in order to get statistics */
 	buffersHost.stats = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], buffersDevice.stats, CL_TRUE, CL_MAP_READ, 0, dataSizes.stats, 0, NULL, NULL, &status);
 	clu_if_error_create_error_goto(status, &err, error, "Map buffersHost.stats");
 
-	// 10. Output results to file
-	FILE * fp1 = fopen("stats.txt","w");
-	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", buffersHost.stats[i].sheep, buffersHost.stats[i].wolves, buffersHost.stats[i].grass );
-	fclose(fp1);
+	/* Stop basic timing / profiling. */
+	profcl_profile_stop(profile);  
 
+	/* Output results to file */
+	ppc_results_save("stats.txt", buffersHost.stats, params);
+
+	/* Unmap stats host buffer. */
 	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice.stats, buffersHost.stats, 0, NULL, NULL);
 	clu_if_error_create_error_goto(status, &err, error, "Unmap buffersHost.stats");
 
@@ -129,35 +126,39 @@ error:
 	g_error_free(err);
 
 cleanup:
-	// 12. Free stuff!
+
+	/* Free stuff! */
 	printf("Press enter to free memory...");
 	getchar();
 	
 	/* Release OpenCL kernels */
 	ppc_kernels_free(&krnls);
 
+	/* Release OpenCL memory objects. This also frees host buffers 
+	 * because of CL_MEM_ALLOC_HOST_PTR (I think). If we try to 
+	 * free() the host buffers we will have a kind of segfault. */
+	ppc_devicebuffers_free(&buffersDevice);
 
-	//TODO Release events
+	/* Release program, command queues and context */
+	clu_zone_free(&zone);
 
+	
+	/* Free events */
+	/** @todo ppg_events_free(params, &evts); */
+	
+	/* Free profile data structure */
+	profcl_profile_free(profile);
+	
+	/* Free compiler options. */
+	/** @todo free(compilerOpts); */
+	
 	/* Free RNG */
 	g_rand_free(rng);
 		
-	// Release memory objects
-	if (buffersDevice.stats) clReleaseMemObject(buffersDevice.stats);
-	if (buffersDevice.agents) clReleaseMemObject(buffersDevice.agents);
-	if (buffersDevice.matrix) clReleaseMemObject(buffersDevice.matrix);
-	if (buffersDevice.stats) clReleaseMemObject(buffersDevice.stats);
-	if (buffersDevice.rng_seeds) clReleaseMemObject(buffersDevice.rng_seeds);
-
-	// Release program, command queues and context
-	clu_zone_free(&zone);
-	
-	//TODO Don't I need to free host buffers?
-
 	printf("Press enter to bail out...");
 	getchar();
-	
 
+	/* See ya. */
 	return 0;
 }
 
@@ -546,3 +547,28 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 	/* Everything Ok. */
 	return CL_SUCCESS;
 }
+
+/**
+ * @brief Output results to file.
+ * */
+void ppc_results_save(const char* filename, PPStatistics* stats, PPParameters params) {
+
+	FILE * fp1 = fopen(filename,"w");
+	for (unsigned int i = 0; i <= params.iters; i++)
+		fprintf(fp1, "%d\t%d\t%d\n", stats[i].sheep, stats[i].wolves, stats[i].grass );
+	fclose(fp1);
+
+}
+
+/** 
+ * @brief Release OpenCL memory objects.
+ * */
+void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
+	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
+	if (buffersDevice->agents) clReleaseMemObject(buffersDevice->agents);
+	if (buffersDevice->matrix) clReleaseMemObject(buffersDevice->matrix);
+	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
+	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
+}
+
+

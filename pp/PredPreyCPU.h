@@ -104,4 +104,13 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 /** @brief Perform simulation! */
 cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
 
+/** @brief Output results to file. */
+void ppc_results_save(const char* filename, PPStatistics* stats, PPParameters params);
+
+/** @brief Release OpenCL memory objects. */
+void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
+	
+/** @brief Free host resources. */ 
+void ppc_hostbuffers_free(PPCBuffersHost* buffersHost);
+
 #endif
