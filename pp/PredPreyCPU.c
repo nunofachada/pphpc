@@ -93,53 +93,12 @@ int main(int argc, char ** argv)
 	status = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
 	clu_if_error_goto(status, err, error);
 
-
-    // 9. Run the show
-	size_t num_work_items = 1;
-	cl_uint iter;
-	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
-
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
-	for (iter = 1; iter <= params.iters; iter++) {
-		// Step 1
-		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
-			//printf("iter %d, kernel 1, turn %d\n", iter, turn);
-			// Set turn on step1_kernel
-			status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
-			clu_if_error_create_error_goto(status, &err, error, "Arg 3 of step1_kernel");
-			
-			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step1, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
-			clu_if_error_create_error_goto(status, &err, error, "step1_kernel");
-
-			// Barrier
-			status = clEnqueueBarrier(zone.queues[0]);
-			clu_if_error_create_error_goto(status, &err, error, "barrier in sim loop 1");
-		}
-
-		// Step 2
-		status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
-		clu_if_error_create_error_goto(status, &err, error, "Arg 4 of step2_kernel");
-
-		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
-			//printf("iter %d, kernel 2, turn %d\n", iter, turn);
-			// Set turn on step2_kernel
-			status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
-			clu_if_error_create_error_goto(status, &err, error, "Arg 5 of step2_kernel");
-			// Run kernel
-			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step2, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
-			clu_if_error_create_error_goto(status, &err, error, "step2_kernel");
-			// Barrier
-			status = clEnqueueBarrier(zone.queues[0]);
-			clu_if_error_create_error_goto(status, &err, error, "barrier in sim loop 2");
-		}
-
-
-
-	}
-	clFinish(zone.queues[0]); // Guarantee all kernels have really terminated...
+	/* Simulation!! */
+	status = ppc_simulate(num_threads, lines_per_thread, params, zone, krnls, dataSizes, buffersHost, buffersDevice, &err);
+	clu_if_error_goto(status, err, error);
 
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
@@ -515,5 +474,75 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->step2, 7, sizeof(cl_mem), (void *) &buffersDevice->agent_params);
 	clu_if_error_create_error_return(status, err, "Arg 7 of step2_kernel");
 
+	/* Everything Ok. */
+	return CL_SUCCESS;
+}
+
+/**
+ * @brief Perform simulation!
+ * */
+cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
+	
+	/* Aux. vars. */
+	cl_int status;	
+
+	/* Current iteration. */
+	cl_uint iter;
+
+    /* Assume workgroup size is 1 */ 
+    /** @todo Don't really assume this please. */
+	size_t num_work_items = 1;
+	
+	/* Guarantee all memory transfers are performed */
+    /** @todo This is not necessary if queue is created with in-order execution. */
+	clFinish(zone.queues[0]); 
+
+	/* Simulation loop! */
+	for (iter = 1; iter <= params.iters; iter++) {
+		
+		/* Step 1:  Move agents, grow grass */
+		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
+			
+			/* Set turn on step1_kernel */
+			status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
+			clu_if_error_create_error_return(status, err,  "Arg 3 of step1_kernel");
+			
+			/* Run kernel */
+			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step1, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			clu_if_error_create_error_return(status, err, "step1_kernel");
+
+			/* Barrier */
+			/** @todo This is not necessary if queue is created with in-order execution. */
+			status = clEnqueueBarrier(zone.queues[0]);
+			clu_if_error_create_error_return(status, err, "barrier in sim loop 1");
+		}
+
+		/* Step 2:  Agent actions, get stats */
+		status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
+		clu_if_error_create_error_return(status, err, "Arg 4 of step2_kernel");
+
+		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
+
+			/* Set turn on step2_kernel */
+			status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
+			clu_if_error_create_error_return(status, err, "Arg 5 of step2_kernel");
+			
+			/* Run kernel */
+			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step2, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			clu_if_error_create_error_return(status, err, "step2_kernel");
+			
+			/* Barrier */
+			/** @todo This is not necessary if queue is created with in-order execution. */
+			status = clEnqueueBarrier(zone.queues[0]);
+			clu_if_error_create_error_return(status, err, "barrier in sim loop 2");
+		}
+
+	}
+	
+	/* Guarantee all kernels have really terminated... */
+    /** @todo This is not necessary if queue is created with in-order execution. */
+	clFinish(zone.queues[0]); 
+
+	/* Everything Ok. */
 	return CL_SUCCESS;
 }

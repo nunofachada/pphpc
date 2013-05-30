@@ -101,4 +101,7 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 /** @brief Set fixed kernel arguments.  */
 cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
 
+/** @brief Perform simulation! */
+cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
+
 #endif
