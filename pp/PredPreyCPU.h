@@ -50,6 +50,24 @@ typedef struct pp_c_kernels {
 	cl_kernel step2;
 } PPCKernels;
 
+// Events
+typedef struct pp_c_events {
+	cl_event map_stats_start;
+	cl_event unmap_stats_start;
+	cl_event map_matrix;
+	cl_event unmap_matrix;
+	cl_event map_agents;
+	cl_event unmap_agents;
+	cl_event map_rng_seeds;
+	cl_event unmap_rng_seeds;
+	cl_event map_agent_params;
+	cl_event unmap_agent_params;
+	cl_event *step1;
+	cl_event *step2;
+	cl_event map_stats_end;
+	cl_event unmap_stats_end;
+} PPCEvents;
+
 // Data sizes
 typedef struct pp_c_data_sizes {
 	size_t stats;
@@ -96,21 +114,30 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
 void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads);
 
 /** @brief Initialize and map host/device buffers. */
-cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPParameters params, GRand* rng, GError** err);
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err);
 
 /** @brief Set fixed kernel arguments.  */
 cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
 
 /** @brief Perform simulation! */
-cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
-
-/** @brief Output results to file. */
-void ppc_results_save(const char* filename, PPStatistics* stats, PPParameters params);
+cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
 	
 /** @brief Free host resources. */ 
 void ppc_hostbuffers_free(PPCBuffersHost* buffersHost);
+
+/** @brief Create events data structure. */
+void ppc_events_create(PPParameters params, PPCEvents* evts);
+
+/** @brief Free events. */
+void ppc_events_free(PPParameters params, PPCEvents* evts);
+
+/** @brief Analyze events, show profiling info. */
+cl_int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);
+
+/** @brief Get statistics. */
+cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
 
 #endif

@@ -12,9 +12,9 @@
 #define WOLF_ID 1
 
 #ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE
+	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
 #else
-	#define QUEUE_PROPERTIES CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+	#define QUEUE_PROPERTIES 0
 #endif
 
 //#define SEED 0
@@ -31,6 +31,7 @@ int main(int argc, char ** argv)
 	PPCGlobalWorkSizes gws;
 	PPCLocalWorkSizes lws;
 	PPCKernels krnls = {NULL, NULL};
+	PPCEvents evts = {NULL, NULL, NULL};
 	PPCDataSizes dataSizes;
 	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
@@ -85,8 +86,11 @@ int main(int argc, char ** argv)
 	/* Determine size in bytes for host and device data structures. */
 	ppc_datasizes_get(params, simParams, &dataSizes, num_threads);
 	
+	/* Create events data structure. */
+	ppc_events_create(params, &evts);
+	
 	/* Initialize and map host/device buffers */
-	status = ppc_buffers_init(zone, num_threads, &buffersHost, &buffersDevice, dataSizes, params, rng, &err);
+	status = ppc_buffers_init(zone, num_threads, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
 	clu_if_error_goto(status, err, error);	
 	
 	/*  Set fixed kernel arguments. */
@@ -97,25 +101,23 @@ int main(int argc, char ** argv)
 	profcl_profile_start(profile);
 
 	/* Simulation!! */
-	status = ppc_simulate(num_threads, lines_per_thread, params, zone, krnls, dataSizes, buffersHost, buffersDevice, &err);
+	status = ppc_simulate(num_threads, lines_per_thread, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
 	clu_if_error_goto(status, err, error);
 
-	/* Map stats host buffer in order to get statistics */
-	buffersHost.stats = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], buffersDevice.stats, CL_TRUE, CL_MAP_READ, 0, dataSizes.stats, 0, NULL, NULL, &status);
-	clu_if_error_create_error_goto(status, &err, error, "Map buffersHost.stats");
-
+	/* Get statistics. */
+	status = ppc_stats_get(zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
+	clu_if_error_goto(status, err, error);
+	
+	/* Guarantee all activity has terminated... */
+	status = clFinish(zone.queues[0]);
+	clu_if_error_create_error_goto(status, &err, error, "Finish for queue 0 after simulation");
+	
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
 
-	/* Output results to file */
-	ppc_results_save("stats.txt", buffersHost.stats, params);
-
-	/* Unmap stats host buffer. */
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice.stats, buffersHost.stats, 0, NULL, NULL);
-	clu_if_error_create_error_goto(status, &err, error, "Unmap buffersHost.stats");
-
-	/* Show profiling info. */
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
+	/* Analyze events, show profiling info. */
+	status = ppc_profiling_analyze(profile, &evts, params, &err);
+	clu_if_error_goto(status, err, error);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
@@ -128,8 +130,8 @@ error:
 cleanup:
 
 	/* Free stuff! */
-	printf("Press enter to free memory...");
-	getchar();
+	//printf("Press enter to free memory...");
+	//getchar();
 	
 	/* Release OpenCL kernels */
 	ppc_kernels_free(&krnls);
@@ -141,10 +143,9 @@ cleanup:
 
 	/* Release program, command queues and context */
 	clu_zone_free(&zone);
-
 	
 	/* Free events */
-	/** @todo ppg_events_free(params, &evts); */
+	ppc_events_free(params, &evts); 
 	
 	/* Free profile data structure */
 	profcl_profile_free(profile);
@@ -155,8 +156,8 @@ cleanup:
 	/* Free RNG */
 	g_rand_free(rng);
 		
-	printf("Press enter to bail out...");
-	getchar();
+	//printf("Press enter to bail out...");
+	//getchar();
 
 	/* See ya. */
 	return 0;
@@ -275,7 +276,7 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 /**
  * @brief Initialize and map host/device buffers.
  * */
-cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPParameters params, GRand* rng, GError** err) {
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err) {
 	
 	/* Aux. variable */
 	cl_int status;
@@ -309,7 +310,22 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	/* *********************************************************** */
 
 	/* Initialize statistics buffer */
-	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer( zone.queues[0], buffersDevice->stats, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.stats, 0, NULL, NULL, &status);
+	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer(
+		zone.queues[0], 
+		buffersDevice->stats, 
+		CL_TRUE, 
+		CL_MAP_WRITE, 
+		0, 
+		dataSizes.stats, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_stats_start,
+#else
+		NULL,
+#endif
+		&status
+	);
 	clu_if_error_create_error_return(status, err, "Map buffersHost->stats");
 
 	buffersHost->stats[0].sheep = params.init_sheep;
@@ -322,7 +338,22 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	}
 
 	/* Initialize grass matrix */
-	buffersHost->matrix = (PPCCell *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->matrix, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ, 0, dataSizes.matrix, 0, NULL, NULL, &status);
+	buffersHost->matrix = (PPCCell *) clEnqueueMapBuffer(
+		zone.queues[0], 
+		buffersDevice->matrix, 
+		CL_TRUE, 
+		CL_MAP_WRITE | CL_MAP_READ, 
+		0, 
+		dataSizes.matrix, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_matrix, 
+#else
+		NULL,
+#endif
+		&status
+	);
 	clu_if_error_create_error_return(status, err, "Map buffersHost->matrix");
 
 	for(cl_uint i = 0; i < params.grid_x; i++) {
@@ -345,11 +376,37 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	}
 
 	/* Unmap stats buffer from device */ 
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->stats, buffersHost->stats, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( 
+		zone.queues[0], 
+		buffersDevice->stats, 
+		buffersHost->stats, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->unmap_stats_start
+#else
+		NULL
+#endif
+	);
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost->stats");
 
 	/* Initialize agent array */
-	buffersHost->agents = (PPCAgent *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->agents, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agents, 0, NULL, NULL, &status);
+	buffersHost->agents = (PPCAgent *) clEnqueueMapBuffer( 
+		zone.queues[0], 
+		buffersDevice->agents, 
+		CL_TRUE, 
+		CL_MAP_WRITE, 
+		0, 
+		dataSizes.agents, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_agents, 
+#else
+		NULL,
+#endif
+		&status
+	);
 	clu_if_error_create_error_return(status, err, "Map buffersHost->agents");
 
 	for(cl_uint i = 0; i < MAX_AGENTS; i++) 	{
@@ -397,15 +454,52 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	}
 
 	/* Unmap agents buffer from device */ 
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->agents, buffersHost->agents, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject(
+		zone.queues[0], 
+		buffersDevice->agents, 
+		buffersHost->agents, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->unmap_agents
+#else
+		NULL
+#endif
+	);	
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost->agents");
 
 	/* Unmap matrix buffer from device */ 
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->matrix, buffersHost->matrix, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject(
+		zone.queues[0], 
+		buffersDevice->matrix, 
+		buffersHost->matrix, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->unmap_matrix
+#else
+		NULL
+#endif
+	);
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost->matrix");
 
 	/* Initialize RNG seeds */
-	buffersHost->rng_seeds = (cl_ulong *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->rng_seeds, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.rng_seeds, 0, NULL, NULL, &status);
+	buffersHost->rng_seeds = (cl_ulong *) clEnqueueMapBuffer(
+		zone.queues[0], 
+		buffersDevice->rng_seeds, 
+		CL_TRUE, 
+		CL_MAP_WRITE, 
+		0, 
+		dataSizes.rng_seeds, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_rng_seeds, 
+#else
+		NULL,
+#endif
+		&status
+	);
 	clu_if_error_create_error_return(status, err, "Map buffersHost->rng_seeds");
 
 	for (unsigned int i = 0; i < num_threads; i++) {
@@ -413,11 +507,37 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	}
 
 	/* Unmap RNG seeds buffer from device */
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->rng_seeds, buffersHost->rng_seeds, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( 
+		zone.queues[0], 
+		buffersDevice->rng_seeds, 
+		buffersHost->rng_seeds, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->unmap_rng_seeds
+#else
+		NULL
+#endif
+	);
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost->rng_seeds");
 
 	/* Initialize agent parameters */
-	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer( zone.queues[0], buffersDevice->agent_params, CL_TRUE, CL_MAP_WRITE, 0, dataSizes.agent_params, 0, NULL, NULL, &status);
+	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer( 
+		zone.queues[0], 
+		buffersDevice->agent_params, 
+		CL_TRUE, 
+		CL_MAP_WRITE, 
+		0, 
+		dataSizes.agent_params, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_agent_params, 
+#else
+		NULL,
+#endif
+		&status
+	);
 	clu_if_error_create_error_return(status, err, "Map buffersHost->agent_params");
 
 	buffersHost->agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
@@ -428,7 +548,18 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	buffersHost->agent_params[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
 
 	/* Unmap agent parameters buffer from device. */
-	status = clEnqueueUnmapMemObject( zone.queues[0], buffersDevice->agent_params, buffersHost->agent_params, 0, NULL, NULL);
+	status = clEnqueueUnmapMemObject( 
+		zone.queues[0], 
+		buffersDevice->agent_params, 
+		buffersHost->agent_params, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->unmap_agent_params
+#else
+		NULL
+#endif
+	);
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost->agent_params"); 
 
 	return status;
@@ -482,7 +613,7 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 /**
  * @brief Perform simulation!
  * */
-cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
+cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
 	
 	/* Aux. vars. */
 	cl_int status;	
@@ -509,13 +640,23 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 			clu_if_error_create_error_return(status, err,  "Arg 3 of step1_kernel");
 			
 			/* Run kernel */
-			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step1, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel( 
+				zone.queues[0], 
+				krnls.step1, 
+				1, 
+				NULL, 
+				&num_threads, 
+				&num_work_items, 
+				0, 
+				NULL, 
+#ifdef CLPROFILER
+				&evts->step1[iter - 1]
+#else
+				NULL
+#endif
+			);
 			clu_if_error_create_error_return(status, err, "step1_kernel");
 
-			/* Barrier */
-			/** @todo This is not necessary if queue is created with in-order execution. */
-			status = clEnqueueBarrier(zone.queues[0]);
-			clu_if_error_create_error_return(status, err, "barrier in sim loop 1");
 		}
 
 		/* Step 2:  Agent actions, get stats */
@@ -529,35 +670,29 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 			clu_if_error_create_error_return(status, err, "Arg 5 of step2_kernel");
 			
 			/* Run kernel */
-			status = clEnqueueNDRangeKernel( zone.queues[0], krnls.step2, 1, NULL, &num_threads, &num_work_items, 0, NULL, NULL);
+			status = clEnqueueNDRangeKernel(
+				zone.queues[0], 
+				krnls.step2, 
+				1, 
+				NULL, 
+				&num_threads, 
+				&num_work_items, 
+				0, 
+				NULL, 
+#ifdef CLPROFILER
+				&evts->step2[iter - 1]
+#else
+				NULL
+#endif
+			);
 			clu_if_error_create_error_return(status, err, "step2_kernel");
 			
-			/* Barrier */
-			/** @todo This is not necessary if queue is created with in-order execution. */
-			status = clEnqueueBarrier(zone.queues[0]);
-			clu_if_error_create_error_return(status, err, "barrier in sim loop 2");
 		}
 
 	}
-	
-	/* Guarantee all kernels have really terminated... */
-    /** @todo This is not necessary if queue is created with in-order execution. */
-	clFinish(zone.queues[0]); 
 
 	/* Everything Ok. */
 	return CL_SUCCESS;
-}
-
-/**
- * @brief Output results to file.
- * */
-void ppc_results_save(const char* filename, PPStatistics* stats, PPParameters params) {
-
-	FILE * fp1 = fopen(filename,"w");
-	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", stats[i].sheep, stats[i].wolves, stats[i].grass );
-	fclose(fp1);
-
 }
 
 /** 
@@ -571,4 +706,147 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }
 
+/** 
+ * @brief Create events data structure. 
+ * */
+void ppc_events_create(PPParameters params, PPCEvents* evts) {
 
+#ifdef CLPROFILER
+	evts->step1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->step2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+#endif
+
+}
+
+/** 
+ * @brief Free events data structure. 
+ * */
+void ppc_events_free(PPParameters params, PPCEvents* evts) {
+	
+	if (evts->map_stats_start) clReleaseEvent(evts->map_stats_start);
+	if (evts->unmap_stats_start) clReleaseEvent(evts->unmap_stats_start);
+	if (evts->map_matrix) clReleaseEvent(evts->map_matrix);
+	if (evts->unmap_matrix) clReleaseEvent(evts->unmap_matrix);
+	if (evts->map_agents) clReleaseEvent(evts->map_agents);
+	if (evts->unmap_agents) clReleaseEvent(evts->unmap_agents);
+	if (evts->map_rng_seeds) clReleaseEvent(evts->map_rng_seeds);
+	if (evts->unmap_rng_seeds) clReleaseEvent(evts->unmap_rng_seeds);
+	if (evts->map_agent_params) clReleaseEvent(evts->map_agent_params);
+	if (evts->unmap_agent_params) clReleaseEvent(evts->unmap_agent_params);
+	if (evts->map_stats_end) clReleaseEvent(evts->map_stats_end);
+	if (evts->unmap_stats_end) clReleaseEvent(evts->unmap_stats_end);
+	if (evts->step1) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->step1[i]) clReleaseEvent(evts->step1[i]);
+		}
+		free(evts->step1);
+	}
+	if (evts->step2) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->step2[i]) clReleaseEvent(evts->step2[i]);
+		}
+		free(evts->step2);
+	}
+
+}
+
+/** 
+ * @brief Analyze events, show profiling info. 
+ * */
+cl_int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err) {
+
+#ifdef CLPROFILER
+	
+	/* Perfomed detailed analysis onfy if profiling flag is set. */
+	cl_int status;
+	
+	/* One time events. */
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats start", evts->map_stats_start, evts->unmap_stats_start, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_stats_start");
+
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap matrix", evts->map_matrix, evts->unmap_matrix, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_matrix");
+
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agents", evts->map_agents, evts->unmap_agents, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_agents");
+
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap rng_seeds", evts->map_rng_seeds, evts->unmap_rng_seeds, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_rng_seeds");
+
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agent_params", evts->map_agent_params, evts->unmap_agent_params, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_agent_params");
+
+	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats end", evts->map_stats_end, evts->unmap_stats_end, &status));
+	clu_if_error_create_error_return(status, err, "Add event to profile: map/unmap_stats_end");
+
+
+	/* Simulation loop events. */
+	for (guint i = 0; i < params.iters; i++) {
+		profcl_profile_add(profile, profcl_evinfo_get("Step1", evts->step1[i], &status));
+		clu_if_error_create_error_return(status, err, "Add event to profile: step1[%d]", i);
+
+		profcl_profile_add(profile, profcl_evinfo_get("Step2", evts->step2[i], &status));
+		clu_if_error_create_error_return(status, err, "Add event to profile: step2[%d]", i);
+	}
+	/* Analyse event data. */
+	profcl_profile_aggregate(profile);
+	profcl_profile_overmat(profile);	
+#endif
+
+	/* Show profiling info. */
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
+	
+	/* Success. */
+	return CL_SUCCESS;
+}
+
+/**
+ * @brief Get statistics.
+ * */
+cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
+	
+	/* Aux. vars. */
+	cl_int status;	
+	
+	/* Map stats host buffer in order to get statistics */
+	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer( 
+		zone.queues[0], 
+		buffersDevice->stats, 
+		CL_TRUE, 
+		CL_MAP_READ, 
+		0, 
+		dataSizes.stats, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->map_stats_end,
+#else
+		NULL,
+#endif
+		&status
+	);
+	clu_if_error_create_error_return(status, err, "Map buffersHost.stats");
+
+	/* Output results to file */
+	FILE * fp1 = fopen("stats.txt", "w");
+	for (unsigned int i = 0; i <= params.iters; i++)
+		fprintf(fp1, "%d\t%d\t%d\n", buffersHost->stats[i].sheep, buffersHost->stats[i].wolves, buffersHost->stats[i].grass );
+	fclose(fp1);
+
+	/* Unmap stats host buffer. */
+	status = clEnqueueUnmapMemObject( 
+		zone.queues[0], 
+		buffersDevice->stats, 
+		buffersHost->stats, 
+		0,
+		NULL,
+#ifdef CLPROFILER
+		&evts->unmap_stats_end
+#else
+		NULL
+#endif
+	);
+	clu_if_error_create_error_return(status, err, "Unmap buffersHost.stats");
+
+	return CL_SUCCESS;
+}
