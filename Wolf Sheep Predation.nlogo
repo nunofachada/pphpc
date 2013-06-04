@@ -6,7 +6,11 @@ turtles-own [energy]       ;; both wolves and sheep have energy
 patches-own [countdown]
 
 to setup
-  clear-all
+  ;; (for this model to work with NetLogo's new plotting features,
+  ;; __clear-all-and-reset-ticks should be replaced with clear-all at
+  ;; the beginning of your setup procedure and reset-ticks at the end
+  ;; of the procedure.)
+  __clear-all-and-reset-ticks
   ask patches [ 
     set pcolor green 
     set countdown 0]
@@ -157,8 +161,8 @@ end
 GRAPHICS-WINDOW
 350
 10
-1560
-1241
+660
+341
 -1
 -1
 3.0
@@ -172,13 +176,14 @@ GRAPHICS-WINDOW
 1
 1
 0
-399
--399
+99
 0
+99
 1
 1
 1
 ticks
+30.0
 
 SLIDER
 3
@@ -189,7 +194,7 @@ initial-number-sheep
 initial-number-sheep
 0
 6400
-6400
+400
 1
 1
 NIL
@@ -234,7 +239,7 @@ initial-number-wolves
 initial-number-wolves
 0
 3200
-3200
+200
 1
 1
 NIL
@@ -311,6 +316,7 @@ NIL
 NIL
 NIL
 NIL
+1
 
 BUTTON
 90
@@ -327,6 +333,7 @@ NIL
 NIL
 NIL
 NIL
+1
 
 PLOT
 12
@@ -342,10 +349,11 @@ pop.
 100.0
 true
 true
+"" ""
 PENS
-"sheep" 1.0 0 -13345367 true
-"wolves" 1.0 0 -2674135 true
-"grass / 4" 1.0 0 -10899396 true
+"sheep" 1.0 0 -13345367 true "" ""
+"wolves" 1.0 0 -2674135 true "" ""
+"grass / 4" 1.0 0 -10899396 true "" ""
 
 MONITOR
 50
@@ -422,13 +430,12 @@ show-energy?
 -1000
 
 @#$#@#$#@
-WHAT IS IT?
------------
+## WHAT IS IT?
+
 This model explores the stability of predator-prey ecosystems. Such a system is called unstable if it tends to result in extinction for one or more species involved.  In contrast, a system is stable if it tends to maintain itself over time, despite fluctuations in population sizes.
 
+## HOW IT WORKS
 
-HOW IT WORKS
-------------
 There are two main variations to this model.
 
 In the first variation, wolves and sheep wander randomly around the landscape, while the wolves look for sheep to prey on. Each step costs the wolves energy, and they must eat sheep in order to replenish their energy - when they run out of energy they die. To allow the population to continue, each wolf or sheep has a fixed probability of reproducing at each time step. This variation produces interesting population dynamics, but is ultimately unstable.
@@ -437,43 +444,40 @@ The second variation includes grass (green) in addition to wolves and sheep. The
 
 The construction of this model is described in two papers by Wilensky & Reisman referenced below.
 
+## HOW TO USE IT
 
-HOW TO USE IT
--------------
-1. Set the GRASS? switch to TRUE to include grass in the model, or to FALSE to only include wolves (red) and sheep (white).
-2. Adjust the slider parameters (see below), or use the default settings.
-3. Press the SETUP button.
-4. Press the GO button to begin the simulation.
-5. Look at the monitors to see the current population sizes
+1. Set the GRASS? switch to TRUE to include grass in the model, or to FALSE to only include wolves (red) and sheep (white).  
+2. Adjust the slider parameters (see below), or use the default settings.  
+3. Press the SETUP button.  
+4. Press the GO button to begin the simulation.  
+5. Look at the monitors to see the current population sizes  
 6. Look at the POPULATIONS plot to watch the populations fluctuate over time
 
-Parameters:
-INITIAL-NUMBER-SHEEP: The initial size of sheep population
-INITIAL-NUMBER-WOLVES: The initial size of wolf population
-SHEEP-GAIN-FROM-FOOD: The amount of energy sheep get for every grass patch eaten
-WOLF-GAIN-FROM-FOOD: The amount of energy wolves get for every sheep eaten
-SHEEP-REPRODUCE: The probability of a sheep reproducing at each time step
-WOLF-REPRODUCE: The probability of a wolf reproducing at each time step
-GRASS?: Whether or not to include grass in the model
-GRASS-REGROWTH-TIME: How long it takes for grass to regrow once it is eaten
+Parameters:  
+INITIAL-NUMBER-SHEEP: The initial size of sheep population  
+INITIAL-NUMBER-WOLVES: The initial size of wolf population  
+SHEEP-GAIN-FROM-FOOD: The amount of energy sheep get for every grass patch eaten  
+WOLF-GAIN-FROM-FOOD: The amount of energy wolves get for every sheep eaten  
+SHEEP-REPRODUCE: The probability of a sheep reproducing at each time step  
+WOLF-REPRODUCE: The probability of a wolf reproducing at each time step  
+GRASS?: Whether or not to include grass in the model  
+GRASS-REGROWTH-TIME: How long it takes for grass to regrow once it is eaten  
 SHOW-ENERGY?: Whether or not to show the energy of each animal as a number
 
-Notes:
-- one unit of energy is deducted for every step a wolf takes
+Notes:  
+- one unit of energy is deducted for every step a wolf takes  
 - when grass is included, one unit of energy is deducted for every step a sheep takes
 
+## THINGS TO NOTICE
 
-THINGS TO NOTICE
-----------------
 When grass is not included, watch as the sheep and wolf populations fluctuate. Notice that increases and decreases in the sizes of each population are related. In what way are they related? What eventually happens?
 
 Once grass is added, notice the green line added to the population plot representing fluctuations in the amount of grass. How do the sizes of the three populations appear to relate now? What is the explanation for this?
 
 Why do you suppose that some variations of the model might be stable while others are not?
 
+## THINGS TO TRY
 
-THINGS TO TRY
--------------
 Try adjusting the parameters under various settings. How sensitive is the stability of the model to the particular parameters?
 
 Can you find any parameters that generate a stable ecosystem that includes only wolves and sheep?
@@ -484,54 +488,47 @@ Notice that under stable settings, the populations tend to fluctuate at a predic
 
 Try changing the reproduction rules -- for example, what would happen if reproduction depended on energy rather than being determined by a fixed probability?
 
+## EXTENDING THE MODEL
 
-EXTENDING THE MODEL
--------------------
 There are a number ways to alter the model so that it will be stable with only wolves and sheep (no grass). Some will require new elements to be coded in or existing behaviors to be changed. Can you develop such a version?
 
+## NETLOGO FEATURES
 
-NETLOGO FEATURES
-----------------
 Note the use of breeds to model two different kinds of "turtles": wolves and sheep. Note the use of patches to model grass.
 
 Note use of the ONE-OF agentset reporter to select a random sheep to be eaten by a wolf.
 
+## RELATED MODELS
 
-RELATED MODELS
----------------
 Look at Rabbits Grass Weeds for another model of interacting populations with different rules.
 
+## CREDITS AND REFERENCES
 
-CREDITS AND REFERENCES
-----------------------
 Wilensky, U. & Reisman, K. (1999). Connected Science: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. International Journal of Complex Systems, M. 234, pp. 1 - 12. (This model is a slightly extended version of the model described in the paper.)
 
-Wilensky, U. & Reisman, K. (2006). Thinking like a Wolf, a Sheep or a Firefly: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. Cognition & Instruction, 24(2), pp. 171-209.
+Wilensky, U. & Reisman, K. (2006). Thinking like a Wolf, a Sheep or a Firefly: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. Cognition & Instruction, 24(2), pp. 171-209.  
 http://ccl.northwestern.edu/papers/wolfsheep.pdf
 
+## HOW TO CITE
 
-HOW TO CITE
------------
-If you mention this model in an academic publication, we ask that you include these citations for the model itself and for the NetLogo software:
-- Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+If you mention this model in an academic publication, we ask that you include these citations for the model itself and for the NetLogo software:  
+- Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.  
 - Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
 
-In other publications, please use:
+In other publications, please use:  
 - Copyright 1997 Uri Wilensky. All rights reserved. See http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation for terms of use.
 
+## COPYRIGHT NOTICE
 
-COPYRIGHT NOTICE
-----------------
 Copyright 1997 Uri Wilensky. All rights reserved.
 
-Permission to use, modify or redistribute this model is hereby granted, provided that both of the following requirements are followed:
-a) this copyright notice is included.
+Permission to use, modify or redistribute this model is hereby granted, provided that both of the following requirements are followed:  
+a) this copyright notice is included.  
 b) this model will not be redistributed for profit without permission from Uri Wilensky. Contact Uri Wilensky for appropriate licenses for redistribution for profit.
 
 This model was created as part of the project: CONNECTED MATHEMATICS: MAKING SENSE OF COMPLEX PHENOMENA THROUGH BUILDING OBJECT-BASED PARALLEL MODELS (OBPML).  The project gratefully acknowledges the support of the National Science Foundation (Applications of Advanced Technologies Program) -- grant numbers RED #9552950 and REC #9632612.
 
 This model was converted to NetLogo as part of the projects: PARTICIPATORY SIMULATIONS: NETWORK-BASED DESIGN FOR SYSTEMS LEARNING IN CLASSROOMS and/or INTEGRATED SIMULATION AND MODELING ENVIRONMENT. The project gratefully acknowledges the support of the National Science Foundation (REPP & ROLE programs) -- grant numbers REC #9814682 and REC-0126227. Converted from StarLogoT to NetLogo, 2000.
-
 @#$#@#$#@
 default
 true
@@ -843,13 +840,191 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 4.1.1
+NetLogo 5.0.4
 @#$#@#$#@
 setup
 set grass? true
 repeat 75 [ go ]
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="ex100" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reproduce">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reproduce">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="99"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="99"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex200" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reproduce">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reproduce">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="800"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex400" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="6400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reproduce">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reproduce">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="399"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="399"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="3200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex800" repetitions="1" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="25600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reproduce">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reproduce">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="799"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="799"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="12800"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
