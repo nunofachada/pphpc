@@ -3,10 +3,9 @@
  * @brief OpenCL GPU w/ sorting kernels and data structures for PredPrey simulation.
  */
 
-
-#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store: enable
+//#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+//#pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
+//#pragma OPENCL EXTENSION cl_khr_byte_addressable_store: enable
 
 #define CELL_GRASS_OFFSET 0
 #define CELL_NUMPPGSAgentS_OFFSET 1
@@ -36,7 +35,7 @@ typedef struct pp_gs_agent {
 
 /*
  * Agent movement kernel.
- * Also increments iteration number.
+ * Also increments iteration number.atomic_
  */
 __kernel void RandomWalk(__global PPGSAgent * agents,
 				__global ulong * seeds,
@@ -101,9 +100,9 @@ __kernel void AgentsUpdateGrid(__global PPGSAgent * agents,
 		// Update grass matrix by...
 		uint index = sim_params.grid_cell_space*(agent.x + sim_params.size_x * agent.y);
 		// ...increment number of agents...
-		atom_inc(&matrix[index + CELL_NUMPPGSAgentS_OFFSET]);
+		atomic_inc(&matrix[index + CELL_NUMPPGSAgentS_OFFSET]);
 		// ...and setting lowest agent vector index with agents in this place.
-		atom_min(&matrix[index + CELL_AGINDEX_OFFSET], gid); 
+		atomic_min(&matrix[index + CELL_AGINDEX_OFFSET], gid); 
 	}
 }
 
@@ -342,7 +341,7 @@ PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __glob
 		if (randomNextInt(seeds, 100) < params[agent.type].reproduce_prob ) {
 			// Agent will reproduce! Let's see if there is space...
 			PPGSAgent newAgent;
-			uint position = atom_inc(num_agents);
+			uint position = atomic_inc(num_agents);
 			if (position < get_global_size(0) - 2)
 			{
 				// There is space, lets put new agent!
@@ -367,7 +366,7 @@ PPGSAgent sheepAction( PPGSAgent sheep,
 {
 	// If there is grass, eat it (and I can be the only one to do so)!
 	uint index = (sheep.x + sheep.y * sim_params.size_x) * sim_params.grid_cell_space;
-	uint grassState = atom_cmpxchg(&matrix[index], (uint) 0, (uint) sim_params.grass_restart);
+	uint grassState = atomic_cmpxchg(&matrix[index], (uint) 0, (uint) sim_params.grass_restart);
 	if (grassState == 0) {
 		// There is grass, sheep eats it and gains energy (if wolf didn't eat her mean while!)
 		sheep.energy += params[SHEEP_ID].gain_from_food;
@@ -395,7 +394,7 @@ PPGSAgent wolfAction( PPGSAgent wolf,
 		for (int i = 0; i < numAgents; i++) {
 			if (agents[agentsIndex + i].type == SHEEP_ID) {
 				// If it is a sheep, try to eat it!
-				uint isSheepAlive = atom_cmpxchg(&(agents[agentsIndex + i].alive), 1, 0);
+				uint isSheepAlive = atomic_cmpxchg(&(agents[agentsIndex + i].alive), 1, 0);
 				if (isSheepAlive) {
 					// If I catch sheep, I'm satisfied for now, let's get out of this loop
 					wolf.energy += params[WOLF_ID].gain_from_food;
