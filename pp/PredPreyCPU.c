@@ -19,7 +19,22 @@
 
 //#define SEED 0
 
-/* OpenCL kernel files */
+/** @brief A description of the program. */
+static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the CPU";
+
+/** @brief The options we understand. */
+static struct argp_option args_options[] = {
+	{"params",     'p', "FILE", 0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
+	{"stats",      's', "FILE", 0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
+	{"globalsize", 'g', "SIZE", 0, "Global work size (default is maximum possible)" },
+	{"localsize",  'l', "SIZE", 0, "Local work size (default is selected by OpenCL runtime)" },
+	{ 0 }
+};
+
+/** @brief Argument parser. */
+static struct argp argp = { args_options, ppc_opt_parse, 0, args_doc };
+
+/** @brief OpenCL kernel files */
 const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
 /**
@@ -27,9 +42,17 @@ const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Ker
  * */
 int main(int argc, char ** argv)
 {
+	
+	/* Program arguments and default values. */
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, 0, 0};
+	
+	/* Parse arguments. */
+	argp_parse(&argp, argc, argv, 0, 0, &args_values);
+	
+	//printf("%s %s %d %d\n", args_values.params, args_values.stats, (int) args_values.gws, (int) args_values.lws);
+	
 	/* Program vars. */
-	PPCGlobalWorkSizes gws;
-	PPCLocalWorkSizes lws;
+	PPCWorkSizes workSizes;
 	PPCKernels krnls = {NULL, NULL};
 	PPCEvents evts = {NULL, NULL, NULL};
 	PPCDataSizes dataSizes;
@@ -42,9 +65,6 @@ int main(int argc, char ** argv)
 	/* Error management */
 	GError *err = NULL;
 	
-	/* Number of threads */
-	size_t num_threads, lines_per_thread, num_threads_sugested, num_threads_max;
-
 	/* Create RNG and set seed. */
 #ifdef SEED
 	GRand* rng = g_rand_new_with_seed(SEED);
@@ -65,47 +85,44 @@ int main(int argc, char ** argv)
 	clu_if_error_goto(status, err, error);
 
 	/* Get simulation parameters */
-	PPParameters params = pp_load_params(CONFIG_FILE);
+	PPParameters params = pp_load_params(args_values.params);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
-	if (ppc_numthreads_get(&num_threads, &lines_per_thread, &num_threads_sugested, &num_threads_max, zone.cu, params.grid_y, argc, argv) != 0) {
-		printf("Usage: %s [num_threads]\n", argv[0]);
-		goto cleanup;
-	}
+	ppc_numthreads_get(args_values, &workSizes, zone.cu, params.grid_y);
 
 	/* Set simulation parameters in a format more adequate for this program. */
-	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, lines_per_thread);
+	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, params.grid_y);
 		
 	/* Print thread info to screen */
-	ppc_threadinfo_print(zone.cu, num_threads, lines_per_thread, num_threads_sugested, num_threads_max);
+	ppc_threadinfo_print(zone.cu, workSizes, args_values);
 	
 	/* Create kernels. */
 	status = ppc_kernels_create(zone.program, &krnls, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Determine size in bytes for host and device data structures. */
-	ppc_datasizes_get(params, simParams, &dataSizes, num_threads);
+	ppc_datasizes_get(params, simParams, &dataSizes, workSizes.gws);
 	
 	/* Create events data structure. */
 	ppc_events_create(params, &evts);
-	
+
+	/* Start basic timming / profiling. */
+	profcl_profile_start(profile);
+
 	/* Initialize and map host/device buffers */
-	status = ppc_buffers_init(zone, num_threads, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
+	status = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
 	clu_if_error_goto(status, err, error);	
 	
 	/*  Set fixed kernel arguments. */
 	status = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
 	clu_if_error_goto(status, err, error);
 
-	/* Start basic timming / profiling. */
-	profcl_profile_start(profile);
-
 	/* Simulation!! */
-	status = ppc_simulate(num_threads, lines_per_thread, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
+	status = ppc_simulate(workSizes, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Get statistics. */
-	status = ppc_stats_get(zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
+	status = ppc_stats_get(args_values.stats, zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
 	clu_if_error_goto(status, err, error);
 	
 	/* Guarantee all activity has terminated... */
@@ -165,51 +182,34 @@ cleanup:
 
 /**
  * @brief Get number of threads to use.
- * 
- * @return 0 if success, -1 if invalid number of arguments was given, 2 if argument was not a positive integer.
  * */
-int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]) {
-	
-	/* Check if user suggested any number of threads. */ 
-	if (argc == 1) {
-		/* No number of threads was suggested. */
-		*num_threads_sugested = (size_t) cu;
-	} else if (argc == 2) {
-		/* A number of threads was suggested. */
-		*num_threads_sugested = atoi(argv[1]);
-		/* Argument was not a positive integer. */
-		if (*num_threads_sugested < 1)
-			return -2;
-	} else {
-		/* Invalid number of arguments. */
-		return -1;
-	}
+void ppc_numthreads_get(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows) {
 	
 	/* Determine maximum number of threads which can be used for current 
-	 * problem (each pair threads must process lines which are separated 
-	 * by two lines not being processed) */
-	*num_threads_max = num_lines/ 3;
+	 * problem (each pair threads must process rows which are separated 
+	 * by two rows not being processed) */
+	workSizes->max_gws = num_rows / 3;
 	
 	/* Determine effective number of threads to use. */
-	*num_threads = MIN(*num_threads_sugested, *num_threads_max);
+	workSizes->gws = MIN(args.gws, workSizes->max_gws);
 	
 	/* Determine the lines to be computed per thread. */
-	*lines_per_thread = num_lines / *num_threads + (num_lines % *num_threads > 0);
+	workSizes->rows_per_workitem = num_rows / workSizes->gws + (num_rows % workSizes->gws > 0);
 	
-	/* Return Ok. */
-	return 0;
-
+	/* Get local work size. */
+	workSizes->lws = args.lws;
+	
 }
 
 /**
  * @brief Print information about number of threads / work-items and compute units.
  * */
-void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread, size_t num_threads_sugested, size_t num_threads_max) {
+void ppc_threadinfo_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
 	printf("-------- Compute Parameters --------\n");	
 	printf("Compute units: %d\n", cu);
-	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) num_threads_sugested, (int) num_threads_max);
-	printf("Effective number of threads: %d\n", (int) num_threads);
-	printf("Lines per thread: %d\n", (int) lines_per_thread);
+	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) args.gws, (int) workSizes.max_gws);
+	printf("Effective number of threads: %d\n", (int) workSizes.gws);
+	printf("Rows per thread: %d\n", (int) workSizes.rows_per_workitem);
 }
 
 /**
@@ -613,7 +613,7 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 /**
  * @brief Perform simulation!
  * */
-cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
+cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
 	
 	/* Aux. vars. */
 	cl_int status;	
@@ -629,11 +629,16 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
     /** @todo This is not necessary if queue is created with in-order execution. */
 	clFinish(zone.queues[0]); 
 
+	printf("gws: %d\n", (int) workSizes.gws);
+	printf("max_gws: %d\n", (int) workSizes.max_gws);
+	printf("lws: %d\n", (int) workSizes.lws);
+	printf("rpwi: %d\n", (int) workSizes.rows_per_workitem);
+	
 	/* Simulation loop! */
 	for (iter = 1; iter <= params.iters; iter++) {
 		
 		/* Step 1:  Move agents, grow grass */
-		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
+		for (cl_uint turn = 0; turn < workSizes.rows_per_workitem; turn++ ) {
 			
 			/* Set turn on step1_kernel */
 			status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
@@ -645,7 +650,7 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 				krnls.step1, 
 				1, 
 				NULL, 
-				&num_threads, 
+				&workSizes.gws, 
 				&num_work_items, 
 				0, 
 				NULL, 
@@ -663,7 +668,7 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 		status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
 		clu_if_error_create_error_return(status, err, "Arg 4 of step2_kernel");
 
-		for (cl_uint turn = 0; turn < lines_per_thread; turn++ ) {
+		for (cl_uint turn = 0; turn < workSizes.rows_per_workitem; turn++ ) {
 
 			/* Set turn on step2_kernel */
 			status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
@@ -675,7 +680,7 @@ cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters p
 				krnls.step2, 
 				1, 
 				NULL, 
-				&num_threads, 
+				&workSizes.gws, 
 				&num_work_items, 
 				0, 
 				NULL, 
@@ -803,7 +808,7 @@ cl_int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParamete
 /**
  * @brief Get statistics.
  * */
-cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
+cl_int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
 	
 	/* Aux. vars. */
 	cl_int status;	
@@ -828,7 +833,7 @@ cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice
 	clu_if_error_create_error_return(status, err, "Map buffersHost.stats");
 
 	/* Output results to file */
-	FILE * fp1 = fopen("stats.txt", "w");
+	FILE * fp1 = fopen(filename, "w");
 	for (unsigned int i = 0; i <= params.iters; i++)
 		fprintf(fp1, "%d\t%d\t%d\n", buffersHost->stats[i].sheep, buffersHost->stats[i].wolves, buffersHost->stats[i].grass );
 	fclose(fp1);
@@ -849,4 +854,31 @@ cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice
 	clu_if_error_create_error_return(status, err, "Unmap buffersHost.stats");
 
 	return CL_SUCCESS;
+}
+
+/** 
+ * @brief Parse one command-line option. 
+ * */
+error_t ppc_opt_parse(int key, char *arg, struct argp_state *state) {
+
+	/* The input argument from argp_parse is a pointer to a PPCArgs structure. */
+	PPCArgs *args = state->input;
+     
+	switch (key) {
+	case 'p':
+		args->params = arg;
+		break;
+	case 's':
+		args->stats = arg;
+		break;
+	case 'g':
+		args->gws = (size_t) atoi(arg);
+		break;
+	case 'l':
+		args->lws = (size_t) atoi(arg);
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
 }

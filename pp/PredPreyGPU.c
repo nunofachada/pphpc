@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 #endif	
 	
 	/* Get simulation parameters */
-	PPParameters params = pp_load_params(CONFIG_FILE);
+	PPParameters params = pp_load_params(DEFAULT_PARAMS_FILE);
 
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPGSimParams simParams = ppg_simparams_init(params);

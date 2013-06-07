@@ -109,7 +109,7 @@ int main(int argc, char ** argv)
 	clu_if_error_goto(status, err, error);
 
 	// 2. Get simulation parameters
-	PPParameters params = pp_load_params(CONFIG_FILE);
+	PPParameters params = pp_load_params(DEFAULT_PARAMS_FILE);
 
 	// 3. Compute work sizes for different kernels and print them to screen
 	computeWorkSizes(params, zone.device_type, zone.cu);	

@@ -17,12 +17,14 @@
 #include <time.h>
 #include <math.h>
 #include <glib.h>
+#include <argp.h>
 #include <limits.h>
 #include "clutils.h"
 #include "bitstuff.h"
 #include "clprofiler.h"
 
-#define CONFIG_FILE "config.txt"
+#define DEFAULT_PARAMS_FILE "config.txt"
+#define DEFAULT_STATS_FILE "stats.txt"
 
 typedef struct pp_statistics {
 	cl_uint sheep;

@@ -9,6 +9,15 @@
 
 #include "PredPreyCommon.h"
 
+/** @brief Parsed command-line arguments. */
+typedef struct pp_c_args {
+	char *params;
+	char *stats;
+	size_t gws;
+	size_t lws;
+} PPCArgs;
+
+
 typedef struct pp_c_agent {
 	cl_uint energy;
 	cl_uint action;
@@ -32,17 +41,13 @@ typedef struct pp_c_cell {
 	cl_uint agent_pointer;
 } PPCCell;
 
-// Global work sizes
-typedef struct pp_c_global_work_sizes {
-	size_t step1;
-	size_t step2;
-} PPCGlobalWorkSizes;
-
-// Local work sizes
-typedef struct pp_c_local_work_sizes {
-	size_t step1;
-	size_t step2;
-} PPCLocalWorkSizes;
+// Work sizes for kernels step1 and step2
+typedef struct pp_c_work_sizes {
+	size_t gws;
+	size_t lws;
+	size_t rows_per_workitem;
+	size_t max_gws;
+} PPCWorkSizes;
 
 // Kernels
 typedef struct pp_c_kernels {
@@ -96,10 +101,10 @@ typedef struct pp_c_buffers_device {
 } PPCBuffersDevice;
 
 /** @brief Get number of threads to use. */
-int ppc_numthreads_get(size_t *num_threads, size_t *lines_per_thread, size_t *num_threads_sugested, size_t *num_threads_max, cl_uint cu, unsigned int num_lines, int argc, char* argv[]);
+void ppc_numthreads_get(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows);
 
 /** @brief Print information about number of threads / work-items and compute units. */
-void ppc_threadinfo_print(cl_int cu, size_t num_threads, size_t lines_per_thread, size_t num_threads_sugested, size_t num_threads_max);
+void ppc_threadinfo_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args);
 
 /** @brief Get kernel entry points. */
 cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
@@ -120,7 +125,7 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
 
 /** @brief Perform simulation! */
-cl_uint ppc_simulate(size_t num_threads, size_t lines_per_thread, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
+cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
@@ -138,6 +143,9 @@ void ppc_events_free(PPParameters params, PPCEvents* evts);
 cl_int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);
 
 /** @brief Get statistics. */
-cl_int ppc_stats_get(CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
+cl_int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
+
+/** @brief Parse one command-line option. */
+error_t ppc_opt_parse(int key, char *arg, struct argp_state *state);
 
 #endif
