@@ -91,7 +91,7 @@ int main(int argc, char ** argv)
 	ppc_numthreads_get(args_values, &workSizes, zone.cu, params.grid_y);
 
 	/* Set simulation parameters in a format more adequate for this program. */
-	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, params.grid_y);
+	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
 		
 	/* Print thread info to screen */
 	ppc_threadinfo_print(zone.cu, workSizes, args_values);
@@ -449,6 +449,7 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 			buffersHost->agents[i].type = 0;
 			buffersHost->agents[i].action = 0;
 			buffersHost->agents[i].next = NULL_AGENT_POINTER;
+			break;
 		}
 
 	}
@@ -621,18 +622,8 @@ cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, 
 	/* Current iteration. */
 	cl_uint iter;
 
-    /* Assume workgroup size is 1 */ 
-    /** @todo Don't really assume this please. */
-	size_t num_work_items = 1;
-	
-	/* Guarantee all memory transfers are performed */
-    /** @todo This is not necessary if queue is created with in-order execution. */
-	clFinish(zone.queues[0]); 
-
-	printf("gws: %d\n", (int) workSizes.gws);
-	printf("max_gws: %d\n", (int) workSizes.max_gws);
-	printf("lws: %d\n", (int) workSizes.lws);
-	printf("rpwi: %d\n", (int) workSizes.rows_per_workitem);
+    /* If local work group size is not given or is 0, set it to NULL and let OpenCL decide. */ 
+	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
 	
 	/* Simulation loop! */
 	for (iter = 1; iter <= params.iters; iter++) {
@@ -651,7 +642,7 @@ cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, 
 				1, 
 				NULL, 
 				&workSizes.gws, 
-				&num_work_items, 
+				local_size, 
 				0, 
 				NULL, 
 #ifdef CLPROFILER
@@ -681,7 +672,7 @@ cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, 
 				1, 
 				NULL, 
 				&workSizes.gws, 
-				&num_work_items, 
+				local_size, 
 				0, 
 				NULL, 
 #ifdef CLPROFILER

@@ -223,7 +223,7 @@ __kernel void step2(__global PPCAgent * agents,
 	uint wolvesCount = 0;
 	uint grassCount = 0;
 	// Determine line to process
-	uint y = turn + get_group_id(0) * sim_params.lines_per_thread;
+	uint y = turn + get_global_id(0) * sim_params.lines_per_thread;
 	// Check if this thread has to process anything
 	if (y < sim_params.size_y) {
 		// Determine start and end of line
