@@ -24,10 +24,11 @@ static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the
 
 /** @brief The options we understand. */
 static struct argp_option args_options[] = {
-	{"params",     'p', "FILE", 0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
-	{"stats",      's', "FILE", 0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
-	{"globalsize", 'g', "SIZE", 0, "Global work size (default is maximum possible)" },
-	{"localsize",  'l', "SIZE", 0, "Local work size (default is selected by OpenCL runtime)" },
+	{"params",     'p', "FILE",  0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
+	{"stats",      's', "FILE",  0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
+	{"globalsize", 'g', "SIZE",  0, "Global work size (default is maximum possible)" },
+	{"localsize",  'l', "SIZE",  0, "Local work size (default is selected by OpenCL runtime)" },
+	{"device",     'd', "INDEX", 0, "Device index (if not given and more than one device is available, chose device from menu)" },
 	{ 0 }
 };
 
@@ -35,21 +36,21 @@ static struct argp_option args_options[] = {
 static struct argp argp = { args_options, ppc_opt_parse, 0, args_doc };
 
 /** @brief OpenCL kernel files */
-const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
+static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
 /**
  *  @brief Main program.
  * */
-int main(int argc, char ** argv)
-{
+int main(int argc, char ** argv) {
+
+	/* Program exit status. */
+	int exit_status = PP_SUCCESS;
 	
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, 0, 0};
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, 0, 0, -1};
 	
 	/* Parse arguments. */
 	argp_parse(&argp, argc, argv, 0, 0, &args_values);
-	
-	//printf("%s %s %d %d\n", args_values.params, args_values.stats, (int) args_values.gws, (int) args_values.lws);
 	
 	/* Program vars. */
 	PPCWorkSizes workSizes;
@@ -60,7 +61,8 @@ int main(int argc, char ** argv)
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
 
 	/* Status var aux */
-	cl_int status;	
+	cl_int status_cl;
+	int status_pp;
 	
 	/* Error management */
 	GError *err = NULL;
@@ -77,28 +79,29 @@ int main(int argc, char ** argv)
 	
 	/* Get the required CL zone. */
 	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* Build program. */
-	status = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* Get simulation parameters */
 	PPParameters params = pp_load_params(args_values.params);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
-	ppc_numthreads_get(args_values, &workSizes, zone.cu, params.grid_y);
+	status_pp = ppc_worksizes_calc(args_values, &workSizes, zone.cu, params.grid_y, &err);
+	pp_if_error_goto(status_pp, err, error);
 
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
 		
 	/* Print thread info to screen */
-	ppc_threadinfo_print(zone.cu, workSizes, args_values);
+	ppc_worksize_info_print(zone.cu, workSizes);
 	
 	/* Create kernels. */
-	status = ppc_kernels_create(zone.program, &krnls, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = ppc_kernels_create(zone.program, &krnls, &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* Determine size in bytes for host and device data structures. */
 	ppc_datasizes_get(params, simParams, &dataSizes, workSizes.gws);
@@ -110,45 +113,52 @@ int main(int argc, char ** argv)
 	profcl_profile_start(profile);
 
 	/* Initialize and map host/device buffers */
-	status = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
-	clu_if_error_goto(status, err, error);	
+	status_cl = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
+	clu_if_error_goto(status_cl, err, error);	
 	
 	/*  Set fixed kernel arguments. */
-	status = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* Simulation!! */
-	status = ppc_simulate(workSizes, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = ppc_simulate(workSizes, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* Get statistics. */
-	status = ppc_stats_get(args_values.stats, zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = ppc_stats_get(args_values.stats, zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
+	clu_if_error_goto(status_cl, err, error);
 	
 	/* Guarantee all activity has terminated... */
-	status = clFinish(zone.queues[0]);
-	clu_if_error_create_error_goto(status, &err, error, "Finish for queue 0 after simulation");
+	status_cl = clFinish(zone.queues[0]);
+	clu_if_error_create_error_goto(status_cl, &err, error, "Finish for queue 0 after simulation");
 	
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
 
 	/* Analyze events, show profiling info. */
-	status = ppc_profiling_analyze(profile, &evts, params, &err);
-	clu_if_error_goto(status, err, error);
+	status_cl = ppc_profiling_analyze(profile, &evts, params, &err);
+	clu_if_error_goto(status_cl, err, error);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
 	
 error:
-	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
-	if (zone.build_log) clu_build_log_print(&zone);
+	/* Check what type of error we have. */
+	if (err->domain == CLU_UTILS_ERROR) {
+		/* It's an OpenCL error. */
+		exit_status = PP_OPENCL_ERROR;
+		fprintf(stderr, "OpenCL error #%d with message \"%s\"\n", err->code, err->message);
+		if (zone.build_log) clu_build_log_print(&zone);
+	} else {
+		/* It's a PredatorPrey simulation error. */
+		exit_status = err->code;
+		fprintf(stderr, "%s\n", err->message);
+	}
 	g_error_free(err);
 
 cleanup:
 
-	/* Free stuff! */
-	//printf("Press enter to free memory...");
-	//getchar();
+	/* Free stuff! */ //printf("Press enter to free memory..."); getchar();
 	
 	/* Release OpenCL kernels */
 	ppc_kernels_free(&krnls);
@@ -173,43 +183,64 @@ cleanup:
 	/* Free RNG */
 	g_rand_free(rng);
 		
-	//printf("Press enter to bail out...");
-	//getchar();
+	//printf("Press enter to bail out..."); getchar();
 
 	/* See ya. */
-	return 0;
+	return exit_status;
 }
 
 /**
- * @brief Get number of threads to use.
+ * @brief Determine effective worksizes to use in simulation.
  * */
-void ppc_numthreads_get(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows) {
+int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows, GError **err) {
 	
-	/* Determine maximum number of threads which can be used for current 
-	 * problem (each pair threads must process rows which are separated 
+	/* Determine maximum number of global work-items which can be used for current 
+	 * problem (each pair of work-items must process rows which are separated 
 	 * by two rows not being processed) */
 	workSizes->max_gws = num_rows / 3;
 	
-	/* Determine effective number of threads to use. */
-	workSizes->gws = MIN(args.gws, workSizes->max_gws);
-	
-	/* Determine the lines to be computed per thread. */
+	/* Determine effective number of global work-items to use. */
+	if (args.gws > 0) {
+		/* User specified a value, let's see if it's possible to use it. */
+		if (workSizes->max_gws >= args.gws) {
+			/* Yes, it's possible. */
+			workSizes->gws = args.gws;
+		} else {
+			/* No, specified value is too large for the given problem. */
+			pp_if_error_create_error_return(PP_INVALID_ARGS, err, "Global work size is too large for model parameters. Maximum size is %d.", (int) workSizes->max_gws);
+		}
+	} else {
+		/* User did not specify a value, thus find a good one (which will be 
+		 * the largest power of 2 bellow or equal to the maximum. */
+		unsigned int maxgws = nlpo2(workSizes->max_gws);
+		if (maxgws > workSizes->max_gws)
+			workSizes->gws = maxgws / 2;
+		else
+			workSizes->gws = maxgws;
+	}
+	/* Determine the rows to be computed per thread. */
 	workSizes->rows_per_workitem = num_rows / workSizes->gws + (num_rows % workSizes->gws > 0);
 	
 	/* Get local work size. */
 	workSizes->lws = args.lws;
 	
+	/* Check that the global work size is a multiple of the local work size. */
+	if ((workSizes->lws > 0) && (workSizes->gws % workSizes->lws != 0))
+		pp_if_error_create_error_return(PP_INVALID_ARGS, err, "Global work size (%d) is not multiple of local work size (%d).", (int) workSizes->gws, (int) workSizes->lws);
+	
+	/* Everything Ok! */
+	return PP_SUCCESS;
 }
 
 /**
  * @brief Print information about number of threads / work-items and compute units.
  * */
-void ppc_threadinfo_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
+void ppc_worksize_info_print(cl_int cu, PPCWorkSizes workSizes) {
 	printf("-------- Compute Parameters --------\n");	
-	printf("Compute units: %d\n", cu);
-	printf("Suggested number of threads: %d\tMaximum number of threads for this problem: %d\n", (int) args.gws, (int) workSizes.max_gws);
-	printf("Effective number of threads: %d\n", (int) workSizes.gws);
-	printf("Rows per thread: %d\n", (int) workSizes.rows_per_workitem);
+	printf("Compute units in selected device: %d\n", cu);
+	printf("Global work size: %d (maximum is %d)\n", (int) workSizes.gws, (int) workSizes.max_gws);
+	printf("Local work size: %d%s\n", (int) workSizes.lws, (workSizes.lws == 0 ? " (let OpenCL implementation chose)" : ""));
+	printf("Rows per work-item: %d\n", (int) workSizes.rows_per_workitem);
 }
 
 /**
@@ -867,6 +898,9 @@ error_t ppc_opt_parse(int key, char *arg, struct argp_state *state) {
 		break;
 	case 'l':
 		args->lws = (size_t) atoi(arg);
+		break;
+	case 'd':
+		args->dev_idx = (cl_uint) atoi(arg);
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;

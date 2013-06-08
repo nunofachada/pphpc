@@ -6,7 +6,8 @@
 #include "PredPreyCommon.h"
 
 /**
- * @brief Load simulation parameters
+ * @brief Load simulation parameters.
+ * @todo Refactor this to conform to PP error handling
  * 
  * @param paramsFile File containing simulation parameters.
  * */
@@ -14,7 +15,7 @@ PPParameters pp_load_params(const char* paramsFile) {
 	PPParameters parameters;
 	FILE * fp = fopen(paramsFile, "r");
 	if(fp == NULL) {
-		printf("Error: File 'config.txt' not found!\n");
+		printf("Error: File \"%s\" not found!\n", paramsFile);
 		exit(-1);
 	}	
 	char param[100];
@@ -129,4 +130,11 @@ PPParameters pp_load_params(const char* paramsFile) {
 	return parameters;
 } 
 
-
+/** 
+ * @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation.
+ * 
+ * @return A GQuark structure defined by category identifying string, which identifies the error as a predator-prey simulation generated error.
+ */
+GQuark pp_error_quark() {
+	return g_quark_from_static_string("pp-error-quark");
+}

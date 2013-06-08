@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 
 	/* Get the required CL zone. */
 	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, CL_QUEUE_PROFILING_ENABLE, &err);
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Compute work sizes for different kernels and print them to screen. */

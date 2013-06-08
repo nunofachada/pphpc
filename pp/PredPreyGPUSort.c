@@ -101,7 +101,7 @@ int main(int argc, char ** argv)
 
 	// 1. Get the required CL zone.
 	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, &err);
+	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
 	clu_if_error_goto(status, err, error);
 
 	/* Build program. */
