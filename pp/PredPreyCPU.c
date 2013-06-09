@@ -11,24 +11,27 @@
 #define SHEEP_ID 0
 #define WOLF_ID 1
 
+#define DEFAULT_COMPILER_OPTS ""
+
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
 #else
 	#define QUEUE_PROPERTIES 0
 #endif
 
-//#define SEED 0
-
 /** @brief A description of the program. */
 static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the CPU";
 
 /** @brief The options we understand. */
 static struct argp_option args_options[] = {
-	{"params",     'p', "FILE",  0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
-	{"stats",      's', "FILE",  0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
-	{"globalsize", 'g', "SIZE",  0, "Global work size (default is maximum possible)" },
-	{"localsize",  'l', "SIZE",  0, "Local work size (default is selected by OpenCL runtime)" },
-	{"device",     'd', "INDEX", 0, "Device index (if not given and more than one device is available, chose device from menu)" },
+	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
+	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
+	{"compiler",   'c', "STRING", 0, "Extra OpenCL compiler options" },
+	{"globalsize", 'g', "SIZE",   0, "Global work size (default is maximum possible)" },
+	{"localsize",  'l', "SIZE",   0, "Local work size (default is selected by OpenCL runtime)" },
+	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)" },
+	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)" },
+	{"verbose",    'v', NULL,     0, "Verbose, show more information about simulation" },
 	{ 0 }
 };
 
@@ -53,6 +56,7 @@ int main(int argc, char ** argv) {
 	PPParameters params;
 	PPCSimParams simParams;
 	CLUZone zone;
+	ProfCLProfile* profile;
 	
 	/* Random number generator- */
 	GRand* rng;
@@ -68,27 +72,24 @@ int main(int argc, char ** argv) {
 	int exit_status = PP_SUCCESS;
 	
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, 0, 0, -1};
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, NULL, 0};
 	
 	/* Parse arguments. */
+	/** @todo Treat errors properly. */
 	argp_parse(&argp, argc, argv, 0, 0, &args_values);
 	
 	/* Create RNG and set seed. */
-#ifdef SEED
-	rng = g_rand_new_with_seed(SEED);
-#else
-	rng = g_rand_new();
-#endif	
+	rng = (args_values.rng_seed == NULL) ? g_rand_new() : g_rand_new_with_seed(*args_values.rng_seed);
 
 	/* Profiling / Timmings. */
-	ProfCLProfile* profile = profcl_profile_new();
+	profile = profcl_profile_new();
 	
 	/* Get the required CL zone. */
 	status_cl = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
 	clu_if_error_goto(status_cl, err, error);
 
 	/* Build program. */
-	status_cl = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
+	status_cl = clu_program_create(&zone, kernelFiles, 2, args_values.compiler_opts, &err);
 	clu_if_error_goto(status_cl, err, error);
 
 	/* Get simulation parameters */
@@ -102,8 +103,8 @@ int main(int argc, char ** argv) {
 	/* Set simulation parameters in a format more adequate for this program. */
 	simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
 		
-	/* Print thread info to screen */
-	ppc_worksize_info_print(zone.cu, workSizes);
+	/* Print simulation info to screen */
+	ppc_simulation_info_print(zone.cu, workSizes, args_values);
 	
 	/* Create kernels. */
 	status_cl = ppc_kernels_create(zone.program, &krnls, &err);
@@ -239,14 +240,18 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsign
 }
 
 /**
- * @brief Print information about number of threads / work-items and compute units.
+ * @brief Print information about the simulation parameters.
  * */
-void ppc_worksize_info_print(cl_int cu, PPCWorkSizes workSizes) {
-	printf("-------- Compute Parameters --------\n");	
-	printf("Compute units in selected device: %d\n", cu);
-	printf("Global work size: %d (maximum is %d)\n", (int) workSizes.gws, (int) workSizes.max_gws);
-	printf("Local work size: %d%s\n", (int) workSizes.lws, (workSizes.lws == 0 ? " (let OpenCL implementation chose)" : ""));
-	printf("Rows per work-item: %d\n", (int) workSizes.rows_per_workitem);
+void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
+	if (args.verbose) {
+		printf("  ----------------------------------------------\n");	
+		printf("  | Parameter                    | Value       |\n");	
+		printf("  ---------------------------------------------\n");
+		printf("  | Compute units in device      | %4d |\n", cu);	
+		printf("  | Global work size (max)       | %d (%d) |\n", (int) workSizes.gws, (int) workSizes.max_gws);
+		printf("  | Local work size              | %d%s |\n", (int) workSizes.lws, (workSizes.lws == 0 ? " (let OpenCL implementation chose)" : ""));
+		printf("  | Rows per work-item           | %4d |\n", (int) workSizes.rows_per_workitem);
+	}
 }
 
 /**
@@ -907,6 +912,9 @@ error_t ppc_opt_parse(int key, char *arg, struct argp_state *state) {
 	case 's':
 		args->stats = arg;
 		break;
+	case 'c':
+		args->compiler_opts = arg;
+		break;
 	case 'g':
 		args->gws = (size_t) atoi(arg);
 		break;
@@ -915,6 +923,12 @@ error_t ppc_opt_parse(int key, char *arg, struct argp_state *state) {
 		break;
 	case 'd':
 		args->dev_idx = (cl_uint) atoi(arg);
+		break;
+	case 'r':
+		*(args->rng_seed) = (guint32) atoi(arg);
+		break;
+	case 'v':
+		args->verbose = 1;
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;

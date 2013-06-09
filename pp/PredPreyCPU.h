@@ -13,9 +13,12 @@
 typedef struct pp_c_args {
 	char *params;
 	char *stats;
+	char* compiler_opts;
 	size_t gws;
 	size_t lws;
 	cl_uint dev_idx;
+	guint32* rng_seed;
+	char verbose;
 } PPCArgs;
 
 
@@ -107,8 +110,8 @@ typedef struct pp_c_buffers_device {
 /** @brief Determine effective worksizes to use in simulation. */
 int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows, GError **err);
 
-/** @brief Print information about number of threads / work-items and compute units. */
-void ppc_worksize_info_print(cl_int cu, PPCWorkSizes workSizes);
+/** @brief Print information about the simulation parameters. */
+void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args);
 
 /** @brief Get kernel entry points. */
 cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
