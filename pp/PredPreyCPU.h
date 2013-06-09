@@ -35,7 +35,8 @@ typedef struct pp_c_sim_params {
 	cl_uint null_agent_pointer;
 	cl_uint grass_restart;
 	cl_uint lines_per_thread;
-} PPCSimParams;
+	cl_uint bogus;
+} PPCSimParams __attribute__ ((aligned (32)));
 
 typedef struct pp_c_cell {
 	cl_uint grass;
@@ -81,6 +82,7 @@ typedef struct pp_c_data_sizes {
 	size_t agents;
 	size_t rng_seeds;
 	size_t agent_params;
+	size_t sim_params;
 } PPCDataSizes;
 
 // Host buffers
@@ -99,6 +101,7 @@ typedef struct pp_c_buffers_device {
 	cl_mem agents;
 	cl_mem rng_seeds;
 	cl_mem agent_params;
+	cl_mem sim_params;
 } PPCBuffersDevice;
 
 /** @brief Determine effective worksizes to use in simulation. */
@@ -120,7 +123,7 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
 void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads);
 
 /** @brief Initialize and map host/device buffers. */
-cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err);
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err);
 
 /** @brief Set fixed kernel arguments.  */
 cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);

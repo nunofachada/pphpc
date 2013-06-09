@@ -113,7 +113,7 @@ int main(int argc, char ** argv) {
 	profcl_profile_start(profile);
 
 	/* Initialize and map host/device buffers */
-	status_cl = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
+	status_cl = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, simParams, rng, &err);
 	clu_if_error_goto(status_cl, err, error);	
 	
 	/*  Set fixed kernel arguments. */
@@ -160,6 +160,9 @@ cleanup:
 
 	/* Free stuff! */ //printf("Press enter to free memory..."); getchar();
 	
+	/* Free events */
+	ppc_events_free(params, &evts); 
+	
 	/* Release OpenCL kernels */
 	ppc_kernels_free(&krnls);
 
@@ -170,9 +173,6 @@ cleanup:
 
 	/* Release program, command queues and context */
 	clu_zone_free(&zone);
-	
-	/* Free events */
-	ppc_events_free(params, &evts); 
 	
 	/* Free profile data structure */
 	profcl_profile_free(profile);
@@ -302,12 +302,15 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 	/* Agent parameters */
 	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
 
+	/* Simulation parameters */
+	dataSizes->sim_params = sizeof(PPCSimParams);
+
 }
 
 /**
  * @brief Initialize and map host/device buffers.
  * */
-cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err) {
+cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err) {
 	
 	/* Aux. variable */
 	cl_int status;
@@ -335,6 +338,10 @@ cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffer
 	/* Agent parameters */
 	buffersDevice->agent_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &status );
 	clu_if_error_create_error_return(status, err, "buffersDevice->agent_params");
+
+	/* Simulation parameters */
+	buffersDevice->sim_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params, &simParams, &status );
+	clu_if_error_create_error_return(status, err, "buffersDevice->sim_params");
 
 	/* *********************************************************** */
 	/* Initialize host buffers, which are mapped to device buffers */
@@ -616,7 +623,7 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->step1, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
 	clu_if_error_create_error_return(status, err, "Arg 2 of step1_kernel");
 
-	status = clSetKernelArg(krnls->step1, 4, sizeof(PPCSimParams), (void *) &simParams);
+	status = clSetKernelArg(krnls->step1, 4, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
 	clu_if_error_create_error_return(status, err, "Arg 4 of step1_kernel");
 
 	/* Step2 kernel - Agent actions, get stats */
@@ -632,7 +639,7 @@ cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->step2, 3, sizeof(cl_mem), (void *) &buffersDevice->stats);
 	clu_if_error_create_error_return(status, err, "Arg 3 of step2_kernel");
 
-	status = clSetKernelArg(krnls->step2, 6, sizeof(PPCSimParams), (void *) &simParams);
+	status = clSetKernelArg(krnls->step2, 6, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
 	clu_if_error_create_error_return(status, err, "Arg 6 of step2_kernel");
 
 	status = clSetKernelArg(krnls->step2, 7, sizeof(cl_mem), (void *) &buffersDevice->agent_params);
@@ -731,6 +738,7 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->matrix) clReleaseMemObject(buffersDevice->matrix);
 	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
+	if (buffersDevice->sim_params) clReleaseMemObject(buffersDevice->sim_params);
 }
 
 /** 

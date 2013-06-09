@@ -25,7 +25,8 @@ typedef struct pp_c_sim_params {
 	uint null_agent_pointer;
 	uint grass_restart;
 	uint lines_per_thread;
-} PPCSimParams;
+	uint bogus;
+} PPCSimParams __attribute__ ((aligned (32)));
 
 typedef struct pp_c_cell {
 	uint grass;
@@ -150,9 +151,10 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 __kernel void step1(__global PPCAgent * agents, 
 			__global PPCCell * matrix,
 			__global ulong * seeds,
-			const uint turn,
-			const PPCSimParams sim_params)
+			__private uint turn,
+			__constant PPCSimParams* sim_params_ptr)
 {
+	PPCSimParams sim_params = *sim_params_ptr;
 	// Determine line to process
 	uint y = turn + get_global_id(0) * sim_params.lines_per_thread;
 	// Check if this thread has to process anything
@@ -213,11 +215,12 @@ __kernel void step2(__global PPCAgent * agents,
 			__global PPCCell * matrix,
 			__global ulong * seeds,
 			__global PPStatistics * stats,
-			const uint iter,
-			const uint turn,
-			const PPCSimParams sim_params,
-			__global PPAgentParams * agent_params)
+			__private uint iter,
+			__private uint turn,
+			__constant PPCSimParams* sim_params_ptr,
+			__constant PPAgentParams* agent_params)
 {
+	PPCSimParams sim_params = *sim_params_ptr;
 	// Reset partial statistics
 	uint sheepCount = 0;
 	uint wolvesCount = 0;
