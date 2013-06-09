@@ -5,127 +5,118 @@
 
 #include "PredPreyCommon.h"
 
+#define ERROR_MSG_REPEAT "Repeated parameters in parameters file"
+
 /**
  * @brief Load simulation parameters.
- * @todo Refactor this to conform to PP error handling
  * 
+ * @param parameters Parameters structure to be populated.
  * @param paramsFile File containing simulation parameters.
+ * @param err Error structure, to be populated if an error occurs.
+ * @return PP_SUCCESS if everything ok, or error code otherwise.
  * */
-PPParameters pp_load_params(const char* paramsFile) {
-	PPParameters parameters;
-	FILE * fp = fopen(paramsFile, "r");
-	if(fp == NULL) {
-		printf("Error: File \"%s\" not found!\n", paramsFile);
-		exit(-1);
-	}	
+int pp_load_params(PPParameters* parameters, const char* paramsFile, GError** err) {
+
 	char param[100];
 	unsigned int value;
 	unsigned int check = 0;
+	FILE * fp = fopen(paramsFile, "r");
+
+	if(fp == NULL) {
+		pp_if_error_create_error_return(PP_UNABLE_TO_OPEN_PARAMS_FILE, err, "Unable to open file \"%s\"", paramsFile);
+	}	
+
 	while (fscanf(fp, "%s = %d", param, &value) != EOF) {
 		if (strcmp(param, "INIT_SHEEP") == 0) {
 			if ((1 & check) == 0) {
-				parameters.init_sheep = value;
+				parameters->init_sheep = value;
 				check = check | 1;
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_GAIN_FROM_FOOD") == 0) {
 			if ((1 & (check >> 1)) == 0) {
-				parameters.sheep_gain_from_food = value;
+				parameters->sheep_gain_from_food = value;
 				check = check | (1 << 1);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_REPRODUCE_THRESHOLD") == 0) {
 			if ((1 & (check >> 2)) == 0) {
-				parameters.sheep_reproduce_threshold = value;
+				parameters->sheep_reproduce_threshold = value;
 				check = check | (1 << 2);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_REPRODUCE_PROB") == 0) {
 			if ((1 & (check >> 3)) == 0) {
-				parameters.sheep_reproduce_prob = value;
+				parameters->sheep_reproduce_prob = value;
 				check = check | (1 << 3);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "INIT_WOLVES") == 0) {
 			if ((1 & (check >> 4)) == 0) {
-				parameters.init_wolves = value;
+				parameters->init_wolves = value;
 				check = check | (1 << 4);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_GAIN_FROM_FOOD") == 0) {
 			if ((1 & (check >> 5)) == 0) {
-				parameters.wolves_gain_from_food = value;
+				parameters->wolves_gain_from_food = value;
 				check = check | (1 << 5);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_REPRODUCE_THRESHOLD") == 0) {
 			if ((1 & (check >> 6)) == 0) {
-				parameters.wolves_reproduce_threshold = value;
+				parameters->wolves_reproduce_threshold = value;
 				check = check | (1 << 6);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_REPRODUCE_PROB") == 0) {
 			if ((1 & (check >> 7)) == 0) {
-				parameters.wolves_reproduce_prob = value;
+				parameters->wolves_reproduce_prob = value;
 				check = check | (1 << 7);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRASS_RESTART") == 0) {
 			if ((1 & (check >> 8)) == 0) {
-				parameters.grass_restart = value;
+				parameters->grass_restart = value;
 				check = check | (1 << 8);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRID_X") == 0) {
 			if ((1 & (check >> 9)) == 0) {
-				parameters.grid_x = value;
+				parameters->grid_x = value;
 				check = check | (1 << 9);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRID_Y") == 0) {
 			if ((1 & (check >> 10)) == 0) {
-				parameters.grid_y = value;
+				parameters->grid_y = value;
 				check = check | (1 << 10);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "ITERS") == 0) {
 			if ((1 & (check >> 11)) == 0) {
-				parameters.iters = value;
+				parameters->iters = value;
 				check = check | (1 << 11);
 			} else {
-				printf("Error: Repeated parameters in config file!\n");
-				exit(-1);
+				pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, ERROR_MSG_REPEAT);
 			}	
 		} else {
-			printf("Error: Invalid parameter '%s' in config file!\n", param);
-			exit(-1);
+			pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, "Invalid parameter '%s' in parameters file", param);
 		}
 	}
 	if (check != 0x0fff) {
-			printf("Error: Insufficient parameters in config file (check=%d)!\n", check);
-			exit(-1);
+			pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, "Insufficient parameters in parameters file (check=%d)", check);
 	}
 	return parameters;
 } 

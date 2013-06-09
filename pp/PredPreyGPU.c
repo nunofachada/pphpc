@@ -39,9 +39,11 @@ int main(int argc, char **argv)
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPParameters params;
 
 	/* Aux vars. */
 	cl_int status;
+	int status_pp;
 	
 	/* Error management. */
 	GError *err = NULL;
@@ -57,7 +59,8 @@ int main(int argc, char **argv)
 #endif	
 	
 	/* Get simulation parameters */
-	PPParameters params = pp_load_params(DEFAULT_PARAMS_FILE);
+	status_pp = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
+	pp_if_error_goto(status_pp, err, error);
 
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPGSimParams simParams = ppg_simparams_init(params);

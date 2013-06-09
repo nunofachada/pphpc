@@ -47,7 +47,7 @@
 /** Error code: OpenCL error. */
 #define PP_OPENCL_ERROR -3
 /** Error code: parameters file not found. */
-#define PP_PARAMS_FILE_NOT_FOUND -4
+#define PP_UNABLE_TO_OPEN_PARAMS_FILE -4
 /** Error code: invalid parameters file. */
 #define PP_INVALID_PARAMS_FILE -5
 
@@ -100,7 +100,7 @@ typedef struct pp_agent_params {
 } PPAgentParams;
 
 /** @brief Load predator-prey simulation parameters. */
-PPParameters pp_load_params(const char * paramsFile);
+int pp_load_params(PPParameters* parameters, const char * paramsFile, GError** err);
 
 /** @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);

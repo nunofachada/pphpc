@@ -43,6 +43,27 @@ static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPrey
  * */
 int main(int argc, char ** argv) {
 
+	/* Program vars. */
+	PPCWorkSizes workSizes;
+	PPCKernels krnls = {NULL, NULL};
+	PPCEvents evts = {NULL, NULL, NULL};
+	PPCDataSizes dataSizes;
+	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
+	PPParameters params;
+	PPCSimParams simParams;
+	CLUZone zone;
+	
+	/* Random number generator- */
+	GRand* rng;
+	
+	/* Status var aux */
+	cl_int status_cl;
+	int status_pp;
+	
+	/* Error management */
+	GError *err = NULL;
+
 	/* Program exit status. */
 	int exit_status = PP_SUCCESS;
 	
@@ -52,33 +73,17 @@ int main(int argc, char ** argv) {
 	/* Parse arguments. */
 	argp_parse(&argp, argc, argv, 0, 0, &args_values);
 	
-	/* Program vars. */
-	PPCWorkSizes workSizes;
-	PPCKernels krnls = {NULL, NULL};
-	PPCEvents evts = {NULL, NULL, NULL};
-	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL};
-	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
-
-	/* Status var aux */
-	cl_int status_cl;
-	int status_pp;
-	
-	/* Error management */
-	GError *err = NULL;
-	
 	/* Create RNG and set seed. */
 #ifdef SEED
-	GRand* rng = g_rand_new_with_seed(SEED);
+	rng = g_rand_new_with_seed(SEED);
 #else
-	GRand* rng = g_rand_new();
+	rng = g_rand_new();
 #endif	
 
 	/* Profiling / Timmings. */
 	ProfCLProfile* profile = profcl_profile_new();
 	
 	/* Get the required CL zone. */
-	CLUZone zone;
 	status_cl = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
 	clu_if_error_goto(status_cl, err, error);
 
@@ -87,14 +92,15 @@ int main(int argc, char ** argv) {
 	clu_if_error_goto(status_cl, err, error);
 
 	/* Get simulation parameters */
-	PPParameters params = pp_load_params(args_values.params);
+	status_pp = pp_load_params(&params, args_values.params, &err);
+	pp_if_error_goto(status_pp, err, error);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
 	status_pp = ppc_worksizes_calc(args_values, &workSizes, zone.cu, params.grid_y, &err);
 	pp_if_error_goto(status_pp, err, error);
 
 	/* Set simulation parameters in a format more adequate for this program. */
-	PPCSimParams simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
+	simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
 		
 	/* Print thread info to screen */
 	ppc_worksize_info_print(zone.cu, workSizes);

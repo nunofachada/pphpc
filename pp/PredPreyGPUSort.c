@@ -58,6 +58,7 @@ int main(int argc, char ** argv)
 	
 	// Status var aux
 	cl_int status;
+	int status_pp;
 	
 	// Error management
 	GError *err = NULL;
@@ -79,6 +80,9 @@ int main(int argc, char ** argv)
 		agentsCountDevice = NULL,
 		agentParamsDevice = NULL,
 		rngSeedsDevice = NULL;
+		
+	// Parameters
+	PPParameters params;
 		
 	// OpenCL events
 	cl_event *agentaction_move_event = NULL,
@@ -109,7 +113,8 @@ int main(int argc, char ** argv)
 	clu_if_error_goto(status, err, error);
 
 	// 2. Get simulation parameters
-	PPParameters params = pp_load_params(DEFAULT_PARAMS_FILE);
+	status_pp = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
+	pp_if_error_goto(status_pp, err, error);	
 
 	// 3. Compute work sizes for different kernels and print them to screen
 	computeWorkSizes(params, zone.device_type, zone.cu);	
