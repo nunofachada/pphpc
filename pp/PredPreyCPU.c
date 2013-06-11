@@ -72,14 +72,14 @@ int main(int argc, char ** argv) {
 	int exit_status = PP_SUCCESS;
 	
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, NULL, 0};
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, 0};
 	
 	/* Parse arguments. */
 	/** @todo Treat errors properly. */
 	argp_parse(&argp, argc, argv, 0, 0, &args_values);
 	
 	/* Create RNG and set seed. */
-	rng = (args_values.rng_seed == NULL) ? g_rand_new() : g_rand_new_with_seed(*args_values.rng_seed);
+	rng = (args_values.rng_seed_given) ? g_rand_new_with_seed(args_values.rng_seed) : g_rand_new();
 
 	/* Profiling / Timmings. */
 	profile = profcl_profile_new();
@@ -246,11 +246,21 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
 	if (args.verbose) {
 		printf("  ----------------------------------------------\n");	
 		printf("  | Parameter                    | Value       |\n");	
+		printf("  |--------------------------------------------|\n");
+		printf("  | Compute units in device      | % 11d |\n", cu);	
+		printf("  | Global work size (max)       | %4d (%4d) |\n", (int) workSizes.gws, (int) workSizes.max_gws);
+		if (workSizes.lws == 0) {
+			printf("  | Local work size              |        Auto |\n");
+		} else {
+			printf("  | Local work size              | %11d |\n", (int) workSizes.lws);
+		}
+		printf("  | Rows per work-item           | %11d |\n", (int) workSizes.rows_per_workitem);
+		if (args.rng_seed_given) {
+			printf("  | Random seed                  | %11d |\n", args.rng_seed);
+		} else {
+			printf("  | Random seed                  |        Auto |\n");
+		}
 		printf("  ---------------------------------------------\n");
-		printf("  | Compute units in device      | %4d |\n", cu);	
-		printf("  | Global work size (max)       | %d (%d) |\n", (int) workSizes.gws, (int) workSizes.max_gws);
-		printf("  | Local work size              | %d%s |\n", (int) workSizes.lws, (workSizes.lws == 0 ? " (let OpenCL implementation chose)" : ""));
-		printf("  | Rows per work-item           | %4d |\n", (int) workSizes.rows_per_workitem);
 	}
 }
 
@@ -925,7 +935,8 @@ error_t ppc_opt_parse(int key, char *arg, struct argp_state *state) {
 		args->dev_idx = (cl_uint) atoi(arg);
 		break;
 	case 'r':
-		*(args->rng_seed) = (guint32) atoi(arg);
+		args->rng_seed_given = 1;
+		args->rng_seed = (guint32) atoi(arg);
 		break;
 	case 'v':
 		args->verbose = 1;

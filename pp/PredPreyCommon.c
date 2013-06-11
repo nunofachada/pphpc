@@ -118,7 +118,7 @@ int pp_load_params(PPParameters* parameters, const char* paramsFile, GError** er
 	if (check != 0x0fff) {
 			pp_if_error_create_error_return(PP_INVALID_PARAMS_FILE, err, "Insufficient parameters in parameters file (check=%d)", check);
 	}
-	return parameters;
+	return PP_SUCCESS;
 } 
 
 /** 

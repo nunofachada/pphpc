@@ -17,7 +17,8 @@ typedef struct pp_c_args {
 	size_t gws;
 	size_t lws;
 	cl_uint dev_idx;
-	guint32* rng_seed;
+	char rng_seed_given;
+	guint32 rng_seed;
 	char verbose;
 } PPCArgs;
 
