@@ -33,33 +33,106 @@
 #define PP_ERROR pp_error_quark()
 
 /**
- * @defgroup PP_ERROR Error handling.
+ * @defgroup PP_ERROR Error handling
  *
  * @{
  */
- 
-/** Error code: successfull operation. */
-#define PP_SUCCESS 0 
-/** Error code: unknown arguments. */
-#define PP_UNKNOWN_ARGS -1 
-/** Error code: invalid arguments. */
-#define PP_INVALID_ARGS -2
-/** Error code: OpenCL error. */
-#define PP_OPENCL_ERROR -3
-/** Error code: parameters file not found. */
-#define PP_UNABLE_TO_OPEN_PARAMS_FILE -4
-/** Error code: invalid parameters file. */
-#define PP_INVALID_PARAMS_FILE -5
+
+/**
+ * @brief Program error codes.
+ * */ 
+enum pp_error_codes {
+	PP_SUCCESS = 0,						/**< Successfull operation. */
+	PP_UNKNOWN_ARGS = -1,				/**< Unknown arguments. */
+	PP_INVALID_ARGS = -2,				/**< Invalid arguments. */
+	PP_LIBRARY_ERROR = -3,				/**< OpenCL error. */
+	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,	/**< Parameters file not found. */
+	PP_INVALID_PARAMS_FILE = -5			/**< Invalid parameters file. */
+};
 
 
-/** If error is detected, create an error object (GError) and go to the specified label. */
-#define pp_if_error_create_error_goto(code, err, dest, msg, ...) if (code != PP_SUCCESS) { g_set_error(err, PP_ERROR, code, msg, ##__VA_ARGS__); goto dest; }
-/** If error is detected, create an error object (GError) and return from function with given error code. */
-#define pp_if_error_create_error_return(code, err, msg, ...) if (code != PP_SUCCESS) { g_set_error(err, PP_ERROR, code, msg, ##__VA_ARGS__); return code; }
-/** If error is detected, verify error validity and go to the specified label. */
-#define pp_if_error_goto(code, err, dest) if (err != NULL) { g_assert(code != PP_SUCCESS); goto dest; }
-/** If error is detected, verify error validity and return from function with given error code. */
-#define pp_if_error_return(code, err) if (err != NULL) { g_assert(code != PP_SUCCESS); return code; }
+/** 
+ * @def pp_if_error_create_handle(err, no_error_code, error_code, pp_error_code, msg, ...)
+ * @brief If error is detected, create an error object (GError) and go to the error_handler label. 
+ * 
+ * @param err GError object.
+ * @param no_error_code Successfull operation code.
+ * @param error_code Possible error code.
+ * @param pp_error_code Error code returned by program if <tt>error_code != no_error_code</tt>.
+ * @param msg Error message in case of error.
+ * @param ... Extra parameters for error message.
+ * */
+#define pp_if_error_create_handle(err, no_error_code, error_code, pp_error_code, msg, ...)	\
+	if (error_code != no_error_code) {														\
+		g_set_error(&err, PP_ERROR, error_code, msg, ##__VA_ARGS__);						\
+		error_code = pp_error_code;															\
+		goto error_handler;																	\
+	}
+	
+/** 
+ * @def pp_if_error_create_return(err, no_error_code, error_code, pp_error_code, msg, ...)
+ * @brief If error is detected, create an error object (GError) and return from function with given error code.
+ * 
+ * @param err GError object.
+ * @param no_error_code Successfull operation code.
+ * @param error_code Possible error code.
+ * @param pp_error_code Error code returned by program if <tt>error_code != no_error_code</tt>.
+ * @param msg Error message in case of error.
+ * @param ... Extra parameters for error message.
+ * */
+#define pp_if_error_create_return(err, no_error_code, error_code, pp_error_code, msg, ...)	\
+	if (error_code != no_error_code) {														\
+		g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);							\
+		return pp_error_code;																\
+	}
+	
+/** 
+ * @def pp_if_error_handle(no_error_code, error_code)
+ * @brief If error is detected (<tt>error_code != no_error_code</tt>) go to the specified label.
+ * 
+ * @param no_error_code Successfull operation code.
+ * @param error_code Possible error code.
+ * */
+ #define pp_if_error_handle(no_error_code, error_code)	\
+	if (error_code != no_error_code) goto error_handler;
+	
+/** 
+ * @def pp_if_error_return(no_error_code, error_code, pp_error_code)
+ * @brief If error is detected (<tt>error_code != no_error_code</tt>) return from function with return error code.
+ * 
+ * @param no_error_code Successfull operation code.
+ * @param error_code Possible error code.
+ * @param pp_error_code Error code to be returned by function.
+ * */
+#define pp_if_error_return(no_error_code, error_code, pp_error_code)	\
+	if (error_code != no_error_code) return pp_error_code;
+
+/**
+ * @def pp_error_create_return(err, error_code, msg, ...) 
+ * @brief Create error and return from function.
+ * 
+ * @param err GError object.
+ * @param error_code Possible error code.
+ * @param msg Error message in case of error.
+ * @param ... Extra parameters for error message.
+ * */
+#define pp_error_create_return(err, error_code, msg, ...)		\
+	g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);	\
+	return error_code;
+	
+/**
+ * @def pp_error_create_handle(err, error_code, msg, ...)
+ * @brief Create error and goto error_handler label.
+ * 
+ * @param err GError object.
+ * @param error_code Possible error code.
+ * @param msg Error message in case of error.
+ * @param ... Extra parameters for error message.
+ * */
+ #define pp_error_create_handle(err, error_code, msg, ...)		\
+	g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);	\
+	goto error_handler;
+	
 
 /** @} */
 
@@ -101,6 +174,9 @@ typedef struct pp_agent_params {
 
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, const char * paramsFile, GError** err);
+
+/** @brief Show proper error messages. */
+void pp_error_handle(GError* err, int status, CLUZone zone);
 
 /** @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);

@@ -14,7 +14,7 @@ endif
 
 # Define variables
 CC = gcc
-CFLAGS = -Wall -g -std=gnu99 `pkg-config --cflags glib-2.0`
+CFLAGS = -Wall -ggdb3 -std=c99 `pkg-config --cflags glib-2.0`
 CLMACROS += -DATI_OS_LINUX
 CLINCLUDES = -I$$AMDAPPSDKROOT/include
 UTILSINCLUDES = -I$(UTILSINCLUDEDIR)

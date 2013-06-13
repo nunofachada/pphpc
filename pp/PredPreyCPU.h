@@ -115,7 +115,7 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsign
 void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args);
 
 /** @brief Get kernel entry points. */
-cl_int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
+int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
 
 /** @brief Release kernels.  */
 void ppc_kernels_free(PPCKernels* krnls);
@@ -127,13 +127,13 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
 void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads);
 
 /** @brief Initialize and map host/device buffers. */
-cl_int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err);
+int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err);
 
 /** @brief Set fixed kernel arguments.  */
-cl_int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
+int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
 
 /** @brief Perform simulation! */
-cl_uint ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
+int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
@@ -148,12 +148,12 @@ void ppc_events_create(PPParameters params, PPCEvents* evts);
 void ppc_events_free(PPParameters params, PPCEvents* evts);
 
 /** @brief Analyze events, show profiling info. */
-cl_int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);
+int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);
 
 /** @brief Get statistics. */
-cl_int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
+int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
 
 /** @brief Parse one command-line option. */
-error_t ppc_opt_parse(int key, char *arg, struct argp_state *state);
+error_t ppc_args_parse(int key, char *arg, struct argp_state *state);
 
 #endif

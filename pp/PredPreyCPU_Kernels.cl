@@ -148,7 +148,7 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 /*
  * MoveAgentGrowGrass (step1) kernel
  */
-__kernel void step1(__global PPCAgent * agents, 
+__kerrnel rvoid step1(__global PPCAgent * agents, 
 			__global PPCCell * matrix,
 			__global ulong * seeds,
 			__private uint turn,

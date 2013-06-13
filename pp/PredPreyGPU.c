@@ -42,8 +42,7 @@ int main(int argc, char **argv)
 	PPParameters params;
 
 	/* Aux vars. */
-	cl_int status;
-	int status_pp;
+	int status;
 	
 	/* Error management. */
 	GError *err = NULL;
@@ -59,20 +58,20 @@ int main(int argc, char **argv)
 #endif	
 	
 	/* Get simulation parameters */
-	status_pp = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
-	pp_if_error_goto(status_pp, err, error);
-
+	status = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
+	pp_if_error_handle(PP_SUCCESS, status);
+	
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPGSimParams simParams = ppg_simparams_init(params);
 
 	/* Get the required CL zone. */
 	CLUZone zone;
 	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(CL_SUCCESS, status);
 
 	/* Compute work sizes for different kernels and print them to screen. */
 	status = ppg_worksizes_compute(params, zone.device, &gws, &lws, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(CL_SUCCESS, status);
 	ppg_worksizes_print(gws, lws);
 
 	/* Compiler options. */
@@ -81,11 +80,11 @@ int main(int argc, char **argv)
 
 	/* Build program. */
 	status = clu_program_create(&zone, kernelFiles, 2, compilerOpts, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(CL_SUCCESS, status);
 
 	/* Create kernels. */
 	status = ppg_kernels_create(zone.program, &krnls, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(PP_SUCCESS, status);
 	
 	/* Determine size in bytes for host and device data structures. */
 	ppg_datasizes_get(params, simParams, &dataSizes, gws, lws);
@@ -95,21 +94,21 @@ int main(int argc, char **argv)
 
 	/* Create device buffers */
 	status = ppg_devicebuffers_create(zone.context, &buffersHost, &buffersDevice, &dataSizes, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(PP_SUCCESS, status);
 	
 	/* Create events data structure. */
 	ppg_events_create(params, &evts);
 
 	/*  Set fixed kernel arguments. */
 	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &dataSizes, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(CL_SUCCESS, status);
 	
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
 	/* Simulation!! */
 	status = ppg_simulate(params, zone, gws, lws, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
@@ -119,7 +118,7 @@ int main(int argc, char **argv)
 
 	/* Analyze events, show profiling info. */
 	status = ppg_profiling_analyze(profile, &evts, params, &err);
-	clu_if_error_goto(status, err, error);
+	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
