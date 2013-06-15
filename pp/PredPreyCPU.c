@@ -5,24 +5,31 @@
  
 #include "PredPreyCPU.h"
 
-#define MAX_AGENTS 16777216
-#define NULL_AGENT_POINTER UINT_MAX
+/* Helper macros to convert int to string at compile time. */
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
 
-#define SHEEP_ID 0
-#define WOLF_ID 1
-
+/* By default, no options are passed to the OpenCL compiler. */
 #define DEFAULT_COMPILER_OPTS ""
 
+/* The default maximum number of agents: 16777216. Each agent requires
+ * 16 bytes, thus by default 256Mb of memory will be allocated for the
+ * agents buffer. A higher value will probably lead to faster simulations
+ * given that it will increase the success rate of new agent allocations. */
+#define DEFAULT_MAX_AGENTS 16777216
+
+/* Perform direct OpenCL profiling if the C compiler has defined a 
+ * CLPROFILER constant. */
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
 #else
 	#define QUEUE_PROPERTIES 0
 #endif
 
-/** @brief A description of the program. */
+/* A description of the program. */
 static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the CPU";
 
-/** @brief The options we understand. */
+/* Valid command line options. */
 static struct argp_option args_options[] = {
 	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
 	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
@@ -31,18 +38,24 @@ static struct argp_option args_options[] = {
 	{"localsize",  'l', "SIZE",   0, "Local work size (default is selected by OpenCL runtime)" },
 	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)" },
 	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)" },
+	{"max_agents", 'm', "SIZE",   0, "Maximum number of agents (default is " STR(DEFAULT_MAX_AGENTS) ")" },
 	{"verbose",    'v', NULL,     0, "Verbose, show more information about simulation" },
 	{ 0 }
 };
 
-/** @brief Argument parser. */
+/* Argument parser. */
 static struct argp argp = { args_options, ppc_args_parse, 0, args_doc };
 
-/** @brief OpenCL kernel files */
+/* OpenCL kernel files. */
 static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
 /**
- *  @brief Main program.
+ * @brief Main program.
+ * 
+ * @param argc Number of command line arguments.
+ * @param argv Vector of command line arguments.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or another value of #pp_error_codes if an error occurs.
  * */
 int main(int argc, char ** argv) {
 
@@ -68,13 +81,13 @@ int main(int argc, char ** argv) {
 	GError *err = NULL;
 
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, 0};
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS, 0};
 	
 	/* Parse arguments. */
 	/** @todo Treat errors properly. */
 	argp_parse(&argp, argc, argv, 0, 0, &args_values);
 	
-	/* Create RNG and set seed. */
+	/* Create RNG and set seed. If seed not given, a random seed is used. */
 	rng = (args_values.rng_seed_given) ? g_rand_new_with_seed(args_values.rng_seed) : g_rand_new();
 
 	/* Profiling / Timmings. */
@@ -97,7 +110,7 @@ int main(int argc, char ** argv) {
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Set simulation parameters in a format more adequate for this program. */
-	simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes.rows_per_workitem);
+	simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
 		
 	/* Print simulation info to screen */
 	ppc_simulation_info_print(zone.cu, workSizes, args_values);
@@ -107,7 +120,7 @@ int main(int argc, char ** argv) {
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Determine size in bytes for host and device data structures. */
-	ppc_datasizes_get(params, simParams, &dataSizes, workSizes.gws);
+	ppc_datasizes_get(params, simParams, &dataSizes, workSizes);
 	
 	/* Create events data structure. */
 	ppc_events_create(params, &evts);
@@ -116,7 +129,7 @@ int main(int argc, char ** argv) {
 	profcl_profile_start(profile);
 
 	/* Initialize and map host/device buffers */
-	status = ppc_buffers_init(zone, workSizes.gws, &buffersHost, &buffersDevice, dataSizes, &evts, params, simParams, rng, &err);
+	status = ppc_buffers_init(zone, workSizes, &buffersHost, &buffersDevice, dataSizes, &evts, params, simParams, rng, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 	
 	/*  Set fixed kernel arguments. */
@@ -222,6 +235,9 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsign
 		pp_error_create_return(err, PP_INVALID_ARGS, "Global work size (%d) is not multiple of local work size (%d).", (int) workSizes->gws, (int) workSizes->lws);
 	}
 	
+	/* Set maximum number of agents. */
+	workSizes->max_agents = args.max_agents;
+	
 	/* Everything Ok! */
 	return PP_SUCCESS;
 }
@@ -242,6 +258,7 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
 			printf("  | Local work size              | %11d |\n", (int) workSizes.lws);
 		}
 		printf("  | Rows per work-item           | %11d |\n", (int) workSizes.rows_per_workitem);
+		printf("  | Maximum number of agents     | %11d |\n", (int) workSizes.max_agents);
 		if (args.rng_seed_given) {
 			printf("  | Random seed                  | %11d |\n", args.rng_seed);
 		} else {
@@ -278,22 +295,22 @@ void ppc_kernels_free(PPCKernels* krnls) {
 /**
  * @brief Initialize simulation parameters in host, to be sent to kernels.
  * */
-PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, size_t lines_per_thread) {
+PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, PPCWorkSizes ws) {
 	PPCSimParams simParams;
 	simParams.size_x = params.grid_x;
 	simParams.size_y = params.grid_y;
 	simParams.size_xy = params.grid_x * params.grid_y;
-	simParams.max_agents = MAX_AGENTS;
+	simParams.max_agents = ws.max_agents;
 	simParams.null_agent_pointer = null_agent_pointer;
 	simParams.grass_restart = params.grass_restart;
-	simParams.lines_per_thread = (cl_uint) lines_per_thread;	
+	simParams.rows_per_workitem = (cl_uint) ws.rows_per_workitem;	
 	return simParams;
 }
 
 /**
  * @brief Determine buffer sizes. 
  * */
-void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, size_t num_threads) {
+void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -302,10 +319,10 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 	dataSizes->matrix = params.grid_x * params.grid_y * sizeof(PPCCell);
 	
 	/* Agents. */
-	dataSizes->agents = MAX_AGENTS * sizeof(PPCAgent);
+	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
 	
 	/* Rng seeds */
-	dataSizes->rng_seeds = num_threads * sizeof(cl_ulong);
+	dataSizes->rng_seeds = ws.gws * sizeof(cl_ulong);
 
 	/* Agent parameters */
 	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
@@ -318,7 +335,7 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 /**
  * @brief Initialize and map host/device buffers.
  * */
-int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err) {
+int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err) {
 	
 	/* Aux. variable */
 	cl_int status = PP_SUCCESS;
@@ -455,7 +472,7 @@ int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHo
 	);
 	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Map buffersHost->agents");
 
-	for(cl_uint i = 0; i < MAX_AGENTS; i++) 	{
+	for(cl_uint i = 0; i < ws.max_agents; i++) 	{
 		/* Check if there are still agents to initialize. */
 		if (i < params.init_sheep + params.init_wolves) {
 			
@@ -492,10 +509,10 @@ int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHo
 		} else {
 			/* No more agents to initialize, initialize array position only. */
 			buffersHost->agents[i].energy = 0;
-			buffersHost->agents[i].type = 0;
-			buffersHost->agents[i].action = 0;
-			buffersHost->agents[i].next = NULL_AGENT_POINTER;
-			break;
+			//buffersHost->agents[i].type = 0;
+			//buffersHost->agents[i].action = 0;
+			//buffersHost->agents[i].next = NULL_AGENT_POINTER;
+			//break;
 		}
 
 	}
@@ -549,7 +566,7 @@ int ppc_buffers_init(CLUZone zone, size_t num_threads, PPCBuffersHost *buffersHo
 	);
 	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Map buffersHost->rng_seeds");
 
-	for (unsigned int i = 0; i < num_threads; i++) {
+	for (unsigned int i = 0; i < ws.gws; i++) {
 		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
 	}
 
@@ -744,7 +761,6 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
 	if (buffersDevice->agents) clReleaseMemObject(buffersDevice->agents);
 	if (buffersDevice->matrix) clReleaseMemObject(buffersDevice->matrix);
-	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 	if (buffersDevice->sim_params) clReleaseMemObject(buffersDevice->sim_params);
 }
@@ -924,6 +940,9 @@ error_t ppc_args_parse(int key, char *arg, struct argp_state *state) {
 	case 'r':
 		args->rng_seed_given = 1;
 		args->rng_seed = (guint32) atoi(arg);
+		break;
+	case 'm':
+		args->max_agents = atoi(arg);
 		break;
 	case 'v':
 		args->verbose = 1;

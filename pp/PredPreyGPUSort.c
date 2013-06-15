@@ -7,9 +7,6 @@
 
 #define MAX_AGENTS 1048576
 
-#define SHEEP_ID 0
-#define WOLF_ID 1
-
 #define CELL_SPACE 4 // 0-Grass state, 1-number of agents in cell, 2-pointer to first agent in cell, 3-unused
 #define CELL_GRASS_OFFSET 0
 #define CELL_NUMAGENTS_OFFSET 1

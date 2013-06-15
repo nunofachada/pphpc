@@ -24,7 +24,7 @@ typedef struct pp_c_sim_params {
 	uint max_agents;
 	uint null_agent_pointer;
 	uint grass_restart;
-	uint lines_per_thread;
+	uint rows_per_workitem;
 	uint bogus;
 } PPCSimParams __attribute__ ((aligned (32)));
 
@@ -148,7 +148,7 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 /*
  * MoveAgentGrowGrass (step1) kernel
  */
-__kerrnel rvoid step1(__global PPCAgent * agents, 
+__kernel void step1(__global PPCAgent * agents, 
 			__global PPCCell * matrix,
 			__global ulong * seeds,
 			__private uint turn,
@@ -156,7 +156,7 @@ __kerrnel rvoid step1(__global PPCAgent * agents,
 {
 	PPCSimParams sim_params = *sim_params_ptr;
 	// Determine line to process
-	uint y = turn + get_global_id(0) * sim_params.lines_per_thread;
+	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
 	// Check if this thread has to process anything
 	if (y < sim_params.size_y) {
 		// Determine start and end of line
@@ -226,7 +226,7 @@ __kernel void step2(__global PPCAgent * agents,
 	uint wolvesCount = 0;
 	uint grassCount = 0;
 	// Determine line to process
-	uint y = turn + get_global_id(0) * sim_params.lines_per_thread;
+	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
 	// Check if this thread has to process anything
 	if (y < sim_params.size_y) {
 		// Determine start and end of line

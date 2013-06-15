@@ -23,6 +23,12 @@
 #include "bitstuff.h"
 #include "clprofiler.h"
 
+/** Sheep ID. */
+#define SHEEP_ID 0
+
+/** Wolf ID. */
+#define WOLF_ID 1
+
 /** Default parameters file. */
 #define DEFAULT_PARAMS_FILE "config.txt"
 
@@ -52,7 +58,6 @@ enum pp_error_codes {
 
 
 /** 
- * @def pp_if_error_create_handle(err, no_error_code, error_code, pp_error_code, msg, ...)
  * @brief If error is detected, create an error object (GError) and go to the error_handler label. 
  * 
  * @param err GError object.
@@ -70,7 +75,6 @@ enum pp_error_codes {
 	}
 	
 /** 
- * @def pp_if_error_create_return(err, no_error_code, error_code, pp_error_code, msg, ...)
  * @brief If error is detected, create an error object (GError) and return from function with given error code.
  * 
  * @param err GError object.
@@ -87,7 +91,6 @@ enum pp_error_codes {
 	}
 	
 /** 
- * @def pp_if_error_handle(no_error_code, error_code)
  * @brief If error is detected (<tt>error_code != no_error_code</tt>) go to the specified label.
  * 
  * @param no_error_code Successfull operation code.
@@ -97,7 +100,6 @@ enum pp_error_codes {
 	if (error_code != no_error_code) goto error_handler;
 	
 /** 
- * @def pp_if_error_return(no_error_code, error_code, pp_error_code)
  * @brief If error is detected (<tt>error_code != no_error_code</tt>) return from function with return error code.
  * 
  * @param no_error_code Successfull operation code.
@@ -108,7 +110,6 @@ enum pp_error_codes {
 	if (error_code != no_error_code) return pp_error_code;
 
 /**
- * @def pp_error_create_return(err, error_code, msg, ...) 
  * @brief Create error and return from function.
  * 
  * @param err GError object.
@@ -121,7 +122,6 @@ enum pp_error_codes {
 	return error_code;
 	
 /**
- * @def pp_error_create_handle(err, error_code, msg, ...)
  * @brief Create error and goto error_handler label.
  * 
  * @param err GError object.

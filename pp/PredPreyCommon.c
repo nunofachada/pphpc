@@ -13,7 +13,8 @@
  * @param parameters Parameters structure to be populated.
  * @param paramsFile File containing simulation parameters.
  * @param err Error structure, to be populated if an error occurs.
- * @return PP_SUCCESS if everything ok, or error code otherwise.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or another value of #pp_error_codes if an error occurs.
  * */
 int pp_load_params(PPParameters* parameters, const char* paramsFile, GError** err) {
 
