@@ -18,6 +18,9 @@
  * given that it will increase the success rate of new agent allocations. */
 #define DEFAULT_MAX_AGENTS 16777216
 
+/* Maximum length of information field. */
+#define MAX_INFO_LENGTH 15
+
 /* Perform direct OpenCL profiling if the C compiler has defined a 
  * CLPROFILER constant. */
 #ifdef CLPROFILER
@@ -39,7 +42,6 @@ static struct argp_option args_options[] = {
 	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)" },
 	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)" },
 	{"max_agents", 'm', "SIZE",   0, "Maximum number of agents (default is " STR(DEFAULT_MAX_AGENTS) ")" },
-	{"verbose",    'v', NULL,     0, "Verbose, show more information about simulation" },
 	{ 0 }
 };
 
@@ -81,7 +83,7 @@ int main(int argc, char ** argv) {
 	GError *err = NULL;
 
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS, 0};
+	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS};
 	
 	/* Parse arguments. */
 	/** @todo Treat errors properly. */
@@ -197,6 +199,15 @@ cleanup:
 
 /**
  * @brief Determine effective worksizes to use in simulation.
+ * 
+ * @param args Parsed command line arguments.
+ * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
+ * @param cu Number of computer units available in selected device.
+ * @param num_rows Number of rows in (height of) simulation environment.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or another @link pp_error_codes::PP_INVALID_ARGS @endlink if parsed command line 
+ * arguments are not valid for the current simulation.
  * */
 int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows, GError **err) {
 	
@@ -244,28 +255,79 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsign
 
 /**
  * @brief Print information about the simulation parameters.
+ * 
+ * @param cu Number of computer units available in selected device.
+ * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
+ * @param args Parsed command line arguments.
  * */
 void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
-	if (args.verbose) {
-		printf("\n  ----------------------------------------------\n");	
-		printf("  | Parameter                    | Value       |\n");	
-		printf("  |--------------------------------------------|\n");
-		printf("  | Compute units in device      | % 11d |\n", cu);	
-		printf("  | Global work size (max)       | %4d (%4d) |\n", (int) workSizes.gws, (int) workSizes.max_gws);
-		if (workSizes.lws == 0) {
-			printf("  | Local work size              |        Auto |\n");
-		} else {
-			printf("  | Local work size              | %11d |\n", (int) workSizes.lws);
-		}
-		printf("  | Rows per work-item           | %11d |\n", (int) workSizes.rows_per_workitem);
-		printf("  | Maximum number of agents     | %11d |\n", (int) workSizes.max_agents);
-		if (args.rng_seed_given) {
-			printf("  | Random seed                  | %11d |\n", args.rng_seed);
-		} else {
-			printf("  | Random seed                  |        Auto |\n");
-		}
-		printf("  ----------------------------------------------\n");
+	/* Aux. buffers */
+	char buff[MAX_INFO_LENGTH];
+	gchar **tokens, *filled;
+	int i, j, lines, totLen;
+	/* Print information... */
+	/* ...Header */
+	printf("\n  --------------------------------------------------\n");	
+	printf("  | Parameter                    | Value           |\n");	
+	printf("  |------------------------------------------------|\n");
+	/* ...Compute units */
+	printf("  | Compute units in device      | %" STR(MAX_INFO_LENGTH) "d |\n", cu);	
+	/* ...Global worksize */
+	g_snprintf(buff, MAX_INFO_LENGTH, "%d (%d)", (int) workSizes.gws, (int) workSizes.max_gws);
+	printf("  | Global work size (max)       | %" STR(MAX_INFO_LENGTH) "s |\n", buff);
+	/* ...Local worksize */
+	if (workSizes.lws == 0) {
+		printf("  | Local work size              |            Auto |\n");
+	} else {
+		printf("  | Local work size              | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.lws);
 	}
+	/* ...Rows per workitem */
+	printf("  | Rows per work-item           | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.rows_per_workitem);
+	/* ...Maximum number of agents */
+	printf("  | Maximum number of agents     | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.max_agents);
+	/* ...RNG seed */
+	if (args.rng_seed_given) {
+		printf("  | Random seed                  | %" STR(MAX_INFO_LENGTH) "d |\n", args.rng_seed);
+	} else {
+		printf("  | Random seed                  |            Auto |\n");
+	}
+	/* ...Compiler options */
+	printf("  | Compiler options             | ");
+	tokens = g_strsplit(args.compiler_opts, " ", 0);
+	if (tokens[0] != NULL) {
+		for (i = 0; tokens[i] != NULL; i++) {
+			if (strlen(tokens[i]) > MAX_INFO_LENGTH) {
+				lines = strlen(tokens[i]) / MAX_INFO_LENGTH + (strlen(tokens[i]) % MAX_INFO_LENGTH > 0);
+				for (j = 0; j < lines; j++) {
+					g_snprintf(buff, MAX_INFO_LENGTH, "%s ", tokens[i] + (MAX_INFO_LENGTH * j));
+					printf("%-" STR(MAX_INFO_LENGTH) "s |\n", buff);
+					if (j < lines - 1) printf("  |                              | ");
+				}
+			} else {
+				totLen = 0;
+				while(1) {
+					printf("%s ", tokens[i]);
+					totLen += strlen(tokens[i]) + 1; /* The 1 is for the space */
+					if (tokens[i + 1] != NULL) {
+						if (totLen + strlen(tokens[i + 1]) <= MAX_INFO_LENGTH) {
+							i++;
+							continue;
+						}
+					}
+					break;
+				}
+				filled = g_strnfill((gsize) (MAX_INFO_LENGTH - totLen), ' ');
+				printf("%s |\n", filled);
+				g_free(filled);
+			}
+			if (tokens[i + 1] != NULL) printf("  |                              | ");
+		}
+	} else {
+		printf("           None |\n");
+	}
+	g_strfreev(tokens);
+	/* ...Finish */
+	printf("  ----------------------------------------------\n");
 }
 
 /**
@@ -943,9 +1005,6 @@ error_t ppc_args_parse(int key, char *arg, struct argp_state *state) {
 		break;
 	case 'm':
 		args->max_agents = atoi(arg);
-		break;
-	case 'v':
-		args->verbose = 1;
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;

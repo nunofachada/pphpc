@@ -27,7 +27,6 @@ typedef struct pp_c_args {
 	char rng_seed_given;	/**< True if rng seed is given, false otherwise. */
 	guint32 rng_seed;		/**< Rng seed. */
 	cl_uint max_agents;		/**< Maximum number of agents. */
-	char verbose;			/**< Show detailed information. */
 } PPCArgs;
 
 /**
@@ -64,7 +63,7 @@ typedef struct pp_c_cell {
 } PPCCell;
 
 /** 
- * @brief Work sizes for kernels step1 and step2.
+ * @brief Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
 typedef struct pp_c_work_sizes {
 	size_t gws;					/**< Global worksize. */
