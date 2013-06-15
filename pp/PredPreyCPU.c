@@ -19,7 +19,7 @@
 #define DEFAULT_MAX_AGENTS 16777216
 
 /* Maximum length of information field. */
-#define MAX_INFO_LENGTH 15
+#define MAX_INFO_LENGTH 11
 
 /* Perform direct OpenCL profiling if the C compiler has defined a 
  * CLPROFILER constant. */
@@ -64,10 +64,10 @@ int main(int argc, char ** argv) {
 	/* Program vars. */
 	PPCWorkSizes workSizes;
 	PPCKernels krnls = {NULL, NULL};
-	PPCEvents evts = {NULL, NULL, NULL};
+	PPCEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL};
-	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	PPCSimParams simParams;
 	CLUZone zone;
@@ -108,7 +108,7 @@ int main(int argc, char ** argv) {
 	pp_if_error_handle(PP_SUCCESS, status);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
-	status = ppc_worksizes_calc(args_values, &workSizes, zone.cu, params.grid_y, &err);
+	status = ppc_worksizes_calc(args_values, &workSizes, params.grid_y, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Set simulation parameters in a format more adequate for this program. */
@@ -139,7 +139,7 @@ int main(int argc, char ** argv) {
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Simulation!! */
-	status = ppc_simulate(workSizes, params, zone, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
+	status = ppc_simulate(workSizes, params, zone, krnls, &evts, buffersDevice, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Get statistics. */
@@ -202,14 +202,13 @@ cleanup:
  * 
  * @param args Parsed command line arguments.
  * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
- * @param cu Number of computer units available in selected device.
  * @param num_rows Number of rows in (height of) simulation environment.
  * @param err GLib error object for error reporting.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
  * or another @link pp_error_codes::PP_INVALID_ARGS @endlink if parsed command line 
  * arguments are not valid for the current simulation.
  * */
-int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows, GError **err) {
+int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_rows, GError **err) {
 	
 	/* Determine maximum number of global work-items which can be used for current 
 	 * problem (each pair of work-items must process rows which are separated 
@@ -261,77 +260,40 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsign
  * @param args Parsed command line arguments.
  * */
 void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
-	/* Aux. buffers */
-	char buff[MAX_INFO_LENGTH];
-	gchar **tokens, *filled;
-	int i, j, lines, totLen;
-	/* Print information... */
 	/* ...Header */
-	printf("\n  --------------------------------------------------\n");	
-	printf("  | Parameter                    | Value           |\n");	
-	printf("  |------------------------------------------------|\n");
+	printf("\n   ========================= Computational settings ======================== \n");	
 	/* ...Compute units */
-	printf("  | Compute units in device      | %" STR(MAX_INFO_LENGTH) "d |\n", cu);	
+	printf("  - Compute units in device    : %d\n", cu);	
 	/* ...Global worksize */
-	g_snprintf(buff, MAX_INFO_LENGTH, "%d (%d)", (int) workSizes.gws, (int) workSizes.max_gws);
-	printf("  | Global work size (max)       | %" STR(MAX_INFO_LENGTH) "s |\n", buff);
+	printf("  - Global work size (max)     : %d (%d)\n", (int) workSizes.gws, (int) workSizes.max_gws);
 	/* ...Local worksize */
-	if (workSizes.lws == 0) {
-		printf("  | Local work size              |            Auto |\n");
-	} else {
-		printf("  | Local work size              | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.lws);
-	}
+	printf("  - Local work size            : ");
+	if (workSizes.lws == 0) printf("auto\n");
+	else printf("%d\n", (int) workSizes.lws);
 	/* ...Rows per workitem */
-	printf("  | Rows per work-item           | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.rows_per_workitem);
+	printf("  - Rows per work-item         : %d\n", (int) workSizes.rows_per_workitem);
 	/* ...Maximum number of agents */
-	printf("  | Maximum number of agents     | %" STR(MAX_INFO_LENGTH) "d |\n", (int) workSizes.max_agents);
+	printf("  - Maximum number of agents   : %d\n", (int) workSizes.max_agents);
 	/* ...RNG seed */
-	if (args.rng_seed_given) {
-		printf("  | Random seed                  | %" STR(MAX_INFO_LENGTH) "d |\n", args.rng_seed);
-	} else {
-		printf("  | Random seed                  |            Auto |\n");
-	}
-	/* ...Compiler options */
-	printf("  | Compiler options             | ");
-	tokens = g_strsplit(args.compiler_opts, " ", 0);
-	if (tokens[0] != NULL) {
-		for (i = 0; tokens[i] != NULL; i++) {
-			if (strlen(tokens[i]) > MAX_INFO_LENGTH) {
-				lines = strlen(tokens[i]) / MAX_INFO_LENGTH + (strlen(tokens[i]) % MAX_INFO_LENGTH > 0);
-				for (j = 0; j < lines; j++) {
-					g_snprintf(buff, MAX_INFO_LENGTH, "%s ", tokens[i] + (MAX_INFO_LENGTH * j));
-					printf("%-" STR(MAX_INFO_LENGTH) "s |\n", buff);
-					if (j < lines - 1) printf("  |                              | ");
-				}
-			} else {
-				totLen = 0;
-				while(1) {
-					printf("%s ", tokens[i]);
-					totLen += strlen(tokens[i]) + 1; /* The 1 is for the space */
-					if (tokens[i + 1] != NULL) {
-						if (totLen + strlen(tokens[i + 1]) <= MAX_INFO_LENGTH) {
-							i++;
-							continue;
-						}
-					}
-					break;
-				}
-				filled = g_strnfill((gsize) (MAX_INFO_LENGTH - totLen), ' ');
-				printf("%s |\n", filled);
-				g_free(filled);
-			}
-			if (tokens[i + 1] != NULL) printf("  |                              | ");
-		}
-	} else {
-		printf("           None |\n");
-	}
-	g_strfreev(tokens);
-	/* ...Finish */
-	printf("  ----------------------------------------------\n");
+	printf("  - Random seed                : ");
+	if (args.rng_seed_given) printf("%d\n", args.rng_seed);
+	else printf("auto\n");
+	/* ...Compiler options (out of table) */
+	printf("  - Compiler options           : ");
+	if (strcmp(args.compiler_opts, "") != 0) printf("%s\n", args.compiler_opts);
+	else printf("none\n");
+	/* ...Finish table. */
+	printf("   ========================================================================= \n");
+	
 }
 
 /**
  * @brief Get kernel entry points.
+ * 
+ * @param program OpenCL program object.
+ * @param krnls OpenCL simulation kernels.
+ * @param err GLib error object for error reporting.
+ * @return
  * */
 int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
 	
@@ -348,6 +310,8 @@ int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
 
 /**
  * @brief Release kernels. 
+ * 
+ * @param krnls OpenCL simulation kernels.
  * */
 void ppc_kernels_free(PPCKernels* krnls) {
 	if (krnls->step1) clReleaseKernel(krnls->step1); 
@@ -356,6 +320,11 @@ void ppc_kernels_free(PPCKernels* krnls) {
 
 /**
  * @brief Initialize simulation parameters in host, to be sent to kernels.
+ * 
+ * @param params Simulation parameters.
+ * @param null_agent_pointer Constant which indicates no further agents are in cell.
+ * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
+ * @return
  * */
 PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, PPCWorkSizes ws) {
 	PPCSimParams simParams;
@@ -370,7 +339,12 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
 }
 
 /**
- * @brief Determine buffer sizes. 
+ * @brief Determine buffer sizes.
+ * 
+ * @param params Simulation parameters.
+ * @param simParams Simulation parameters for OpenCL kernels.
+ * @param dataSizes Sizes of simulation data structures.
+ * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
 void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
@@ -396,6 +370,18 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 
 /**
  * @brief Initialize and map host/device buffers.
+ * 
+ * @param zone
+ * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
+ * @param buffersHost Host buffers.
+ * @param buffersDevice Device buffers.
+ * @param dataSizes Sizes of simulation data structures.
+ * @param evts
+ * @param params Simulation parameters.
+ * @param simParams Simulation parameters for OpenCL kernels.
+ * @param rng
+ * @param err GLib error object for error reporting.
+ * @return
  * */
 int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err) {
 	
@@ -694,6 +680,12 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 
 /**
  * @brief Set fixed kernel arguments. 
+ * 
+ * @param krnls OpenCL simulation kernels.
+ * @param buffersDevice Device buffers.
+ * @param simParams Simulation parameters for OpenCL kernels.
+ * @param err GLib error object for error reporting.
+ * @return 
  * */
 int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err) {
 	
@@ -738,8 +730,17 @@ int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSi
 
 /**
  * @brief Perform simulation!
+ * 
+ * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
+ * @param params Simulation parameters.
+ * @param zone
+ * @param krnls OpenCL simulation kernels.
+ * @param evts
+ * @param buffersDevice Device buffers.
+ * @param err GLib error object for error reporting.
+ * @return
  * */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err) {
+int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCBuffersDevice buffersDevice, GError** err) {
 	
 	/* Aux. vars. */
 	cl_int status;	
@@ -818,6 +819,8 @@ int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCK
 
 /** 
  * @brief Release OpenCL memory objects.
+ * 
+ * @param buffersDevice Device buffers.
  * */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
@@ -829,6 +832,9 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 
 /** 
  * @brief Create events data structure. 
+ * 
+ * @param params Simulation parameters.
+ * @param evts
  * */
 void ppc_events_create(PPParameters params, PPCEvents* evts) {
 
@@ -841,6 +847,9 @@ void ppc_events_create(PPParameters params, PPCEvents* evts) {
 
 /** 
  * @brief Free events data structure. 
+ * 
+ * @param params Simulation parameters.
+ * @param evts
  * */
 void ppc_events_free(PPParameters params, PPCEvents* evts) {
 	
@@ -873,6 +882,12 @@ void ppc_events_free(PPParameters params, PPCEvents* evts) {
 
 /** 
  * @brief Analyze events, show profiling info. 
+ * 
+ * @param profile
+ * @param evts
+ * @param params Simulation parameters.
+ * @param err GLib error object for error reporting.
+ * @return
  * */
 int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err) {
 
@@ -923,6 +938,16 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
 
 /**
  * @brief Get statistics.
+ * 
+ * @param filename
+ * @param zone
+ * @param buffersHost Host buffers.
+ * @param buffersDevice Device buffers.
+ * @param dataSizes Sizes of simulation data structures.
+ * @param evts
+ * @param params Simulation parameters.
+ * @param err GLib error object for error reporting.
+ * @return
  * */
 int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
 	
@@ -974,6 +999,11 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 
 /** 
  * @brief Parse one command-line option. 
+ * 
+ * @param key
+ * @param arg
+ * @param state
+ * @return
  * */
 error_t ppc_args_parse(int key, char *arg, struct argp_state *state) {
 

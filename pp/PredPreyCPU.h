@@ -23,7 +23,7 @@ typedef struct pp_c_args {
 	char* compiler_opts;	/**< Compiler options. */
 	size_t gws;				/**< Global work size. */
 	size_t lws;				/**< Local work size. */
-	cl_uint dev_idx;		/**< Index of device to use. */
+	cl_int dev_idx;			/**< Index of device to use. */
 	char rng_seed_given;	/**< True if rng seed is given, false otherwise. */
 	guint32 rng_seed;		/**< Rng seed. */
 	cl_uint max_agents;		/**< Maximum number of agents. */
@@ -138,7 +138,7 @@ typedef struct pp_c_buffers_host {
 } PPCBuffersDevice;
 
 /** @brief Determine effective worksizes to use in simulation. */
-int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, cl_uint cu, unsigned int num_rows, GError **err);
+int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_rows, GError **err);
 
 /** @brief Print information about the simulation parameters. */
 void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args);
@@ -162,7 +162,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
 
 /** @brief Perform simulation! */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCDataSizes dataSizes, PPCBuffersHost buffersHost, PPCBuffersDevice buffersDevice, GError** err);
+int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCBuffersDevice buffersDevice, GError** err);
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
