@@ -153,16 +153,16 @@ void ppc_kernels_free(PPCKernels* krnls);
 PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, PPCWorkSizes ws);
 
 /** @brief Determine buffer sizes. */
-void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCWorkSizes ws);
+void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSizes ws);
 
 /** @brief Initialize and map host/device buffers. */
-int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err);
+int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err);
 
 /** @brief Set fixed kernel arguments.  */
-int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err);
+int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, GError** err);
 
 /** @brief Perform simulation! */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCBuffersDevice buffersDevice, GError** err);
+int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, GError** err);
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
@@ -170,11 +170,13 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
 /** @brief Free host resources. */ 
 void ppc_hostbuffers_free(PPCBuffersHost* buffersHost);
 
+#ifdef CLPROFILER
 /** @brief Create events data structure. */
 void ppc_events_create(PPParameters params, PPCEvents* evts);
 
 /** @brief Free events. */
 void ppc_events_free(PPParameters params, PPCEvents* evts);
+#endif
 
 /** @brief Analyze events, show profiling info. */
 int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);

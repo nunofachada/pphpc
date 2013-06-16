@@ -14,12 +14,11 @@
 
 /* The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
- * agents buffer. A higher value will probably lead to faster simulations
- * given that it will increase the success rate of new agent allocations. */
+ * agents buffer. A higher value may lead to faster simulations
+ * given that it will increase the success rate of new agent allocations,
+ * but on the other hand memory allocation and initialization may take
+ * longer. */
 #define DEFAULT_MAX_AGENTS 16777216
-
-/* Maximum length of information field. */
-#define MAX_INFO_LENGTH 11
 
 /* Perform direct OpenCL profiling if the C compiler has defined a 
  * CLPROFILER constant. */
@@ -34,19 +33,19 @@ static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the
 
 /* Valid command line options. */
 static struct argp_option args_options[] = {
-	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")"},
-	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")" },
-	{"compiler",   'c', "STRING", 0, "Extra OpenCL compiler options" },
-	{"globalsize", 'g', "SIZE",   0, "Global work size (default is maximum possible)" },
-	{"localsize",  'l', "SIZE",   0, "Local work size (default is selected by OpenCL runtime)" },
-	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)" },
-	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)" },
-	{"max_agents", 'm', "SIZE",   0, "Maximum number of agents (default is " STR(DEFAULT_MAX_AGENTS) ")" },
-	{ 0 }
+	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")", 0},
+	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")", 0},
+	{"compiler",   'c', "STRING", 0, "Extra OpenCL compiler options", 0},
+	{"globalsize", 'g', "SIZE",   0, "Global work size (default is maximum possible)", 0},
+	{"localsize",  'l', "SIZE",   0, "Local work size (default is selected by OpenCL runtime)", 0},
+	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)", 0},
+	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)", 0},
+	{"max_agents", 'm', "SIZE",   0, "Maximum number of agents (default is " STR(DEFAULT_MAX_AGENTS) ")", 0},
+	{ 0, 0, 0, 0, 0, 0 }
 };
 
 /* Argument parser. */
-static struct argp argp = { args_options, ppc_args_parse, 0, args_doc };
+static struct argp argp = { args_options, ppc_args_parse, 0, args_doc, NULL, NULL, NULL };
 
 /* OpenCL kernel files. */
 static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
@@ -66,14 +65,13 @@ int main(int argc, char ** argv) {
 	PPCKernels krnls = {NULL, NULL};
 	PPCEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	PPCSimParams simParams;
 	CLUZone zone;
 	ProfCLProfile* profile;
 	
-	/* Random number generator- */
+	/* Random number generator */
 	GRand* rng = NULL;
 	
 	/* Status var aux */
@@ -83,7 +81,7 @@ int main(int argc, char ** argv) {
 	GError *err = NULL;
 
 	/* Program arguments and default values. */
-	PPCArgs args_values = { DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS};
+	PPCArgs args_values = {DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS};
 	
 	/* Parse arguments. */
 	/** @todo Treat errors properly. */
@@ -111,8 +109,8 @@ int main(int argc, char ** argv) {
 	status = ppc_worksizes_calc(args_values, &workSizes, params.grid_y, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 
-	/* Set simulation parameters in a format more adequate for this program. */
-	simParams = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
+	/* Set simulation parameters for passing to the OpenCL kernels. */
+	buffersHost.sim_params = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
 		
 	/* Print simulation info to screen */
 	ppc_simulation_info_print(zone.cu, workSizes, args_values);
@@ -122,24 +120,26 @@ int main(int argc, char ** argv) {
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Determine size in bytes for host and device data structures. */
-	ppc_datasizes_get(params, simParams, &dataSizes, workSizes);
-	
+	ppc_datasizes_get(params, &dataSizes, workSizes);
+
+#ifdef CLPROFILER	
 	/* Create events data structure. */
 	ppc_events_create(params, &evts);
+#endif
 
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
 	/* Initialize and map host/device buffers */
-	status = ppc_buffers_init(zone, workSizes, &buffersHost, &buffersDevice, dataSizes, &evts, params, simParams, rng, &err);
+	status = ppc_buffers_init(zone, workSizes, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 	
 	/*  Set fixed kernel arguments. */
-	status = ppc_kernelargs_set(&krnls, &buffersDevice, simParams, &err);
+	status = ppc_kernelargs_set(&krnls, &buffersDevice, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Simulation!! */
-	status = ppc_simulate(workSizes, params, zone, krnls, &evts, buffersDevice, &err);
+	status = ppc_simulate(workSizes, params, zone, krnls, &evts, &err);
 	pp_if_error_handle(PP_SUCCESS, status);
 
 	/* Get statistics. */
@@ -168,8 +168,10 @@ cleanup:
 
 	/* Free stuff! */  //printf("Press enter to free memory..."); getchar();
 	
+#ifdef CLPROFILER
 	/* Free events */
 	ppc_events_free(params, &evts); 
+#endif
 	
 	/* Release OpenCL kernels */
 	ppc_kernels_free(&krnls);
@@ -205,7 +207,7 @@ cleanup:
  * @param num_rows Number of rows in (height of) simulation environment.
  * @param err GLib error object for error reporting.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or another @link pp_error_codes::PP_INVALID_ARGS @endlink if parsed command line 
+ * or @link pp_error_codes::PP_INVALID_ARGS @endlink if parsed command line 
  * arguments are not valid for the current simulation.
  * */
 int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_rows, GError **err) {
@@ -293,7 +295,9 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
  * @param program OpenCL program object.
  * @param krnls OpenCL simulation kernels.
  * @param err GLib error object for error reporting.
- * @return
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
 int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
 	
@@ -319,12 +323,12 @@ void ppc_kernels_free(PPCKernels* krnls) {
 }
 
 /**
- * @brief Initialize simulation parameters in host, to be sent to kernels.
+ * @brief Initialize simulation parameters to be sent to kernels.
  * 
  * @param params Simulation parameters.
  * @param null_agent_pointer Constant which indicates no further agents are in cell.
  * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
- * @return
+ * @return Simulation parameters to be sent to OpenCL kernels.
  * */
 PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer, PPCWorkSizes ws) {
 	PPCSimParams simParams;
@@ -342,11 +346,10 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
  * @brief Determine buffer sizes.
  * 
  * @param params Simulation parameters.
- * @param simParams Simulation parameters for OpenCL kernels.
  * @param dataSizes Sizes of simulation data structures.
  * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
-void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
+void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -371,19 +374,25 @@ void ppc_datasizes_get(PPParameters params, PPCSimParams simParams, PPCDataSizes
 /**
  * @brief Initialize and map host/device buffers.
  * 
- * @param zone
+ * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
  * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * @param buffersHost Host buffers.
  * @param buffersDevice Device buffers.
  * @param dataSizes Sizes of simulation data structures.
- * @param evts
+ * @param evts OpenCL events, to be used if profiling is on.
  * @param params Simulation parameters.
- * @param simParams Simulation parameters for OpenCL kernels.
- * @param rng
+ * @param rng Random number generator.
  * @param err GLib error object for error reporting.
- * @return
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
-int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, PPCSimParams simParams, GRand* rng, GError** err) {
+int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err) {
+
+	/* Avoid compiler warning (unused parameter) when profiling is off. */
+#ifndef CLPROFILER
+	evts = evts;
+#endif	
 	
 	/* Aux. variable */
 	cl_int status = PP_SUCCESS;
@@ -413,7 +422,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Creating buffersDevice->agent_params");
 
 	/* Simulation parameters */
-	buffersDevice->sim_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params, &simParams, &status );
+	buffersDevice->sim_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params, &buffersHost->sim_params, &status );
 	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Creating buffersDevice->sim_params");
 
 	/* *********************************************************** */
@@ -556,6 +565,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 
 		} else {
 			/* No more agents to initialize, initialize array position only. */
+			/** @todo Check if it's necessary to perform this initialization. */
 			buffersHost->agents[i].energy = 0;
 			//buffersHost->agents[i].type = 0;
 			//buffersHost->agents[i].action = 0;
@@ -683,11 +693,12 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
  * 
  * @param krnls OpenCL simulation kernels.
  * @param buffersDevice Device buffers.
- * @param simParams Simulation parameters for OpenCL kernels.
  * @param err GLib error object for error reporting.
- * @return 
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
-int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSimParams simParams, GError** err) {
+int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, GError** err) {
 	
 	/* Aux. var. */
 	cl_int status;
@@ -733,14 +744,20 @@ int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, PPCSi
  * 
  * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * @param params Simulation parameters.
- * @param zone
+ * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
  * @param krnls OpenCL simulation kernels.
- * @param evts
- * @param buffersDevice Device buffers.
+ * @param evts OpenCL events, to be used if profiling is on.
  * @param err GLib error object for error reporting.
- * @return
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, PPCBuffersDevice buffersDevice, GError** err) {
+int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, GError** err) {
+
+	/* Avoid compiler warning (unused parameter) when profiling is off. */
+#ifndef CLPROFILER
+	evts = evts;
+#endif	
 	
 	/* Aux. vars. */
 	cl_int status;	
@@ -830,26 +847,24 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->sim_params) clReleaseMemObject(buffersDevice->sim_params);
 }
 
+#ifdef CLPROFILER
 /** 
  * @brief Create events data structure. 
  * 
  * @param params Simulation parameters.
- * @param evts
+ * @param evts OpenCL events, to be used if profiling is on.
  * */
 void ppc_events_create(PPParameters params, PPCEvents* evts) {
 
-#ifdef CLPROFILER
 	evts->step1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->step2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-#endif
-
 }
 
 /** 
  * @brief Free events data structure. 
  * 
  * @param params Simulation parameters.
- * @param evts
+ * @param evts OpenCL events, to be used if profiling is on.
  * */
 void ppc_events_free(PPParameters params, PPCEvents* evts) {
 	
@@ -877,17 +892,19 @@ void ppc_events_free(PPParameters params, PPCEvents* evts) {
 		}
 		free(evts->step2);
 	}
-
 }
+#endif
 
 /** 
  * @brief Analyze events, show profiling info. 
  * 
- * @param profile
- * @param evts
+ * @param profile Profiling information object.
+ * @param evts OpenCL events, to be used if profiling is on.
  * @param params Simulation parameters.
  * @param err GLib error object for error reporting.
- * @return
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
 int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err) {
 
@@ -926,7 +943,12 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
 	}
 	/* Analyse event data. */
 	profcl_profile_aggregate(profile);
-	profcl_profile_overmat(profile);	
+	profcl_profile_overmat(profile);
+#else
+	/* Avoid compiler warning (unused parameter) when profiling is off. */
+	evts = evts;
+	params = params;
+	err = err;
 #endif
 
 	/* Show profiling info. */
@@ -939,18 +961,25 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
 /**
  * @brief Get statistics.
  * 
- * @param filename
- * @param zone
+ * @param filename File where to save simulation output (statistics).
+ * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
  * @param buffersHost Host buffers.
  * @param buffersDevice Device buffers.
  * @param dataSizes Sizes of simulation data structures.
- * @param evts
+ * @param evts OpenCL events, to be used if profiling is on.
  * @param params Simulation parameters.
  * @param err GLib error object for error reporting.
- * @return
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
+ * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
+ * yield an error.
  * */
 int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
 	
+	/* Avoid compiler warning (unused parameter) when profiling is off. */
+#ifndef CLPROFILER
+	evts = evts;
+#endif	
+
 	/* Aux. vars. */
 	cl_int status;	
 	
@@ -1000,10 +1029,10 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 /** 
  * @brief Parse one command-line option. 
  * 
- * @param key
- * @param arg
- * @param state
- * @return
+ * @param key Command line option.
+ * @param arg Value of option.
+ * @param state Current state of command-line parsing.
+ * @return ARGP_ERR_UNKNOWN for any key value not recognized or invalid non-option arguments.
  * */
 error_t ppc_args_parse(int key, char *arg, struct argp_state *state) {
 
