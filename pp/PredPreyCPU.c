@@ -68,8 +68,8 @@ int main(int argc, char ** argv) {
 	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	CLUZone zone;
-	ProfCLProfile* profile;
+	CLUZone* zone = NULL;
+	ProfCLProfile* profile = NULL;
 	
 	/* Random number generator */
 	GRand* rng = NULL;
@@ -77,15 +77,15 @@ int main(int argc, char ** argv) {
 	/* Status var aux */
 	int status = PP_SUCCESS;
 	
-	/* Error management */
+	/* Error management object. */
 	GError *err = NULL;
 
 	/* Program arguments and default values. */
 	PPCArgs args_values = {DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS};
 	
 	/* Parse arguments. */
-	/** @todo Treat errors properly. */
-	argp_parse(&argp, argc, argv, 0, 0, &args_values);
+	status = argp_parse(&argp, argc, argv, ARGP_NO_EXIT, 0, &args_values);
+	pp_if_error_create_goto(err, 0, status, PP_UNKNOWN_ARGS, error_handler, "Unknown arguments");
 	
 	/* Create RNG and set seed. If seed not given, a random seed is used. */
 	rng = (args_values.rng_seed_given) ? g_rand_new_with_seed(args_values.rng_seed) : g_rand_new();
@@ -94,20 +94,20 @@ int main(int argc, char ** argv) {
 	profile = profcl_profile_new();
 	
 	/* Get the required CL zone. */
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
+	pp_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Build program. */
 	status = clu_program_create(&zone, kernelFiles, 2, args_values.compiler_opts, &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	pp_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Get simulation parameters */
 	status = pp_load_params(&params, args_values.params, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
 	status = ppc_worksizes_calc(args_values, &workSizes, params.grid_y, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* Set simulation parameters for passing to the OpenCL kernels. */
 	buffersHost.sim_params = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
@@ -117,7 +117,7 @@ int main(int argc, char ** argv) {
 	
 	/* Create kernels. */
 	status = ppc_kernels_create(zone.program, &krnls, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* Determine size in bytes for host and device data structures. */
 	ppc_datasizes_get(params, &dataSizes, workSizes);
@@ -132,30 +132,30 @@ int main(int argc, char ** argv) {
 
 	/* Initialize and map host/device buffers */
 	status = ppc_buffers_init(zone, workSizes, &buffersHost, &buffersDevice, dataSizes, &evts, params, rng, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 	
 	/*  Set fixed kernel arguments. */
 	status = ppc_kernelargs_set(&krnls, &buffersDevice, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* Simulation!! */
 	status = ppc_simulate(workSizes, params, zone, krnls, &evts, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* Get statistics. */
 	status = ppc_stats_get(args_values.stats, zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone.queues[0]);
-	pp_if_error_create_handle(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Finish for queue 0 after simulation");
+	pp_if_error_create_goto(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation");
 	
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
 
 	/* Analyze events, show profiling info. */
 	status = ppc_profiling_analyze(profile, &evts, params, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	pp_if_error_goto(err, PP_USE_STATUS, status, error_handler);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
@@ -166,7 +166,7 @@ error_handler:
 
 cleanup:
 
-	/* Free stuff! */  //printf("Press enter to free memory..."); getchar();
+	/* Free stuff! */  
 	
 #ifdef CLPROFILER
 	/* Free events */
@@ -182,19 +182,17 @@ cleanup:
 	ppc_devicebuffers_free(&buffersDevice);
 
 	/* Release program, command queues and context */
-	clu_zone_free(&zone);
+	if (zone != NULL) clu_zone_free(zone);
 	
 	/* Free profile data structure */
-	profcl_profile_free(profile);
+	if (profile != NULL) profcl_profile_free(profile);
 	
 	/* Free compiler options. */
 	/** @todo free(compilerOpts); */
 	
 	/* Free RNG */
-	g_rand_free(rng);
+	if (rng != NULL) g_rand_free(rng);
 		
-	//printf("Press enter to bail out..."); getchar();
-
 	/* See ya. */
 	return status;
 }

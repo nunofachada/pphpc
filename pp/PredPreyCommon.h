@@ -50,88 +50,55 @@
 enum pp_error_codes {
 	PP_SUCCESS = 0,						/**< Successfull operation. */
 	PP_UNKNOWN_ARGS = -1,				/**< Unknown arguments. */
-	PP_INVALID_ARGS = -2,				/**< Invalid arguments. */
+	PP_INVALID_ARGS = -2,				/**< Arguments are known but invalid. */
 	PP_LIBRARY_ERROR = -3,				/**< OpenCL error. */
 	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,	/**< Parameters file not found. */
 	PP_INVALID_PARAMS_FILE = -5			/**< Invalid parameters file. */
+	PP_USE_STATUS = -255				/**< Don't change status variable. */
+	PP_USE_GERROR = -256				/**< Use error code in GError object. */
 };
 
 
 /** 
- * @brief If error is detected, create an error object (GError) and go to the error_handler label. 
+ * @brief If error is detected (<tt>error_code != no_error_code</tt>), 
+ * create an error object (GError) and go to the specified label. 
  * 
- * @param err GError object.
- * @param no_error_code Successfull operation code.
- * @param error_code Possible error code.
- * @param pp_error_code Error code returned by program if <tt>error_code != no_error_code</tt>.
+ * @param err GError* object.
+ * @param no_error_code Successful operation code.
+ * @param error_code Possible error code. Error is detected here.
+ * @param error_code_to_set Code to set in GError object if error is detected.
+ * @param label Label to goto if error is detected.
  * @param msg Error message in case of error.
  * @param ... Extra parameters for error message.
  * */
-#define pp_if_error_create_handle(err, no_error_code, error_code, pp_error_code, msg, ...)	\
-	if (error_code != no_error_code) {														\
-		g_set_error(&err, PP_ERROR, error_code, msg, ##__VA_ARGS__);						\
-		error_code = pp_error_code;															\
-		goto error_handler;																	\
+#define pp_if_error_create_goto(err, no_error_code, error_code, error_code_to_set, label, msg, ...) \
+	if (error_code != no_error_code) { \
+		g_set_error(&(err), PP_ERROR, (error_code), (msg), ##__VA_ARGS__); \
+		goto label; \
 	}
 	
+	
 /** 
- * @brief If error is detected, create an error object (GError) and return from function with given error code.
+ * @brief If error is detected in <tt>err</tt> object (<tt>err != NULL</tt>),
+ * set <tt>status</tt> to specified <tt>error_code</tt> 
+ * OR to error code set in the GError object if 
+ * <tt>error_code = </tt> @link pp_error_codes::PP_USE_GERROR @endlink) 
+ * OR leave status untouched if
+ * <tt>error_code = </tt> @link pp_error_codes::PP_USE_STATUS @endlink) 
+ * and go to the specified label.
  * 
- * @param err GError object.
- * @param no_error_code Successfull operation code.
- * @param error_code Possible error code.
- * @param pp_error_code Error code returned by program if <tt>error_code != no_error_code</tt>.
- * @param msg Error message in case of error.
- * @param ... Extra parameters for error message.
+ * @param err GError* object.
+ * @param error_code Error code.
+ * @param status Error status variable.
+ * @param label Label to goto if error is detected.
  * */
-#define pp_if_error_create_return(err, no_error_code, error_code, pp_error_code, msg, ...)	\
-	if (error_code != no_error_code) {														\
-		g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);							\
-		return pp_error_code;																\
+ #define pp_if_error_goto(err, error_code, status, label)	\
+	if ((err) != NULL) { \
+		if ((error_code) != PP_USE_STATUS) { \
+			status = ((error_code) == PP_USE_GERROR) ? (err)->code : (error_code); \
+		} \
+		goto label; \
 	}
-	
-/** 
- * @brief If error is detected (<tt>error_code != no_error_code</tt>) go to the specified label.
- * 
- * @param no_error_code Successfull operation code.
- * @param error_code Possible error code.
- * */
- #define pp_if_error_handle(no_error_code, error_code)	\
-	if (error_code != no_error_code) goto error_handler;
-	
-/** 
- * @brief If error is detected (<tt>error_code != no_error_code</tt>) return from function with return error code.
- * 
- * @param no_error_code Successfull operation code.
- * @param error_code Possible error code.
- * @param pp_error_code Error code to be returned by function.
- * */
-#define pp_if_error_return(no_error_code, error_code, pp_error_code)	\
-	if (error_code != no_error_code) return pp_error_code;
-
-/**
- * @brief Create error and return from function.
- * 
- * @param err GError object.
- * @param error_code Possible error code.
- * @param msg Error message in case of error.
- * @param ... Extra parameters for error message.
- * */
-#define pp_error_create_return(err, error_code, msg, ...)		\
-	g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);	\
-	return error_code;
-	
-/**
- * @brief Create error and goto error_handler label.
- * 
- * @param err GError object.
- * @param error_code Possible error code.
- * @param msg Error message in case of error.
- * @param ... Extra parameters for error message.
- * */
- #define pp_error_create_handle(err, error_code, msg, ...)		\
-	g_set_error(err, PP_ERROR, error_code, msg, ##__VA_ARGS__);	\
-	goto error_handler;
 	
 
 /** @} */
