@@ -20,6 +20,7 @@
 #include <argp.h>
 #include <limits.h>
 #include "clutils.h"
+#include "gerrorf.h"
 #include "bitstuff.h"
 #include "clprofiler.h"
 
@@ -39,12 +40,6 @@
 #define PP_ERROR pp_error_quark()
 
 /**
- * @defgroup PP_ERROR Error handling
- *
- * @{
- */
-
-/**
  * @brief Program error codes.
  * */ 
 enum pp_error_codes {
@@ -53,55 +48,8 @@ enum pp_error_codes {
 	PP_INVALID_ARGS = -2,				/**< Arguments are known but invalid. */
 	PP_LIBRARY_ERROR = -3,				/**< OpenCL error. */
 	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,	/**< Parameters file not found. */
-	PP_INVALID_PARAMS_FILE = -5,		/**< Invalid parameters file. */
-	PP_USE_STATUS = -255,				/**< Don't change status variable. */
-	PP_USE_GERROR = -256				/**< Use error code in GError object. */
+	PP_INVALID_PARAMS_FILE = -5			/**< Invalid parameters file. */
 };
-
-
-/** 
- * @brief If error is detected (<tt>error_code != no_error_code</tt>), 
- * create an error object (GError) and go to the specified label. 
- * 
- * @param err GError* object.
- * @param no_error_code Successful operation code.
- * @param error_code Possible error code. Error is detected here.
- * @param error_code_to_set Code to set in GError object if error is detected.
- * @param label Label to goto if error is detected.
- * @param msg Error message in case of error.
- * @param ... Extra parameters for error message.
- * */
-#define pp_if_error_create_goto(err, no_error_code, error_code, error_code_to_set, label, msg, ...) \
-	if (error_code != no_error_code) { \
-		g_set_error(&(err), PP_ERROR, (error_code), (msg), ##__VA_ARGS__); \
-		goto label; \
-	}
-	
-	
-/** 
- * @brief If error is detected in <tt>err</tt> object (<tt>err != NULL</tt>),
- * set <tt>status</tt> to specified <tt>error_code</tt> 
- * OR to error code set in the GError object if 
- * <tt>error_code = </tt> @link pp_error_codes::PP_USE_GERROR @endlink) 
- * OR leave status untouched if
- * <tt>error_code = </tt> @link pp_error_codes::PP_USE_STATUS @endlink) 
- * and go to the specified label.
- * 
- * @param err GError* object.
- * @param error_code Error code.
- * @param status Error status variable.
- * @param label Label to goto if error is detected.
- * */
- #define pp_if_error_goto(err, error_code, status, label)	\
-	if ((err) != NULL) { \
-		if ((error_code) != PP_USE_STATUS) { \
-			status = ((error_code) == PP_USE_GERROR) ? (err)->code : (error_code); \
-		} \
-		goto label; \
-	}
-	
-
-/** @} */
 
 /** 
  * @brief Simulation statistics.
