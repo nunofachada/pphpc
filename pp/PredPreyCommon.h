@@ -53,8 +53,8 @@ enum pp_error_codes {
 	PP_INVALID_ARGS = -2,				/**< Arguments are known but invalid. */
 	PP_LIBRARY_ERROR = -3,				/**< OpenCL error. */
 	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,	/**< Parameters file not found. */
-	PP_INVALID_PARAMS_FILE = -5			/**< Invalid parameters file. */
-	PP_USE_STATUS = -255				/**< Don't change status variable. */
+	PP_INVALID_PARAMS_FILE = -5,		/**< Invalid parameters file. */
+	PP_USE_STATUS = -255,				/**< Don't change status variable. */
 	PP_USE_GERROR = -256				/**< Use error code in GError object. */
 };
 
@@ -143,7 +143,7 @@ typedef struct pp_agent_params {
 int pp_load_params(PPParameters* parameters, const char * paramsFile, GError** err);
 
 /** @brief Show proper error messages. */
-void pp_error_handle(GError* err, int status, CLUZone zone);
+void pp_error_handle(GError* err, int status, CLUZone* zone);
 
 /** @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);

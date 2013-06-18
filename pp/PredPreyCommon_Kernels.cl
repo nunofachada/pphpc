@@ -3,17 +3,17 @@
  * @brief Common OpenCL kernels and data structures for PredPrey simulation.
  */
 
-typedef struct pp_statistics {
+typedef struct pp_statistics_ocl {
 	uint sheep;
 	uint wolves;
 	uint grass;
-} PPStatistics;
+} PPStatisticsOcl;
 
-typedef struct pp_agent_params {
+typedef struct pp_agent_params_ocl {
 	uint gain_from_food;
 	uint reproduce_threshold;
 	uint reproduce_prob; /* between 1 and 100 */
-} PPAgentParams;
+} PPAgentParamsOcl;
 
 /*
  * RNG utility function, not to be called directly from kernels.
