@@ -5,14 +5,14 @@
  
 #include "PredPreyCPU.h"
 
-/* Helper macros to convert int to string at compile time. */
+/** Helper macros to convert int to string at compile time. */
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-/* By default, no options are passed to the OpenCL compiler. */
+/** By default, no options are passed to the OpenCL compiler. */
 #define DEFAULT_COMPILER_OPTS ""
 
-/* The default maximum number of agents: 16777216. Each agent requires
+/** The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
  * agents buffer. A higher value may lead to faster simulations
  * given that it will increase the success rate of new agent allocations,
@@ -20,7 +20,7 @@
  * longer. */
 #define DEFAULT_MAX_AGENTS 16777216
 
-/* Perform direct OpenCL profiling if the C compiler has defined a 
+/** Perform direct OpenCL profiling if the C compiler has defined a 
  * CLPROFILER constant. */
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
@@ -28,10 +28,10 @@
 	#define QUEUE_PROPERTIES 0
 #endif
 
-/* A description of the program. */
+/** A description of the program. */
 static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the CPU";
 
-/* Valid command line options. */
+/** Valid command line options. */
 static struct argp_option args_options[] = {
 	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")", 0},
 	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")", 0},
@@ -44,10 +44,10 @@ static struct argp_option args_options[] = {
 	{ 0, 0, 0, 0, 0, 0 }
 };
 
-/* Argument parser. */
+/** Argument parser. */
 static struct argp argp = { args_options, ppc_args_parse, 0, args_doc, NULL, NULL, NULL };
 
-/* OpenCL kernel files. */
+/** OpenCL kernel files. */
 static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
 
 /**
@@ -87,9 +87,9 @@ int main(int argc, char ** argv) {
 	/* Error management object. */
 	GError *err = NULL;
 	
-	/* Parse arguments. */
-	status = argp_parse(&argp, argc, argv, ARGP_NO_EXIT, 0, &args_values);
-	gef_if_error_create_goto(err, PP_ERROR, 0, status, PP_UNKNOWN_ARGS, error_handler, "Unknown arguments");
+	/* Parse arguments. */ /** @todo eventually replace by GLib parser */
+	status = argp_parse(&argp, argc, argv, 0, NULL, &args_values);
+	//gef_if_error_create_goto(err, PP_ERROR, 0 != status, PP_UNKNOWN_ARGS, error_handler, "Unknown arguments");
 	
 	/* Create RNG and set seed. If seed not given, a random seed is used. */
 	rng = (args_values.rng_seed_given) ? g_rand_new_with_seed(args_values.rng_seed) : g_rand_new();
@@ -152,7 +152,7 @@ int main(int argc, char ** argv) {
 
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation");
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation");
 	
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
@@ -166,7 +166,7 @@ int main(int argc, char ** argv) {
 	
 error_handler:
 	/* Handle error. */
-	pp_error_handle(err, status, zone);
+	pp_error_handle(err, status);
 
 cleanup:
 
@@ -227,7 +227,7 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_r
 			workSizes->gws = args.gws;
 		} else {
 			/* No, specified value is too large for the given problem. */
-			gef_if_error_create_goto(*err, PP_ERROR, PP_SUCCESS, PP_INVALID_ARGS, PP_INVALID_ARGS, error_handler, "Global work size is too large for model parameters. Maximum size is %d.", (int) workSizes->max_gws);
+			gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_ARGS, error_handler, "Global work size is too large for model parameters. Maximum size is %d.", (int) workSizes->max_gws);
 		}
 	} else {
 		/* User did not specify a value, thus find a good one (which will be 
@@ -246,7 +246,7 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_r
 	
 	/* Check that the global work size is a multiple of the local work size. */
 	if ((workSizes->lws > 0) && (workSizes->gws % workSizes->lws != 0)) {
-		gef_if_error_create_goto(*err, PP_ERROR, PP_SUCCESS, PP_INVALID_ARGS, PP_INVALID_ARGS, error_handler, "Global work size (%d) is not multiple of local work size (%d).", (int) workSizes->gws, (int) workSizes->lws);
+		gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_ARGS, error_handler, "Global work size (%d) is not multiple of local work size (%d).", (int) workSizes->gws, (int) workSizes->lws);
 	}
 	
 	/* Set maximum number of agents. */
@@ -318,10 +318,10 @@ int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err) {
 	
 	/* Create kernels. */
 	krnls->step1 = clCreateKernel(program, "step1", &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Create kernel: step1");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: step1");	
 	
 	krnls->step2 = clCreateKernel(program, "step2", &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Create kernel: step2");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: step2");	
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -429,27 +429,27 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	
 	/* Statistics */
 	buffersDevice->stats = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats, NULL, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->stats");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->stats");	
 	
 	/* Grass matrix */
 	buffersDevice->matrix = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix, NULL, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->matrix");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->matrix");	
 
 	/* Agent array */
 	buffersDevice->agents = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents, NULL, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agents");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agents");	
 
 	/* Random number generator array of seeds */
 	buffersDevice->rng_seeds = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds, NULL, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->rng_seeds");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->rng_seeds");	
 
 	/* Agent parameters */
 	buffersDevice->agent_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agent_params");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agent_params");	
 
 	/* Simulation parameters */
 	buffersDevice->sim_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params, &buffersHost->sim_params, &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->sim_params");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->sim_params");	
 
 	/* *********************************************************** */
 	/* Initialize host buffers, which are mapped to device buffers */
@@ -472,7 +472,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->stats");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->stats");	
 
 	buffersHost->stats[0].sheep = params.init_sheep;
 	buffersHost->stats[0].wolves = params.init_wolves;
@@ -500,7 +500,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->matrix");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->matrix");	
 
 	for(cl_uint i = 0; i < params.grid_x; i++) {
 		for (cl_uint j = 0; j < params.grid_y; j++) {
@@ -534,7 +534,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->stats");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->stats");	
 
 	/* Initialize agent array */
 	buffersHost->agents = (PPCAgent *) clEnqueueMapBuffer( 
@@ -553,7 +553,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agents");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agents");	
 
 	for(cl_uint i = 0; i < ws.max_agents; i++) 	{
 		/* Check if there are still agents to initialize. */
@@ -612,7 +612,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);	
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agents");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agents");	
 
 	/* Unmap matrix buffer from device */ 
 	status = clEnqueueUnmapMemObject(
@@ -627,7 +627,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->matrix");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->matrix");	
 
 	/* Initialize RNG seeds */
 	buffersHost->rng_seeds = (cl_ulong *) clEnqueueMapBuffer(
@@ -646,7 +646,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->rng_seeds");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->rng_seeds");	
 
 	for (unsigned int i = 0; i < ws.gws; i++) {
 		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
@@ -665,7 +665,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->rng_seeds");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->rng_seeds");	
 
 	/* Initialize agent parameters */
 	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer( 
@@ -684,7 +684,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agent_params");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agent_params");	
 
 	buffersHost->agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
 	buffersHost->agent_params[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
@@ -706,7 +706,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agent_params");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agent_params");	
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -741,35 +741,35 @@ int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, GErro
 	
 	/* Step1 kernel - Move agents, grow grass */
 	status = clSetKernelArg(krnls->step1, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 0 of step1_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 0 of step1_kernel");	
 
 	status = clSetKernelArg(krnls->step1, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 1 of step1_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 1 of step1_kernel");	
 
 	status = clSetKernelArg(krnls->step1, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 2 of step1_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 2 of step1_kernel");	
 
 	status = clSetKernelArg(krnls->step1, 4, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 4 of step1_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 4 of step1_kernel");	
 
 	/* Step2 kernel - Agent actions, get stats */
 	status = clSetKernelArg(krnls->step2, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 0 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 0 of step2_kernel");	
 
 	status = clSetKernelArg(krnls->step2, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 1 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 1 of step2_kernel");	
 
 	status = clSetKernelArg(krnls->step2, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 2 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 2 of step2_kernel");	
 
 	status = clSetKernelArg(krnls->step2, 3, sizeof(cl_mem), (void *) &buffersDevice->stats);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 3 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 3 of step2_kernel");	
 
 	status = clSetKernelArg(krnls->step2, 6, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 6 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 6 of step2_kernel");	
 
 	status = clSetKernelArg(krnls->step2, 7, sizeof(cl_mem), (void *) &buffersDevice->agent_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 7 of step2_kernel");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 7 of step2_kernel");	
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -823,7 +823,7 @@ int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCK
 			
 			/* Set turn on step1_kernel */
 			status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 3 of step1_kernel");	
+			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 3 of step1_kernel");	
 
 			/* Run kernel */
 			status = clEnqueueNDRangeKernel( 
@@ -841,19 +841,19 @@ int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCK
 				NULL
 #endif
 			);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "step1_kernel");	
+			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "step1_kernel");	
 
 		}
 
 		/* Step 2:  Agent actions, get stats */
 		status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 4 of step2_kernel");	
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 4 of step2_kernel");	
 
 		for (cl_uint turn = 0; turn < workSizes.rows_per_workitem; turn++ ) {
 
 			/* Set turn on step2_kernel */
 			status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Arg 5 of step2_kernel");	
+			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Arg 5 of step2_kernel");	
 			
 			/* Run kernel */
 			status = clEnqueueNDRangeKernel(
@@ -871,7 +871,7 @@ int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCK
 				NULL
 #endif
 			);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "step2_kernel");	
+			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "step2_kernel");	
 			
 		}
 
@@ -973,31 +973,31 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
 	
 	/* One time events. */
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats start", evts->map_stats_start, evts->unmap_stats_start, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_start");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_start");
 
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap matrix", evts->map_matrix, evts->unmap_matrix, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_matrix");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_matrix");
 
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agents", evts->map_agents, evts->unmap_agents, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agents");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agents");
 
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap rng_seeds", evts->map_rng_seeds, evts->unmap_rng_seeds, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_rng_seeds");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_rng_seeds");
 
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agent_params", evts->map_agent_params, evts->unmap_agent_params, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agent_params");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agent_params");
 
 	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats end", evts->map_stats_end, evts->unmap_stats_end, &status));
-	pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_end");
+	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_end");
 
 
 	/* Simulation loop events. */
 	for (guint i = 0; i < params.iters; i++) {
 		profcl_profile_add(profile, profcl_evinfo_get("Step1", evts->step1[i], &status));
-		pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: step1[%d]", i);
+		pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: step1[%d]", i);
 
 		profcl_profile_add(profile, profcl_evinfo_get("Step2", evts->step2[i], &status));
-		pp_if_error_create_return(err, CL_SUCCESS, status, PP_LIBRARY_ERROR, "Add event to profile: step2[%d]", i);
+		pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: step2[%d]", i);
 	}
 	/* Analyse event data. */
 	profcl_profile_aggregate(profile);
@@ -1058,7 +1058,7 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 #endif
 		&status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost.stats");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost.stats");	
 
 	/* Output results to file */
 	FILE * fp1 = fopen(filename, "w");
@@ -1079,7 +1079,7 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS, status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost.stats");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost.stats");	
 
 	/* If we got here, everything is OK. */
 	goto finish;

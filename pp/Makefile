@@ -53,7 +53,7 @@ PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 	cp PredPreyCPU_Kernels.cl $(BUILDDIR)
 
-PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h
+PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h $(UTILSINCLUDEDIR)/gerrorf.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@ -c $<
 	cp PredPreyCommon_Kernels.cl $(BUILDDIR)
 

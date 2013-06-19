@@ -91,7 +91,7 @@ typedef struct pp_agent_params {
 int pp_load_params(PPParameters* parameters, const char * paramsFile, GError** err);
 
 /** @brief Show proper error messages. */
-void pp_error_handle(GError* err, int status, CLUZone* zone);
+void pp_error_handle(GError* err, int status);
 
 /** @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);
