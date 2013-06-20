@@ -18,14 +18,13 @@
  * @brief Parsed command-line arguments. 
  * */
 typedef struct pp_c_args {
-	char *params;			/**< Parameters file. */
-	char *stats;			/**< Stats output file. */
-	char* compiler_opts;	/**< Compiler options. */
+	gchar* params;			/**< Parameters file. */
+	gchar* stats;			/**< Stats output file. */
+	gchar* compiler_opts;	/**< Compiler options. */
 	size_t gws;				/**< Global work size. */
 	size_t lws;				/**< Local work size. */
 	cl_int dev_idx;			/**< Index of device to use. */
-	char rng_seed_given;	/**< True if rng seed is given, false otherwise. */
-	guint32 rng_seed;		/**< Rng seed. */
+	guint32* rng_seed;		/**< Rng seed. */
 	cl_uint max_agents;		/**< Maximum number of agents. */
 } PPCArgs;
 
@@ -181,10 +180,13 @@ void ppc_events_free(PPParameters params, PPCEvents* evts);
 /** @brief Analyze events, show profiling info. */
 int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err);
 
-/** @brief Get statistics. */
-int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
+/** @brief Save statistics. */
+int ppc_stats_save(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err);
 
-/** @brief Parse one command-line option. */
-error_t ppc_args_parse(int key, char *arg, struct argp_state *state);
+/** @brief Parse command-line options. */
+void ppc_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
+
+/** @brief Free command line parsing related objects. */
+void ppc_args_free(GOptionContext* context);
 
 #endif

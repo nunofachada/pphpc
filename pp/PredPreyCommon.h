@@ -31,10 +31,10 @@
 #define WOLF_ID 1
 
 /** Default parameters file. */
-#define DEFAULT_PARAMS_FILE "config.txt"
+#define PP_DEFAULT_PARAMS_FILE "config.txt"
 
 /** Default statistics output file. */
-#define DEFAULT_STATS_FILE "stats.txt"
+#define PP_DEFAULT_STATS_FILE "stats.txt"
 
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
@@ -43,12 +43,13 @@
  * @brief Program error codes.
  * */ 
 enum pp_error_codes {
-	PP_SUCCESS = 0,						/**< Successfull operation. */
-	PP_UNKNOWN_ARGS = -1,				/**< Unknown arguments. */
-	PP_INVALID_ARGS = -2,				/**< Arguments are known but invalid. */
-	PP_LIBRARY_ERROR = -3,				/**< OpenCL error. */
-	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,	/**< Parameters file not found. */
-	PP_INVALID_PARAMS_FILE = -5			/**< Invalid parameters file. */
+	PP_SUCCESS = 0,                     /**< Successfull operation. */
+	PP_UNKNOWN_ARGS = -1,               /**< Unknown arguments. */
+	PP_INVALID_ARGS = -2,               /**< Arguments are known but invalid. */
+	PP_LIBRARY_ERROR = -3,              /**< OpenCL error. */
+	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4, /**< Parameters file not found. */
+	PP_INVALID_PARAMS_FILE = -5,        /**< Invalid parameters file. */
+	PP_UNABLE_SAVE_STATS = -6           /**< Unable to save stats. */
 };
 
 /** 
@@ -88,7 +89,7 @@ typedef struct pp_agent_params {
 } PPAgentParams;
 
 /** @brief Load predator-prey simulation parameters. */
-int pp_load_params(PPParameters* parameters, const char * paramsFile, GError** err);
+int pp_load_params(PPParameters* parameters, char * filename, GError** err);
 
 /** @brief Show proper error messages. */
 void pp_error_handle(GError* err, int status);

@@ -11,22 +11,22 @@
  * @brief Load simulation parameters.
  * 
  * @param parameters Parameters structure to be populated.
- * @param paramsFile File containing simulation parameters.
+ * @param paramsFile File containing simulation parameters (or NULL if default file is to be used).
  * @param err Error structure, to be populated if an error occurs.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
  * or another value of #pp_error_codes if an error occurs.
  * */
-int pp_load_params(PPParameters* parameters, const char* paramsFile, GError** err) {
+int pp_load_params(PPParameters* parameters, char* filename, GError** err) {
 
 	char param[100];
 	unsigned int value;
 	unsigned int check = 0;
-	FILE * fp = fopen(paramsFile, "r");
+	FILE * fp;
 	int status = PP_SUCCESS;
-
-	if(fp == NULL) {
-		gef_if_error_create_goto(*err, PP_ERROR, 1, PP_UNABLE_TO_OPEN_PARAMS_FILE, error_handler, "Unable to open file \"%s\"", paramsFile);
-	}	
+	char* paramsFile = (filename != NULL) ? filename : PP_DEFAULT_PARAMS_FILE;
+	
+	fp = fopen(paramsFile, "r");
+	gef_if_error_create_goto(*err, PP_ERROR, fp == NULL, PP_UNABLE_TO_OPEN_PARAMS_FILE, error_handler, "Unable to open file \"%s\"", paramsFile);
 
 	while (fscanf(fp, "%s = %d", param, &value) != EOF) {
 		if (strcmp(param, "INIT_SHEEP") == 0) {

@@ -9,16 +9,13 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-/** By default, no options are passed to the OpenCL compiler. */
-#define DEFAULT_COMPILER_OPTS ""
-
 /** The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
  * agents buffer. A higher value may lead to faster simulations
  * given that it will increase the success rate of new agent allocations,
  * but on the other hand memory allocation and initialization may take
  * longer. */
-#define DEFAULT_MAX_AGENTS 16777216
+#define PPC_DEFAULT_MAX_AGENTS 16777216
 
 /** Perform direct OpenCL profiling if the C compiler has defined a 
  * CLPROFILER constant. */
@@ -29,23 +26,73 @@
 #endif
 
 /** A description of the program. */
-static char args_doc[] = "PredPreyCPU -- OpenCL predator-prey simulation for the CPU";
+#define PPC_DESCRIPTION "OpenCL predator-prey simulation for the CPU"
+
+/** Command line arguments and respective default values. */
+static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, NULL, PPC_DEFAULT_MAX_AGENTS};
+
+/**
+ * @brief Callback function to read RNG seed from program arguments. It's
+ * an implementation of GLib's <tt>(*GOptionParseFunc)</tt> hook function.
+ * 
+ * @param option_name Ignored.
+ * @param value String from where to extract seed.
+ * @param data Ignored.
+ * @param err GLib error object for error reporting.
+ * @return TRUE if memory allocation for random seed successful, FALSE otherwise.
+ * */
+static gboolean ppc_args_seed_set(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
+	/* Status var. */
+	gboolean status = TRUE;
+	/* Avoid compiler warning, we're not really using these parameters. */
+	option_name = option_name; data = data;
+	/* Allocate memory for RNG seed. */
+	args.rng_seed = (guint32*) malloc(sizeof(guint32));
+	/* Check if allocation was successful. */
+	gef_if_error_create_goto(*err, G_OPTION_ERROR, args.rng_seed == NULL, G_OPTION_ERROR_FAILED, error_handler, "Unable to allocate memory for RNG seed.");
+	/* Allocation successful, set seed and goto finish. */
+	*args.rng_seed = atoi(value);
+	goto finish;
+error_handler:
+	/* Allocation not successful, set status to FALSE. */
+	status = FALSE;
+finish:
+	return status;
+}
+
+/**
+ * @brief Callback function which will be called when non-option 
+ * command line arguments are given. The function will throw an error
+ * and fail. It's an implementation of GLib's <tt>(*GOptionParseFunc)</tt> 
+ * hook function.
+ * 
+ * @param option_name Ignored.
+ * @param value Ignored.
+ * @param data Ignored.
+ * @param err GLib error object for error reporting.
+ * @return Always FALSE.
+ * */
+static gboolean ppc_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
+	/* Avoid compiler warning, we're not really using these parameters. */
+	option_name = option_name; value = value; data = data;
+	/* Set error and return FALSE. */
+	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
+	return FALSE;
+}
 
 /** Valid command line options. */
-static struct argp_option args_options[] = {
-	{"params",     'p', "FILE",   0, "Specify parameters file (default is " DEFAULT_PARAMS_FILE ")", 0},
-	{"stats",      's', "FILE",   0, "Specify statistics output file (default is " DEFAULT_STATS_FILE ")", 0},
-	{"compiler",   'c', "STRING", 0, "Extra OpenCL compiler options", 0},
-	{"globalsize", 'g', "SIZE",   0, "Global work size (default is maximum possible)", 0},
-	{"localsize",  'l', "SIZE",   0, "Local work size (default is selected by OpenCL runtime)", 0},
-	{"device",     'd', "INDEX",  0, "Device index (if not given and more than one device is available, chose device from menu)", 0},
-	{"rng_seed",   'r', "STRING", 0, "Seed for random number generator (default is random)", 0},
-	{"max_agents", 'm', "SIZE",   0, "Maximum number of agents (default is " STR(DEFAULT_MAX_AGENTS) ")", 0},
-	{ 0, 0, 0, 0, 0, 0 }
+static GOptionEntry entries[] = {
+	{"params",          'p', 0, G_OPTION_ARG_FILENAME, &args.params,        "Specify parameters file (default is " PP_DEFAULT_PARAMS_FILE ")",                           "FILENAME"},
+	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,         "Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",                     "FILENAME"},
+	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
+	{"globalsize",      'g', 0, G_OPTION_ARG_INT,      &args.gws,           "Global work size (default is maximum possible)",                                            "SIZE"},
+	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
+	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
+	{"rng_seed",        'r', 0, G_OPTION_ARG_CALLBACK, ppc_args_seed_set,   "Seed for random number generator (default is random)",                                      "SEED"},
+	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
+	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, ppc_args_fail,       NULL,                                                                                        NULL},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
-
-/** Argument parser. */
-static struct argp argp = { args_options, ppc_args_parse, 0, args_doc, NULL, NULL, NULL };
 
 /** OpenCL kernel files. */
 static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyCPU_Kernels.cl"};
@@ -63,6 +110,9 @@ int main(int argc, char ** argv) {
 	/* Status var aux */
 	int status = PP_SUCCESS;
 	
+	/* Context object for command line argument parsing. */
+	GOptionContext *context = NULL;
+	
 	/* Predator-Prey simulation data structures. */
 	PPCWorkSizes workSizes;
 	PPCKernels krnls = {NULL, NULL};
@@ -71,9 +121,6 @@ int main(int argc, char ** argv) {
 	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	
-	/* Program arguments and default values. */
-	PPCArgs args_values = {DEFAULT_PARAMS_FILE, DEFAULT_STATS_FILE, DEFAULT_COMPILER_OPTS, 0, 0, -1, 0, 0, DEFAULT_MAX_AGENTS};
 
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
@@ -87,37 +134,37 @@ int main(int argc, char ** argv) {
 	/* Error management object. */
 	GError *err = NULL;
 	
-	/* Parse arguments. */ /** @todo eventually replace by GLib parser */
-	status = argp_parse(&argp, argc, argv, 0, NULL, &args_values);
-	//gef_if_error_create_goto(err, PP_ERROR, 0 != status, PP_UNKNOWN_ARGS, error_handler, "Unknown arguments");
+	/* Parse arguments. */
+	ppc_args_parse(argc, argv, &context, &err);
+	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 	
 	/* Create RNG and set seed. If seed not given, a random seed is used. */
-	rng = (args_values.rng_seed_given) ? g_rand_new_with_seed(args_values.rng_seed) : g_rand_new();
+	rng = (args.rng_seed != NULL) ? g_rand_new_with_seed(*(args.rng_seed)) : g_rand_new();
 
 	/* Profiling / Timmings. */
 	profile = profcl_profile_new();
 	
 	/* Get the required CL zone. */
-	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args_values.dev_idx != -1 ? &args_values.dev_idx : NULL), &err);
+	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 2, args_values.compiler_opts, &err);
+	status = clu_program_create(zone, kernelFiles, 2, args.compiler_opts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Get simulation parameters */
-	status = pp_load_params(&params, args_values.params, &err);
+	status = pp_load_params(&params, args.params, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Determine number of threads to use based on compute capabilities and user arguments */
-	status = ppc_worksizes_calc(args_values, &workSizes, params.grid_y, &err);
+	status = ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Set simulation parameters for passing to the OpenCL kernels. */
 	buffersHost.sim_params = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
 		
 	/* Print simulation info to screen */
-	ppc_simulation_info_print(zone->cu, workSizes, args_values);
+	ppc_simulation_info_print(zone->cu, workSizes, args);
 	
 	/* Create kernels. */
 	status = ppc_kernels_create(zone->program, &krnls, &err);
@@ -147,7 +194,7 @@ int main(int argc, char ** argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Get statistics. */
-	status = ppc_stats_get(args_values.stats, *zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
+	status = ppc_stats_save(args.stats, *zone, &buffersHost, &buffersDevice, dataSizes, &evts, params, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Guarantee all activity has terminated... */
@@ -184,6 +231,9 @@ cleanup:
 	 * because of CL_MEM_ALLOC_HOST_PTR (I think). If we try to 
 	 * free() the host buffers we will have a kind of segfault. */
 	ppc_devicebuffers_free(&buffersDevice);
+	
+	/* Free context and associated cli args parsing buffers. */
+	ppc_args_free(context);
 
 	/* Release program, command queues and context */
 	if (zone != NULL) clu_zone_free(zone);
@@ -290,11 +340,11 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
 	printf("  - Maximum number of agents   : %d\n", (int) workSizes.max_agents);
 	/* ...RNG seed */
 	printf("  - Random seed                : ");
-	if (args.rng_seed_given) printf("%d\n", args.rng_seed);
+	if (args.rng_seed != NULL) printf("%d\n", *args.rng_seed);
 	else printf("auto\n");
 	/* ...Compiler options (out of table) */
 	printf("  - Compiler options           : ");
-	if (strcmp(args.compiler_opts, "") != 0) printf("%s\n", args.compiler_opts);
+	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
 	else printf("none\n");
 	/* ...Finish table. */
 	printf("   ========================================================================= \n");
@@ -1031,7 +1081,7 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
  * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
  * yield an error.
  * */
-int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
+int ppc_stats_save(gchar* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
 	
 	/* Avoid compiler warning (unused parameter) when profiling is off. */
 #ifndef CLPROFILER
@@ -1040,6 +1090,12 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 
 	/* Aux. vars. */
 	cl_int status;	
+	
+	/* Stats file. */
+	FILE * fp;
+	
+	/* Get definite file name. */
+	gchar* realFilename = (filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
 	
 	/* Map stats host buffer in order to get statistics */
 	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer( 
@@ -1061,10 +1117,12 @@ int ppc_stats_get(char* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPC
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost.stats");	
 
 	/* Output results to file */
-	FILE * fp1 = fopen(filename, "w");
+	fp = fopen(realFilename, "w");
+	gef_if_error_create_goto(*err, PP_ERROR, fp == NULL, PP_UNABLE_SAVE_STATS, error_handler, "Unable to open file \"%s\"", realFilename);
+
 	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", buffersHost->stats[i].sheep, buffersHost->stats[i].wolves, buffersHost->stats[i].grass );
-	fclose(fp1);
+		fprintf(fp, "%d\t%d\t%d\n", buffersHost->stats[i].sheep, buffersHost->stats[i].wolves, buffersHost->stats[i].grass );
+	fclose(fp);
 
 	/* Unmap stats host buffer. */
 	status = clEnqueueUnmapMemObject( 
@@ -1097,46 +1155,30 @@ finish:
 }
 
 /** 
- * @brief Parse one command-line option. 
+ * @brief Parse command-line options. 
  * 
- * @param key Command line option.
- * @param arg Value of option.
- * @param state Current state of command-line parsing.
- * @return ARGP_ERR_UNKNOWN for any key value not recognized or invalid non-option arguments.
+ * @param argc Number of command line arguments.
+ * @param argv Command line arguments.
+ * @param context Context object for command line argument parsing.
+ * @param err GLib error object for error reporting.
  * */
-error_t ppc_args_parse(int key, char *arg, struct argp_state *state) {
+void ppc_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
+	*context = g_option_context_new (" - " PPC_DESCRIPTION);
+	g_option_context_add_main_entries(*context, entries, NULL);
+	g_option_context_parse(*context, &argc, &argv, err);
+}
 
-	/* The input argument from argp_parse is a pointer to a PPCArgs structure. */
-	PPCArgs *args = state->input;
-     
-	switch (key) {
-	case 'p':
-		args->params = arg;
-		break;
-	case 's':
-		args->stats = arg;
-		break;
-	case 'c':
-		args->compiler_opts = arg;
-		break;
-	case 'g':
-		args->gws = (size_t) atoi(arg);
-		break;
-	case 'l':
-		args->lws = (size_t) atoi(arg);
-		break;
-	case 'd':
-		args->dev_idx = (cl_uint) atoi(arg);
-		break;
-	case 'r':
-		args->rng_seed_given = 1;
-		args->rng_seed = (guint32) atoi(arg);
-		break;
-	case 'm':
-		args->max_agents = atoi(arg);
-		break;
-	default:
-		return ARGP_ERR_UNKNOWN;
+/**
+ * @brief Free command line parsing related objects.
+ * 
+ * @param context Context object for command line argument parsing.
+ * */
+void ppc_args_free(GOptionContext* context) {
+	if (context) {
+		g_option_context_free(context);
 	}
-	return 0;
+	if (args.params) g_free(args.params);
+	if (args.stats) g_free(args.stats);
+	if (args.compiler_opts) g_free(args.compiler_opts);
+	if (args.rng_seed) free(args.rng_seed);
 }
