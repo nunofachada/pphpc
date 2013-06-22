@@ -1016,42 +1016,47 @@ void ppc_events_free(PPParameters params, PPCEvents* evts) {
  * */
 int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err) {
 
+	/* Status var. */
+	int status;
+		
 #ifdef CLPROFILER
-	
 	/* Perfomed detailed analysis onfy if profiling flag is set. */
-	cl_int status;
 	
 	/* One time events. */
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats start", evts->map_stats_start, evts->unmap_stats_start, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_start");
+	profcl_profile_add_composite(profile, "Map/unmap stats start", evts->map_stats_start, evts->unmap_stats_start, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap matrix", evts->map_matrix, evts->unmap_matrix, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_matrix");
+	profcl_profile_add_composite(profile, "Map/unmap matrix", evts->map_matrix, evts->unmap_matrix, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agents", evts->map_agents, evts->unmap_agents, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agents");
+	profcl_profile_add_composite(profile, "Map/unmap agents", evts->map_agents, evts->unmap_agents, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap rng_seeds", evts->map_rng_seeds, evts->unmap_rng_seeds, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_rng_seeds");
+	profcl_profile_add_composite(profile, "Map/unmap rng_seeds", evts->map_rng_seeds, evts->unmap_rng_seeds, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap agent_params", evts->map_agent_params, evts->unmap_agent_params, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_agent_params");
+	profcl_profile_add_composite(profile, "Map/unmap agent_params", evts->map_agent_params, evts->unmap_agent_params, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_composite_get("Map/unmap stats end", evts->map_stats_end, evts->unmap_stats_end, &status));
-	pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: map/unmap_stats_end");
-
+	profcl_profile_add_composite(profile, "Map/unmap stats end", evts->map_stats_end, evts->unmap_stats_end, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Simulation loop events. */
 	for (guint i = 0; i < params.iters; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("Step1", evts->step1[i], &status));
-		pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: step1[%d]", i);
+		profcl_profile_add(profile, "Step1", evts->step1[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		profcl_profile_add(profile, profcl_evinfo_get("Step2", evts->step2[i], &status));
-		pp_if_error_create_return(err, CL_SUCCESS != status, PP_LIBRARY_ERROR, "Add event to profile: step2[%d]", i);
+		profcl_profile_add(profile, "Step2", evts->step2[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
+	
 	/* Analyse event data. */
-	profcl_profile_aggregate(profile);
-	profcl_profile_overmat(profile);
+	profcl_profile_aggregate(profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	
+	profcl_profile_overmat(profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	
 #else
 	/* Avoid compiler warning (unused parameter) when profiling is off. */
 	evts = evts;
@@ -1060,10 +1065,24 @@ int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters 
 #endif
 
 	/* Show profiling info. */
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
-	/* Success. */
-	return PP_SUCCESS;
+	/* If we got here, everything is OK. */
+	status = PP_SUCCESS;
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;	
+
 }
 
 /**

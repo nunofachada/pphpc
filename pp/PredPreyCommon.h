@@ -46,7 +46,7 @@ enum pp_error_codes {
 	PP_SUCCESS = 0,                     /**< Successfull operation. */
 	PP_UNKNOWN_ARGS = -1,               /**< Unknown arguments. */
 	PP_INVALID_ARGS = -2,               /**< Arguments are known but invalid. */
-	PP_LIBRARY_ERROR = -3,              /**< OpenCL error. */
+	PP_LIBRARY_ERROR = -3,              /**< Error in external library. */
 	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4, /**< Parameters file not found. */
 	PP_INVALID_PARAMS_FILE = -5,        /**< Invalid parameters file. */
 	PP_UNABLE_SAVE_STATS = -6           /**< Unable to save stats. */

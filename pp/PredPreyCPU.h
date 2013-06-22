@@ -7,7 +7,7 @@
 #define PREDPREYCPU_H
 
 #include "PredPreyCommon.h"
-
+#define CLPROFILER
 /** 
  * @brief Constant which indicates no further agents are in a cell. 
  * */
