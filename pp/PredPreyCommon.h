@@ -30,6 +30,10 @@
 /** Wolf ID. */
 #define WOLF_ID 1
 
+/** Helper macros to convert int to string at compile time. */
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 /** Default parameters file. */
 #define PP_DEFAULT_PARAMS_FILE "config.txt"
 

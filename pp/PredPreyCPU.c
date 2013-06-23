@@ -5,10 +5,6 @@
  
 #include "PredPreyCPU.h"
 
-/** Helper macros to convert int to string at compile time. */
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
-
 /** The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
  * agents buffer. A higher value may lead to faster simulations
@@ -33,7 +29,7 @@ static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, NULL, PPC_DEFAULT_MAX_AGENTS}
 
 /**
  * @brief Callback function to read RNG seed from program arguments. It's
- * an implementation of GLib's <tt>(*GOptionParseFunc)</tt> hook function.
+ * an implementation of GLib's <tt>(*GOptionArgFunc)</tt> hook function.
  * 
  * @param option_name Ignored.
  * @param value String from where to extract seed.
@@ -63,7 +59,7 @@ finish:
 /**
  * @brief Callback function which will be called when non-option 
  * command line arguments are given. The function will throw an error
- * and fail. It's an implementation of GLib's <tt>(*GOptionParseFunc)</tt> 
+ * and fail. It's an implementation of GLib's <tt>(*GOptionArgFunc)</tt> 
  * hook function.
  * 
  * @param option_name Ignored.
@@ -143,6 +139,7 @@ int main(int argc, char ** argv) {
 
 	/* Profiling / Timmings. */
 	profile = profcl_profile_new();
+	gef_if_error_create_goto(err, PP_ERROR, profile == NULL, PP_LIBRARY_ERROR, error_handler, "Unable to create profiler object.");
 	
 	/* Get the required CL zone. */
 	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
