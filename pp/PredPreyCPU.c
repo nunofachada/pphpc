@@ -322,29 +322,28 @@ finish:
  * */
 void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
 	/* ...Header */
-	printf("\n   ========================= Computational settings ======================== \n");	
+	printf("\n   ========================= Computational settings ======================== \n\n");	
 	/* ...Compute units */
-	printf("  - Compute units in device    : %d\n", cu);	
+	printf("     Compute units in device    : %d\n", cu);	
 	/* ...Global worksize */
-	printf("  - Global work size (max)     : %d (%d)\n", (int) workSizes.gws, (int) workSizes.max_gws);
+	printf("     Global work size (max)     : %d (%d)\n", (int) workSizes.gws, (int) workSizes.max_gws);
 	/* ...Local worksize */
-	printf("  - Local work size            : ");
+	printf("     Local work size            : ");
 	if (workSizes.lws == 0) printf("auto\n");
 	else printf("%d\n", (int) workSizes.lws);
 	/* ...Rows per workitem */
-	printf("  - Rows per work-item         : %d\n", (int) workSizes.rows_per_workitem);
+	printf("     Rows per work-item         : %d\n", (int) workSizes.rows_per_workitem);
 	/* ...Maximum number of agents */
-	printf("  - Maximum number of agents   : %d\n", (int) workSizes.max_agents);
+	printf("     Maximum number of agents   : %d\n", (int) workSizes.max_agents);
 	/* ...RNG seed */
-	printf("  - Random seed                : ");
+	printf("     Random seed                : ");
 	if (args.rng_seed != NULL) printf("%d\n", *args.rng_seed);
 	else printf("auto\n");
 	/* ...Compiler options (out of table) */
-	printf("  - Compiler options           : ");
+	printf("     Compiler options           : ");
 	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
 	else printf("none\n");
 	/* ...Finish table. */
-	printf("   ========================================================================= \n");
 	
 }
 
