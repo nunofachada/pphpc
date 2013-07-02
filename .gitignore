@@ -8,4 +8,5 @@ bin/
 obj/
 stats*.txt
 config.txt
-opencl-utils
+cf4ocl
+

@@ -3,7 +3,7 @@ export OBJDIR := ${CURDIR}/obj
 export BUILDDIR := ${CURDIR}/bin
 export CLMACROS
 
-UTILSDIR := opencl-utils
+UTILSDIR := cf4ocl
 
 SUBDIRS = pp $(UTILSDIR)
 
@@ -27,7 +27,7 @@ pp: $(UTILSDIR)
 $(UTILSDIR): getutils
 
 getutils:
-	test -d $(UTILSDIR) || git clone http://www.laseeb.org/git/$(UTILSDIR)
+	test -d $(UTILSDIR) || git clone https://github.com/FakenMC/cf4ocl.git
 
 mkdirs:
 	mkdir -p $(BUILDDIR)

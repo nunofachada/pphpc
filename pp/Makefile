@@ -8,7 +8,7 @@ BUILDDIR := ../bin
 $(warning BUILDDIR is not defined, assuming default $(BUILDDIR))
 endif
 ifndef UTILSINCLUDEDIR
-UTILSINCLUDEDIR := ../opencl-utils
+UTILSINCLUDEDIR := ../cf4ocl
 $(warning UTILSINCLUDEDIR is not defined, assuming default $(UTILSINCLUDEDIR))
 endif
 
@@ -24,10 +24,10 @@ UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/bitstuff.o $(OBJDIR)/clprofiler.o
 TESTSDIR = tests
 
 # Phony targets
-.PHONY: all clean mkdirs utils profiling
+.PHONY: all clean mkdirs profiling
 
 # Targets and rules
-all: utils mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU 
+all: mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU 
 
 profiling: CLMACROS += -DCLPROFILER
 profiling: all
