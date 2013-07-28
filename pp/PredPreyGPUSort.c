@@ -54,11 +54,12 @@ int main(int argc, char ** argv)
 {
 	
 	// Status var aux
-	cl_int status;
-	int status_pp;
+	int status;
 	
 	// Error management
 	GError *err = NULL;
+	
+
 	
 	// Host memory buffers
 	PPStatistics * statsArrayHost = NULL;
@@ -94,32 +95,33 @@ int main(int argc, char ** argv)
 		*readNumAgents_event = NULL;
 	
 	
-	// Init random number generator
-	srandom((unsigned)(time(0)));
+	/* CL Zone */
+	CLUZone* zone;
+	/* Random number generator */
+	GRand* rng = NULL;
 
 	// Profiling / Timmings
 	ProfCLProfile* profile = profcl_profile_new();
 
-	// 1. Get the required CL zone.
-	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
-	clu_if_error_goto(status, err, error);
+	/* Get the required CL zone. */
+	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
+	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Build program. */
-	status = clu_program_create(&zone, kernelFiles, 2, NULL, &err);
-	clu_if_error_goto(status, err, error);
+	status = clu_program_create(zone, kernelFiles, 2, NULL, &err);
+	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	// 2. Get simulation parameters
-	status_pp = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
-	pp_if_error_goto(status_pp, err, error);	
+	status = pp_load_params(&params, PP_DEFAULT_PARAMS_FILE, &err);
+	gef_if_error_goto(err, GEF_USE_GERROR, status, error_handler);
 
 	// 3. Compute work sizes for different kernels and print them to screen
-	computeWorkSizes(params, zone.device_type, zone.cu);	
+	computeWorkSizes(params, zone->device_type, zone->cu);	
 	printFixedWorkSizes();
 
 	// 4. obtain kernels entry points.
-	status = getKernelEntryPoints(zone.program, &err);
-	clu_if_error_goto(status, err, error);
+	status = getKernelEntryPoints(zone->program, &err);
+	gef_if_error_goto(err, GEF_USE_GERROR, status, error_handler);
 
 	printf("-------- Simulation start --------\n");		
 	
@@ -198,33 +200,33 @@ int main(int argc, char ** argv)
 	}
 
 	// 6. Create OpenCL buffers
-	statsArrayDevice = clCreateBuffer(zone.context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, statsSizeInBytes, statsArrayHost, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating statsArrayDevice");
+	statsArrayDevice = clCreateBuffer(zone->context, CL_MEM_WRITE_ONLY | CL_MEM_COPY_HOST_PTR, statsSizeInBytes, statsArrayHost, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating statsArrayDevice")
 
-	agentArrayDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, agentsSizeInBytes, agentArrayHost, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating agentsArrayDevice");
+	agentArrayDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, agentsSizeInBytes, agentArrayHost, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating agentsArrayDevice")
 
-	grassMatrixDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, grassSizeInBytes, grassMatrixHost, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating grassMatrixDevice");
+	grassMatrixDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, grassSizeInBytes, grassMatrixHost, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating grassMatrixDevice")
 
-	iterDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), &iter, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating iterDevice");
+	iterDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), &iter, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating iterDevice")
 
 	// Stuff to get number of agents out in each iteration
-	numAgentsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(cl_uint), numAgentsHost, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating numAgentsDevice");
+	numAgentsDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(cl_uint), numAgentsHost, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating numAgentsDevice")
 
-	grassCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, grasscount2_gws[0]*sizeof(cl_uint), NULL, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating grassCountDevice");
+	grassCountDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, grasscount2_gws[0]*sizeof(cl_uint), NULL, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating grassCountDevice")
 
-	agentsCountDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE, (MAX_AGENTS / agentcount2_lws)*sizeof(cl_uint2), NULL, &status ); // This size is the maximum you'll ever need for the given maximum number of agents
-	clu_if_error_create_error_goto(status, &err, error, "Creating agentsCountDevice");
+	agentsCountDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, (MAX_AGENTS / agentcount2_lws)*sizeof(cl_uint2), NULL, &status ); // This size is the maximum you'll ever need for the given maximum number of agents
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating agentsCountDevice")
 
-	agentParamsDevice = clCreateBuffer(zone.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 2*sizeof(PPAgentParams), agent_params, &status ); // Two types of agent, thus two packs of agent parameters
-	clu_if_error_create_error_goto(status, &err, error, "Creating agentParamsDevice");
+	agentParamsDevice = clCreateBuffer(zone->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 2*sizeof(PPAgentParams), agent_params, &status ); // Two types of agent, thus two packs of agent parameters
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating agentParamsDevice")
 
-	rngSeedsDevice = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, rngSeedsSizeInBytes, rngSeedsHost, &status );
-	clu_if_error_create_error_goto(status, &err, error, "Creating rngSeedsDevice");
+	rngSeedsDevice = clCreateBuffer(zone->context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, rngSeedsSizeInBytes, rngSeedsHost, &status );
+	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_label, "Creating rngSeedsDevice")
 
 	// 7. Set fixed kernel arguments
 
@@ -345,7 +347,7 @@ int main(int argc, char ** argv)
 	grasscount2_event = (cl_event*) calloc(params.iters * numGrassCount2Loops, sizeof(cl_event)); // Exact usage scenario
 	readNumAgents_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	cl_uint agentsort_event_index = 0, agentcount2_event_index = 0, grasscount2_event_index = 0;
-	clFinish(zone.queues[0]); // Guarantee all memory transfers are performed
+	clFinish(zone->queues[0]); // Guarantee all memory transfers are performed
 	profcl_profile_start(profile);
 	for (iter = 1; iter <= params.iters; iter++) {
 		//printf("iter %d\n", iter);
@@ -358,11 +360,11 @@ int main(int argc, char ** argv)
 		cl_uint iterbase = iter - 1;
 
 		// Agent movement
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentaction_move_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], agentmov_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentaction_move_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "agentmov kernel");
 
 		// Grass growth and agent number reset
-		status = clEnqueueNDRangeKernel( zone.queues[0], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, grass_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], grass_kernel, 2, NULL, grass_gws, grass_lws, 0, NULL, grass_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "grass kernel");
 
 		// Sort agent array
@@ -371,7 +373,7 @@ int main(int argc, char ** argv)
 		while (agentsort_gws % agentsort_lws != 0)
 			agentsort_lws = agentsort_lws / 2;
 		cl_uint totalStages = (cl_uint) tzc(agentsort_gws * 2);
-		status = clEnqueueWaitForEvents(zone.queues[0], 1, agentaction_move_event + iterbase);
+		status = clEnqueueWaitForEvents(zone->queues[0], 1, agentaction_move_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "wait for events after agentmov");
 		for (unsigned int currentStage = 1; currentStage <= totalStages; currentStage++) {
 			cl_uint step = currentStage;
@@ -380,9 +382,9 @@ int main(int argc, char ** argv)
 				clu_if_error_create_error_goto(status, &err, error, "arg 1 of sort kernel");
 				status = clSetKernelArg(sort_kernel, 2, sizeof(cl_uint), (void *) &currentStep);
 				clu_if_error_create_error_goto(status, &err, error, "arg 2 of sort kernel");
-				status = clEnqueueNDRangeKernel( zone.queues[0], sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, agentsort_event + agentsort_event_index);
+				status = clEnqueueNDRangeKernel( zone->queues[0], sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, agentsort_event + agentsort_event_index);
 				clu_if_error_create_error_goto(status, &err, error, "sort kernel");
-				status = clEnqueueBarrier(zone.queues[0]);
+				status = clEnqueueBarrier(zone->queues[0]);
 				clu_if_error_create_error_goto(status, &err, error, "in sort agents loop");
 
 				agentsort_event_index++;
@@ -390,19 +392,19 @@ int main(int argc, char ** argv)
 		}
 
 		// Update agent number in grid
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentupdate_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentupdate_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], agentupdate_kernel, 1, NULL, &agent_gws, &agent_lws, 0, NULL, agentupdate_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "agentupdate_kernel");
 
 		// agent actions
-		status = clEnqueueNDRangeKernel( zone.queues[0], agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, agentupdate_event + iterbase, agentaction_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], agentaction_kernel, 1, NULL, &agent_gws, &agent_lws, 1, agentupdate_event + iterbase, agentaction_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "agentaction kernel");
 
 		// Gather statistics
 		// Count agents, part 1
-		status = clEnqueueNDRangeKernel( zone.queues[0], countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, agentaction_event + iterbase, agentcount1_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], countagents1_kernel, 1, NULL, &agentcount1_gws, &agentcount1_lws, 1, agentaction_event + iterbase, agentcount1_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "countagents1 kernel");
 		// Count grass, part 1
-		status = clEnqueueNDRangeKernel( zone.queues[0], countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, agentaction_event + iterbase, grasscount1_event + iterbase);
+		status = clEnqueueNDRangeKernel( zone->queues[0], countgrass1_kernel, 1, NULL, &grasscount1_gws, &grasscount1_lws, 1, agentaction_event + iterbase, grasscount1_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "countgrass1 kernel");
 		// Count agents, part 2
 		do {
@@ -411,12 +413,12 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(countagents2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextAgentsToCount);
 			clu_if_error_create_error_goto(status, &err, error, "Arg 2 of countagents2 kernel");
 
-			status = clEnqueueNDRangeKernel( zone.queues[0], countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, agentcount1_event + iterbase, agentcount2_event + agentcount2_event_index);
+			status = clEnqueueNDRangeKernel( zone->queues[0], countagents2_kernel, 1, NULL, &agentcount2_gws, &agentcount2_lws, 1, agentcount1_event + iterbase, agentcount2_event + agentcount2_event_index);
 			clu_if_error_create_error_goto(status, &err, error, "countagents2 kernel");
 
 			effectiveNextAgentsToCount = agentcount2_gws / agentcount2_lws;
 
-			status = clEnqueueBarrier(zone.queues[0]);
+			status = clEnqueueBarrier(zone->queues[0]);
 			clu_if_error_create_error_goto(status, &err, error, "in agent count loops");
 
 			agentcount2_event_index++;
@@ -424,7 +426,7 @@ int main(int argc, char ** argv)
 		} while (effectiveNextAgentsToCount > 1);
 
 		// Get total number of agents
-		status = clEnqueueReadBuffer(zone.queues[0], numAgentsDevice, CL_FALSE, 0, sizeof(cl_uint), numAgentsHost, 0, NULL, readNumAgents_event + iterbase);
+		status = clEnqueueReadBuffer(zone->queues[0], numAgentsDevice, CL_FALSE, 0, sizeof(cl_uint), numAgentsHost, 0, NULL, readNumAgents_event + iterbase);
 		clu_if_error_create_error_goto(status, &err, error, "numAgents read");
 
 		// Count grass, part 2
@@ -433,10 +435,10 @@ int main(int argc, char ** argv)
 			status = clSetKernelArg(countgrass2_kernel, 2, sizeof(cl_uint), (void *) &effectiveNextGrassToCount[i]);
 			clu_if_error_create_error_goto(status, &err, error, "Arg 2 of countgrass2 kernel");
 
-			status = clEnqueueNDRangeKernel( zone.queues[0], countgrass2_kernel, 1, NULL, &grasscount2_gws[i], &grasscount2_lws, 1, grasscount1_event + iterbase, grasscount2_event + grasscount2_event_index);
+			status = clEnqueueNDRangeKernel( zone->queues[0], countgrass2_kernel, 1, NULL, &grasscount2_gws[i], &grasscount2_lws, 1, grasscount1_event + iterbase, grasscount2_event + grasscount2_event_index);
 			clu_if_error_create_error_goto(status, &err, error, "countgrass2_kernel");
 
-			status = clEnqueueBarrier(zone.queues[0]);
+			status = clEnqueueBarrier(zone->queues[0]);
 			clu_if_error_create_error_goto(status, &err, error, "in grass count loops");
 
 			grasscount2_event_index++;
@@ -450,13 +452,13 @@ int main(int argc, char ** argv)
 	}
 
 	// Guarantee all kernels have really terminated...
-	clFinish(zone.queues[0]);
+	clFinish(zone->queues[0]);
 
 	// Finish profiling
 	profcl_profile_stop(profile);  
 
 	// Get statistics
-	status = clEnqueueReadBuffer(zone.queues[0], statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
+	status = clEnqueueReadBuffer(zone->queues[0], statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
 	clu_if_error_create_error_goto(status, &err, error, "statsArray read");
 	
 	// 9. Output results to file
@@ -495,7 +497,7 @@ int main(int argc, char ** argv)
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
 	
-error:
+error_handler:
 	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
 	g_error_free(err);
 	if (zone.build_log) clu_build_log_print(&zone);
