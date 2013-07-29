@@ -101,6 +101,10 @@ int main(int argc, char ** argv)
 
 	// Profiling / Timmings
 	ProfCLProfile* profile = profcl_profile_new();
+	
+	// Avoid compiler warnings
+	argc = argc;
+	argv = argv;
 
 	/* Get the required CL zone. */
 	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
@@ -469,29 +473,29 @@ int main(int argc, char ** argv)
 	/* Analyze events */
 #ifdef CLPROFILER 
 	for (unsigned int i = 0; i < params.iters; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("agentaction_move", agentaction_move_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("grass", grass_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("agentupdate", agentupdate_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("agentaction", agentaction_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("agentcount1", agentcount1_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("grasscount1", grasscount1_event[i], &status));
-		profcl_profile_add(profile, profcl_evinfo_get("readNumAgents", readNumAgents_event[i], &status));
+		profcl_profile_add(profile, "agentaction_move", agentaction_move_event[i], NULL);
+		profcl_profile_add(profile, "grass", grass_event[i], NULL);
+		profcl_profile_add(profile, "agentupdate", agentupdate_event[i], NULL);
+		profcl_profile_add(profile, "agentaction", agentaction_event[i], NULL);
+		profcl_profile_add(profile, "agentcount1", agentcount1_event[i], NULL);
+		profcl_profile_add(profile, "grasscount1", grasscount1_event[i], NULL);
+		profcl_profile_add(profile, "readNumAgents", readNumAgents_event[i], NULL);
 	}
 	for (unsigned int i = 0; i < agentsort_event_index; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("agentsort", agentsort_event[i], &status));
+		profcl_profile_add(profile, "agentsort", agentsort_event[i], NULL);
 	}
 	for (unsigned int i = 0; i < grasscount2_event_index; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("grasscount2", grasscount2_event[i], &status));
+		profcl_profile_add(profile, "grasscount2", grasscount2_event[i], NULL);
 	}
 	for (unsigned int i = 0; i < agentcount2_event_index; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("agentcount2", agentcount2_event[i], &status));
+		profcl_profile_add(profile, "agentcount2", agentcount2_event[i], NULL);
 	}
-	profcl_profile_aggregate(profile);
-	profcl_profile_overmat(profile);	
+	profcl_profile_aggregate(profile, NULL);
+	profcl_profile_overmat(profile, NULL);	
 #endif
 
 	/* Print profiling info. */ 
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, &err);
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, NULL);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;

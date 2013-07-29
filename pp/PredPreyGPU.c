@@ -57,21 +57,25 @@ int main(int argc, char **argv)
 	GRand* rng = g_rand_new();
 #endif	
 	
+	/** @todo Remove. */
+	argc = argc;
+	argv = argv;
+	
 	/* Get simulation parameters */
-	status = pp_load_params(&params, DEFAULT_PARAMS_FILE, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	status = pp_load_params(&params, PP_DEFAULT_PARAMS_FILE, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Set simulation parameters in a format more adequate for this program. */
 	PPGSimParams simParams = ppg_simparams_init(params);
 
-	/* Get the required CL zone. */
-	CLUZone zone;
-	status = clu_zone_new(&zone, CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	/* Get the required CL zone-> */
+	CLUZone* zone;
+	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
+	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Compute work sizes for different kernels and print them to screen. */
-	status = ppg_worksizes_compute(params, zone.device, &gws, &lws, &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	status = ppg_worksizes_compute(params, zone->device, &gws, &lws, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	ppg_worksizes_print(gws, lws);
 
 	/* Compiler options. */
@@ -79,12 +83,12 @@ int main(int argc, char **argv)
 	printf("%s\n", compilerOpts);
 
 	/* Build program. */
-	status = clu_program_create(&zone, kernelFiles, 2, compilerOpts, &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	status = clu_program_create(zone, kernelFiles, 2, compilerOpts, &err);
+	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Create kernels. */
-	status = ppg_kernels_create(zone.program, &krnls, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	status = ppg_kernels_create(zone->program, &krnls, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Determine size in bytes for host and device data structures. */
 	ppg_datasizes_get(params, simParams, &dataSizes, gws, lws);
@@ -93,22 +97,22 @@ int main(int argc, char **argv)
 	ppg_hostbuffers_create(&buffersHost, &dataSizes, params, rng);
 
 	/* Create device buffers */
-	status = ppg_devicebuffers_create(zone.context, &buffersHost, &buffersDevice, &dataSizes, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	status = ppg_devicebuffers_create(zone->context, &buffersDevice, &dataSizes, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Create events data structure. */
 	ppg_events_create(params, &evts);
 
 	/*  Set fixed kernel arguments. */
 	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &dataSizes, &err);
-	pp_if_error_handle(CL_SUCCESS, status);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
 	/* Simulation!! */
 	status = ppg_simulate(params, zone, gws, lws, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Stop basic timing / profiling. */
 	profcl_profile_stop(profile);  
@@ -118,17 +122,17 @@ int main(int argc, char **argv)
 
 	/* Analyze events, show profiling info. */
 	status = ppg_profiling_analyze(profile, &evts, params, &err);
-	pp_if_error_handle(PP_SUCCESS, status);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
 	goto cleanup;
 	
-error:
-	fprintf(stderr, "Error %d: %s\n", err->code, err->message);
-	g_error_free(err);
-	if (zone.build_log) clu_build_log_print(&zone);
+error_handler:
+	/* Handle error. */
+	pp_error_handle(err, status);
 
 cleanup:
+
 	/* Release OpenCL kernels */
 	ppg_kernels_free(&krnls);
 	
@@ -136,7 +140,7 @@ cleanup:
 	ppg_devicebuffers_free(&buffersDevice);
 
 	/* Release OpenCL zone (program, command queue, context) */
-	clu_zone_free(&zone);
+	clu_zone_free(zone);
 
 	/* Free host resources */
 	ppg_hostbuffers_free(&buffersHost);
@@ -162,7 +166,7 @@ cleanup:
  * @brief Perform simulation
  * 
  * */
-cl_int ppg_simulate(PPParameters params, CLUZone zone, 
+cl_int ppg_simulate(PPParameters params, CLUZone* zone, 
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, 
 	PPGKernels krnls, PPGEvents* evts, 
 	PPGDataSizes dataSizes, 
@@ -176,27 +180,27 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 	cl_uint iter = 0; 
 		
 	/* Load data into device buffers. */
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_alive, CL_FALSE, 0, dataSizes.cells_grass_alive, buffersHost.cells_grass_alive, 0, NULL, &evts->write_grass_alive);
-	clu_if_error_create_error_return(status, err, "Write device buffer: cells_grass_alive");
+	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_grass_alive, CL_FALSE, 0, dataSizes.cells_grass_alive, buffersHost.cells_grass_alive, 0, NULL, &evts->write_grass_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_grass_alive");
 	
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts->write_grass_timer);
-	clu_if_error_create_error_return(status, err, "Write device buffer: cells_grass_timer");
+	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts->write_grass_timer);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_grass_timer");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_number, CL_FALSE, 0, dataSizes.cells_agents_number, buffersHost.cells_agents_number, 0, NULL, &evts->write_agents_number);
-	clu_if_error_create_error_return(status, err, "Write device buffer: cells_agents_number");
+	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_agents_number, CL_FALSE, 0, dataSizes.cells_agents_number, buffersHost.cells_agents_number, 0, NULL, &evts->write_agents_number);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_agents_number");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.cells_agents_index, CL_FALSE, 0, dataSizes.cells_agents_index, buffersHost.cells_agents_index, 0, NULL, &evts->write_agents_index);
-	clu_if_error_create_error_return(status, err, "Write device buffer: cells_agents_index");
+	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_agents_index, CL_FALSE, 0, dataSizes.cells_agents_index, buffersHost.cells_agents_index, 0, NULL, &evts->write_agents_index);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_agents_index");
 
-	status = clEnqueueWriteBuffer(zone.queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
-	clu_if_error_create_error_return(status, err, "Write device buffer: rng_seeds");
+	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds");
 	
 	/* SIMULATION LOOP */
 	for (iter = 1; iter <= params.iters; iter++) {
 		
 		/* Grass kernel: grow grass, set number of prey to zero */
 		status = clEnqueueNDRangeKernel(
-			zone.queues[0], 
+			zone->queues[0], 
 			krnls.grass, 1, 
 			NULL, 
 			&gws.grass, 
@@ -209,11 +213,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			NULL
 #endif
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: grass, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d", iter);
 
 		/* Perform grass reduction. */
 		status = clEnqueueNDRangeKernel(
-			zone.queues[0], 
+			zone->queues[0], 
 			krnls.reduce_grass1, 
 			1, 
 			NULL, 
@@ -227,10 +231,10 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			NULL
 #endif
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass1, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass1, iteration %d", iter);
 		
 		status = clEnqueueNDRangeKernel(
-			zone.queues[0], 
+			zone->queues[0], 
 			krnls.reduce_grass2, 
 			1, 
 			NULL, 
@@ -240,11 +244,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			iter > 1 ? &evts->read_stats[iter - 2] : NULL,
 			&evts->reduce_grass2[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Kernel exec.: reduce_grass2, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d", iter);
 
 		/* Get statistics. */
 		status = clEnqueueReadBuffer(
-			zone.queues[1], 
+			zone->queues[1], 
 			buffersDevice.stats, 
 			CL_FALSE, 
 			0, 
@@ -254,70 +258,102 @@ cl_int ppg_simulate(PPParameters params, CLUZone zone,
 			&evts->reduce_grass2[iter - 1], 
 			&evts->read_stats[iter - 1]
 		);
-		clu_if_error_create_error_return(status, err, "Read back stats, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d", iter);
 		
 	}
 	
 	/* Guarantee all activity has terminated... */
-	status = clFinish(zone.queues[0]);
-	clu_if_error_create_error_return(status, err, "Finish for queue 0 after simulation");
-	status = clFinish(zone.queues[1]);
-	clu_if_error_create_error_return(status, err, "Finish for queue 1 after simulation");
+	status = clFinish(zone->queues[0]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation");
+	status = clFinish(zone->queues[1]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 1 after simulation");
 	
-	/* Successfull simulation! */
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 	
 }
 
 /* Perform profiling analysis */
 cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err) {
 
+	cl_int status;
+	
 #ifdef CLPROFILER
 	
 	/* Perfomed detailed analysis onfy if profiling flag is set. */
-	cl_int status;
 	
 	/* One time events. */
-	profcl_profile_add(profile, profcl_evinfo_get("Write data", evts->write_grass_alive, &status));
-	clu_if_error_create_error_return(status, err, "Add event to profile: write_grass_alive");
+	profcl_profile_add(profile, "Write data", evts->write_grass_alive, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_get("Write data", evts->write_grass_timer, &status));
-	clu_if_error_create_error_return(status, err, "Add event to profile: write_grass_timer");
+	profcl_profile_add(profile, "Write data", evts->write_grass_timer, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_get("Write data", evts->write_agents_number, &status));
-	clu_if_error_create_error_return(status, err, "Add event to profile: write_agents_number");
+	profcl_profile_add(profile, "Write data", evts->write_agents_number, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_get("Write data", evts->write_agents_index, &status));
-	clu_if_error_create_error_return(status, err, "Add event to profile: write_agents_index");
+	profcl_profile_add(profile, "Write data", evts->write_agents_index, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, profcl_evinfo_get("Write data", evts->write_rng, &status));
-	clu_if_error_create_error_return(status, err, "Add event to profile: write_rng");
+	profcl_profile_add(profile, "Write data", evts->write_rng, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Simulation loop events. */
 	for (guint i = 0; i < params.iters; i++) {
-		profcl_profile_add(profile, profcl_evinfo_get("Grass", evts->grass[i], &status));
-		clu_if_error_create_error_return(status, err, "Add event to profile: grass[%d]", i);
+		profcl_profile_add(profile, "Grass", evts->grass[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		profcl_profile_add(profile, profcl_evinfo_get("Read stats", evts->read_stats[i], &status));
-		clu_if_error_create_error_return(status, err, "Add event to profile: read_stats[%d]", i);
+		profcl_profile_add(profile, "Read stats", evts->read_stats[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		profcl_profile_add(profile, profcl_evinfo_get("Reduce grass 1", evts->reduce_grass1[i], &status));
-		clu_if_error_create_error_return(status, err, "Add event to profile: reduce_grass1[%d]", i);
+		profcl_profile_add(profile, "Reduce grass 1", evts->reduce_grass1[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		profcl_profile_add(profile, profcl_evinfo_get("Reduce grass 2", evts->reduce_grass2[i], &status));
-		clu_if_error_create_error_return(status, err, "Add event to profile: reduce_grass2[%d]", i);
+		profcl_profile_add(profile, "Reduce grass 2", evts->reduce_grass2[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 	}
 	/* Analyse event data. */
-	profcl_profile_aggregate(profile);
-	profcl_profile_overmat(profile);	
+	profcl_profile_aggregate(profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	profcl_profile_overmat(profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+
+#else
+	/* Avoid compiler warnings. */
+	evts = evts;
+	params = params;
+	
 #endif
 
 	/* Show profiling info. */
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME);
+	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
-	/* Success. */
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 }
 
 /* Compute worksizes depending on the device type and number of available compute units */
@@ -336,7 +372,7 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 	);
 	
 	/* Check for errors on the OpenCL call */
-	clu_if_error_create_error_return(status, err, "Get device info.");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info.");	
 
 	/* grass growth worksizes */
 #ifdef LWS_GRASS
@@ -356,7 +392,19 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 }
 
 // Print worksizes
@@ -373,15 +421,27 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	cl_int status;
 	
 	krnls->grass = clCreateKernel(program, "grass", &status);
-	clu_if_error_create_error_return(status, err, "Create kernel: grass");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: grass");	
 	
 	krnls->reduce_grass1 = clCreateKernel(program, "reduceGrass1", &status);
-	clu_if_error_create_error_return(status, err, "Create kernel: reduceGrass1");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceGrass1");	
 	
 	krnls->reduce_grass2 = clCreateKernel(program, "reduceGrass2", &status);
-	clu_if_error_create_error_return(status, err, "Create kernel: reduceGrass2");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceGrass2");	
 	
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 }
 
 // Release kernels
@@ -411,39 +471,50 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	
 	/* Grass kernel */
 	status = clSetKernelArg(krnls->grass, 0, sizeof(cl_mem), (void*) &buffersDevice->cells_grass_alive);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 0 of grass");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of grass");
 
 	status = clSetKernelArg(krnls->grass, 1, sizeof(cl_mem), (void*) &buffersDevice->cells_grass_timer);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 1 of grass");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of grass");
 
 	status = clSetKernelArg(krnls->grass, 2, sizeof(PPGSimParams), (void*) &simParams);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 2 of grass");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of grass");
 	
 	status = clSetKernelArg(krnls->grass, 3, sizeof(cl_mem), (void*) &buffersDevice->rng_seeds);//TODO TEMPORARY, REMOVE!
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 3 of grass");//TODO TEMPORARY, REMOVE!
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of grass");//TODO TEMPORARY, REMOVE!
 
 	/* reduce_grass1 kernel */
 	status = clSetKernelArg(krnls->reduce_grass1, 0, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_alive);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 0 of reduce_grass1");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass1");
 
 	status = clSetKernelArg(krnls->reduce_grass1, 1, dataSizes->reduce_grass_local, NULL);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 1 of reduce_grass1");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_grass1");
 
 	status = clSetKernelArg(krnls->reduce_grass1, 2, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 2 of reduce_grass1");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_grass1");
 
 	/* reduce_grass2 kernel */
 	status = clSetKernelArg(krnls->reduce_grass2, 0, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 0 of reduce_grass2");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass2");
 
 	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 *REDUCE_GRASS_VECSIZE*sizeof(cl_uint), NULL);//TODO Put this size in dataSizes
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 1 of reduce_grass2");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_grass2");
 
 	status = clSetKernelArg(krnls->reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice->stats);
-	clu_if_error_create_error_return(status, err, "Set kernel args: arg 2 of reduce_grass2");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_grass2");
 	
-	/* Success! */
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 	
 }
 
@@ -527,37 +598,48 @@ void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 }
 
 // Initialize device buffers
-cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersHost* buffersHost, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err) {
+cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err) {
 	
 	cl_int status;
 	
 	/* Statistics */
 	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(PPStatistics), NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: stats");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: stats");
 
 	/* Cells */
 	buffersDevice->cells_grass_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_grass_alive, NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: cells_grass_alive");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_grass_alive");
 
 	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_grass_timer, NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: cells_grass_timer");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_grass_timer");
 
 	buffersDevice->cells_agents_number = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_number, NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: cells_agents_number");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_number");
 
 	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_index, NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: cells_agents_index");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_index");
 
 	/* Grass reduction (count) */
 	buffersDevice->reduce_grass_global = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->reduce_grass_global, NULL, &status);
-	clu_if_error_create_error_return(status, err, "Create device buffer: reduce_grass_global");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: reduce_grass_global");
 
 	/* RNG seeds. */
 	buffersDevice->rng_seeds = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->rng_seeds, NULL, &status );
-	clu_if_error_create_error_return(status, err, "Create device buffer: rng_seeds");
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: rng_seeds");
 	
-	/* Success! */
-	return CL_SUCCESS;
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
 
 }
 

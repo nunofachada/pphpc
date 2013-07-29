@@ -132,7 +132,7 @@ __kernel void reduceGrass1(
 __kernel void reduceGrass2(
 			__global uintx * reduce_grass_global,
 			__local uintx * partial_sums,
-			__global PPStatistics * stats) {
+			__global PPStatisticsOcl * stats) {
 				
 	// Global and local work-item IDs
 	uint lid = get_local_id(0);
