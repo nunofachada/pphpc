@@ -257,7 +257,7 @@ __kernel void CountAgents2(__global uint2 * gcounter,
 			__local uint2 * lcounter,
 			const uint maxgid,
 			__global uint * num_agents,
-			__global PPStatistics * stats,
+			__global PPStatisticsOcl * stats,
 			__global uint * iter)
 {
 	uint gid = get_global_id(0);
@@ -308,7 +308,7 @@ __kernel void CountGrass1(__global uint * grass,
 __kernel void CountGrass2(__global uint * gcounter,
 			__local uint * lcounter,
 			const uint maxgid,
-			__global PPStatistics * stats,
+			__global PPStatisticsOcl * stats,
 			__global uint * iter)
 {
 	uint gid = get_global_id(0);
@@ -333,7 +333,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 /*
  * Agent reproduction function for agents action kernel
  */
-PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParams * params, __global uint * num_agents, __global ulong * seeds)
+PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParamsOcl * params, __global uint * num_agents, __global ulong * seeds)
 {
 	// Perhaps agent will reproduce if energy > reproduce_threshold
 	if (agent.energy > params[agent.type].reproduce_threshold) {
@@ -362,7 +362,7 @@ PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __glob
 PPGSAgent sheepAction( PPGSAgent sheep,
 		__global uint * matrix, 
 		const PPGSSimParams sim_params, 
-		__global PPAgentParams * params)
+		__global PPAgentParamsOcl * params)
 {
 	// If there is grass, eat it (and I can be the only one to do so)!
 	uint index = (sheep.x + sheep.y * sim_params.size_x) * sim_params.grid_cell_space;
@@ -381,7 +381,7 @@ PPGSAgent wolfAction( PPGSAgent wolf,
 		__global PPGSAgent * agents,
 		__global uint * matrix,
 		const PPGSSimParams sim_params, 
-		__global PPAgentParams * params)
+		__global PPAgentParamsOcl * params)
 {
 	// Get index of this location
 	uint index = (wolf.x + wolf.y * sim_params.size_x) * sim_params.grid_cell_space;
@@ -414,7 +414,7 @@ PPGSAgent wolfAction( PPGSAgent wolf,
 __kernel void AgentAction( __global PPGSAgent * agents, 
 			__global uint * matrix, 
 			const PPGSSimParams sim_params, 
-			__global PPAgentParams * params,
+			__global PPAgentParamsOcl * params,
 			__global ulong * seeds,
 			__global uint * num_agents)
 {

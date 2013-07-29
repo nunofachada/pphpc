@@ -25,7 +25,7 @@ typedef struct pp_gs_sim_params {
 	cl_uint grid_cell_space;
 } PPGSSimParams;
 
-void computeWorkSizes(PPParameters params, cl_uint device_type, cl_uint cu);
+void computeWorkSizes(PPParameters params);
 void printFixedWorkSizes();
 cl_int getKernelEntryPoints(cl_program program, GError** err);
 
