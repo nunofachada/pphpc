@@ -17,7 +17,12 @@
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
+/** @todo This is only currently used for the size of RNG seeds array 
+ * but this size should be determined by the maximum GWS used by the 
+ * different kernels which require RNG. */
 #define MAX_GWS 1048576
+
+
 #define REDUCE_GRASS_VECSIZE 4
 
 
@@ -156,7 +161,7 @@ int main(int argc, char **argv)
 	profcl_profile_stop(profile);  
 	
 	/* Output results to file */
-	ppg_results_save("stats.txt", buffersHost.stats, params);
+	ppg_results_save(args.stats, buffersHost.stats, params);
 
 	/* Analyze events, show profiling info. */
 	status = ppg_profiling_analyze(profile, &evts, params, &err);
@@ -561,7 +566,12 @@ finish:
 
 // Save results
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params) {
-	FILE * fp1 = fopen(filename,"w");
+	
+	/* Get definite file name. */
+	gchar* realFilename = (filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;	
+
+	FILE * fp1 = fopen(realFilename,"w");
+	
 	for (unsigned int i = 0; i <= params.iters; i++)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass );
 	fclose(fp1);
