@@ -13,68 +13,11 @@
  * longer. */
 #define PPC_DEFAULT_MAX_AGENTS 16777216
 
-/** Perform direct OpenCL profiling if the C compiler has defined a 
- * CLPROFILER constant. */
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
-#else
-	#define QUEUE_PROPERTIES 0
-#endif
-
 /** A description of the program. */
 #define PPC_DESCRIPTION "OpenCL predator-prey simulation for the CPU"
 
 /** Command line arguments and respective default values. */
-static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, NULL, PPC_DEFAULT_MAX_AGENTS};
-
-/**
- * @brief Callback function to read RNG seed from program arguments. It's
- * an implementation of GLib's <tt>(*GOptionArgFunc)</tt> hook function.
- * 
- * @param option_name Ignored.
- * @param value String from where to extract seed.
- * @param data Ignored.
- * @param err GLib error object for error reporting.
- * @return TRUE if memory allocation for random seed successful, FALSE otherwise.
- * */
-static gboolean ppc_args_seed_set(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
-	/* Status var. */
-	gboolean status = TRUE;
-	/* Avoid compiler warning, we're not really using these parameters. */
-	option_name = option_name; data = data;
-	/* Allocate memory for RNG seed. */
-	args.rng_seed = (guint32*) malloc(sizeof(guint32));
-	/* Check if allocation was successful. */
-	gef_if_error_create_goto(*err, G_OPTION_ERROR, args.rng_seed == NULL, G_OPTION_ERROR_FAILED, error_handler, "Unable to allocate memory for RNG seed.");
-	/* Allocation successful, set seed and goto finish. */
-	*args.rng_seed = atoi(value);
-	goto finish;
-error_handler:
-	/* Allocation not successful, set status to FALSE. */
-	status = FALSE;
-finish:
-	return status;
-}
-
-/**
- * @brief Callback function which will be called when non-option 
- * command line arguments are given. The function will throw an error
- * and fail. It's an implementation of GLib's <tt>(*GOptionArgFunc)</tt> 
- * hook function.
- * 
- * @param option_name Ignored.
- * @param value Ignored.
- * @param data Ignored.
- * @param err GLib error object for error reporting.
- * @return Always FALSE.
- * */
-static gboolean ppc_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
-	/* Avoid compiler warning, we're not really using these parameters. */
-	option_name = option_name; value = value; data = data;
-	/* Set error and return FALSE. */
-	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
-	return FALSE;
-}
+static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPC_DEFAULT_MAX_AGENTS};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -84,9 +27,9 @@ static GOptionEntry entries[] = {
 	{"globalsize",      'g', 0, G_OPTION_ARG_INT,      &args.gws,           "Global work size (default is maximum possible)",                                            "SIZE"},
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
-	{"rng_seed",        'r', 0, G_OPTION_ARG_CALLBACK, ppc_args_seed_set,   "Seed for random number generator (default is random)",                                      "SEED"},
+	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
-	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, ppc_args_fail,       NULL,                                                                                        NULL},
+	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -98,8 +41,9 @@ static const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPrey
  * 
  * @param argc Number of command line arguments.
  * @param argv Vector of command line arguments.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or another value of #pp_error_codes if an error occurs.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
+ * terminates successfully, or another value of #pp_error_codes if an
+ * error occurs.
  * */
 int main(int argc, char ** argv) {
 
@@ -134,8 +78,8 @@ int main(int argc, char ** argv) {
 	ppc_args_parse(argc, argv, &context, &err);
 	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 	
-	/* Create RNG and set seed. If seed not given, a random seed is used. */
-	rng = (args.rng_seed != NULL) ? g_rand_new_with_seed(*(args.rng_seed)) : g_rand_new();
+	/* Create RNG with specified seed. */
+	rng = g_rand_new_with_seed(args.rng_seed);
 
 	/* Profiling / Timmings. */
 	profile = profcl_profile_new();
@@ -336,9 +280,7 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
 	/* ...Maximum number of agents */
 	printf("     Maximum number of agents   : %d\n", (int) workSizes.max_agents);
 	/* ...RNG seed */
-	printf("     Random seed                : ");
-	if (args.rng_seed != NULL) printf("%d\n", *args.rng_seed);
-	else printf("auto\n");
+	printf("     Random seed                : %u\n", args.rng_seed);
 	/* ...Compiler options (out of table) */
 	printf("     Compiler options           : ");
 	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
@@ -1195,5 +1137,4 @@ void ppc_args_free(GOptionContext* context) {
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
-	if (args.rng_seed) free(args.rng_seed);
 }

@@ -1,37 +1,71 @@
 /** 
  * @file
  * @brief PredPrey OpenCL GPU implementation.
- * @todo Use radix sort or parallel prefix sum (scan)?
  */
 
 #include "PredPreyGPU.h"
 
-#define MAX_AGENTS 1048576
+/** The default maximum number of agents: 16777216. Each agent requires
+ * 16 bytes, thus by default 256Mb of memory will be allocated for the
+ * agents buffer. 
+ * 
+ * @todo Check if final agents will have 16 bytes
+ * @todo Check the implications of having more or less memory for agents
+ *  */
+#define PPG_DEFAULT_MAX_AGENTS 16777216
+
+/** A description of the program. */
+#define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
+
 #define MAX_GWS 1048576
 #define REDUCE_GRASS_VECSIZE 4
 
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
-#else
-	#define QUEUE_PROPERTIES 0
-#endif
 
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
 
 //#define SEED 0
 
+
+/** Command line arguments and respective default values. */
+static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+
+/** Valid command line options. */
+static GOptionEntry entries[] = {
+	{"params",          'p', 0, G_OPTION_ARG_FILENAME, &args.params,        "Specify parameters file (default is " PP_DEFAULT_PARAMS_FILE ")",                           "FILENAME"},
+	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,         "Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",                     "FILENAME"},
+	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
+	{"globalsize",      'g', 0, G_OPTION_ARG_INT,      &args.gws,           "Global work size (default is maximum possible)",                                            "SIZE"},
+	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
+	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
+	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
+	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
+	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                        NULL},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
+};
+
 /* OpenCL kernel files */
 const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPU_Kernels.cl"};
 
-
 /**
- *  @brief Main program.
+ * @brief Main program.
+ * 
+ * @param argc Number of command line arguments.
+ * @param argv Vector of command line arguments.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
+ * terminates successfully, or another value of #pp_error_codes if an
+ * error occurs.
  * */
 int main(int argc, char **argv)
 {
 
-	/* Program vars. */
+	/* Status var aux */
+	int status = PP_SUCCESS;
+	
+	/* Context object for command line argument parsing. */
+	GOptionContext *context = NULL;
+	
+	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
 	PPGKernels krnls = {NULL, NULL, NULL};
@@ -40,46 +74,50 @@ int main(int argc, char **argv)
 	PPGBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-
-	/* Aux vars. */
-	int status;
+	PPGSimParams simParams;
+	char* compilerOpts = NULL;
 	
-	/* Error management. */
+	/* OpenCL zone: platform, device, context, queues, etc. */
+	CLUZone* zone = NULL;
+	
+	/* Profiler. */
+	ProfCLProfile* profile = NULL;
+	
+	/* Random number generator */
+	GRand* rng = NULL;
+	
+	/* Error management object. */
 	GError *err = NULL;
+
+	/* Parse arguments. */
+	ppg_args_parse(argc, argv, &context, &err);
+	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 	
+	/* Create RNG with specified seed. */
+	rng = g_rand_new_with_seed(args.rng_seed);
+
 	/* Profiling / Timmings. */
-	ProfCLProfile* profile = profcl_profile_new();
-	
-	/* Create RNG and set seed. */
-#ifdef SEED
-	GRand* rng = g_rand_new_with_seed(SEED);
-#else
-	GRand* rng = g_rand_new();
-#endif	
-	
-	/** @todo Remove. */
-	argc = argc;
-	argv = argv;
+	profile = profcl_profile_new();
+	gef_if_error_create_goto(err, PP_ERROR, profile == NULL, PP_LIBRARY_ERROR, error_handler, "Unable to create profiler object.");
 	
 	/* Get simulation parameters */
-	status = pp_load_params(&params, PP_DEFAULT_PARAMS_FILE, &err);
-	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
+	status = pp_load_params(&params, args.params, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);	
 	
 	/* Set simulation parameters in a format more adequate for this program. */
-	PPGSimParams simParams = ppg_simparams_init(params);
+	simParams = ppg_simparams_init(params, args.max_agents);
 
-	/* Get the required CL zone-> */
-	CLUZone* zone;
-	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
+	/* Get the required CL zone. */
+	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
-
+	
 	/* Compute work sizes for different kernels and print them to screen. */
-	status = ppg_worksizes_compute(params, zone->device, &gws, &lws, &err);
+	status = ppg_worksizes_compute(params, zone->device_info.device_id, &gws, &lws, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	ppg_worksizes_print(gws, lws);
 
 	/* Compiler options. */
-	char* compilerOpts = ppg_compiler_opts_build(gws, lws, simParams);
+	compilerOpts = ppg_compiler_opts_build(gws, lws, simParams, args.compiler_opts);
 	printf("%s\n", compilerOpts);
 
 	/* Build program. */
@@ -132,6 +170,9 @@ error_handler:
 	pp_error_handle(err, status);
 
 cleanup:
+
+	/* Free args context and associated cli args parsing buffers. */
+	ppg_args_free(context);
 
 	/* Release OpenCL kernels */
 	ppg_kernels_free(&krnls);
@@ -453,12 +494,12 @@ void ppg_kernels_free(PPGKernels* krnls) {
 
 
 // Initialize simulation parameters in host, to be sent to GPU
-PPGSimParams ppg_simparams_init(PPParameters params) {
+PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
 	PPGSimParams simParams;
 	simParams.size_x = params.grid_x;
 	simParams.size_y = params.grid_y;
 	simParams.size_xy = params.grid_x * params.grid_y;
-	simParams.max_agents = MAX_AGENTS;
+	simParams.max_agents = max_agents;
 	simParams.grass_restart = params.grass_restart;
 	return simParams;
 }
@@ -700,15 +741,43 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 }
 
 /* Create compiler options string. */
-char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams) {
+char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	char* compilerOptsStr;
 	GString* compilerOpts = g_string_new("");
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", REDUCE_GRASS_VECSIZE);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
-	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d", simParams.size_xy);
+	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
+	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
 	return compilerOptsStr;
 }
 
+/** 
+ * @brief Parse command-line options. 
+ * 
+ * @param argc Number of command line arguments.
+ * @param argv Command line arguments.
+ * @param context Context object for command line argument parsing.
+ * @param err GLib error object for error reporting.
+ * */
+void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
+	*context = g_option_context_new (" - " PPG_DESCRIPTION);
+	g_option_context_add_main_entries(*context, entries, NULL);
+	g_option_context_parse(*context, &argc, &argv, err);
+}
+
+/**
+ * @brief Free command line parsing related objects.
+ * 
+ * @param context Context object for command line argument parsing.
+ * */
+void ppg_args_free(GOptionContext* context) {
+	if (context) {
+		g_option_context_free(context);
+	}
+	if (args.params) g_free(args.params);
+	if (args.stats) g_free(args.stats);
+	if (args.compiler_opts) g_free(args.compiler_opts);
+}

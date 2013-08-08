@@ -146,6 +146,28 @@ void pp_error_handle(GError* err, int status) {
 	g_error_free(err);
 }
 
+
+/**
+ * @brief Callback function which will be called when non-option 
+ * command line arguments are given. The function will throw an error
+ * and fail. It's an implementation of GLib's <tt>(*GOptionArgFunc)</tt> 
+ * hook function.
+ * 
+ * @param option_name Ignored.
+ * @param value Ignored.
+ * @param data Ignored.
+ * @param err GLib error object for error reporting.
+ * @return Always FALSE.
+ * */
+gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
+	/* Avoid compiler warning, we're not really using these parameters. */
+	option_name = option_name; value = value; data = data;
+	/* Set error and return FALSE. */
+	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
+	return FALSE;
+}
+
+
 /** 
  * @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation.
  * 

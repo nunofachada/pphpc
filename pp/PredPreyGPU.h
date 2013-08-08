@@ -8,6 +8,20 @@
 
 #include "PredPreyCommon.h"
 
+/** 
+ * @brief Parsed command-line arguments. 
+ * */
+typedef struct pp_g_args {
+	gchar* params;        /**< Parameters file. */
+	gchar* stats;         /**< Stats output file. */
+	gchar* compiler_opts; /**< Compiler options. */
+	size_t gws;           /**< Global work size. */
+	size_t lws;           /**< Local work size. */
+	cl_int dev_idx;       /**< Index of device to use. */
+	guint32 rng_seed;     /**< Rng seed. */
+	cl_uint max_agents;   /**< Maximum number of agents. */
+} PPGArgs;
+
 // Simulation parameters useful for PredPreyGPU (TODO really?)
 typedef struct pp_g_sim_params {
 	cl_uint size_x;
@@ -84,10 +98,10 @@ typedef struct pp_g_buffers_device {
 	cl_mem rng_seeds;
 } PPGBuffersDevice;
 
-PPGSimParams ppg_simparams_init(PPParameters params);
+PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents);
 cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
-char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams);
+char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
 void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
 void ppg_kernels_free(PPGKernels* krnls);
@@ -102,5 +116,10 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, 
 cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
+/** @brief Parse command-line options. */
+void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
+
+/** @brief Free command line parsing related objects. */
+void ppg_args_free(GOptionContext* context);
 
 #endif

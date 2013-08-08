@@ -18,24 +18,24 @@
  * @brief Parsed command-line arguments. 
  * */
 typedef struct pp_c_args {
-	gchar* params;			/**< Parameters file. */
-	gchar* stats;			/**< Stats output file. */
-	gchar* compiler_opts;	/**< Compiler options. */
-	size_t gws;				/**< Global work size. */
-	size_t lws;				/**< Local work size. */
-	cl_int dev_idx;			/**< Index of device to use. */
-	guint32* rng_seed;		/**< Rng seed. */
-	cl_uint max_agents;		/**< Maximum number of agents. */
+	gchar* params;        /**< Parameters file. */
+	gchar* stats;         /**< Stats output file. */
+	gchar* compiler_opts; /**< Compiler options. */
+	size_t gws;           /**< Global work size. */
+	size_t lws;           /**< Local work size. */
+	cl_int dev_idx;       /**< Index of device to use. */
+	guint32 rng_seed;     /**< Rng seed. */
+	cl_uint max_agents;   /**< Maximum number of agents. */
 } PPCArgs;
 
 /**
  * @brief Agent object for OpenCL kernels.
  * */
 typedef struct pp_c_agent {
-	cl_uint energy;	/**< Agent energy. */
-	cl_uint action;	/**< True if agent already acted this turn, false otherwise. */
-	cl_uint type;	/**< Type of agent (sheep or wolf). */
-	cl_uint next;	/**< Pointer to next agent in current cell. */
+	cl_uint energy; /**< Agent energy. */
+	cl_uint action; /**< True if agent already acted this turn, false otherwise. */
+	cl_uint type;   /**< Type of agent (sheep or wolf). */
+	cl_uint next;   /**< Pointer to next agent in current cell. */
 } PPCAgent __attribute__ ((aligned (16)));
 
 

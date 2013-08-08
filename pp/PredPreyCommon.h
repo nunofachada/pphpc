@@ -40,8 +40,19 @@
 /** Default statistics output file. */
 #define PP_DEFAULT_STATS_FILE "stats.txt"
 
+/** Default RNG seed. */
+#define PP_DEFAULT_SEED 0
+
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
+
+/** Perform direct OpenCL profiling if the C compiler has defined a 
+ * CLPROFILER constant. */
+#ifdef CLPROFILER
+	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
+#else
+	#define QUEUE_PROPERTIES 0
+#endif
 
 /**
  * @brief Program error codes.
@@ -98,7 +109,12 @@ int pp_load_params(PPParameters* parameters, char * filename, GError** err);
 /** @brief Show proper error messages. */
 void pp_error_handle(GError* err, int status);
 
-/** @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation. */
+/** @brief Callback function which will be called when non-option 
+ *  command line arguments are given. */
+gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
+
+/** @brief Resolves to error category identifying string, in this case
+ *  an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);
 
 #endif

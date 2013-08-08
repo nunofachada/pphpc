@@ -20,7 +20,7 @@ CLINCLUDES = -I$$AMDAPPSDKROOT/include
 UTILSINCLUDES = -I$(UTILSINCLUDEDIR)
 LFLAGS = -lOpenCL -lm `pkg-config --libs glib-2.0`
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64 
-UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/bitstuff.o $(OBJDIR)/clprofiler.o
+UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/clprofiler.o
 TESTSDIR = tests
 
 # Phony targets
@@ -32,13 +32,13 @@ all: mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU
 profiling: CLMACROS += -DCLPROFILER
 profiling: all
 
-PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o
+PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 	
-PredPreyGPU: PredPreyGPU.o PredPreyCommon.o
+PredPreyGPU: PredPreyGPU.o PredPreyCommon.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
-PredPreyCPU: PredPreyCPU.o PredPreyCommon.o
+PredPreyCPU: PredPreyCPU.o PredPreyCommon.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
@@ -56,6 +56,9 @@ PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h $(UTILSINCLUDEDIR)/gerrorf.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@ -c $<
 	cp PredPreyCommon_Kernels.cl $(BUILDDIR)
+	
+bitstuff.o: bitstuff.c bitstuff.h
+	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@	
 
 mkdirs:
 	mkdir -p $(BUILDDIR)
