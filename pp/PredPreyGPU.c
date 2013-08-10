@@ -23,9 +23,6 @@
 #define MAX_GWS 1048576
 
 
-#define REDUCE_GRASS_VECSIZE 4
-
-
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
 
@@ -33,7 +30,7 @@
 
 
 /** Command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS, 0};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -45,7 +42,8 @@ static GOptionEntry entries[] = {
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
-	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                        NULL},
+	{"vw-int",           0,  0, G_OPTION_ARG_INT,      &args.vwint,         "Vector width for int's (default is given by device)",                                       "SIZE"},
+	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -416,9 +414,20 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 		&maxWorkGroupSize,
 		NULL
 	);
-	
-	/* Check for errors on the OpenCL call */
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info.");	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE).");	
+
+	/* Get the int vector width, if not specified by user. */
+	if (args.vwint == 0) {
+		status = clGetDeviceInfo(
+			device, 
+			CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, 
+			sizeof(cl_uint), 
+			&args.vwint, 
+			NULL
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT).");	
+	}
+
 
 	/* grass growth worksizes */
 #ifdef LWS_GRASS
@@ -434,7 +443,7 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 #else
 	lws->reduce_grass1 = maxWorkGroupSize;
 #endif	
-	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / REDUCE_GRASS_VECSIZE / lws->reduce_grass1));
+	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / args.vwint / lws->reduce_grass1));
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	
@@ -542,7 +551,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->reduce_grass2, 0, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass2");
 
-	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 *REDUCE_GRASS_VECSIZE*sizeof(cl_uint), NULL);//TODO Put this size in dataSizes
+	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 *args.vwint*sizeof(cl_uint), NULL);//TODO Put this size in dataSizes
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_grass2");
 
 	status = clSetKernelArg(krnls->reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice->stats);
@@ -584,14 +593,14 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = (simParams.size_xy + REDUCE_GRASS_VECSIZE) * sizeof(cl_uchar);
+	dataSizes->cells_grass_alive = (simParams.size_xy + args.vwint) * sizeof(cl_uchar);
 	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_short);
 	dataSizes->cells_agents_number = simParams.size_xy * sizeof(cl_short);
 	dataSizes->cells_agents_index = simParams.size_xy * sizeof(cl_short);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local = lws.reduce_grass1 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint); //TODO Verify that GPU supports this local memory requirement
-	dataSizes->reduce_grass_global = gws.reduce_grass2 * REDUCE_GRASS_VECSIZE * sizeof(cl_uint);
+	dataSizes->reduce_grass_local = lws.reduce_grass1 * args.vwint * sizeof(cl_uint); //TODO Verify that GPU supports this local memory requirement
+	dataSizes->reduce_grass_global = gws.reduce_grass2 * args.vwint * sizeof(cl_uint);
 	
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX_GWS * sizeof(cl_ulong);
@@ -754,7 +763,7 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	char* compilerOptsStr;
 	GString* compilerOpts = g_string_new("");
-	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", REDUCE_GRASS_VECSIZE);
+	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", args.vwint);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
