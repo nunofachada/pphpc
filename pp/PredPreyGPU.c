@@ -239,8 +239,14 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds");
 	
+	/* *************** */
 	/* SIMULATION LOOP */
+	/* *************** */
 	for (iter = 1; iter <= params.iters; iter++) {
+		
+		/* ***************************************** */
+		/* ********* Step 1: Grass growth ********** */
+		/* ***************************************** */
 		
 		/* Grass kernel: grow grass, set number of prey to zero */
 		status = clEnqueueNDRangeKernel(
@@ -259,7 +265,27 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d", iter);
 
-		/* Perform grass reduction. */
+		/* ***************************************** */
+		/* ******** Step 2: Agent movement ********* */
+		/* ***************************************** */
+
+		/** @todo Agent movement. One kernel running in queue 1. */
+		
+		/* ***************************************** */
+		/* ********* Step 3: Agent actions ********* */
+		/* ***************************************** */
+
+		/** @todo Agent actions. Several kernels: 
+		 * 1.1. calcHash, queue 1
+		 * 1.2. fastRadixSort, queue 1
+		 * 1.3. findCellStartAndFinish, queue 1
+		 * 2. Agent actions, queue 1 */
+
+		/* ***************************************** */
+		/* ********* Step 4: Gather stats ********** */
+		/* ***************************************** */
+
+		/* Step 4.1: Perform grass reduction, part I. */
 		status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.reduce_grass1, 
@@ -277,6 +303,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass1, iteration %d", iter);
 		
+		/* Step 4.2: Perform grass reduction, part II. */
 		status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.reduce_grass2, 
@@ -289,8 +316,16 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&evts->reduce_grass2[iter - 1]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d", iter);
+		
+		/* Step 4.3: Perform agents reduction, part I. */
 
-		/* Get statistics. */
+		/** @todo Agents reduction, part I. */
+
+		/* Step 4.4: Perform agents reduction, part II. */
+
+		/** @todo Agents reduction, part II. */
+
+		/* Step 4.5: Get statistics. */
 		status = clEnqueueReadBuffer(
 			zone->queues[1], 
 			buffersDevice.stats, 
@@ -305,6 +340,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d", iter);
 		
 	}
+	/* ********************** */
+	/* END OF SIMULATION LOOP */
+	/* ********************** */
 	
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
