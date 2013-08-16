@@ -72,7 +72,7 @@ __kernel void grass(
 		
 		// Decrement counter if grass is dead
 		if (!grass_alive[gid]) {
-			ushort timer = --grass_timer[gid];
+			uchar timer = --grass_timer[gid];
 			if (timer == 0) {
 				grass_alive[gid] = 1;
 			}

@@ -665,7 +665,6 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 				buffersHost->stats[0].grass++;
 				buffersHost->cells_grass_alive[gridIndex] = 1;
 			} else {
-				buffersHost->stats[0].grass++;
 				buffersHost->cells_grass_alive[gridIndex] = 0;
 			}
 		}
