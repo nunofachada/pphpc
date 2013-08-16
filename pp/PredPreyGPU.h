@@ -34,6 +34,7 @@ typedef struct pp_g_sim_params {
 
 // Global work sizes
 typedef struct pp_g_global_work_sizes {
+	size_t init_cell;
 	size_t grass;
 	size_t reduce_grass1;
 	size_t reduce_grass2;
@@ -41,6 +42,7 @@ typedef struct pp_g_global_work_sizes {
 
 // Local work sizes
 typedef struct pp_g_local_work_sizes {
+	size_t init_cell;
 	size_t grass;
 	size_t reduce_grass1;
 	size_t reduce_grass2;
@@ -48,6 +50,7 @@ typedef struct pp_g_local_work_sizes {
 
 // Kernels
 typedef struct pp_g_kernels {
+	cl_kernel init_cell;
 	cl_kernel grass;
 	cl_kernel reduce_grass1;
 	cl_kernel reduce_grass2;
@@ -55,9 +58,8 @@ typedef struct pp_g_kernels {
 
 // Events
 typedef struct pp_g_events {
-	cl_event write_grass_alive;
-	cl_event write_grass_timer;
 	cl_event write_rng;
+	cl_event init_cell;
 	cl_event *grass;
 	cl_event *read_stats;
 	cl_event *reduce_grass1;
@@ -79,8 +81,6 @@ typedef struct pp_g_data_sizes {
 // Host buffers
 typedef struct pp_g_buffers_host {
 	PPStatistics* stats;
-	cl_uchar* cells_grass_alive;
-	cl_ushort* cells_grass_timer;
 	cl_ulong* rng_seeds;
 } PPGBuffersHost;
 

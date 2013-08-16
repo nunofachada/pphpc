@@ -48,13 +48,38 @@
 #define CELL_VECTOR_NUM() CELL_NUM/VW_INT
 #define REDUCE_GRASS_SERIAL_COUNT() ceil(CELL_VECTOR_NUM()/(float) REDUCE_GRASS_NUM_WORKITEMS)
 
-typedef struct sim_params {
+typedef struct pp_g_sim_params {
 	uint size_x;
 	uint size_y;
 	uint size_xy;
 	uint max_agents;
 	uint grass_restart;
-} SIM_PARAMS;
+} PPGSimParams;
+
+__kernel void initCell(
+			__global uchar* grass_alive, 
+			__global ushort* grass_timer, 
+			__global ulong * seeds,
+			const PPGSimParams sim_params)
+) {
+	
+	// Grid position for this work-item
+	uint gid = get_global_id(0);
+
+	// Check if this thread will do anything
+	if (gid < CELL_NUM) {
+		if (randomNextInt(seeds, 2)) {
+			// Grass is alive
+			grass_alive[gid] = 1;
+			grass_timer[gid] = 0;
+		} else {
+			// Grass is dead
+			grass_alive[gid] = 0;
+			grass_timer[gid] = randomNextInt(seeds, sim_params.grass_restart) + 1;
+		}
+	}
+	
+}
 
 /*
  * Grass kernel
@@ -62,7 +87,7 @@ typedef struct sim_params {
 __kernel void grass(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer, 
-			const SIM_PARAMS sim_params)
+			const PPGSimParams sim_params)
 {
 	// Grid position for this work-item
 	uint gid = get_global_id(0);

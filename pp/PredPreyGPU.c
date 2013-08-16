@@ -221,57 +221,31 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint iter = 0; 
 		
 	/* Load data into device buffers. */
-	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_grass_alive, CL_FALSE, 0, dataSizes.cells_grass_alive, buffersHost.cells_grass_alive, 0, NULL, &evts->write_grass_alive);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_grass_alive");
-	
-	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts->write_grass_timer);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_grass_timer");
-
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds");
+	
+	/* Init. cells */
+	status = clEnqueueNDRangeKernel(
+		zone->queues[0], 
+		krnls.init_cell, 1, 
+		NULL, 
+		&gws.init_cell, 
+		&lws.init_cell, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->init_cell
+#else
+		NULL
+#endif
+	);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: Init. cells");
 	
 	/* *************** */
 	/* SIMULATION LOOP */
 	/* *************** */
-	for (iter = 1; iter <= params.iters; iter++) {
+	for (iter = 0; ; iter++) {
 		
-		/* ***************************************** */
-		/* ********* Step 1: Grass growth ********** */
-		/* ***************************************** */
-		
-		/* Grass kernel: grow grass, set number of prey to zero */
-		status = clEnqueueNDRangeKernel(
-			zone->queues[0], 
-			krnls.grass, 1, 
-			NULL, 
-			&gws.grass, 
-			&lws.grass, 
-			0, 
-			NULL, 
-#ifdef CLPROFILER
-			&evts->grass[iter - 1]
-#else
-			NULL
-#endif
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d", iter);
-
-		/* ***************************************** */
-		/* ******** Step 2: Agent movement ********* */
-		/* ***************************************** */
-
-		/** @todo Agent movement. One kernel running in queue 1. */
-		
-		/* ***************************************** */
-		/* ********* Step 3: Agent actions ********* */
-		/* ***************************************** */
-
-		/** @todo Agent actions. Several kernels: 
-		 * 1.1. calcHash, queue 1
-		 * 1.2. fastRadixSort, queue 1
-		 * 1.3. findCellStartAndFinish, queue 1
-		 * 2. Agent actions, queue 1 */
-
 		/* ***************************************** */
 		/* ********* Step 4: Gather stats ********** */
 		/* ***************************************** */
@@ -329,6 +303,47 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&evts->read_stats[iter - 1]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d", iter);
+		
+		/* Stop simulation if this is the last iteration. */
+		if (iter == params.iters) break;
+		
+		/* ***************************************** */
+		/* ********* Step 1: Grass growth ********** */
+		/* ***************************************** */
+		
+		/* Grass kernel: grow grass, set number of prey to zero */
+		status = clEnqueueNDRangeKernel(
+			zone->queues[0], 
+			krnls.grass, 1, 
+			NULL, 
+			&gws.grass, 
+			&lws.grass, 
+			0, 
+			NULL, 
+#ifdef CLPROFILER
+			&evts->grass[iter - 1]
+#else
+			NULL
+#endif
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d", iter);
+
+		/* ***************************************** */
+		/* ******** Step 2: Agent movement ********* */
+		/* ***************************************** */
+
+		/** @todo Agent movement. One kernel running in queue 1. */
+		
+		/* ***************************************** */
+		/* ********* Step 3: Agent actions ********* */
+		/* ***************************************** */
+
+		/** @todo Agent actions. Several kernels: 
+		 * 1.1. calcHash, queue 1
+		 * 1.2. fastRadixSort, queue 1
+		 * 1.3. findCellStartAndFinish, queue 1
+		 * 2. Agent actions, queue 1 */
+
 		
 	}
 	/* ********************** */
@@ -632,30 +647,7 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 	
 	/* Statistics */
 	buffersHost->stats = (PPStatistics*) malloc(dataSizes->stats);
-	buffersHost->stats[0].sheep = params.init_sheep;
-	buffersHost->stats[0].wolves = params.init_wolves;
-	buffersHost->stats[0].grass = 0;
-	
-	/* Environment cells */
-	buffersHost->cells_grass_alive = (cl_uchar*) malloc(dataSizes->cells_grass_alive);
-	buffersHost->cells_grass_timer = (cl_ushort*) malloc(dataSizes->cells_grass_timer);
-	
-	for(guint i = 0; i < params.grid_x; i++) {
-		for (guint j = 0; j < params.grid_y; j++) {
-			guint gridIndex = i + j * params.grid_x;
-			buffersHost->cells_grass_timer[gridIndex] = 
-				g_rand_int_range(rng, 0, 2) == 0 
-				? 0 
-				: g_rand_int_range(rng, 1, params.grass_restart + 1);
-			if (buffersHost->cells_grass_timer[gridIndex] == 0) {
-				buffersHost->stats[0].grass++;
-				buffersHost->cells_grass_alive[gridIndex] = 1;
-			} else {
-				buffersHost->cells_grass_alive[gridIndex] = 0;
-			}
-		}
-	}
-	
+
 	/* RNG seeds */
 	buffersHost->rng_seeds = (cl_ulong*) malloc(dataSizes->rng_seeds);
 	for (int i = 0; i < MAX_GWS; i++) {
@@ -667,8 +659,6 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 // Free host buffers
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 	free(buffersHost->stats);
-	free(buffersHost->cells_grass_alive);
-	free(buffersHost->cells_grass_timer);
 	free(buffersHost->rng_seeds);
 }
 
