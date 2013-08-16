@@ -6,46 +6,46 @@
 /* 
  * Expected preprocessor defines:
  * 
- * REDUCE_GRASS_VECSIZE - Vector size used in reductions 
+ * VW_INT - Vector size used in reductions 
  * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
  * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
  * CELL_NUM - Number of cells in simulation 
  *  */
 
 /* Grass reduction pre defines */
-#if REDUCE_GRASS_VECSIZE == 1
-	#define REDUCE_GRASS_ZERO 0
-	#define REDUCE_GRASS_FINAL_SUM(x) (x)
+#if VW_INT == 1
+	#define VW_INT_ZERO 0
+	#define VW_REDUCE_FINAL_SUM(x) (x)
 	#define convert_uintx(x) convert_uint(x)
 	typedef uint uintx;
 	typedef uchar ucharx;
-#elif REDUCE_GRASS_VECSIZE == 2
-	#define REDUCE_GRASS_ZERO (uint2) (0, 0)
-	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1)
+#elif VW_INT == 2
+	#define VW_INT_ZERO (uint2) (0, 0)
+	#define VW_REDUCE_FINAL_SUM(x) (x.s0 + x.s1)
 	#define convert_uintx(x) convert_uint2(x)
 	typedef uint2 uintx;
 	typedef uchar2 ucharx;
-#elif REDUCE_GRASS_VECSIZE == 4
-	#define REDUCE_GRASS_ZERO (uint4) (0, 0, 0, 0)
-	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+#elif VW_INT == 4
+	#define VW_INT_ZERO (uint4) (0, 0, 0, 0)
+	#define VW_REDUCE_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_uintx(x) convert_uint4(x)
 	typedef uint4 uintx;
 	typedef uchar4 ucharx;
-#elif REDUCE_GRASS_VECSIZE == 8
-	#define REDUCE_GRASS_ZERO (uint8) (0, 0, 0, 0, 0, 0, 0, 0)
-	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+#elif VW_INT == 8
+	#define VW_INT_ZERO (uint8) (0, 0, 0, 0, 0, 0, 0, 0)
+	#define VW_REDUCE_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_uintx(x) convert_uint8(x)
 	typedef uint8 uintx;
 	typedef uchar8 ucharx;
-#elif REDUCE_GRASS_VECSIZE == 16
-	#define REDUCE_GRASS_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-	#define REDUCE_GRASS_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.s10 + x.s11 + x.s12 + x.s13 + x.s14 + x.s15)
+#elif VW_INT == 16
+	#define VW_INT_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	#define VW_REDUCE_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.s10 + x.s11 + x.s12 + x.s13 + x.s14 + x.s15)
 	#define convert_uintx(x) convert_uint16(x)
 	typedef uint16 uintx;
 	typedef uchar16 ucharx;
 #endif
 
-#define CELL_VECTOR_NUM() CELL_NUM/REDUCE_GRASS_VECSIZE
+#define CELL_VECTOR_NUM() CELL_NUM/VW_INT
 #define REDUCE_GRASS_SERIAL_COUNT() ceil(CELL_VECTOR_NUM()/(float) REDUCE_GRASS_NUM_WORKITEMS)
 
 typedef struct sim_params {
@@ -62,8 +62,7 @@ typedef struct sim_params {
 __kernel void grass(
 			__global uchar* grass_alive, 
 			__global uchar* grass_timer, 
-			const SIM_PARAMS sim_params,
-			__global ulong * seeds)
+			const SIM_PARAMS sim_params)
 {
 	// Grid position for this work-item
 	uint gid = get_global_id(0);
@@ -77,12 +76,7 @@ __kernel void grass(
 			if (timer == 0) {
 				grass_alive[gid] = 1;
 			}
-		} else if (randomNextInt(seeds, 10) < 1) {
-			// REMOVE THIS
-			grass_alive[gid] = 0;
-			grass_timer[gid] = randomNextInt(seeds, 30);
 		}
-
 	}
 }
 
@@ -97,7 +91,7 @@ __kernel void reduceGrass1(
 	uint group_size = get_local_size(0);
 	
 	// Serial sum
-	uintx sum = REDUCE_GRASS_ZERO;
+	uintx sum = VW_INT_ZERO;
 	
 	// Serial count
 	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT(); i++) {
@@ -142,7 +136,7 @@ __kernel void reduceGrass2(
 	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
 		partial_sums[lid] = reduce_grass_global[lid];
 	else
-		partial_sums[lid] = REDUCE_GRASS_ZERO;
+		partial_sums[lid] = VW_INT_ZERO;
 	
 	// Wait for all work items to perform previous operation
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -157,7 +151,7 @@ __kernel void reduceGrass2(
 	
 	// Put in global memory
 	if (lid == 0) {
-		stats[0].grass = REDUCE_GRASS_FINAL_SUM(partial_sums[0]);
+		stats[0].grass = VW_REDUCE_FINAL_SUM(partial_sums[0]);
 		stats[0].sheep = 2;
 		stats[0].wolves = 5;
 	}

@@ -26,9 +26,6 @@
 //#define LWS_GRASS 256
 //#define LWS_REDUCEGRASS1 256
 
-//#define SEED 0
-
-
 /** Command line arguments and respective default values. */
 static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS, 0};
 
@@ -41,7 +38,7 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
+	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{"vw-int",           0,  0, G_OPTION_ARG_INT,      &args.vwint,         "Vector width for int's (default is given by device)",                                       "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
@@ -572,9 +569,6 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->grass, 2, sizeof(PPGSimParams), (void*) &simParams);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of grass");
 	
-	status = clSetKernelArg(krnls->grass, 3, sizeof(cl_mem), (void*) &buffersDevice->rng_seeds);//TODO TEMPORARY, REMOVE!
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of grass");//TODO TEMPORARY, REMOVE!
-
 	/* reduce_grass1 kernel */
 	status = clSetKernelArg(krnls->reduce_grass1, 0, sizeof(cl_mem), (void *) &buffersDevice->cells_grass_alive);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass1");
@@ -672,7 +666,7 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 				buffersHost->cells_grass_alive[gridIndex] = 1;
 			} else {
 				buffersHost->stats[0].grass++;
-				buffersHost->cells_grass_alive[gridIndex] = 1;
+				buffersHost->cells_grass_alive[gridIndex] = 0;
 			}
 		}
 	}
@@ -801,7 +795,7 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	char* compilerOptsStr;
 	GString* compilerOpts = g_string_new("");
-	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_VECSIZE=%d ", args.vwint);
+	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args.vwint);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
