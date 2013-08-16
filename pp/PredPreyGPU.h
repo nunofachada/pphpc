@@ -57,8 +57,6 @@ typedef struct pp_g_kernels {
 typedef struct pp_g_events {
 	cl_event write_grass_alive;
 	cl_event write_grass_timer;
-	cl_event write_agents_number;
-	cl_event write_agents_index;
 	cl_event write_rng;
 	cl_event *grass;
 	cl_event *read_stats;
@@ -71,8 +69,8 @@ typedef struct pp_g_data_sizes {
 	size_t stats;
 	size_t cells_grass_alive;
 	size_t cells_grass_timer;
-	size_t cells_agents_number;
-	size_t cells_agents_index;
+	size_t cells_agents_index_start;
+	size_t cells_agents_index_end;
 	size_t reduce_grass_local;
 	size_t reduce_grass_global;
 	size_t rng_seeds;
@@ -83,8 +81,6 @@ typedef struct pp_g_buffers_host {
 	PPStatistics* stats;
 	cl_uchar* cells_grass_alive;
 	cl_ushort* cells_grass_timer;
-	cl_ushort* cells_agents_number;
-	cl_ushort* cells_agents_index;
 	cl_ulong* rng_seeds;
 } PPGBuffersHost;
 
@@ -93,8 +89,8 @@ typedef struct pp_g_buffers_device {
 	cl_mem stats;
 	cl_mem cells_grass_alive;
 	cl_mem cells_grass_timer;
-	cl_mem cells_agents_number;
-	cl_mem cells_agents_index;
+	cl_mem cells_agents_index_start;
+	cl_mem cells_agents_index_end;
 	cl_mem reduce_grass_global;
 	cl_mem rng_seeds;
 } PPGBuffersDevice;

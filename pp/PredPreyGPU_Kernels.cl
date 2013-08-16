@@ -61,7 +61,7 @@ typedef struct sim_params {
  */
 __kernel void grass(
 			__global uchar* grass_alive, 
-			__global uchar* grass_timer, 
+			__global ushort* grass_timer, 
 			const SIM_PARAMS sim_params)
 {
 	// Grid position for this work-item
@@ -72,7 +72,7 @@ __kernel void grass(
 		
 		// Decrement counter if grass is dead
 		if (!grass_alive[gid]) {
-			uchar timer = --grass_timer[gid];
+			ushort timer = --grass_timer[gid];
 			if (timer == 0) {
 				grass_alive[gid] = 1;
 			}

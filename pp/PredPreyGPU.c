@@ -69,9 +69,9 @@ int main(int argc, char **argv)
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
 	PPGKernels krnls = {NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
-	PPGBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersHost buffersHost = {NULL, NULL, NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	PPGSimParams simParams;
@@ -226,12 +226,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_grass_timer, CL_FALSE, 0, dataSizes.cells_grass_timer, buffersHost.cells_grass_timer, 0, NULL, &evts->write_grass_timer);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_grass_timer");
-
-	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_agents_number, CL_FALSE, 0, dataSizes.cells_agents_number, buffersHost.cells_agents_number, 0, NULL, &evts->write_agents_number);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_agents_number");
-
-	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.cells_agents_index, CL_FALSE, 0, dataSizes.cells_agents_index, buffersHost.cells_agents_index, 0, NULL, &evts->write_agents_index);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: cells_agents_index");
 
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds");
@@ -626,12 +620,12 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	
 	/* Environment cells */
 	dataSizes->cells_grass_alive = (simParams.size_xy + args.vwint) * sizeof(cl_uchar);
-	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_short);
-	dataSizes->cells_agents_number = simParams.size_xy * sizeof(cl_short);
-	dataSizes->cells_agents_index = simParams.size_xy * sizeof(cl_short);
+	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_ushort);
+	dataSizes->cells_agents_index_start = simParams.size_xy * sizeof(cl_uint);
+	dataSizes->cells_agents_index_end = simParams.size_xy * sizeof(cl_uint);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local = lws.reduce_grass1 * args.vwint * sizeof(cl_uint); //TODO Verify that GPU supports this local memory requirement
+	dataSizes->reduce_grass_local = lws.reduce_grass1 * args.vwint * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args.vwint * sizeof(cl_uint);
 	
 	/* Rng seeds */
@@ -651,8 +645,6 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 	/* Environment cells */
 	buffersHost->cells_grass_alive = (cl_uchar*) malloc(dataSizes->cells_grass_alive);
 	buffersHost->cells_grass_timer = (cl_ushort*) malloc(dataSizes->cells_grass_timer);
-	buffersHost->cells_agents_number = (cl_ushort*) malloc(dataSizes->cells_agents_number);
-	buffersHost->cells_agents_index = (cl_ushort*) malloc(dataSizes->cells_agents_index);
 	
 	for(guint i = 0; i < params.grid_x; i++) {
 		for (guint j = 0; j < params.grid_y; j++) {
@@ -683,8 +675,6 @@ void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 	free(buffersHost->stats);
 	free(buffersHost->cells_grass_alive);
 	free(buffersHost->cells_grass_timer);
-	free(buffersHost->cells_agents_number);
-	free(buffersHost->cells_agents_index);
 	free(buffersHost->rng_seeds);
 }
 
@@ -704,10 +694,10 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_grass_timer, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_grass_timer");
 
-	buffersDevice->cells_agents_number = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_number, NULL, &status);
+	buffersDevice->cells_agents_index_start = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_index_start, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_number");
 
-	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_index, NULL, &status);
+	buffersDevice->cells_agents_index_end = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes->cells_agents_index_end, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_index");
 
 	/* Grass reduction (count) */
@@ -739,8 +729,8 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	clReleaseMemObject(buffersDevice->stats);
 	clReleaseMemObject(buffersDevice->cells_grass_alive);
 	clReleaseMemObject(buffersDevice->cells_grass_timer);
-	clReleaseMemObject(buffersDevice->cells_agents_number);
-	clReleaseMemObject(buffersDevice->cells_agents_index);
+	clReleaseMemObject(buffersDevice->cells_agents_index_start);
+	clReleaseMemObject(buffersDevice->cells_agents_index_end);
 	clReleaseMemObject(buffersDevice->reduce_grass_global);
 	clReleaseMemObject(buffersDevice->rng_seeds);
 }
@@ -761,8 +751,6 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 void ppg_events_free(PPParameters params, PPGEvents* evts) {
 	if (evts->write_grass_alive) clReleaseEvent(evts->write_grass_alive);
 	if (evts->write_grass_timer) clReleaseEvent(evts->write_grass_timer);
-	if (evts->write_agents_number) clReleaseEvent(evts->write_agents_number);
-	if (evts->write_agents_index) clReleaseEvent(evts->write_agents_index);
 	if (evts->write_rng) clReleaseEvent(evts->write_rng);
 	if (evts->grass) {
 		for (guint i = 0; i < params.iters; i++) {
