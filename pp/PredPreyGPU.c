@@ -373,12 +373,6 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	profcl_profile_add(profile, "Write data", evts->write_grass_timer, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, "Write data", evts->write_agents_number, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add(profile, "Write data", evts->write_agents_index, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
 	profcl_profile_add(profile, "Write data", evts->write_rng, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
