@@ -465,8 +465,10 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 	}
 
 	/* init cell worksizes */
-	gws->init_cell = nlpo2(params.grid_x * params.grid_y); /** @todo Use sim_params to avoid mult. */
 	lws->init_cell = maxWorkGroupSize; /** @todo Allow user to define. */
+	gws->init_cell = lws->init_cell * ceil(((float) (params.grid_x * params.grid_y)) / lws->init_cell); 
+	/** @todo Use sim_params to avoid mult. */
+	/** @todo Use efficient function to calculate GWS depending on LWS. */
 
 	/* grass growth worksizes */
 #ifdef LWS_GRASS
@@ -474,7 +476,7 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 #else
 	lws->grass = maxWorkGroupSize;
 #endif
-	gws->grass = lws->grass * ceil(((float) (params.grid_x * params.grid_y)) / lws->grass);
+	gws->grass = lws->grass * ceil(((float) (params.grid_x * params.grid_y)) / lws->grass); /** @todo Use sim_params to avoid mult. */
 	
 	/* grass count worksizes */
 #ifdef LWS_REDUCEGRASS1 //TODO This should depend on number of cells, vector width, etc.
