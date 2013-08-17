@@ -262,7 +262,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			0, 
 			NULL,
 #ifdef CLPROFILER
-			&evts->reduce_grass1[iter - 1]
+			&evts->reduce_grass1[iter]
 #else
 			NULL
 #endif
@@ -277,9 +277,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			NULL, 
 			&gws.reduce_grass2, 
 			&lws.reduce_grass2, 
-			iter > 1 ? 1 : 0,  
-			iter > 1 ? &evts->read_stats[iter - 2] : NULL,
-			&evts->reduce_grass2[iter - 1]
+			iter > 0 ? 1 : 0,  
+			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
+			&evts->reduce_grass2[iter]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d", iter);
 		
@@ -300,8 +300,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			sizeof(PPStatistics), 
 			&buffersHost.stats[iter], 
 			1, 
-			&evts->reduce_grass2[iter - 1], 
-			&evts->read_stats[iter - 1]
+			&evts->reduce_grass2[iter], 
+			&evts->read_stats[iter]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d", iter);
 		
@@ -322,7 +322,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			0, 
 			NULL, 
 #ifdef CLPROFILER
-			&evts->grass[iter - 1]
+			&evts->grass[iter]
 #else
 			NULL
 #endif
@@ -647,7 +647,7 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = (simParams.size_xy + args.vwint) * sizeof(cl_uchar);
+	dataSizes->cells_grass_alive = (simParams.size_xy + args.vwint) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
 	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_ushort);
 	dataSizes->cells_agents_index_start = simParams.size_xy * sizeof(cl_uint);
 	dataSizes->cells_agents_index_end = simParams.size_xy * sizeof(cl_uint);
@@ -733,13 +733,13 @@ finish:
 
 // Free device buffers
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
-	clReleaseMemObject(buffersDevice->stats);
-	clReleaseMemObject(buffersDevice->cells_grass_alive);
-	clReleaseMemObject(buffersDevice->cells_grass_timer);
-	clReleaseMemObject(buffersDevice->cells_agents_index_start);
-	clReleaseMemObject(buffersDevice->cells_agents_index_end);
-	clReleaseMemObject(buffersDevice->reduce_grass_global);
-	clReleaseMemObject(buffersDevice->rng_seeds);
+	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
+	if (buffersDevice->cells_grass_alive) clReleaseMemObject(buffersDevice->cells_grass_alive);
+	if (buffersDevice->cells_grass_timer) clReleaseMemObject(buffersDevice->cells_grass_timer);
+	if (buffersDevice->cells_agents_index_start) clReleaseMemObject(buffersDevice->cells_agents_index_start);
+	if (buffersDevice->cells_agents_index_end) clReleaseMemObject(buffersDevice->cells_agents_index_end);
+	if (buffersDevice->reduce_grass_global) clReleaseMemObject(buffersDevice->reduce_grass_global);
+	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }
 
 // Create event data structure
