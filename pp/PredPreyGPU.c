@@ -267,7 +267,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			NULL
 #endif
 		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass1, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass1, iteration %d (OpenCL error %d)", iter, status);
 		
 		/* Step 4.2: Perform grass reduction, part II. */
 		status = clEnqueueNDRangeKernel(
@@ -281,7 +281,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
 			&evts->reduce_grass2[iter]
 		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d (OpenCL error %d)", iter, status);
 		
 		/* Step 4.3: Perform agents reduction, part I. */
 
@@ -303,7 +303,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&evts->reduce_grass2[iter], 
 			&evts->read_stats[iter]
 		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d (OpenCL error %d)", iter, status);
 		
 		/* Stop simulation if this is the last iteration. */
 		if (iter == params.iters) break;
@@ -327,7 +327,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			NULL
 #endif
 		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d", iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d (OpenCL error %d)", iter, status);
 
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
