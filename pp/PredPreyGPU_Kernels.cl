@@ -61,7 +61,7 @@ __kernel void initCell(
 			__global ushort* grass_timer, 
 			__global ulong * seeds,
 			const PPGSimParams sim_params)
-) {
+{
 	
 	// Grid position for this work-item
 	uint gid = get_global_id(0);
