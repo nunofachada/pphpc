@@ -22,9 +22,12 @@
  * different kernels which require RNG. */
 #define MAX_GWS 1048576
 
+#define PPG_LIMITS_SHOW
+#define PPG_DEBUG
 
-//#define LWS_GRASS 256
-//#define LWS_REDUCEGRASS1 256
+#define LWS_INIT_CELL 32
+#define LWS_GRASS 32
+#define LWS_REDUCEGRASS1 32
 
 /** Command line arguments and respective default values. */
 static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS, 0};
@@ -224,6 +227,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds (OpenCL error %d)", status);
 	
+#ifdef PPG_DEBUG
+	status = clFinish(zone->queues[0]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after rng write (OpenCL error %d)", status);
+#endif
+	
 	/* Init. cells */
 	status = clEnqueueNDRangeKernel(
 		zone->queues[0], 
@@ -241,6 +249,12 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: Init. cells (OpenCL error %d)", status);
+
+#ifdef PPG_DEBUG
+	status = clFinish(zone->queues[0]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after init cells (OpenCL error %d)", status);
+#endif
+
 	
 	/* *************** */
 	/* SIMULATION LOOP */
@@ -268,6 +282,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass1, iteration %d (OpenCL error %d)", iter, status);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[0]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass1, iteration %d (OpenCL error %d)", iter, status);
+#endif
 		
 		/* Step 4.2: Perform grass reduction, part II. */
 		status = clEnqueueNDRangeKernel(
@@ -283,6 +302,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d (OpenCL error %d)", iter, status);
 		
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[0]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass2, iteration %d (OpenCL error %d)", iter, status);
+#endif
+
 		/* Step 4.3: Perform agents reduction, part I. */
 
 		/** @todo Agents reduction, part I. */
@@ -304,6 +328,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&evts->read_stats[iter]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d (OpenCL error %d)", iter, status);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after read stats, iteration %d (OpenCL error %d)", iter, status);
+#endif
 		
 		/* Stop simulation if this is the last iteration. */
 		if (iter == params.iters) break;
@@ -328,6 +357,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d (OpenCL error %d)", iter, status);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[0]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after grass, iteration %d (OpenCL error %d)", iter, status);
+#endif
 
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
@@ -465,7 +499,11 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 	}
 
 	/* init cell worksizes */
+#ifdef LWS_INIT_CELL
+	lws->init_cell = LWS_INIT_CELL;
+#else
 	lws->init_cell = maxWorkGroupSize; /** @todo Allow user to define. */
+#endif
 	gws->init_cell = lws->init_cell * ceil(((float) (params.grid_x * params.grid_y)) / lws->init_cell); 
 	/** @todo Use sim_params to avoid mult. */
 	/** @todo Use efficient function to calculate GWS depending on LWS. */
@@ -691,6 +729,17 @@ void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err) {
 	
 	cl_int status;
+	
+#ifdef PPG_LIMITS_SHOW
+	size_t dev_mem = sizeof(PPStatistics) +
+		dataSizes->cells_grass_alive +
+		dataSizes->cells_grass_timer + 
+		dataSizes->cells_agents_index_start +
+		dataSizes->cells_agents_index_end +
+		dataSizes->reduce_grass_global + 
+		dataSizes->rng_seeds;
+	printf("Required device memory: %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
+#endif	
 	
 	/* Statistics */
 	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(PPStatistics), NULL, &status);

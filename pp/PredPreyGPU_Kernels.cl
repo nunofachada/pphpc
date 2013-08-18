@@ -37,12 +37,6 @@
 	#define convert_uintx(x) convert_uint8(x)
 	typedef uint8 uintx;
 	typedef uchar8 ucharx;
-#elif VW_INT == 16
-	#define VW_INT_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-	#define VW_REDUCE_FINAL_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.s10 + x.s11 + x.s12 + x.s13 + x.s14 + x.s15)
-	#define convert_uintx(x) convert_uint16(x)
-	typedef uint16 uintx;
-	typedef uchar16 ucharx;
 #endif
 
 #define CELL_VECTOR_NUM() CELL_NUM/VW_INT
