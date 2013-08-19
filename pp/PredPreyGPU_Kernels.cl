@@ -3,6 +3,8 @@
  * @brief OpenCL GPU kernels and data structures for PredPrey simulation.
  */
 
+#include "PredPreyCommon_Kernels.cl"
+
 /* 
  * Expected preprocessor defines:
  * 

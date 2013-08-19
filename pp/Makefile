@@ -43,19 +43,15 @@ PredPreyCPU: PredPreyCPU.o PredPreyCommon.o bitstuff.o
 
 PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
-	cp PredPreyGPUSort_Kernels.cl $(BUILDDIR)
 
 PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
-	cp PredPreyGPU_Kernels.cl $(BUILDDIR)
 
 PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
-	cp PredPreyCPU_Kernels.cl $(BUILDDIR)
 
 PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h $(UTILSINCLUDEDIR)/gerrorf.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@ -c $<
-	cp PredPreyCommon_Kernels.cl $(BUILDDIR)
 	
 bitstuff.o: bitstuff.c bitstuff.h
 	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@	

@@ -48,7 +48,7 @@ static GOptionEntry entries[] = {
 };
 
 /* OpenCL kernel files */
-const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPU_Kernels.cl"};
+const char* kernelFiles[] = {"pp/PredPreyGPU_Kernels.cl"};
 
 /**
  * @brief Main program.

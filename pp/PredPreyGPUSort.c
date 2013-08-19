@@ -22,7 +22,7 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // OpenCL kernel files
-const char* kernelFiles[] = {"pp/PredPreyCommon_Kernels.cl", "pp/PredPreyGPUSort_Kernels.cl"};
+const char* kernelFiles[] = {"pp/PredPreyGPUSort_Kernels.cl"};
 
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
@@ -105,7 +105,7 @@ int main(int argc, char ** argv)
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 2, NULL, &err);
+	status = clu_program_create(zone, kernelFiles, 1, "-D PP_RNG_MWC64X -I pp", &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	// 2. Get simulation parameters

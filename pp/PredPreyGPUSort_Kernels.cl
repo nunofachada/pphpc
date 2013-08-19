@@ -16,6 +16,8 @@
 #define GRASS_ID 2
 #define TOTALPPGSAgentS_ID 3
 
+#include "PredPreyCommon_Kernels.cl"
+
 typedef struct pp_gs_sim_params {
 	uint size_x;
 	uint size_y;
@@ -38,7 +40,7 @@ typedef struct pp_gs_agent {
  * Also increments iteration number.atomic_
  */
 __kernel void RandomWalk(__global PPGSAgent * agents,
-				__global ulong * seeds,
+				__global rng_state * seeds,
 				const PPGSSimParams sim_params,
 				__global uint * iter)
 {
@@ -333,7 +335,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 /*
  * Agent reproduction function for agents action kernel
  */
-PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParamsOcl * params, __global uint * num_agents, __global ulong * seeds)
+PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParamsOcl * params, __global uint * num_agents, __global rng_state * seeds)
 {
 	// Perhaps agent will reproduce if energy > reproduce_threshold
 	if (agent.energy > params[agent.type].reproduce_threshold) {
@@ -415,7 +417,7 @@ __kernel void AgentAction( __global PPGSAgent * agents,
 			__global uint * matrix, 
 			const PPGSSimParams sim_params, 
 			__global PPAgentParamsOcl * params,
-			__global ulong * seeds,
+			__global rng_state * seeds,
 			__global uint * num_agents)
 {
 	// Global id for this work-item

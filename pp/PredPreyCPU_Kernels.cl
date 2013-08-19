@@ -3,12 +3,10 @@
  * @brief OpenCL CPU kernels and data structures for PredPrey simulation.
  */
 
+#include "PredPreyCommon_Kernels.cl"
+
 #define PPCCell_GRASS_OFFSET 0
 #define PPCCell_AGINDEX_OFFSET 1
-
-#define SHEEP_ID 0
-#define WOLF_ID 1
-#define GRASS_ID 2
 
 typedef struct pp_c_agent_ocl {
 	uint energy;
