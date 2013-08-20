@@ -69,12 +69,16 @@ int main(int argc, char **argv)
 	/* Test data structures. */
 	cl_kernel init_rng = NULL, test_rng = NULL;
 	cl_uint **result_host = NULL;
-	cl_mem seeds = NULL, result_dev = NULL;
-	FILE *fp_dh, *fp_ml;
-	gchar *outputMatlab = NULL, *outputDieharder = NULL;
+	cl_ulong *seeds_host = NULL;
+	cl_mem seeds_dev = NULL, result_dev = NULL;
+	FILE *fp_dh, *fp_tsv;
+	gchar *outputTsv = NULL, *outputDieharder = NULL;
 	gchar* compilerOpts = NULL;
 	gchar* rngUpper = NULL;
-	
+
+	/* Host-based random number generator (mersenne twister) */
+	GRand* rng_host = NULL;	
+
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
 	
@@ -113,10 +117,7 @@ int main(int argc, char **argv)
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
-
-	/* Create kernels. */
-	init_rng = clCreateKernel(zone->program, "initRng", &status);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel init_rng (OpenCL error %d)", status);
+	/* Create test kernel. */
 	test_rng = clCreateKernel(zone->program, "testRng", &status);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel test_rng (OpenCL error %d)", status);
 	
@@ -127,20 +128,14 @@ int main(int argc, char **argv)
 	}
 	
 	/* Create device buffer */
-	seeds = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_ulong), NULL, &status);
+	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_ulong), NULL, &status);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 1 (OpenCL error %d)", status);
 	
 	result_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_int), NULL, &status);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 2 (OpenCL error %d)", status);
 
-	/*  Set fixed kernel arguments. */
-	status = clSetKernelArg(init_rng, 0, sizeof(cl_ulong), (void*) &rng_seed);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 init (OpenCL error %d)", status);
-
-	status = clSetKernelArg(init_rng, 1, sizeof(cl_mem), (void*) &seeds);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 init (OpenCL error %d)", status);
-
-	status = clSetKernelArg(test_rng, 0, sizeof(cl_mem), (void*) &seeds);
+	/*  Set test kernel arguments. */
+	status = clSetKernelArg(test_rng, 0, sizeof(cl_mem), (void*) &seeds_dev);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 test (OpenCL error %d)", status);
 	
 	status = clSetKernelArg(test_rng, 1, sizeof(cl_mem), (void*) &result_dev);
@@ -161,20 +156,68 @@ int main(int argc, char **argv)
 	
 	/* Start timming. */
 	timer = g_timer_new();
+	
+	/* If gid_seed is set, then initialize seeds in device with a kernel
+	 * otherwise, initialize seeds in host and send them to device. */
+	if (gid_seed) {
+		/* *** Device initalization of seeds, GID-based. *** */
+		
+		/* Create init kernel. */
+		init_rng = clCreateKernel(zone->program, "initRng", &status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel init_rng (OpenCL error %d)", status);
+		
+		/* Set init kernel args. */
+		status = clSetKernelArg(init_rng, 0, sizeof(cl_ulong), (void*) &rng_seed);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 init (OpenCL error %d)", status);
+		status = clSetKernelArg(init_rng, 1, sizeof(cl_mem), (void*) &seeds_dev);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 init (OpenCL error %d)", status);
+		
+		/* Run init kernel. */
+		status = clEnqueueNDRangeKernel(
+			zone->queues[0], 
+			init_rng, 
+			1, 
+			NULL, 
+			&gws, 
+			&lws, 
+			0, 
+			NULL, 
+			NULL
+		);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel init (OpenCL error %d)", status);
+		
 
-	/* Init RNG. */
-	status = clEnqueueNDRangeKernel(
-		zone->queues[0], 
-		init_rng, 
-		1, 
-		NULL, 
-		&gws, 
-		&lws, 
-		0, 
-		NULL, 
-		NULL
-	);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel init (OpenCL error %d)", status);
+	} else {
+		/* *** Host initialization of seeds with Mersenne Twister. *** */
+		
+		/* Initialize generator. */
+		rng_host = g_rand_new_with_seed(rng_seed);
+		
+		/* Allocate host memory for seeds. */
+		seeds_host = (cl_ulong*) malloc(sizeof(cl_ulong) * gws);
+		
+		/* Generate seeds. */
+		for (unsigned int i = 0; i < gws; i++) {
+			seeds_host[i] = (cl_ulong) (g_rand_double(rng_host) * CL_ULONG_MAX);
+		}
+		
+		/* Copy seeds to host. */
+		status = clEnqueueWriteBuffer(
+			zone->queues[0], 
+			seeds_dev, 
+			CL_FALSE, 
+			0, 
+			gws * sizeof(cl_ulong), 
+			seeds_host, 
+			0, 
+			NULL, 
+			NULL
+		);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: seeds (OpenCL error %d)", status);
+		
+	}
+	
+
 
 	/* Test! */
 	for (unsigned int i = 0; i < runs; i++) {
@@ -213,23 +256,23 @@ int main(int argc, char **argv)
 	printf("     Finished, ellapsed time: %lfs\n", g_timer_elapsed(timer, NULL));
 	printf("     Saving to files...\n");
 
-	/* Output results to files to be tested with dieharder and matlab*/
-	outputMatlab = g_strconcat(output, "_ml_", rng, ".tsv", NULL);
-	outputDieharder = g_strconcat(output, "_dh_", rng, ".txt", NULL);
+	/* Output results to files to dieharder and TSV format. */
+	outputTsv = g_strconcat(output, rng, "_", gid_seed ? "gid" : "host",".tsv", NULL);
+	outputDieharder = g_strconcat(output, rng, "_", gid_seed ? "gid" : "host", ".dh.txt", NULL);
 	fp_dh = fopen(outputDieharder, "w");
-	fp_ml = fopen(outputMatlab, "w");
+	fp_tsv = fopen(outputTsv, "w");
 	fprintf(fp_dh, "type: d\n");
 	fprintf(fp_dh, "count: %d\n", (int) (gws * runs));
-	fprintf(fp_dh, "numbit: 16\n");
+	fprintf(fp_dh, "numbit: %d\n", bits);
 	for (unsigned int i = 0; i < runs; i++) {
 		for (unsigned int j = 0; j < gws; j++) {
 			fprintf(fp_dh, "%u\n", result_host[i][j]);
-			fprintf(fp_ml, "%u\t", result_host[i][j]);
+			fprintf(fp_tsv, "%u\t", result_host[i][j]);
 		}
-		fprintf(fp_ml, "\n");
+		fprintf(fp_tsv, "\n");
 	}
 	fclose(fp_dh);
-	fclose(fp_ml);
+	fclose(fp_tsv);
 
 	printf("     Done...\n");
 
@@ -252,8 +295,11 @@ cleanup:
 	/* Free timer. */
 	if (timer) g_timer_destroy(timer);
 	
+	/* Free host-based random number generator. */
+	if (rng_host) g_rand_free(rng_host);
+	
 	/* Free filename strings. */
-	if (outputMatlab) g_free(outputMatlab);
+	if (outputTsv) g_free(outputTsv);
 	if (outputDieharder) g_free(outputDieharder);
 	
 	/* Release OpenCL kernels */
@@ -261,7 +307,7 @@ cleanup:
 	if (test_rng) clReleaseKernel(test_rng);
 	
 	/* Release OpenCL memory objects */
-	if (seeds) clReleaseMemObject(seeds);
+	if (seeds_dev) clReleaseMemObject(seeds_dev);
 	if (result_dev) clReleaseMemObject(result_dev);
 
 	/* Release OpenCL zone (program, command queue, context) */
@@ -274,6 +320,7 @@ cleanup:
 		}
 		free(result_host);
 	}
+	if (seeds_host) free(seeds_host);
 	
 	/* Bye bye. */
 	return 0;
