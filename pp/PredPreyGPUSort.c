@@ -105,7 +105,7 @@ int main(int argc, char ** argv)
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 1, "-D PP_RNG_XORSHIFT -I pp", &err);
+	status = clu_program_create(zone, kernelFiles, 1, "-D PP_RNG_LCG -I pp", &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	// 2. Get simulation parameters

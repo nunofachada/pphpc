@@ -45,7 +45,7 @@ uint randomNext( __global rng_state *states,
  * @return Returns next integer from 0 (including) to n (not including).
  */
 uint randomNextInt(__global rng_state *states, 
-			int n)
+			uint n)
 {
 	if ((n & -n) == n)  // i.e., n is a power of 2
 		return (uint) ((n * ((ulong) randomNext(states, 31))) >> 31);

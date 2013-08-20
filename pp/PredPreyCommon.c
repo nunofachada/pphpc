@@ -7,6 +7,7 @@
 
 #define ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 
+
 /**
  * @brief Load simulation parameters.
  * 
@@ -164,6 +165,22 @@ gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer dat
 	option_name = option_name; value = value; data = data;
 	/* Set error and return FALSE. */
 	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
+	return FALSE;
+}
+
+/** 
+ * @brief Checks if needle (element) is in haystack (array). 
+ * 
+ * @param needle What to look for.
+ * @param haystack Where to look for.
+ * @param size Number of elements in haystack.
+ * @param cmp Function to compare needle with elements in haystack.
+ * @return TRUE if needle is in haystack, FALSE otherwise.
+ * */
+gboolean pp_in_array(void *needle, char *haystack[], int size, cmpfunc cmp) {
+	for (int i = 0; i < size; i++)
+		if (cmp(needle, haystack[i]) == 0)
+			return TRUE;
 	return FALSE;
 }
 

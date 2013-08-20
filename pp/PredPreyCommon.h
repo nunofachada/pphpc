@@ -40,6 +40,9 @@
 /** Default statistics output file. */
 #define PP_DEFAULT_STATS_FILE "stats.txt"
 
+/** Kernel includes (to be added to OpenCL compiler options). */
+#define PP_KERNEL_INCLUDES "-I pp "
+
 /** Default RNG seed. */
 #define PP_DEFAULT_SEED 0
 
@@ -53,6 +56,15 @@
 #else
 	#define QUEUE_PROPERTIES 0
 #endif
+
+/**
+ * @brief Pointer to compare function to pass to pp_in_array() function.
+ * 
+ * @param elem1 First element to compare.
+ * @param elem2 Second element to compare.
+ * @return 0 if elements are equal, another value otherwise.
+ */
+typedef int (*cmpfunc)(void *elem1, void *elem2);
 
 /**
  * @brief Program error codes.
@@ -112,6 +124,9 @@ void pp_error_handle(GError* err, int status);
 /** @brief Callback function which will be called when non-option 
  *  command line arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
+
+/** @brief Checks if needle (element) is in haystack (array). */
+gboolean pp_in_array(void *needle, char *haystack[], int size, cmpfunc cmp);
 
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */

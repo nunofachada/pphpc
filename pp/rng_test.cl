@@ -29,6 +29,6 @@ __kernel void testRng(
 	// Grid position for this work-item
 	uint gid = get_global_id(0);
 
-	result[gid] = randomNextInt(seeds, 100);
+	result[gid] = randomNextInt(seeds, USHRT_MAX);
 	
 }
