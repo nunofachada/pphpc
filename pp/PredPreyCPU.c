@@ -90,7 +90,7 @@ int main(int argc, char ** argv) {
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 2, args.compiler_opts, &err);
+	status = clu_program_create(zone, kernelFiles, 1, args.compiler_opts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Get simulation parameters */

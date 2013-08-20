@@ -55,7 +55,7 @@ typedef struct pp_g_sim_params {
 __kernel void initCell(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer, 
-			__global ulong * seeds,
+			__global rng_state * seeds,
 			const PPGSimParams sim_params)
 {
 	

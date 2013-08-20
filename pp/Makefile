@@ -27,7 +27,7 @@ TESTSDIR = tests
 .PHONY: all clean mkdirs profiling
 
 # Targets and rules
-all: mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU 
+all: mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU rng_test
 
 profiling: CLMACROS += -DCLPROFILER
 profiling: all
@@ -40,6 +40,12 @@ PredPreyGPU: PredPreyGPU.o PredPreyCommon.o bitstuff.o
 
 PredPreyCPU: PredPreyCPU.o PredPreyCommon.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
+
+rng_test: rng_test.o PredPreyCommon.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
+
+rng_test.o: rng_test.c
+	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
 PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@

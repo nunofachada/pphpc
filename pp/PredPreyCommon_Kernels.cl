@@ -7,6 +7,8 @@
 #include "libcl/rng_lcg.cl"
 #elif defined PP_RNG_MWC64X
 #include "libcl/rng_mwc64x.cl"
+#elif defined PP_RNG_XORSHIFT
+#include "libcl/rng_xorshift.cl"
 #endif
 
 #define SHEEP_ID 0

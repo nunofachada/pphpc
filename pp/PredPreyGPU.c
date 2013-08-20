@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	printf("%s\n", compilerOpts);
 
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 2, compilerOpts, &err);
+	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Create kernels. */
@@ -843,6 +843,7 @@ char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPG
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
+	g_string_append_printf(compilerOpts, "-D PP_RNG_XORSHIFT -I pp ");
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
