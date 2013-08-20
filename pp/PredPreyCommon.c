@@ -177,7 +177,7 @@ gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer dat
  * @param cmp Function to compare needle with elements in haystack.
  * @return TRUE if needle is in haystack, FALSE otherwise.
  * */
-gboolean pp_in_array(void *needle, char *haystack[], int size, cmpfunc cmp) {
+gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp) {
 	for (int i = 0; i < size; i++)
 		if (cmp(needle, haystack[i]) == 0)
 			return TRUE;

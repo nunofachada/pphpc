@@ -126,7 +126,7 @@ void pp_error_handle(GError* err, int status);
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
 
 /** @brief Checks if needle (element) is in haystack (array). */
-gboolean pp_in_array(void *needle, char *haystack[], int size, cmpfunc cmp);
+gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp);
 
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */
