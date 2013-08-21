@@ -9,4 +9,5 @@ obj/
 stats*.txt
 config.txt
 cf4ocl
-
+out_*
+example*

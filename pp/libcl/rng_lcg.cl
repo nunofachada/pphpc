@@ -22,11 +22,12 @@ typedef ulong rng_state;
  * @return The next pseudorandom value from this random number 
  * generator's sequence.
  */
-uint randomNext( __global rng_state *states, 
-			int bits) {
+uint randomNext( __global rng_state *states) {
 
 	// Get state index
 	uint index = getWorkitemIndex();
+	// Assume 32 bits
+	uint bits = 32;
 	// Get current state
 	rng_state state = states[index];
 	// Update state
@@ -44,17 +45,10 @@ uint randomNext( __global rng_state *states,
  * @param n Returned integer is less than this value.
  * @return Returns next integer from 0 (including) to n (not including).
  */
-uint randomNextInt(__global rng_state *states, 
+uint randomNextInt( __global rng_state *states, 
 			uint n)
 {
-	if ((n & -n) == n)  // i.e., n is a power of 2
-		return (uint) ((n * ((ulong) randomNext(states, 31))) >> 31);
-	uint bits, val;
-	do {
-		bits = randomNext(states, 31);
-		val = bits % n;
-	} while (bits - val + (n-1) < 0);
-	return val;
+	return randomNext(states) % n;
 }
 
 

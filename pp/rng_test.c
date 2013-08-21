@@ -25,6 +25,7 @@ static int dev_idx = -1;
 static guint32 rng_seed = PP_DEFAULT_SEED;
 static gboolean gid_seed = FALSE;
 static unsigned char bits = RNGT_BITS;
+static gboolean host_mt = FALSE;
 
 /* Valid command line options. */
 static GOptionEntry entries[] = {
@@ -37,12 +38,13 @@ static GOptionEntry entries[] = {
 	{"rng-seed",     's', 0, G_OPTION_ARG_INT,      &rng_seed,      "Seed for random number generator (default is " STR(RNGT_SEED) ")",            "SEED"},
 	{"use-gid-seed", 'u', 0, G_OPTION_ARG_NONE,     &gid_seed,      "Use GID-based workitem seeds instead of MT derived seeds from host.",         NULL},
 	{"bits",         'b', 0, G_OPTION_ARG_INT,      &bits,          "Number of bits in unsigned integers to produce (default " STR(RNGT_BITS) ")", NULL},
+	{"host-mt",      'h', 0, G_OPTION_ARG_NONE,     &host_mt,       "Create dieharder example file with Mersenne Twister random numbers.",         NULL},
 	{G_OPTION_REMAINING,  0, 0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL,                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
 /* Acceptable RNGs */
-static const char* knownRngs[] = {"lcg", "xorshift", "mcw64x"};
+static const char* knownRngs[] = {"lcg", "xorshift", "mwc64x"};
 static int numberOfKnownRngs = 3;
 
 /* OpenCL kernel files */
@@ -140,6 +142,10 @@ int main(int argc, char **argv)
 	
 	status = clSetKernelArg(test_rng, 1, sizeof(cl_mem), (void*) &result_dev);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 test (OpenCL error %d)", status);
+	
+	status = clSetKernelArg(test_rng, 2, sizeof(cl_uchar), (void*) &bits);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 test (OpenCL error %d)", status);
+	
 
 	/* Print options. */
 	printf("\n   =========================== Selected options ============================\n\n");
@@ -147,7 +153,7 @@ int main(int argc, char **argv)
 	printf("     Seeds in workitems: %s\n", gid_seed ? "GID-based" : "Host-based (using Mersenne Twister)");
 	printf("     Global/local worksizes: %d/%d\n", (int) gws, (int) lws);
 	printf("     Number of runs: %d\n", runs);
-	printf("     Number of bits / Maximum integer: %d / %u\n", bits, (1 << (bits - 1)) - 1);
+	printf("     Number of bits / Maximum integer: %d / %u\n", bits, (unsigned int) ((1ul << bits) - 1));
 	printf("     Compiler Options: %s\n", compilerOpts);
 	
 	/* Inform about execution. */
@@ -257,8 +263,8 @@ int main(int argc, char **argv)
 	printf("     Saving to files...\n");
 
 	/* Output results to files to dieharder and TSV format. */
-	outputTsv = g_strconcat(output, rng, "_", gid_seed ? "gid" : "host",".tsv", NULL);
-	outputDieharder = g_strconcat(output, rng, "_", gid_seed ? "gid" : "host", ".dh.txt", NULL);
+	outputTsv = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host",".tsv", NULL);
+	outputDieharder = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host", ".dh.txt", NULL);
 	fp_dh = fopen(outputDieharder, "w");
 	fp_tsv = fopen(outputTsv, "w");
 	fprintf(fp_dh, "type: d\n");
@@ -273,6 +279,21 @@ int main(int argc, char **argv)
 	}
 	fclose(fp_dh);
 	fclose(fp_tsv);
+
+	/* Create a file with random numbers from GLib's Mersenne Twister. */
+	if (host_mt) {
+		printf("     Creating example file with random numbers from a Mersenne Twister...\n");
+		GRand *rng_example = g_rand_new_with_seed(rng_seed);
+		FILE *fp_ex = fopen("example.dh.txt", "w");
+		fprintf(fp_ex, "type: d\n");
+		fprintf(fp_ex, "count: %d\n", (int) (gws * runs));
+		fprintf(fp_ex, "numbit: %d\n", bits);
+		for (unsigned int i = 0; i < runs * gws; i++) {
+			fprintf(fp_ex, "%u\n", g_rand_int(rng_example) >> (32 - bits));
+		}
+		g_rand_free(rng_example);
+		fclose(fp_ex);
+	}
 
 	printf("     Done...\n");
 

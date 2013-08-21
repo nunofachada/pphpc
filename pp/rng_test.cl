@@ -23,12 +23,13 @@ __kernel void initRng(
 
 __kernel void testRng(
 		__global rng_state *seeds,
-		__global uint *result)
+		__global uint *result,
+		const uchar bits)
 {
 	
 	// Grid position for this work-item
 	uint gid = get_global_id(0);
 
-	result[gid] = randomNextInt(seeds, USHRT_MAX);
+	result[gid] = randomNext(seeds) >> (32 - bits);
 	
 }
