@@ -39,7 +39,7 @@ static GOptionEntry entries[] = {
 	{"rng-seed",     's', 0, G_OPTION_ARG_INT,      &rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",      "SEED"},
 	{"use-gid-seed", 'u', 0, G_OPTION_ARG_NONE,     &gid_seed,      "Use GID-based workitem seeds instead of MT derived seeds from host.",         NULL},
 	{"bits",         'b', 0, G_OPTION_ARG_INT,      &bits,          "Number of bits in unsigned integers to produce (default " STR(RNGT_BITS) ")", NULL},
-	{"max",          'm', 0, G_OPTION_ARG_INT,      &maxint,         "Maximum integer to produce, overrides --bits option",                         NULL},
+	{"max",          'm', 0, G_OPTION_ARG_INT,      &maxint,        "Maximum integer to produce, overrides --bits option",                         NULL},
 	{"host-mt",      'h', 0, G_OPTION_ARG_NONE,     &host_mt,       "Create dieharder example file with Mersenne Twister random numbers.",         NULL},
 	{G_OPTION_REMAINING,  0, 0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL,                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	

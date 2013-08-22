@@ -46,6 +46,9 @@
 /** Default RNG seed. */
 #define PP_DEFAULT_SEED 0
 
+/** Available random number generators. */
+#define PP_RNGS "lcg (default), xorshift or mwc64x"
+
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
 
@@ -127,6 +130,12 @@ gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer dat
 
 /** @brief Checks if needle (element) is in haystack (array). */
 gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp);
+
+/** @brief Generate RNG seeds in host and load them to device. */
+int pp_rand_genload(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err);
+
+/** @brief Generate RNG seeds in device. */
+int pp_rand_gendev(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err);
 
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */

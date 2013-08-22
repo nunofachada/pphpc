@@ -28,6 +28,7 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
+	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rng_seed,      "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
@@ -1137,4 +1138,5 @@ void ppc_args_free(GOptionContext* context) {
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
+	if (args.rngen) g_free(args.rngen);
 }

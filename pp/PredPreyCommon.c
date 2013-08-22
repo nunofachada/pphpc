@@ -184,6 +184,68 @@ gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp) {
 	return FALSE;
 }
 
+/** 
+ * @brief Generate RNG seeds in host and load them to device. 
+ * 
+ * @param zone OpenCL environment, including device.
+ * @param seed Base RNG seed.
+ * @param dev_buff Buffer device where to put random numbers (already
+ * allocated).
+ * @param bytes Number of random bytes to produce (must be a multiple of
+ * eight)
+ * @param ev OpenCL event of seeds transfer to device.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
+ * terminates successfully, or another value of #pp_error_codes if an 
+ * error occurs.
+ * */
+int pp_rand_genload(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err) {
+	
+	/* Random number generator */
+	GRand* rng = NULL;
+	
+	/* Check validity of function parameters. */
+	g_assert(zone != NULL);
+	g_assert(dev_buff != NULL);
+	g_assert(bytes % 8 == 0);
+
+
+	
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+
+finish:	
+	/* Free RNG */
+	if (rng != NULL) g_rand_free(rng);
+		
+	/* Return status. */
+	return status;
+	
+}
+
+/** 
+ * @brief Generate RNG seeds in device.
+ * 
+ * @param zone OpenCL environment, including device.
+ * @param seed Base RNG seed.
+ * @param dev_buff Buffer device where to put random numbers (already
+ * allocated).
+ * @param bytes Number of random bytes to produce (must be a multiple of
+ * eight)
+ * @param ev OpenCL event of RNG kernel execution.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
+ * terminates successfully, or another value of #pp_error_codes if an 
+ * error occurs.
+ * */
+int pp_rand_gendev(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err) {
+}
 
 /** 
  * @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation.
