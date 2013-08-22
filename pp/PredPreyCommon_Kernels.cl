@@ -3,13 +3,7 @@
  * @brief Common OpenCL kernels and data structures for PredPrey simulation.
  */
 
-#ifdef PP_RNG_LCG
-#include "libcl/rng_lcg.cl"
-#elif defined PP_RNG_MWC64X
-#include "libcl/rng_mwc64x.cl"
-#elif defined PP_RNG_XORSHIFT
-#include "libcl/rng_xorshift.cl"
-#endif
+#include "libcl/rng.cl"
 
 #define SHEEP_ID 0
 #define WOLF_ID 1

@@ -3,13 +3,7 @@
  * @brief Kernels for testing RNGs
  */
 
-#ifdef PP_RNG_LCG
-#include "libcl/rng_lcg.cl"
-#elif defined PP_RNG_MWC64X
-#include "libcl/rng_mwc64x.cl"
-#elif defined PP_RNG_XORSHIFT
-#include "libcl/rng_xorshift.cl"
-#endif
+#include "libcl/rng.cl"
 
 __kernel void initRng(
 		const ulong main_seed,

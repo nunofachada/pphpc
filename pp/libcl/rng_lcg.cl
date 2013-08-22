@@ -38,18 +38,4 @@ uint randomNext( __global rng_state *states) {
 	return (uint) (state >> (48 - bits));
 }
 
-/**
- * @brief Returns next integer from 0 (including) to n (not including).
- * 
- * @param states Array of RNG states.
- * @param n Returned integer is less than this value.
- * @return Returns next integer from 0 (including) to n (not including).
- */
-uint randomNextInt( __global rng_state *states, 
-			uint n)
-{
-	return randomNext(states) % n;
-}
-
-
 #endif

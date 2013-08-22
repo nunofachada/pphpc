@@ -1,6 +1,8 @@
 /** 
  * @file
  * @brief GPU implementation of simple XorShift random number generator.
+ * 
+ * Based on code available [here](http://www.javamex.com/tutorials/random_numbers/xorshift.shtml).
  */
  
 #ifndef LIBCL_RNG
@@ -26,9 +28,9 @@ uint randomNext( __global rng_state *states) {
 	rng_state state = states[index];
 	
 	// Update state
-	state ^= (state << 13);
-	state ^= (state >> 17);
-	state ^= (state << 5);
+	state ^= (state << 21);
+	state ^= (state >> 35);
+	state ^= (state << 4);
 	
 	// Keep state
 	states[index] = state;
@@ -45,16 +47,4 @@ uint randomNext( __global rng_state *states) {
 	
 }
 
-/**
- * @brief Returns next integer from 0 (including) to n (not including).
- * 
- * @param states Array of RNG states.
- * @param n Returned integer is less than this value.
- * @return Returns next integer from 0 (including) to n (not including).
- */
-uint randomNextInt( __global rng_state *states, 
-			uint n)
-{
-	return randomNext(states) % n;
-}
 #endif
