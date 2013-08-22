@@ -8,7 +8,7 @@
 
 #include "workitem.cl"
  
-typedef uint2 rng_state;
+typedef ulong rng_state;
 
 /**
  * @brief RNG utility function, not to be called directly from kernels.
@@ -26,15 +26,22 @@ uint randomNext( __global rng_state *states) {
 	rng_state state = states[index];
 	
 	// Update state
-	uint x = state.x * 17 + state.y * 13123;
-	state.x = (x<<13) ^ x;
-	state.y ^= (x<<7);
+	state ^= (state << 13);
+	state ^= (state >> 17);
+	state ^= (state << 5);
 	
 	// Keep state
 	states[index] = state;
 
 	// Return value
-	return x * (x * x * 15731 + 74323) + 871483;	
+	return convert_uint(state);
+	
+	// The instruction above should work because of what the OpenCL
+	// spec says: "Out-of-Range Behavior: When converting between 
+	// integer types, the resulting value for out-of-range inputs will 
+	// be equal to the set of least significant bits in the source 
+	// operand element that fit in the corresponding destination 
+	// element."
 	
 }
 

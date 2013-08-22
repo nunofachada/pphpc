@@ -28,15 +28,15 @@ uint randomNext(__global rng_state *states) {
 	uint index = getWorkitemIndex();
 	
 	// Unpack the state	
-	uint x = states[index].x, c=states[index].y;
+	uint x = states[index].x, c = states[index].y;
 	// Calculate the result
 	uint res = x^c;       
 	// Step the RNG              
 	uint hi = mul_hi(x,A);
-	x=x*A+c;
-	c=hi+(x<c);
+	x= x * A + c;
+	c= hi + (x < c);
 	// Pack the state back up
-	states[index]=(rng_state) (x, c);
+	states[index] = (rng_state) (x, c);
 	// Return the next result
 	return res;
 }

@@ -13,7 +13,7 @@
 #define RNGT_BITS 32
 
 /** A description of the program. */
-#define PPTRNG_DESCRIPTION "Test RNGs"
+#define RNGT_DESCRIPTION "Test RNGs"
 
 /* Command line arguments and respective default values. */
 static char *rng = NULL;
@@ -24,7 +24,8 @@ static unsigned int runs = RNGT_RUNS;
 static int dev_idx = -1;
 static guint32 rng_seed = PP_DEFAULT_SEED;
 static gboolean gid_seed = FALSE;
-static unsigned char bits = RNGT_BITS;
+static unsigned int bits = RNGT_BITS;
+static unsigned int maxint = 0;
 static gboolean host_mt = FALSE;
 
 /* Valid command line options. */
@@ -35,9 +36,10 @@ static GOptionEntry entries[] = {
 	{"localsize",    'l', 0, G_OPTION_ARG_INT,      &lws,           "Local work size (default is " STR(RNGT_LWS) ")",                              "SIZE"},
 	{"runs",         'n', 0, G_OPTION_ARG_INT,      &runs,          "Number of random numbers per workitem (default is " STR(RNGT_RUNS) ")",       "SIZE"},
 	{"device",       'd', 0, G_OPTION_ARG_INT,      &dev_idx,       "Device index",                                                                "INDEX"},
-	{"rng-seed",     's', 0, G_OPTION_ARG_INT,      &rng_seed,      "Seed for random number generator (default is " STR(RNGT_SEED) ")",            "SEED"},
+	{"rng-seed",     's', 0, G_OPTION_ARG_INT,      &rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",      "SEED"},
 	{"use-gid-seed", 'u', 0, G_OPTION_ARG_NONE,     &gid_seed,      "Use GID-based workitem seeds instead of MT derived seeds from host.",         NULL},
 	{"bits",         'b', 0, G_OPTION_ARG_INT,      &bits,          "Number of bits in unsigned integers to produce (default " STR(RNGT_BITS) ")", NULL},
+	{"max",          'm', 0, G_OPTION_ARG_INT,      &maxint,         "Maximum integer to produce, overrides --bits option",                         NULL},
 	{"host-mt",      'h', 0, G_OPTION_ARG_NONE,     &host_mt,       "Create dieharder example file with Mersenne Twister random numbers.",         NULL},
 	{G_OPTION_REMAINING,  0, 0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL,                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
@@ -91,7 +93,7 @@ int main(int argc, char **argv)
 	GTimer* timer = NULL;
 	
 	/* Parse command line options. */
-	context = g_option_context_new (" - " PPTRNG_DESCRIPTION);
+	context = g_option_context_new (" - " RNGT_DESCRIPTION);
 	g_option_context_add_main_entries(context, entries, NULL);
 	g_option_context_parse(context, &argc, &argv, &err);	
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
@@ -115,7 +117,7 @@ int main(int argc, char **argv)
 	
 	/* Build program. */
 	rngUpper = g_ascii_strup(rng, -1);
-	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D PP_RNG_", rngUpper, NULL);
+	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D PP_RNG_", rngUpper, maxint ? " -D RNGT_MAXINT" : "", NULL);
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
@@ -143,7 +145,7 @@ int main(int argc, char **argv)
 	status = clSetKernelArg(test_rng, 1, sizeof(cl_mem), (void*) &result_dev);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 test (OpenCL error %d)", status);
 	
-	status = clSetKernelArg(test_rng, 2, sizeof(cl_uchar), (void*) &bits);
+	status = clSetKernelArg(test_rng, 2, sizeof(cl_uint), (void*) (maxint ? &maxint : &bits));
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 test (OpenCL error %d)", status);
 	
 
