@@ -23,7 +23,7 @@
 #define MAX_GWS 1048576
 
 #define PPG_LIMITS_SHOW
-#define PPG_DEBUG
+//#define PPG_DEBUG
 
 #define LWS_INIT_CELL 32
 #define LWS_GRASS 32
@@ -743,7 +743,8 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 		dataSizes->cells_agents_index_end +
 		dataSizes->reduce_grass_global + 
 		dataSizes->rng_seeds;
-	printf("Required device memory: %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
+	printf("Required global memory: %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
+	printf("Required local memory for reduceGrass kernels: %d bytes (%d Kb)\n", (int) dataSizes->reduce_grass_local);
 #endif	
 	
 	/* Statistics */
