@@ -19,6 +19,7 @@ typedef struct pp_g_args {
 	size_t lws;           /**< Local work size. */
 	cl_int dev_idx;       /**< Index of device to use. */
 	guint32 rng_seed;     /**< Rng seed. */
+	gchar* rngen;         /**< Random number generator. */
 	cl_uint max_agents;   /**< Maximum number of agents. */
 	cl_uint vwint;        /**< Vector width for integers */
 } PPGArgs;

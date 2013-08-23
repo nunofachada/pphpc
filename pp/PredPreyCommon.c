@@ -5,8 +5,16 @@
 
 #include "PredPreyCommon.h"
 
-#define ERROR_MSG_REPEAT "Repeated parameters in parameters file"
+#define PP_ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 
+/* Recognized RNGs. */
+const PPRngInfo rng_infos[] = {
+	{"lcg", "PP_RNG_LCG", 8}, 
+	{"xorshift", "PP_RNG_XORSHIFT", 8},
+	{"xorshift128", "PP_RNG_XORSHIFT128", 16},
+	{"mwc64x", "PP_RNG_MWC64X", 8},
+	{NULL, NULL, 0}
+};
 
 /**
  * @brief Load simulation parameters.
@@ -35,84 +43,84 @@ int pp_load_params(PPParameters* parameters, char* filename, GError** err) {
 				parameters->init_sheep = value;
 				check = check | 1;
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_GAIN_FROM_FOOD") == 0) {
 			if ((1 & (check >> 1)) == 0) {
 				parameters->sheep_gain_from_food = value;
 				check = check | (1 << 1);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_REPRODUCE_THRESHOLD") == 0) {
 			if ((1 & (check >> 2)) == 0) {
 				parameters->sheep_reproduce_threshold = value;
 				check = check | (1 << 2);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "SHEEP_REPRODUCE_PROB") == 0) {
 			if ((1 & (check >> 3)) == 0) {
 				parameters->sheep_reproduce_prob = value;
 				check = check | (1 << 3);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "INIT_WOLVES") == 0) {
 			if ((1 & (check >> 4)) == 0) {
 				parameters->init_wolves = value;
 				check = check | (1 << 4);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_GAIN_FROM_FOOD") == 0) {
 			if ((1 & (check >> 5)) == 0) {
 				parameters->wolves_gain_from_food = value;
 				check = check | (1 << 5);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_REPRODUCE_THRESHOLD") == 0) {
 			if ((1 & (check >> 6)) == 0) {
 				parameters->wolves_reproduce_threshold = value;
 				check = check | (1 << 6);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "WOLVES_REPRODUCE_PROB") == 0) {
 			if ((1 & (check >> 7)) == 0) {
 				parameters->wolves_reproduce_prob = value;
 				check = check | (1 << 7);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRASS_RESTART") == 0) {
 			if ((1 & (check >> 8)) == 0) {
 				parameters->grass_restart = value;
 				check = check | (1 << 8);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRID_X") == 0) {
 			if ((1 & (check >> 9)) == 0) {
 				parameters->grid_x = value;
 				check = check | (1 << 9);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "GRID_Y") == 0) {
 			if ((1 & (check >> 10)) == 0) {
 				parameters->grid_y = value;
 				check = check | (1 << 10);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else if (strcmp(param, "ITERS") == 0) {
 			if ((1 & (check >> 11)) == 0) {
 				parameters->iters = value;
 				check = check | (1 << 11);
 			} else {
-				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, ERROR_MSG_REPEAT);
+				gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, PP_ERROR_MSG_REPEAT);
 			}	
 		} else {
 			gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, "Invalid parameter '%s' in parameters file", param);
@@ -169,82 +177,27 @@ gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer dat
 }
 
 /** 
- * @brief Checks if needle (element) is in haystack (array). 
+ * @brief Returns the proper OpenCL compiler constant for the provided
+ * random number generator tag. 
  * 
- * @param needle What to look for.
- * @param haystack Where to look for.
- * @param size Number of elements in haystack.
- * @param cmp Function to compare needle with elements in haystack.
- * @return TRUE if needle is in haystack, FALSE otherwise.
+ * @param rng_tag Tag identifying the RNG.
+ * @return The respective compiler constant.
  * */
-gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp) {
-	for (int i = 0; i < size; i++)
-		if (cmp(needle, haystack[i]) == 0)
-			return TRUE;
-	return FALSE;
+const gchar* pp_rng_const_get(gchar *rng_tag) {
+	int i;
+	PP_RNG_RETURN(i, rng_infos, rng_tag, compiler_const);
 }
 
 /** 
- * @brief Generate RNG seeds in host and load them to device. 
+ * @brief Returns the number of bytes required per seed per workitem 
+ * for the provided random number generator tag. 
  * 
- * @param zone OpenCL environment, including device.
- * @param seed Base RNG seed.
- * @param dev_buff Buffer device where to put random numbers (already
- * allocated).
- * @param bytes Number of random bytes to produce (must be a multiple of
- * eight)
- * @param ev OpenCL event of seeds transfer to device.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
- * terminates successfully, or another value of #pp_error_codes if an 
- * error occurs.
+ * @param rng_tag Tag identifying the RNG.
+ * @return The respective number of required bytes per seed.
  * */
-int pp_rand_genload(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err) {
-	
-	/* Random number generator */
-	GRand* rng = NULL;
-	
-	/* Check validity of function parameters. */
-	g_assert(zone != NULL);
-	g_assert(dev_buff != NULL);
-	g_assert(bytes % 8 == 0);
-
-
-	
-	/* If we got here, everything is OK. */
-	goto finish;
-	
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
-
-finish:	
-	/* Free RNG */
-	if (rng != NULL) g_rand_free(rng);
-		
-	/* Return status. */
-	return status;
-	
-}
-
-/** 
- * @brief Generate RNG seeds in device.
- * 
- * @param zone OpenCL environment, including device.
- * @param seed Base RNG seed.
- * @param dev_buff Buffer device where to put random numbers (already
- * allocated).
- * @param bytes Number of random bytes to produce (must be a multiple of
- * eight)
- * @param ev OpenCL event of RNG kernel execution.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program 
- * terminates successfully, or another value of #pp_error_codes if an 
- * error occurs.
- * */
-int pp_rand_gendev(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err) {
+size_t pp_rng_bytes_get(gchar *rng_tag) {
+	int i;
+	PP_RNG_RETURN(i, rng_infos, rng_tag, bytes);
 }
 
 /** 

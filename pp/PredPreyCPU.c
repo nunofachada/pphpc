@@ -17,7 +17,7 @@
 #define PPC_DESCRIPTION "OpenCL predator-prey simulation for the CPU"
 
 /** Command line arguments and respective default values. */
-static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPC_DEFAULT_MAX_AGENTS};
+static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, NULL, PPC_DEFAULT_MAX_AGENTS};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -78,6 +78,10 @@ int main(int argc, char ** argv) {
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
 	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
+	
+	/* Validate arguments. */
+	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
+	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(args.rngen), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
 	
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -256,6 +260,19 @@ error_handler:
 finish:	
 	/* Return. */
 	return status;
+}
+
+/**
+ * @brief Create compiler options string. 
+ * */
+char* ppc_compiler_opts_build(gchar* cliOpts) {
+	char* compilerOptsStr;
+	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
+	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
+	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
+	compilerOptsStr = compilerOpts->str;
+	g_string_free(compilerOpts, FALSE);
+	return compilerOptsStr;
 }
 
 /**

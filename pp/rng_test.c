@@ -6,7 +6,6 @@
 #include "PredPreyCommon.h"
 
 #define RNGT_OUTPUT "out"
-#define RNGT_RNG "lcg" 
 #define RNGT_GWS 262144
 #define RNGT_LWS 256
 #define RNGT_RUNS 50
@@ -30,7 +29,7 @@ static gboolean host_mt = FALSE;
 
 /* Valid command line options. */
 static GOptionEntry entries[] = {
-	{"rng",          'r', 0, G_OPTION_ARG_STRING,   &rng,           "lcg (default), xorshift or mcw64x",                                           "RNG"},
+	{"rng",          'r', 0, G_OPTION_ARG_STRING,   &rng,           "Random number generator: " PP_RNGS,                                           "RNG"},
 	{"output",       'o', 0, G_OPTION_ARG_FILENAME, &output,        "Output file w/o extension (default is " RNGT_OUTPUT ")",                      "FILENAME"},
 	{"globalsize",   'g', 0, G_OPTION_ARG_INT,      &gws,           "Global work size (default is " STR(RNGT_GWS) ")",                             "SIZE"},
 	{"localsize",    'l', 0, G_OPTION_ARG_INT,      &lws,           "Local work size (default is " STR(RNGT_LWS) ")",                              "SIZE"},
@@ -45,9 +44,6 @@ static GOptionEntry entries[] = {
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
-/* Acceptable RNGs */
-static const char* knownRngs[] = {"lcg", "xorshift", "mwc64x"};
-static int numberOfKnownRngs = 3;
 
 /* OpenCL kernel files */
 static const char* kernelFiles[] = {"pp/rng_test.cl"};
@@ -78,7 +74,7 @@ int main(int argc, char **argv)
 	FILE *fp_dh, *fp_tsv;
 	gchar *outputTsv = NULL, *outputDieharder = NULL;
 	gchar* compilerOpts = NULL;
-	gchar* rngUpper = NULL;
+	size_t seeds_count;
 
 	/* Host-based random number generator (mersenne twister) */
 	GRand* rng_host = NULL;	
@@ -98,17 +94,8 @@ int main(int argc, char **argv)
 	g_option_context_parse(context, &argc, &argv, &err);	
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	if (output == NULL) output = g_strdup(RNGT_OUTPUT);
-	if (rng == NULL) rng = g_strdup(RNGT_RNG);
-	/* Check selected RNG. */
-	status = PP_INVALID_ARGS;
-	for (int i = 0; i < numberOfKnownRngs; i++) {
-		if (pp_in_array(rng, (void**) knownRngs, numberOfKnownRngs, (cmpfunc) g_strcmp0)) {
-			status = PP_SUCCESS;
-			break;
-		}
-	}
-	gef_if_error_create_goto(err, PP_ERROR, PP_SUCCESS != status, PP_INVALID_ARGS, error_handler, "Unknown RNG '%s'", rng);
-	/* Check bits. */
+	if (rng == NULL) rng = g_strdup(PP_DEFAULT_RNG);
+	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(rng), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
 	gef_if_error_create_goto(err, PP_ERROR, (bits > 32) || (bits < 1), PP_INVALID_ARGS, error_handler, "Number of bits must be between 1 and 32.");
 	
 	/* Get the required CL zone. */
@@ -116,8 +103,7 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Build program. */
-	rngUpper = g_ascii_strup(rng, -1);
-	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D PP_RNG_", rngUpper, maxint ? " -D RNGT_MAXINT" : "", NULL);
+	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D ", pp_rng_const_get(rng), maxint ? " -D RNGT_MAXINT" : "", NULL);
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
@@ -132,7 +118,8 @@ int main(int argc, char **argv)
 	}
 	
 	/* Create device buffer */
-	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_ulong), NULL, &status);
+	seeds_count = gws * pp_rng_bytes_get(rng) / sizeof(cl_ulong);
+	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, seeds_count * sizeof(cl_ulong), NULL, &status);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 1 (OpenCL error %d)", status);
 	
 	result_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_int), NULL, &status);
@@ -202,10 +189,10 @@ int main(int argc, char **argv)
 		rng_host = g_rand_new_with_seed(rng_seed);
 		
 		/* Allocate host memory for seeds. */
-		seeds_host = (cl_ulong*) malloc(sizeof(cl_ulong) * gws);
+		seeds_host = (cl_ulong*) malloc(seeds_count * sizeof(cl_ulong));
 		
 		/* Generate seeds. */
-		for (unsigned int i = 0; i < gws; i++) {
+		for (unsigned int i = 0; i < seeds_count; i++) {
 			seeds_host[i] = (cl_ulong) (g_rand_double(rng_host) * CL_ULONG_MAX);
 		}
 		
@@ -215,7 +202,7 @@ int main(int argc, char **argv)
 			seeds_dev, 
 			CL_FALSE, 
 			0, 
-			gws * sizeof(cl_ulong), 
+			seeds_count * sizeof(cl_ulong), 
 			seeds_host, 
 			0, 
 			NULL, 
@@ -313,7 +300,6 @@ cleanup:
 	if (rng) g_free(rng);	
 	if (output) g_free(output);
 	if (compilerOpts) g_free(compilerOpts);
-	if (rngUpper) g_free(rngUpper);
 	
 	/* Free timer. */
 	if (timer) g_timer_destroy(timer);

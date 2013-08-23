@@ -40,14 +40,17 @@
 /** Default statistics output file. */
 #define PP_DEFAULT_STATS_FILE "stats.txt"
 
-/** Kernel includes (to be added to OpenCL compiler options). */
-#define PP_KERNEL_INCLUDES "-I pp "
-
 /** Default RNG seed. */
 #define PP_DEFAULT_SEED 0
 
+/** Default random number generator. */
+#define PP_DEFAULT_RNG "lcg"
+
 /** Available random number generators. */
-#define PP_RNGS "lcg (default), xorshift or mwc64x"
+#define PP_RNGS "lcg (default), xorshift, xorshift128 or mwc64x"
+
+/** Kernel includes (to be added to OpenCL compiler options). */
+#define PP_KERNEL_INCLUDES "-I pp "
 
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
@@ -59,6 +62,33 @@
 #else
 	#define QUEUE_PROPERTIES 0
 #endif
+
+/**
+ * @brief Returns the requested information about a RNG.
+ * 
+ * @param rng_infos The array containing data about the RNGs.
+ * @param rng_tag Tag identifying the RNG.
+ * @param field Requested information about the RNG.
+ * @return The requested information about a RNG.
+ * */
+#define PP_RNG_RETURN(i, rng_infos, rng_tag, field) \
+	i = 0; \
+	while(rng_infos[i].tag) { \
+		if (g_strcmp0(rng_infos[i].tag, rng_tag) == 0) \
+			return rng_infos[i].field; \
+		i++; \
+	} \
+	return rng_infos[i].field; \
+
+/**
+ * @brief Information about a RNG.
+ * */	
+typedef struct pp_rng_info {
+	char* tag;            /**< Tag identifying the  TNG. */
+	char* compiler_const; /**< RNG OpenCL compiler constant. */
+	size_t bytes;         /**< Bytes required per RNG seed. */
+} PPRngInfo;
+
 
 /**
  * @brief Pointer to compare function to pass to pp_in_array() function.
@@ -128,14 +158,13 @@ void pp_error_handle(GError* err, int status);
  *  command line arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
 
-/** @brief Checks if needle (element) is in haystack (array). */
-gboolean pp_in_array(void *needle, void *haystack[], int size, cmpfunc cmp);
+/** @brief Returns the proper OpenCL compiler constant for the provided
+ * random number generator tag. */
+const gchar* pp_rng_const_get(gchar *rng_tag);
 
-/** @brief Generate RNG seeds in host and load them to device. */
-int pp_rand_genload(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err);
-
-/** @brief Generate RNG seeds in device. */
-int pp_rand_gendev(CLUZone* zone, guint32 seed, cl_mem dev_buff, size_t bytes, cl_event ev, GError **err);
+/** @brief Returns the number of bytes required per seed per workitem 
+ * for the provided random number generator tag. */
+size_t pp_rng_bytes_get(gchar *rng_tag);
 
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */

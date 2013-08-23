@@ -4,6 +4,8 @@
 #include "libcl/rng_mwc64x.cl"
 #elif defined PP_RNG_XORSHIFT
 #include "libcl/rng_xorshift1.cl"
+#elif defined PP_RNG_XORSHIFT128
+#include "libcl/rng_xorshift128.cl"
 #endif
 
 /**

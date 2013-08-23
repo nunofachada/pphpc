@@ -30,7 +30,7 @@
 #define LWS_REDUCEGRASS1 32
 
 /** Command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS, 0};
+static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS, 0};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -41,6 +41,7 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
+	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rng_seed,      "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{"vw-int",           0,  0, G_OPTION_ARG_INT,      &args.vwint,         "Vector width for int's (default is given by device)",                                       "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
@@ -95,6 +96,10 @@ int main(int argc, char **argv)
 	/* Parse arguments. */
 	ppg_args_parse(argc, argv, &context, &err);
 	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
+
+	/* Validate arguments. */
+	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
+	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(args.rngen), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
 	
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -838,12 +843,12 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 /* Create compiler options string. */
 char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	char* compilerOptsStr;
-	GString* compilerOpts = g_string_new("");
+	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args.vwint);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
-	g_string_append_printf(compilerOpts, "-D PP_RNG_XORSHIFT -I pp ");
+	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
@@ -876,4 +881,5 @@ void ppg_args_free(GOptionContext* context) {
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
+	if (args.rngen) g_free(args.rngen);
 }
