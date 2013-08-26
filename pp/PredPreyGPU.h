@@ -24,37 +24,46 @@ typedef struct pp_g_args {
 	cl_uint vwint;        /**< Vector width for integers */
 } PPGArgs;
 
-// Simulation parameters useful for PredPreyGPU (TODO really?)
+/** 
+ * @brief Simulation parameters to pass to kernel
+ * @todo Maybe this can be constant passed as compiler options? 
+ * */
 typedef struct pp_g_sim_params {
-	cl_uint size_x;
-	cl_uint size_y;
-	cl_uint size_xy;
-	cl_uint max_agents;
-	cl_uint grass_restart;
+	cl_uint size_x;        /**< Width (number of cells) of environment.*/
+	cl_uint size_y;        /**< Height (number of cells) of environment. */
+	cl_uint size_xy;       /**< Dimension of environment (total number of cells). */
+	cl_uint max_agents;    /**< Maximum number of agentes. */
+	cl_uint grass_restart; /**< Number of iterations that the grass takes to regrow after being eaten by a sheep. */
 } PPGSimParams;
 
-// Global work sizes
+/** 
+ * @brief Global work sizes for all the kernels.
+ * */
 typedef struct pp_g_global_work_sizes {
-	size_t init_cell;
-	size_t grass;
-	size_t reduce_grass1;
-	size_t reduce_grass2;
+	size_t init_cell;     /**< Init cells kernel global worksize. */
+	size_t grass;         /**< Grass kernel global worksize. */
+	size_t reduce_grass1; /**< Reduce grass 1 kernel global worksize. */
+	size_t reduce_grass2; /**< Reduce grass 2 kernel global worksize. */
 } PPGGlobalWorkSizes;
 
-// Local work sizes
+/** 
+ * @brief Local work sizes for all the kernels.
+ * */
 typedef struct pp_g_local_work_sizes {
-	size_t init_cell;
-	size_t grass;
-	size_t reduce_grass1;
-	size_t reduce_grass2;
+	size_t init_cell;     /**< Init cells kernel local worksize. */
+	size_t grass;         /**< Grass kernel local worksize. */
+	size_t reduce_grass1; /**< Reduce grass 1 kernel local worksize. */
+	size_t reduce_grass2; /**< Reduce grass 2 kernel local worksize. */
 } PPGLocalWorkSizes;
 
-// Kernels
+/**
+ * @brief Simulation kernels.
+ * */
 typedef struct pp_g_kernels {
-	cl_kernel init_cell;
-	cl_kernel grass;
-	cl_kernel reduce_grass1;
-	cl_kernel reduce_grass2;
+	cl_kernel init_cell;     /**< Init cells kernel. */
+	cl_kernel grass;         /**< Grass kernel. */
+	cl_kernel reduce_grass1; /**< Reduce grass 1 kernel. */
+	cl_kernel reduce_grass2; /**< Reduce grass 2 kernel. */
 } PPGKernels;
 
 // Events

@@ -42,6 +42,7 @@ typedef struct pp_c_agent {
 
 /**
  * @brief Simulation parameters for OpenCL kernels.
+ * @todo Maybe this can be constant passed as compiler options? 
  * */
 typedef struct pp_c_sim_params {
 	cl_uint size_x;				/**< Width (number of cells) of environment.*/
