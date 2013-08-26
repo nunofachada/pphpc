@@ -28,7 +28,7 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rng_seed,      "Random number generator: " PP_RNGS,                                                         "RNG"},
+	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
@@ -62,6 +62,7 @@ int main(int argc, char ** argv) {
 	PPCBuffersHost buffersHost = {NULL, NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
+	gchar* compilerOpts = NULL;
 
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
@@ -94,8 +95,11 @@ int main(int argc, char ** argv) {
 	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
+	/* Build compiler options. */
+	compilerOpts = ppc_compiler_opts_build(args.compiler_opts);
+	
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 1, args.compiler_opts, &err);
+	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Get simulation parameters */
@@ -110,7 +114,7 @@ int main(int argc, char ** argv) {
 	buffersHost.sim_params = ppc_simparams_init(params, NULL_AGENT_POINTER, workSizes);
 		
 	/* Print simulation info to screen */
-	ppc_simulation_info_print(zone->cu, workSizes, args);
+	ppc_simulation_info_print(zone->cu, workSizes, args, compilerOpts);
 	
 	/* Create kernels. */
 	status = ppc_kernels_create(zone->program, &krnls, &err);
@@ -228,6 +232,7 @@ int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_r
 	} else {
 		/* User did not specify a value, thus find a good one (which will be 
 		 * the largest power of 2 bellow or equal to the maximum. */
+		 /** @todo Should not be nlpo but in increments of LWS. */
 		unsigned int maxgws = nlpo2(workSizes->max_gws);
 		if (maxgws > workSizes->max_gws)
 			workSizes->gws = maxgws / 2;
@@ -264,9 +269,12 @@ finish:
 
 /**
  * @brief Create compiler options string. 
+ * 
+ * @param cliOpts Compiler options passed through the command-line.
+ * @return Final compiler options to be passed to OpenCL compiler.
  * */
-char* ppc_compiler_opts_build(gchar* cliOpts) {
-	char* compilerOptsStr;
+gchar* ppc_compiler_opts_build(gchar* cliOpts) {
+	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
@@ -281,8 +289,9 @@ char* ppc_compiler_opts_build(gchar* cliOpts) {
  * @param cu Number of computer units available in selected device.
  * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * @param args Parsed command line arguments.
+ * @param compilerOpts Processed compiler options.
  * */
-void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) {
+void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args, gchar* compilerOpts) {
 	/* ...Header */
 	printf("\n   ========================= Computational settings ======================== \n\n");	
 	/* ...Compute units */
@@ -301,7 +310,7 @@ void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args) 
 	printf("     Random seed                : %u\n", args.rng_seed);
 	/* ...Compiler options (out of table) */
 	printf("     Compiler options           : ");
-	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
+	if (compilerOpts != NULL) printf("%s\n", compilerOpts);
 	else printf("none\n");
 	/* ...Finish table. */
 	
@@ -393,7 +402,8 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSize
 	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
 	
 	/* Rng seeds */
-	dataSizes->rng_seeds = ws.gws * sizeof(cl_ulong);
+	dataSizes->rng_seeds = ws.gws * pp_rng_bytes_get(args.rngen);
+	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 	/* Agent parameters */
 	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
@@ -654,7 +664,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map buffersHost->rng_seeds");	
 
-	for (unsigned int i = 0; i < ws.gws; i++) {
+	for (unsigned int i = 0; i < dataSizes.rng_seeds_count; i++) {
 		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
 	}
 

@@ -100,7 +100,7 @@ typedef struct pp_g_buffers_device {
 PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents);
 cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
-char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
 void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
 void ppg_kernels_free(PPGKernels* krnls);

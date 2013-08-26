@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	PPGSimParams simParams;
-	char* compilerOpts = NULL;
+	gchar* compilerOpts = NULL;
 	
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
@@ -201,7 +201,7 @@ cleanup:
 	profcl_profile_free(profile);
 	
 	/* Free compiler options. */
-	free(compilerOpts);
+	if (compilerOpts) g_free(compilerOpts);
 
 	/* Free RNG */
 	g_rand_free(rng);
@@ -843,8 +843,8 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 }
 
 /* Create compiler options string. */
-char* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
-	char* compilerOptsStr;
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
+	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args.vwint);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);

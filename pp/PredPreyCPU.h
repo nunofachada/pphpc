@@ -109,6 +109,7 @@ typedef struct pp_c_data_sizes {
 	size_t matrix;			/**< Size of matrix data structure. */
 	size_t agents;			/**< Size of agents data structure. */
 	size_t rng_seeds;		/**< Size of RNG seeds data structure. */
+	size_t rng_seeds_count; /**< Number of RNG seeds required for RNG. */
 	size_t agent_params;	/**< Size of agent parameters data structure. */
 	size_t sim_params;		/**< Size of simulation parameters data structure. */
 } PPCDataSizes;
@@ -141,7 +142,7 @@ typedef struct pp_c_buffers_host {
 int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes, unsigned int num_rows, GError **err);
 
 /** @brief Print information about the simulation parameters. */
-void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args);
+void ppc_simulation_info_print(cl_int cu, PPCWorkSizes workSizes, PPCArgs args, gchar* compilerOpts);
 
 /** @brief Get kernel entry points. */
 int ppc_kernels_create(cl_program program, PPCKernels* krnls, GError** err);
@@ -189,5 +190,8 @@ void ppc_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 
 /** @brief Free command line parsing related objects. */
 void ppc_args_free(GOptionContext* context);
+
+/** @brief Create compiler options string. */
+gchar* ppc_compiler_opts_build(gchar* cliOpts);
 
 #endif
