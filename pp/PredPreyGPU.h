@@ -77,6 +77,7 @@ typedef struct pp_g_data_sizes {
 	size_t reduce_grass_local;
 	size_t reduce_grass_global;
 	size_t rng_seeds;
+	size_t rng_seeds_count;
 } PPGDataSizes;
 
 // Host buffers

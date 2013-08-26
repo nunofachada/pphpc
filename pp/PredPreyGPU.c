@@ -41,7 +41,7 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rng_seed,      "Random number generator: " PP_RNGS,                                                         "RNG"},
+	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{"vw-int",           0,  0, G_OPTION_ARG_INT,      &args.vwint,         "Vector width for int's (default is given by device)",                                       "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 	/* Validate arguments. */
 	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
 	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(args.rngen), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
-	
+
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
 
@@ -189,7 +189,7 @@ cleanup:
 	ppg_devicebuffers_free(&buffersDevice);
 
 	/* Release OpenCL zone (program, command queue, context) */
-	clu_zone_free(zone);
+	if (zone != NULL) clu_zone_free(zone);
 
 	/* Free host resources */
 	ppg_hostbuffers_free(&buffersHost);
@@ -702,7 +702,8 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args.vwint * sizeof(cl_uint);
 	
 	/* Rng seeds */
-	dataSizes->rng_seeds = MAX_GWS * sizeof(cl_ulong);
+	dataSizes->rng_seeds = MAX_GWS * pp_rng_bytes_get(args.rngen); /** @todo MAX_GWS must go out, we should use the effectively bigger worksize which requires random numbers. */
+	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 }
 
@@ -718,7 +719,7 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 
 	/* RNG seeds */
 	buffersHost->rng_seeds = (cl_ulong*) malloc(dataSizes->rng_seeds);
-	for (int i = 0; i < MAX_GWS; i++) {
+	for (unsigned int i = 0; i < dataSizes->rng_seeds_count; i++) {
 		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
 	}	
 	

@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 			init_rng, 
 			1, 
 			NULL, 
-			&gws, 
+			&seeds_count, 
 			&lws, 
 			0, 
 			NULL, 
