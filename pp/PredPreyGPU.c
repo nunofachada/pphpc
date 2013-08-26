@@ -744,7 +744,7 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 		dataSizes->reduce_grass_global + 
 		dataSizes->rng_seeds;
 	printf("Required global memory: %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
-	printf("Required local memory for reduceGrass kernels: %d bytes (%d Kb)\n", (int) dataSizes->reduce_grass_local);
+	printf("Required local memory for reduceGrass kernels: %d bytes (%d Kb)\n", (int) dataSizes->reduce_grass_local, (int) dataSizes->reduce_grass_local / 1024);
 #endif	
 	
 	/* Statistics */
