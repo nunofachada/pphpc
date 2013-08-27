@@ -66,6 +66,7 @@
 /**
  * @brief Returns the requested information about a RNG.
  * 
+ * @param i Loop variable.
  * @param rng_infos The array containing data about the RNGs.
  * @param rng_tag Tag identifying the RNG.
  * @param field Requested information about the RNG.

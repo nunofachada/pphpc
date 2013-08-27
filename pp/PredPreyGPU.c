@@ -212,8 +212,20 @@ cleanup:
 }
 
 /** 
- * @brief Perform simulation
+ * @brief Perform Predator-Prey simulation.
  * 
+ * @param params Simulation parameters.
+ * @param zone OpenCL zone.
+ * @param gws Kernels global work sizes.
+ * @param lws Kernels local work sizes.
+ * @param krnls OpenCL kernels.
+ * @param evts OpenCL events.
+ * @param dataSizes Size of data buffers.
+ * @param buffersHost Host data buffers.
+ * @param buffersDevice Device data buffers.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
  * */
 cl_int ppg_simulate(PPParameters params, CLUZone* zone, 
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, 
@@ -412,7 +424,16 @@ finish:
 	
 }
 
-/* Perform profiling analysis */
+/**
+ * @brief Perform profiling analysis. 
+ * 
+ * @param profile Profiling object.
+ * @param evts OpenCL events to profile.
+ * @param params Simulation parameters.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
+ * */
 cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err) {
 
 	cl_int status;
@@ -475,7 +496,18 @@ finish:
 	return status;
 }
 
-/* Compute worksizes depending on the device type and number of available compute units */
+/**
+ * @brief Compute worksizes depending on the device type and number of 
+ * available compute units.
+ * 
+ * @param params Simulation parameters.
+ * @param device Device where to perform simulation.
+ * @param gws Kernel global worksizes (to be modified by function).
+ * @param lws Kernel local worksizes (to be modified by function).
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
+ * */
 cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
 	
 	/* Variable which will keep the maximum workgroup size */
@@ -546,7 +578,12 @@ finish:
 	return status;
 }
 
-// Print worksizes
+/**
+ * @brief Print worksizes.
+ * 
+ * @param gws Kernel global work sizes.
+ * @param lws Kernel local work sizes.
+ * */
 void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 	printf("Kernel work sizes:\n");
 	printf("init_cell_gws=%d\tinit_cell_lws=%d\n", (int) gws.init_cell, (int) lws.init_cell);
@@ -555,7 +592,15 @@ void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 	printf("grasscount2_lws/gws=%d\n", (int) lws.reduce_grass2);
 }
 
-// Get kernel entry points
+/** 
+ * @brief Create OpenCL kernels. 
+ * 
+ * @param program OpenCL program.
+ * @param krnls Data structure containing OpenCL kernels references.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise. 
+ * */
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	
 	cl_int status;
@@ -587,7 +632,11 @@ finish:
 	return status;
 }
 
-// Release kernels
+/** 
+ * @brief Free OpenCL kernels. 
+ * 
+ * @param krnls Data structure containing OpenCL kernels references.
+ * */
 void ppg_kernels_free(PPGKernels* krnls) {
 	if (krnls->init_cell) clReleaseKernel(krnls->init_cell);
 	if (krnls->grass) clReleaseKernel(krnls->grass);
@@ -596,7 +645,13 @@ void ppg_kernels_free(PPGKernels* krnls) {
 }
 
 
-// Initialize simulation parameters in host, to be sent to GPU
+/**
+ * @brief Initialize simulation parameters in host, to be sent to GPU.
+ * 
+ * @param params Simulation parameters.
+ * @param max_agents Size of agents array.
+ * @return Simulation parameters to be sent to GPU.
+ * */
 PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
 	PPGSimParams simParams;
 	simParams.size_x = params.grid_x;
@@ -607,7 +662,20 @@ PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
 	return simParams;
 }
 
-//  Set fixed kernel arguments.
+/**
+ * @brief Set fixed kernel arguments.
+ * 
+ * @param krnls OpenCL kernels.
+ * @param buffersDevice Device data buffers.
+ * @param simParams Simulation parameters to be passed to device.
+ * @param lws Kernel local work sizes.
+ * @param dataSizes Size of data buffers.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise. 
+ * 
+ * @todo Datasizes (and kernels, buffersDevice?) should not be pointer because it will not be modified.
+ * */
 cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err) {
 
 	/* Aux. variable. */
@@ -672,7 +740,13 @@ finish:
 	
 }
 
-// Save results
+/** 
+ * @brief Save simulation statistics. 
+ * 
+ * @param filename Name of file where to save statistics.
+ * @param statsArray Statistics information array.
+ * @param params Simulation parameters.
+ * */
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params) {
 	
 	/* Get definite file name. */
@@ -685,7 +759,15 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
 	fclose(fp1);
 }
 
-// Determine buffer sizes
+/**
+ * @brief Determine sizes of data buffers.
+ * 
+ * @param params Simulation parameters.
+ * @param simParams Simulation parameters to be passed to device.
+ * @param dataSizes Size of data buffers (to be modified by function).
+ * @param gws Kernel global work sizes.
+ * @param lws Kernel local work sizes.
+ * */
 void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
 	/* Statistics */
@@ -707,7 +789,15 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 
 }
 
-// Initialize host buffers
+/** 
+ * @brief Initialize host data buffers. 
+ * 
+ * @param buffersHost Data structure containing references to the data
+ * buffers.
+ * @param dataSizes Sizes of simulation data arrays.
+ * @param params Simulation parameters.
+ * @param rng Random number generator.
+ * */
 void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng) {
 	
 	
@@ -725,15 +815,32 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes
 	
 }
 
-// Free host buffers
+/**
+ * @brief Free host buffers.
+ * 
+ * @param buffersHost Data structure containing references to the data
+ * buffers.
+ * */
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost) {
 	free(buffersHost->stats);
 	free(buffersHost->rng_seeds);
 }
 
-// Initialize device buffers
+/**
+ * @brief Initialize device buffers.
+ * 
+ * @param context OpenCL context.
+ * @param buffersDevice Data structure containing device data buffers.
+ * @param dataSizes Size of data buffers.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
+ * 
+ * @todo dataSizes should not be pointer because it will not be modified.
+ * */
 cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err) {
 	
+	/* Status flag. */
 	cl_int status;
 	
 #ifdef PPG_LIMITS_SHOW
@@ -789,7 +896,10 @@ finish:
 
 }
 
-// Free device buffers
+/**
+ * @brief Free device buffers.
+ * @param buffersDevice Data structure containing device data buffers.
+ * */
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
 	if (buffersDevice->cells_grass_alive) clReleaseMemObject(buffersDevice->cells_grass_alive);
@@ -800,7 +910,13 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }
 
-// Create event data structure
+/** 
+ * @brief Initialize data structure to hold OpenCL events.
+ * 
+ * @param params Simulation parameters.
+ * @param evts Structure to hold OpenCL events (to be modified by
+ * function).
+ * */
 void ppg_events_create(PPParameters params, PPGEvents* evts) {
 
 #ifdef CLPROFILER
@@ -812,7 +928,12 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 }
 
-// Free event data structure
+/**
+ * @brief Free data structure which holds OpenCL events.
+ * 
+ * @param params Simulation parameters.
+ * @param evts Structure which holds OpenCL events.
+ * */
 void ppg_events_free(PPParameters params, PPGEvents* evts) {
 	if (evts->init_cell) clReleaseEvent(evts->init_cell);
 	if (evts->write_rng) clReleaseEvent(evts->write_rng);
@@ -842,7 +963,15 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 	}
 }
 
-/* Create compiler options string. */
+/**
+ * @brief Build OpenCL compiler options string. 
+ * 
+ * @param gws Kernel global work sizes.
+ * @param lws Kernel local work sizes.
+ * @param simParams Simulation parameters.
+ * @param cliOpts Compiler options specified through the command-line.
+ * @return The final OpenCL compiler options string.
+ */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);

@@ -16,7 +16,6 @@ typedef uint4 rng_state;
  * @brief RNG utility function, not to be called directly from kernels.
  * 
  * @param states Array of RNG states.
- * @param bits Random bits.
  * @return The next pseudorandom value from this random number 
  * generator's sequence.
  */

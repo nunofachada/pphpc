@@ -66,62 +66,103 @@ typedef struct pp_g_kernels {
 	cl_kernel reduce_grass2; /**< Reduce grass 2 kernel. */
 } PPGKernels;
 
-// Events
+/** 
+* @brief OpenCL events.
+* */
 typedef struct pp_g_events {
-	cl_event write_rng;
-	cl_event init_cell;
-	cl_event *grass;
-	cl_event *read_stats;
-	cl_event *reduce_grass1;
-	cl_event *reduce_grass2;
+	cl_event write_rng;      /**< Write RNG seeds to device. */
+	cl_event init_cell;      /**< Initialize cells. */
+	cl_event *grass;         /**< Grass kernel execution. */
+	cl_event *read_stats;    /**< Read stats from device to host. */
+	cl_event *reduce_grass1; /**< Reduce grass kernel 1 execution. */
+	cl_event *reduce_grass2; /**< Reduce grass kernel 2 execution. */
 } PPGEvents;
 
-// Data sizes
+/** 
+* @brief Size of data structures.
+* */
 typedef struct pp_g_data_sizes {
-	size_t stats;
-	size_t cells_grass_alive;
-	size_t cells_grass_timer;
-	size_t cells_agents_index_start;
-	size_t cells_agents_index_end;
-	size_t reduce_grass_local;
-	size_t reduce_grass_global;
-	size_t rng_seeds;
-	size_t rng_seeds_count;
+	size_t stats;                    /**< Simulation statistics. */
+	size_t cells_grass_alive;        /**< "Is grass alive?" array. */
+	size_t cells_grass_timer;        /**< Grass regrowth timer array. */
+	size_t cells_agents_index_start; /**< Agent index start array. */
+	size_t cells_agents_index_end;   /**< Agent index end array. */
+	size_t reduce_grass_local;       /**< Local grass reduction array. */
+	size_t reduce_grass_global;      /**< Global grass reduction array. */
+	size_t rng_seeds;                /**< RNG seeds/state array. */
+	size_t rng_seeds_count;          /**< Number of RNG seeds. */
 } PPGDataSizes;
 
-// Host buffers
+/**
+ * @brief Host buffers.
+ * */
 typedef struct pp_g_buffers_host {
-	PPStatistics* stats;
-	cl_ulong* rng_seeds;
+	PPStatistics* stats; /**< Simulation statistics array. */
+	cl_ulong* rng_seeds; /**< RNG seeds/states array. */
 } PPGBuffersHost;
 
-// Device buffers
+/**
+ * @brief Device buffers.
+ * */
 typedef struct pp_g_buffers_device {
-	cl_mem stats;
-	cl_mem cells_grass_alive;
-	cl_mem cells_grass_timer;
-	cl_mem cells_agents_index_start;
-	cl_mem cells_agents_index_end;
-	cl_mem reduce_grass_global;
-	cl_mem rng_seeds;
+	cl_mem stats;                    /**< Simulation statistics. */
+	cl_mem cells_grass_alive;        /**< "Is grass alive?" array. */
+	cl_mem cells_grass_timer;        /**< Grass regrowth timer array. */
+	cl_mem cells_agents_index_start; /**< Agent index start array. */
+	cl_mem cells_agents_index_end;   /**< Agent index end array. */
+	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
+	cl_mem rng_seeds;                /**< RNG seeds/state array. */
 } PPGBuffersDevice;
 
+/** @brief Initialize simulation parameters in host, to be sent to GPU. */
 PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents);
+
+/** @brief Compute worksizes depending on the device type and number of available compute units. */
 cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
+
+/** @brief Print worksizes. */
 void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
+
+/** @brief Build OpenCL compiler options string. */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
+
+/** @brief Determine sizes of data buffers. */
 void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
+
+/** @brief Create OpenCL kernels. */
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
+
+/** @brief Free OpenCL kernels. */
 void ppg_kernels_free(PPGKernels* krnls);
+
+/** @brief Initialize host data buffers. */
 void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes* dataSizes, PPParameters params, GRand* rng);
+
+/** @brief Free host buffers. */
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
+
+/** @brief Initialize device buffers. */
 cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes* dataSizes, GError** err);
+
+/** @brief Free device buffers. */
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
+
+/** @brief Create data structure to hold OpenCL events. */
 void ppg_events_create(PPParameters params, PPGEvents* evts);
+
+/** @brief Free data structure which holds OpenCL events. */
 void ppg_events_free(PPParameters params, PPGEvents* evts);
+
+/** @brief Set fixed kernel arguments. */
 cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err);
+
+/** @brief Perform Predator-Prey simulation. */
 cl_int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
+
+/** @brief Perform profiling analysis. */
 cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
+
+/** @brief Save simulation statistics. */
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
 /** @brief Parse command-line options. */

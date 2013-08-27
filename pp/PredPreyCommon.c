@@ -20,7 +20,7 @@ const PPRngInfo rng_infos[] = {
  * @brief Load simulation parameters.
  * 
  * @param parameters Parameters structure to be populated.
- * @param paramsFile File containing simulation parameters (or NULL if default file is to be used).
+ * @param filename File containing simulation parameters (or NULL if default file is to be used).
  * @param err Error structure, to be populated if an error occurs.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
  * or another value of #pp_error_codes if an error occurs.
@@ -159,7 +159,7 @@ void pp_error_handle(GError* err, int status) {
 /**
  * @brief Callback function which will be called when non-option 
  * command line arguments are given. The function will throw an error
- * and fail. It's an implementation of GLib's <tt>(*GOptionArgFunc)</tt> 
+ * and fail. It's an implementation of GLib's `(*GOptionArgFunc)` 
  * hook function.
  * 
  * @param option_name Ignored.
