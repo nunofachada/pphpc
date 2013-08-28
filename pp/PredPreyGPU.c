@@ -22,7 +22,6 @@
  * different kernels which require RNG. */
 #define MAX_GWS 1048576
 
-#define PPG_LIMITS_SHOW
 //#define PPG_DEBUG
 
 #define LWS_INIT_CELL 32
@@ -119,14 +118,12 @@ int main(int argc, char **argv)
 	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
-	/* Compute work sizes for different kernels and print them to screen. */
+	/* Compute work sizes for different kernels. */
 	status = ppg_worksizes_compute(params, zone->device_info.device_id, &gws, &lws, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
-	ppg_worksizes_print(gws, lws);
 
 	/* Compiler options. */
 	compilerOpts = ppg_compiler_opts_build(gws, lws, simParams, args.compiler_opts);
-	printf("%s\n", compilerOpts);
 
 	/* Build program. */
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
@@ -153,6 +150,9 @@ int main(int argc, char **argv)
 	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &dataSizes, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
+	/* Print information about simulation. */
+	ppg_info_print(zone, krnls, gws, lws, dataSizes, compilerOpts, &err);
+
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
 
@@ -579,17 +579,74 @@ finish:
 }
 
 /**
- * @brief Print worksizes.
+ * @brief Print information about simulation.
  * 
+ * @param zone CL zone.
+ * @param krnls Simulation kernels.
  * @param gws Kernel global work sizes.
  * @param lws Kernel local work sizes.
+ * @param dataSizes Size of data buffers.
+ * @param compilerOpts Final OpenCL compiler options.
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
  * */
-void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
-	printf("Kernel work sizes:\n");
-	printf("init_cell_gws=%d\tinit_cell_lws=%d\n", (int) gws.init_cell, (int) lws.init_cell);
-	printf("grass_gws=%d\tgrass_lws=%d\n", (int) gws.grass, (int) lws.grass);
-	printf("reducegrass1_gws=%d\treducegrass1_lws=%d\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1);
-	printf("grasscount2_lws/gws=%d\n", (int) lws.reduce_grass2);
+cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts, GError **err) {
+
+	/* Status variable */
+	cl_int status;
+	
+	/* Private memory sizes. */
+	cl_ulong pm_init_cells, pm_grass, pm_reduce_grass1, pm_reduce_grass2;
+	
+	/* Determine total global memory. */
+	size_t dev_mem = sizeof(PPStatistics) +
+		dataSizes.cells_grass_alive +
+		dataSizes.cells_grass_timer + 
+		dataSizes.cells_agents_index_start +
+		dataSizes.cells_agents_index_end +
+		dataSizes.reduce_grass_global + 
+		dataSizes.rng_seeds;
+		
+	/* Determine private memory required by kernel workitems. */
+	status = clGetKernelWorkGroupInfo (krnls.init_cell, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_init_cells, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get init cell kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.grass, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_grass, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get grass kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.reduce_grass1, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_grass1, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass1 kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.reduce_grass2, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_grass2, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass2 kernel info (private memory). (OpenCL error %d)", status);	
+
+	/* Print info. */
+	printf("\n   =========================== Simulation Info =============================\n\n");
+	printf("     Required global memory    : %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
+	printf("     Compiler options          : %s\n", compilerOpts);
+	printf("     Kernel work sizes and local memory requirements:\n");
+	printf("       ----------------------------------------------------------------------\n");
+	printf("       | Kernel           | GWS      | LWS   | Local memory    | Priv. mem. |\n");
+	printf("       ----------------------------------------------------------------------\n");
+	printf("       | init_cell        | %8d | %5d |               0 | %9ub |\n", (int) gws.init_cell, (int) lws.init_cell, (unsigned int) pm_init_cells);
+	printf("       | grass            | %8d | %5d |               0 | %9ub |\n", (int) gws.grass, (int) lws.grass, (unsigned int) pm_grass);
+	printf("       | reducegrass1     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1, (int) dataSizes.reduce_grass_local, (int) dataSizes.reduce_grass_local / 1024, (unsigned int) pm_reduce_grass1);
+	printf("       | grasscount2      | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local, (int) dataSizes.reduce_grass_local / 1024, (unsigned int) pm_reduce_grass2);
+	printf("       ----------------------------------------------------------------------\n");
+
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;
+	
+	
 }
 
 /** 
@@ -842,18 +899,6 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	
 	/* Status flag. */
 	cl_int status;
-	
-#ifdef PPG_LIMITS_SHOW
-	size_t dev_mem = sizeof(PPStatistics) +
-		dataSizes->cells_grass_alive +
-		dataSizes->cells_grass_timer + 
-		dataSizes->cells_agents_index_start +
-		dataSizes->cells_agents_index_end +
-		dataSizes->reduce_grass_global + 
-		dataSizes->rng_seeds;
-	printf("Required global memory: %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
-	printf("Required local memory for reduceGrass kernels: %d bytes (%d Kb)\n", (int) dataSizes->reduce_grass_local, (int) dataSizes->reduce_grass_local / 1024);
-#endif	
 	
 	/* Statistics */
 	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(PPStatistics), NULL, &status);

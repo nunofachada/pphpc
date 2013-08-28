@@ -120,8 +120,8 @@ PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents);
 /** @brief Compute worksizes depending on the device type and number of available compute units. */
 cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 
-/** @brief Print worksizes. */
-void ppg_worksizes_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
+/** @brief Print information about simulation. */
+cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts, GError **err);
 
 /** @brief Build OpenCL compiler options string. */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
