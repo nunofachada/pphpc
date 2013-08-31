@@ -8,7 +8,7 @@
 /* 
  * Expected preprocessor defines:
  * 
- * VW_INT - Vector size used in reductions 
+ * VW_INT - Vector size used for integers 
  * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
  * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
  * CELL_NUM - Number of cells in simulation 

@@ -9,20 +9,37 @@
 #include "PredPreyCommon.h"
 
 /** 
- * @brief Parsed command-line arguments. 
+ * @brief Main command-line arguments. 
  * */
 typedef struct pp_g_args {
 	gchar* params;        /**< Parameters file. */
 	gchar* stats;         /**< Stats output file. */
 	gchar* compiler_opts; /**< Compiler options. */
-	size_t gws;           /**< Global work size. */
-	size_t lws;           /**< Local work size. */
 	cl_int dev_idx;       /**< Index of device to use. */
 	guint32 rng_seed;     /**< Rng seed. */
 	gchar* rngen;         /**< Random number generator. */
 	cl_uint max_agents;   /**< Maximum number of agents. */
-	cl_uint vwint;        /**< Vector width for integers */
 } PPGArgs;
+
+/**
+ * @brief Local work sizes command-line arguments.
+ * */
+typedef struct pp_g_args_lws {
+	size_t init_cell;    /**< Init. cells kernel. */
+	size_t grass;        /**< Grass kernel. */
+	size_t reduce_grass; /**< Reduce grass 1 kernel. */
+} PPGArgsLWS;
+
+/**
+ * @brief Vector width command-line arguments.
+ * */
+typedef struct pp_g_args_vw {
+	cl_uint char_vw;  /**< Width of char vector operations. */
+	cl_uint short_vw; /**< Width of short vector operations. */
+	cl_uint int_vw;   /**< Width of int vector operations. */
+	cl_uint float_vw; /**< Width of float vector operations. */
+	cl_uint long_vw;  /**< Width of long vector operations. */
+} PPGArgsVW;
 
 /** 
  * @brief Simulation parameters to pass to kernel

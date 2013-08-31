@@ -24,26 +24,43 @@
 
 //#define PPG_DEBUG
 
-#define LWS_INIT_CELL 32
-#define LWS_GRASS 32
-#define LWS_REDUCEGRASS1 32
+/** Main command line arguments and respective default values. */
+static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
 
-/** Command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS, 0};
+/** Local work sizes command-line arguments*/
+static PPGArgsLWS args_lws = {0, 0, 0};
 
-/** Valid command line options. */
+/** Vector widths command line arguments. */
+static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
+
+/** Main command line options. */
 static GOptionEntry entries[] = {
 	{"params",          'p', 0, G_OPTION_ARG_FILENAME, &args.params,        "Specify parameters file (default is " PP_DEFAULT_PARAMS_FILE ")",                           "FILENAME"},
 	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,         "Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",                     "FILENAME"},
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
-	{"globalsize",      'g', 0, G_OPTION_ARG_INT,      &args.gws,           "Global work size (default is maximum possible)",                                            "SIZE"},
-	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
 	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
-	{"vw-int",           0,  0, G_OPTION_ARG_INT,      &args.vwint,         "Vector width for int's (default is given by device)",                                       "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
+};
+
+/** Kernel local worksizes. */
+static GOptionEntry entries_lws[] = {
+	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,    "Init. cells kernel",  "LWS"},
+	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",        "LWS"},
+	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel", "LWS"},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
+};
+
+/** Vector widths. */
+static GOptionEntry entries_vw[] = {
+	{"vw-char",  0, 0, G_OPTION_ARG_INT, &args_vw.char_vw,  "Vector width for char types",  "WIDTH"},
+	{"vw-short", 0, 0, G_OPTION_ARG_INT, &args_vw.short_vw, "Vector width for short types", "WIDTH"},
+	{"vw-int",   0, 0, G_OPTION_ARG_INT, &args_vw.int_vw,   "Vector width for int types",   "WIDTH"},
+	{"vw-float", 0, 0, G_OPTION_ARG_INT, &args_vw.float_vw, "Vector width for float types", "WIDTH"},
+	{"vw-long",  0, 0, G_OPTION_ARG_INT, &args_vw.long_vw,  "Vector width for long types",  "WIDTH"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -524,44 +541,33 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE). (OpenCL error %d)", status);	
 
 	/* Get the int vector width, if not specified by user. */
-	if (args.vwint == 0) {
+	if (args_vw.int_vw == 0) {
 		status = clGetDeviceInfo(
 			device, 
 			CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, 
 			sizeof(cl_uint), 
-			&args.vwint, 
+			&args_vw.int_vw, 
 			NULL
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT). (OpenCL error %d)", status);	
 	}
 
 	/* init cell worksizes */
-#ifdef LWS_INIT_CELL
-	lws->init_cell = LWS_INIT_CELL;
-#else
-	lws->init_cell = maxWorkGroupSize; /** @todo Allow user to define. */
-#endif
+	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
 	gws->init_cell = lws->init_cell * ceil(((float) (params.grid_x * params.grid_y)) / lws->init_cell); 
 	/** @todo Use sim_params to avoid mult. */
 	/** @todo Use efficient function to calculate GWS depending on LWS. */
 
 	/* grass growth worksizes */
-#ifdef LWS_GRASS
-	lws->grass = LWS_GRASS;
-#else
-	lws->grass = maxWorkGroupSize;
-#endif
+	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
 	gws->grass = lws->grass * ceil(((float) (params.grid_x * params.grid_y)) / lws->grass); /** @todo Use sim_params to avoid mult. */
 	
 	/* grass count worksizes */
-#ifdef LWS_REDUCEGRASS1 //TODO This should depend on number of cells, vector width, etc.
-	lws->reduce_grass1 = LWS_REDUCEGRASS1; 
-#else
-	lws->reduce_grass1 = maxWorkGroupSize;
-#endif	
-	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / args.vwint / lws->reduce_grass1));
+	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
+	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / args_vw.int_vw / lws->reduce_grass1));
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
+	/** @todo verify the above calculations. */
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -775,7 +781,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->reduce_grass2, 0, sizeof(cl_mem), (void *) &buffersDevice->reduce_grass_global);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass2 (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 *args.vwint*sizeof(cl_uint), NULL);//TODO Put this size in dataSizes
+	status = clSetKernelArg(krnls->reduce_grass2, 1, lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint), NULL); /** @todo Put this size in dataSizes */
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_grass2 (OpenCL error %d)", status);
 
 	status = clSetKernelArg(krnls->reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice->stats);
@@ -831,14 +837,14 @@ void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = (simParams.size_xy + args.vwint) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
+	dataSizes->cells_grass_alive = (simParams.size_xy + args_vw.int_vw) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
 	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_ushort);
 	dataSizes->cells_agents_index_start = simParams.size_xy * sizeof(cl_uint);
 	dataSizes->cells_agents_index_end = simParams.size_xy * sizeof(cl_uint);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local = lws.reduce_grass1 * args.vwint * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
-	dataSizes->reduce_grass_global = gws.reduce_grass2 * args.vwint * sizeof(cl_uint);
+	dataSizes->reduce_grass_local = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
+	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX_GWS * pp_rng_bytes_get(args.rngen); /** @todo MAX_GWS must go out, we should use the effectively bigger worksize which requires random numbers. */
@@ -1020,7 +1026,7 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
-	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args.vwint);
+	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
@@ -1040,8 +1046,30 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
  * @param err GLib error object for error reporting.
  * */
 void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
+	
+	/* Create context and add main entries. */
 	*context = g_option_context_new (" - " PPG_DESCRIPTION);
 	g_option_context_add_main_entries(*context, entries, NULL);
+
+	/* Create separate option groups. */
+	GOptionGroup *group_lws = g_option_group_new("lws", 
+		"Kernel local work sizes:", 
+		"Show options which define the kernel local work sizes", 
+		NULL, NULL);
+	GOptionGroup *group_vw = g_option_group_new("vw", 
+		"Vector widths for numerical types:", 
+		"Show options which define vector widths for different numerical types", 
+		NULL, NULL);
+
+	/* Add entries to separate option groups. */
+	g_option_group_add_entries(group_lws, entries_lws);
+	g_option_group_add_entries(group_vw, entries_vw);
+	
+	/* Add option groups to main options context. */
+	g_option_context_add_group(*context, group_lws);
+	g_option_context_add_group(*context, group_vw);
+	
+	/* Parse all options. */
 	g_option_context_parse(*context, &argc, &argv, err);
 }
 
