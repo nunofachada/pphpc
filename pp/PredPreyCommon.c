@@ -201,6 +201,18 @@ size_t pp_rng_bytes_get(gchar *rng_tag) {
 }
 
 /** 
+ * @brief Returns an adjusted global worksize equal or larger than the
+ * given global worksize and is a multiple of the given local worksize. 
+ * 
+ * @param gws Minimum global worksize.
+ * @param lws Local worksize. 
+ * @return The adjusted global worksize.
+ * */
+size_t pp_gws_mult(size_t gws, size_t lws) {
+	return lws * ceil(((float) gws) / lws); 
+}
+
+/** 
  * @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation.
  * 
  * @return A GQuark structure defined by category identifying string, which identifies the error as a predator-prey simulation generated error.

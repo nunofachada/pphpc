@@ -167,6 +167,10 @@ const gchar* pp_rng_const_get(gchar *rng_tag);
  * for the provided random number generator tag. */
 size_t pp_rng_bytes_get(gchar *rng_tag);
 
+/** @brief Returns an adjusted global worksize equal or larger than the
+ * given global worksize and is a multiple of the given local worksize. */
+size_t pp_gws_mult(size_t gws, size_t lws);
+
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);

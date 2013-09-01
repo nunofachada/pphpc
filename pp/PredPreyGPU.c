@@ -550,16 +550,19 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, PPGSimParams paramsDev, cl_
 
 	/* init cell worksizes */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
-	gws->init_cell = lws->init_cell * ceil(((float) paramsDev.size_xy) / lws->init_cell); 
-	/** @todo Use efficient function to calculate GWS depending on LWS. */
+	gws->init_cell = pp_gws_mult(paramsDev.size_xy, lws->init_cell);
 
 	/* grass growth worksizes */
 	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
-	gws->grass = lws->grass * ceil(((float) (paramsSim.grid_x * paramsSim.grid_y)) / lws->grass); /** @todo Use sim_params to avoid mult. */
+	gws->grass = pp_gws_mult(paramsDev.size_xy, lws->grass);
 	
 	/* grass count worksizes */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
-	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (paramsSim.grid_x * paramsSim.grid_y)) / args_vw.int_vw / lws->reduce_grass1));
+	gws->reduce_grass1 = pp_gws_mult(paramsDev.size_xy / args_vw.int_vw);
+	
+	//MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) paramsDev.size_xy) / args_vw.int_vw / lws->reduce_grass1));
+
+
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	/** @todo verify the above calculations. */
