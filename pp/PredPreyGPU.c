@@ -17,11 +17,6 @@
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
-/** @todo This is only currently used for the size of RNG seeds array 
- * but this size should be determined by the maximum GWS used by the 
- * different kernels which require RNG. */
-#define MAX_GWS 1048576
-
 //#define PPG_DEBUG
 
 /** Main command line arguments and respective default values. */
@@ -94,7 +89,7 @@ int main(int argc, char **argv)
 	PPGBuffersHost buffersHost = {NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	PPGSimParams simParams;
+	PPGSimParams paramsDev;
 	gchar* compilerOpts = NULL;
 	
 	/* OpenCL zone: platform, device, context, queues, etc. */
@@ -129,18 +124,18 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);	
 	
 	/* Set simulation parameters in a format more adequate for this program. */
-	simParams = ppg_simparams_init(params, args.max_agents);
+	paramsDev = ppg_simparams_init(params, args.max_agents);
 
 	/* Get the required CL zone. */
 	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 2, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Compute work sizes for different kernels. */
-	status = ppg_worksizes_compute(params, zone->device_info.device_id, &gws, &lws, &err);
+	status = ppg_worksizes_compute(params, paramsDev, zone->device_info.device_id, &gws, &lws, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Compiler options. */
-	compilerOpts = ppg_compiler_opts_build(gws, lws, simParams, args.compiler_opts);
+	compilerOpts = ppg_compiler_opts_build(gws, lws, paramsDev, args.compiler_opts);
 
 	/* Build program. */
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
@@ -151,7 +146,7 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Determine size in bytes for host and device data structures. */
-	ppg_datasizes_get(params, simParams, &dataSizes, gws, lws);
+	ppg_datasizes_get(params, paramsDev, &dataSizes, gws, lws);
 
 	/* Initialize host buffers. */
 	ppg_hostbuffers_create(&buffersHost, &dataSizes, params, rng);
@@ -164,7 +159,7 @@ int main(int argc, char **argv)
 	ppg_events_create(params, &evts);
 
 	/*  Set fixed kernel arguments. */
-	status = ppg_kernelargs_set(&krnls, &buffersDevice, simParams, lws, &dataSizes, &err);
+	status = ppg_kernelargs_set(&krnls, &buffersDevice, paramsDev, lws, &dataSizes, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Print information about simulation. */
@@ -517,7 +512,8 @@ finish:
  * @brief Compute worksizes depending on the device type and number of 
  * available compute units.
  * 
- * @param params Simulation parameters.
+ * @param paramsSim Simulation parameters.
+ * @param paramsDev Parameters to be sent to device.
  * @param device Device where to perform simulation.
  * @param gws Kernel global worksizes (to be modified by function).
  * @param lws Kernel local worksizes (to be modified by function).
@@ -525,7 +521,7 @@ finish:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  * */
-cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
+cl_int ppg_worksizes_compute(PPParameters paramsSim, PPGSimParams paramsDev, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
 	
 	/* Variable which will keep the maximum workgroup size */
 	size_t maxWorkGroupSize;
@@ -554,17 +550,16 @@ cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobal
 
 	/* init cell worksizes */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
-	gws->init_cell = lws->init_cell * ceil(((float) (params.grid_x * params.grid_y)) / lws->init_cell); 
-	/** @todo Use sim_params to avoid mult. */
+	gws->init_cell = lws->init_cell * ceil(((float) paramsDev.size_xy) / lws->init_cell); 
 	/** @todo Use efficient function to calculate GWS depending on LWS. */
 
 	/* grass growth worksizes */
 	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
-	gws->grass = lws->grass * ceil(((float) (params.grid_x * params.grid_y)) / lws->grass); /** @todo Use sim_params to avoid mult. */
+	gws->grass = lws->grass * ceil(((float) (paramsSim.grid_x * paramsSim.grid_y)) / lws->grass); /** @todo Use sim_params to avoid mult. */
 	
 	/* grass count worksizes */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
-	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (params.grid_x * params.grid_y)) / args_vw.int_vw / lws->reduce_grass1));
+	gws->reduce_grass1 = MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) (paramsSim.grid_x * paramsSim.grid_y)) / args_vw.int_vw / lws->reduce_grass1));
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	/** @todo verify the above calculations. */
@@ -716,13 +711,13 @@ void ppg_kernels_free(PPGKernels* krnls) {
  * @return Simulation parameters to be sent to GPU.
  * */
 PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
-	PPGSimParams simParams;
-	simParams.size_x = params.grid_x;
-	simParams.size_y = params.grid_y;
-	simParams.size_xy = params.grid_x * params.grid_y;
-	simParams.max_agents = max_agents;
-	simParams.grass_restart = params.grass_restart;
-	return simParams;
+	PPGSimParams paramsDev;
+	paramsDev.size_x = params.grid_x;
+	paramsDev.size_y = params.grid_y;
+	paramsDev.size_xy = params.grid_x * params.grid_y;
+	paramsDev.max_agents = max_agents;
+	paramsDev.grass_restart = params.grass_restart;
+	return paramsDev;
 }
 
 /**
@@ -730,7 +725,7 @@ PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
  * 
  * @param krnls OpenCL kernels.
  * @param buffersDevice Device data buffers.
- * @param simParams Simulation parameters to be passed to device.
+ * @param paramsDev Simulation parameters to be passed to device.
  * @param lws Kernel local work sizes.
  * @param dataSizes Size of data buffers.
  * @param err GLib error object for error reporting.
@@ -739,7 +734,7 @@ PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents) {
  * 
  * @todo Datasizes (and kernels, buffersDevice?) should not be pointer because it will not be modified.
  * */
-cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err) {
+cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams paramsDev, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err) {
 
 	/* Aux. variable. */
 	cl_int status;
@@ -754,7 +749,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->init_cell, 2, sizeof(cl_mem), (void*) &buffersDevice->rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of init_cell (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls->init_cell, 3, sizeof(PPGSimParams), (void*) &simParams);
+	status = clSetKernelArg(krnls->init_cell, 3, sizeof(PPGSimParams), (void*) &paramsDev);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of init_cell (OpenCL error %d)", status);
 
 	/* Grass kernel */
@@ -764,7 +759,7 @@ cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PP
 	status = clSetKernelArg(krnls->grass, 1, sizeof(cl_mem), (void*) &buffersDevice->cells_grass_timer);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of grass (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls->grass, 2, sizeof(PPGSimParams), (void*) &simParams);
+	status = clSetKernelArg(krnls->grass, 2, sizeof(PPGSimParams), (void*) &paramsDev);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of grass (OpenCL error %d)", status);
 	
 	/* reduce_grass1 kernel */
@@ -826,28 +821,28 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
  * @brief Determine sizes of data buffers.
  * 
  * @param params Simulation parameters.
- * @param simParams Simulation parameters to be passed to device.
+ * @param paramsDev Simulation parameters to be passed to device.
  * @param dataSizes Size of data buffers (to be modified by function).
  * @param gws Kernel global work sizes.
  * @param lws Kernel local work sizes.
  * */
-void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
+void ppg_datasizes_get(PPParameters params, PPGSimParams paramsDev, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = (simParams.size_xy + args_vw.int_vw) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
-	dataSizes->cells_grass_timer = simParams.size_xy * sizeof(cl_ushort);
-	dataSizes->cells_agents_index_start = simParams.size_xy * sizeof(cl_uint);
-	dataSizes->cells_agents_index_end = simParams.size_xy * sizeof(cl_uint);
+	dataSizes->cells_grass_alive = (paramsDev.size_xy + args_vw.int_vw) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
+	dataSizes->cells_grass_timer = paramsDev.size_xy * sizeof(cl_ushort);
+	dataSizes->cells_agents_index_start = paramsDev.size_xy * sizeof(cl_uint);
+	dataSizes->cells_agents_index_end = paramsDev.size_xy * sizeof(cl_uint);
 	
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
 	/* Rng seeds */
-	dataSizes->rng_seeds = MAX_GWS * pp_rng_bytes_get(args.rngen); /** @todo MAX_GWS must go out, we should use the effectively bigger worksize which requires random numbers. */
+	dataSizes->rng_seeds = MAX(paramsDev.size_xy, PPG_DEFAULT_MAX_AGENTS) * pp_rng_bytes_get(args.rngen);
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 }
@@ -1019,17 +1014,17 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
  * 
  * @param gws Kernel global work sizes.
  * @param lws Kernel local work sizes.
- * @param simParams Simulation parameters.
+ * @param paramsDev Simulation parameters.
  * @param cliOpts Compiler options specified through the command-line.
  * @return The final OpenCL compiler options string.
  */
-gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts) {
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams paramsDev, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKITEMS=%d ", (unsigned int) gws.reduce_grass1);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
-	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", simParams.size_xy);
+	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", paramsDev.size_xy);
 	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;

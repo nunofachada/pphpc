@@ -42,7 +42,7 @@ typedef struct pp_g_args_vw {
 } PPGArgsVW;
 
 /** 
- * @brief Simulation parameters to pass to kernel
+ * @brief Simulation parameters to pass to device.
  * @todo Maybe this can be constant passed as compiler options? 
  * */
 typedef struct pp_g_sim_params {
@@ -135,16 +135,16 @@ typedef struct pp_g_buffers_device {
 PPGSimParams ppg_simparams_init(PPParameters params, cl_uint max_agents);
 
 /** @brief Compute worksizes depending on the device type and number of available compute units. */
-cl_int ppg_worksizes_compute(PPParameters params, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
+cl_int ppg_worksizes_compute(PPParameters paramsSim, PPGSimParams paramsDev, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 
 /** @brief Print information about simulation. */
 cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts, GError **err);
 
 /** @brief Build OpenCL compiler options string. */
-gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams simParams, gchar* cliOpts);
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGSimParams paramsDev, gchar* cliOpts);
 
 /** @brief Determine sizes of data buffers. */
-void ppg_datasizes_get(PPParameters params, PPGSimParams simParams, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
+void ppg_datasizes_get(PPParameters params, PPGSimParams paramsDev, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 
 /** @brief Create OpenCL kernels. */
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
@@ -171,7 +171,7 @@ void ppg_events_create(PPParameters params, PPGEvents* evts);
 void ppg_events_free(PPParameters params, PPGEvents* evts);
 
 /** @brief Set fixed kernel arguments. */
-cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams simParams, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err);
+cl_int ppg_kernelargs_set(PPGKernels* krnls, PPGBuffersDevice* buffersDevice, PPGSimParams paramsDev, PPGLocalWorkSizes lws, PPGDataSizes* dataSizes, GError** err);
 
 /** @brief Perform Predator-Prey simulation. */
 cl_int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
