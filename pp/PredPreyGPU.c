@@ -550,22 +550,33 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, PPGSimParams paramsDev, cl_
 
 	/* init cell worksizes */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
-	gws->init_cell = pp_gws_mult(paramsDev.size_xy, lws->init_cell);
+	gws->init_cell = PP_GWS_MULT(paramsDev.size_xy, lws->init_cell);
 
 	/* grass growth worksizes */
 	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
-	gws->grass = pp_gws_mult(paramsDev.size_xy, lws->grass);
+	gws->grass = PP_GWS_MULT(paramsDev.size_xy, lws->grass);
 	
 	/* grass count worksizes */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
-	gws->reduce_grass1 = pp_gws_mult(paramsDev.size_xy / args_vw.int_vw);
-	
-	//MIN(lws->reduce_grass1 * lws->reduce_grass1, lws->reduce_grass1 * ceil(((float) paramsDev.size_xy) / args_vw.int_vw / lws->reduce_grass1));
+	/* In order to perform reduction using just two kernel calls, 
+	 * reduce_grass1 and reduce_grass2, reduce_grass1 must have a number
+	 * of workgroups smaller or equal to reduce_grass2's local work 
+	 * size. The reduce_grass2 kernel will have only one workgroup, and 
+	 * that single workgroup must be able to perform the final reduction.
+	 * Thus, we enforce that maximum number of workgroups in 
+	 * reduce_grass1 by limiting the total number of workitems (i.e. the 
+	 * global work size) 
+	 * */
+	gws->reduce_grass1 = MIN(
+		lws->reduce_grass1 * lws->reduce_grass1, /* lws * number_of_workgroups */
+		PP_GWS_MULT(
+			PP_DIV_CEIL(paramsDev.size_xy, args_vw.int_vw),
+			lws->reduce_grass1
+		)
+	);
 
-
-	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
+	lws->reduce_grass2 = gws->reduce_grass1 / lws->reduce_grass1;
 	gws->reduce_grass2 = lws->reduce_grass2;
-	/** @todo verify the above calculations. */
 	
 	/* If we got here, everything is OK. */
 	goto finish;

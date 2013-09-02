@@ -200,16 +200,33 @@ size_t pp_rng_bytes_get(gchar *rng_tag) {
 	PP_RNG_RETURN(i, rng_infos, rng_tag, bytes);
 }
 
-/** 
- * @brief Returns an adjusted global worksize equal or larger than the
- * given global worksize and is a multiple of the given local worksize. 
+/**
+ * @brief Returns the next multiple of a given divisor which is equal or
+ * larger than a given value.
  * 
- * @param gws Minimum global worksize.
- * @param lws Local worksize. 
- * @return The adjusted global worksize.
+ * @param value Minimum value.
+ * @param divisor The return value must be a multiple of the divisor.
+ * @return The next multiple of a given divisor which is equal or larger
+ * than a given value.
  * */
-size_t pp_gws_mult(size_t gws, size_t lws) {
-	return lws * ceil(((float) gws) / lws); 
+unsigned int pp_next_multiple(unsigned int value, unsigned int divisor) {
+
+	/* The remainder. */
+	int rem;
+	
+	/* If divisor is 0, then value is the next multiple. */
+	if (divisor == 0)
+		return value; 
+
+	/* Get the remainder. */
+	rem = value % divisor;
+	
+	/* If remainder is zero, then value is the next multiple... */
+	if (rem == 0)
+		return value;
+		
+	/* ...otherwise just add the divisor and subtract the remainder. */	
+	return value + divisor - rem;
 }
 
 /** 

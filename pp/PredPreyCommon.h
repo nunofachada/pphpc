@@ -82,6 +82,25 @@
 	return rng_infos[i].field; \
 
 /**
+ * @brief Performs integer division returning the ceiling instead of
+ * the floor if it is not an exact division.
+ * 
+ * @param a Integer numerator.
+ * @param b Integer denominator.
+ * */
+#define PP_DIV_CEIL(a, b) ((a + b - 1) / b)
+
+/** 
+ * @brief Calculates an adjusted global worksize equal or larger than 
+ * the given global worksize and is a multiple of the given local 
+ * worksize. 
+ * 
+ * @param gws Minimum global worksize.
+ * @param lws Local worksize. 
+ * */
+#define PP_GWS_MULT(gws, lws) (lws * PP_DIV_CEIL(gws, lws))
+
+/**
  * @brief Information about a RNG.
  * */	
 typedef struct pp_rng_info {
@@ -167,9 +186,9 @@ const gchar* pp_rng_const_get(gchar *rng_tag);
  * for the provided random number generator tag. */
 size_t pp_rng_bytes_get(gchar *rng_tag);
 
-/** @brief Returns an adjusted global worksize equal or larger than the
- * given global worksize and is a multiple of the given local worksize. */
-size_t pp_gws_mult(size_t gws, size_t lws);
+/** @brief Returns the next multiple of a given divisor which is equal or
+ * larger than a given value. */
+unsigned int pp_next_multiple(unsigned int value, unsigned int divisor);
 
 /** @brief Resolves to error category identifying string, in this case
  *  an error related to the predator-prey simulation. */
