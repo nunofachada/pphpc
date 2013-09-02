@@ -156,6 +156,7 @@ typedef struct pp_parameters {
 	unsigned int grass_restart;              /**< Number of iterations that the grass takes to regrow after being eaten by a sheep. */
 	unsigned int grid_x;  /**< Number of grid columns (horizontal size, width). */
 	unsigned int grid_y;  /**< Number of grid rows (vertical size, height). */
+	unsigned int grid_xy; /**< Number of grid cells. */
 	unsigned int iters;   /**< Number of iterations. */
 } PPParameters;
 

@@ -1,18 +1,30 @@
 /** 
  * @file
  * @brief OpenCL GPU kernels and data structures for PredPrey simulation.
- */
+ * 
+ * The kernels in this file expect the following preprocessor defines:
+ * 
+ * * VW_INT - Vector size used for integers 
+ * * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
+ * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
+ * * CELL_NUM - Number of cells in simulation
+ * 
+ * * INIT_SHEEP . Initial number of sheep.
+ * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
+ * * SHEEP_REPRODUCE_THRESHOLD - Energy required for sheep to reproduce.
+ * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep reproduction.
+ * * INIT_WOLVES - Initial number of wolves.
+ * * WOLVES_GAIN_FROM_FOOD - Wolves energy gain when eating sheep.
+ * * WOLVES_REPRODUCE_THRESHOLD - Energy required for wolves to reproduce.
+ * * WOLVES_REPRODUCE_PROB - Probability (between 1 and 100) of wolves reproduction.
+ * * GRASS_RESTART - Number of iterations that the grass takes to regrow after being eaten by a sheep.
+ * * GRID_X - Number of grid columns (horizontal size, width). 
+ * * GRID_Y - Number of grid rows (vertical size, height). 
+ * * ITERS - Number of iterations. 
+ * */
 
 #include "PredPreyCommon_Kernels.cl"
 
-/* 
- * Expected preprocessor defines:
- * 
- * VW_INT - Vector size used for integers 
- * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
- * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
- * CELL_NUM - Number of cells in simulation 
- *  */
 
 /* Grass reduction pre defines */
 #if VW_INT == 1
@@ -44,19 +56,10 @@
 #define CELL_VECTOR_NUM() CELL_NUM/VW_INT
 #define REDUCE_GRASS_SERIAL_COUNT() ceil(CELL_VECTOR_NUM()/(float) REDUCE_GRASS_NUM_WORKITEMS)
 
-typedef struct pp_g_sim_params {
-	uint size_x;
-	uint size_y;
-	uint size_xy;
-	uint max_agents;
-	uint grass_restart;
-} PPGSimParams;
-
 __kernel void initCell(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer, 
-			__global rng_state * seeds,
-			const PPGSimParams sim_params)
+			__global rng_state * seeds)
 {
 	
 	// Grid position for this work-item
@@ -71,7 +74,7 @@ __kernel void initCell(
 		} else {
 			// Grass is dead
 			grass_alive[gid] = 0;
-			grass_timer[gid] = randomNextInt(seeds, sim_params.grass_restart) + 1;
+			grass_timer[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
 		}
 	}
 	
@@ -82,8 +85,7 @@ __kernel void initCell(
  */
 __kernel void grass(
 			__global uchar* grass_alive, 
-			__global ushort* grass_timer, 
-			const PPGSimParams sim_params)
+			__global ushort* grass_timer)
 {
 	// Grid position for this work-item
 	uint gid = get_global_id(0);

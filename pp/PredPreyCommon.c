@@ -130,13 +130,23 @@ int pp_load_params(PPParameters* parameters, char* filename, GError** err) {
 		gef_if_error_create_goto(*err, PP_ERROR, 1, PP_INVALID_PARAMS_FILE, error_handler, "Insufficient parameters in parameters file (check=%x)", check);
 	}
 	
+	/* Set extra utility parameter. */
+	parameters->grid_xy = parameters->grid_x * parameters->grid_y;
+	
+	/* If we got here, everything is OK. */
 	goto cleanup;
 	
 error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
 	status = (*err)->code;
 	
 cleanup:
+	/* Close file. */
 	if (fp != NULL) fclose(fp);
+	
+	/* Return. */
 	return status;
 } 
 
