@@ -560,7 +560,7 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	 * that single workgroup must be able to perform the final reduction.
 	 * Thus, we enforce that maximum number of workgroups in 
 	 * reduce_grass1 by limiting the total number of workitems (i.e. the 
-	 * global work size) 
+	 * global work size).
 	 * */
 	gws->reduce_grass1 = MIN(
 		lws->reduce_grass1 * lws->reduce_grass1, /* lws * number_of_workgroups */
@@ -570,7 +570,9 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 		)
 	);
 
-	lws->reduce_grass2 = gws->reduce_grass1 / lws->reduce_grass1;
+	/* The nlpo2() bellow is required for performing the final reduction
+	 * step successfully (otherwise not all sums may be performed). */
+	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	
 	/* If we got here, everything is OK. */
@@ -639,7 +641,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	printf("       | init_cell        | %8d | %5d |               0 | %9ub |\n", (int) gws.init_cell, (int) lws.init_cell, (unsigned int) pm_init_cells);
 	printf("       | grass            | %8d | %5d |               0 | %9ub |\n", (int) gws.grass, (int) lws.grass, (unsigned int) pm_grass);
 	printf("       | reducegrass1     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1, (int) dataSizes.reduce_grass_local, (int) dataSizes.reduce_grass_local / 1024, (unsigned int) pm_reduce_grass1);
-	printf("       | grasscount2      | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local, (int) dataSizes.reduce_grass_local / 1024, (unsigned int) pm_reduce_grass2);
+	printf("       | reducegrass2     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local, (int) dataSizes.reduce_grass_local / 1024, (unsigned int) pm_reduce_grass2);
 	printf("       ----------------------------------------------------------------------\n");
 
 	/* If we got here, everything is OK. */

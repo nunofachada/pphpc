@@ -138,7 +138,7 @@ __kernel void reduceGrass1(
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
-	
+
 	// Put in global memory
 	if (lid == 0) {
 		reduce_grass_global[get_group_id(0)] = partial_sums[0];
