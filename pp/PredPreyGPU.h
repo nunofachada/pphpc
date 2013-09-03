@@ -92,7 +92,8 @@ typedef struct pp_g_data_sizes {
 	size_t cells_grass_timer;        /**< Grass regrowth timer array. */
 	size_t cells_agents_index_start; /**< Agent index start array. */
 	size_t cells_agents_index_end;   /**< Agent index end array. */
-	size_t reduce_grass_local;       /**< Local grass reduction array. */
+	size_t reduce_grass_local1;      /**< Local grass reduction array 1. */
+	size_t reduce_grass_local2;      /**< Local grass reduction array 2. */
 	size_t reduce_grass_global;      /**< Global grass reduction array. */
 	size_t rng_seeds;                /**< RNG seeds/state array. */
 	size_t rng_seeds_count;          /**< Number of RNG seeds. */
@@ -156,7 +157,7 @@ void ppg_events_create(PPParameters params, PPGEvents* evts);
 void ppg_events_free(PPParameters params, PPGEvents* evts);
 
 /** @brief Set fixed kernel arguments. */
-cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, GError** err);
+cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, GError** err);
 
 /** @brief Perform Predator-Prey simulation. */
 cl_int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
