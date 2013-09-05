@@ -13,16 +13,16 @@
 typedef ulong rng_state;
 
 /**
- * @brief RNG utility function, not to be called directly from kernels.
+ * @brief Returns the next pseudorandom value using a xorshift random
+ * number generator with 64 bit state.
  * 
  * @param states Array of RNG states.
- * @return The next pseudorandom value from this random number 
- * generator's sequence.
+ * @param index Index of relevant state to use and update.
+ * @return The next pseudorandom value using a xorshift random number 
+ * generator with 64 bit state.
  */
-uint randomNext( __global rng_state *states) {
+uint randomNext( __global rng_state *states, uint index) {
 
-	// Get state index
-	uint index = getWorkitemIndex();
 	// Get current state
 	rng_state state = states[index];
 	

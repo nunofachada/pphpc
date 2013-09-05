@@ -13,20 +13,19 @@
 
 typedef uint2 rng_state;
  
-/** 
- * @brief RNG utility function, not to be called directly from kernels.
+/**
+ * @brief Returns the next pseudorandom value using a MWC random number 
+ * generator.
  * 
  * @param states Array of RNG states.
- * @return The next pseudorandom value from this random number 
- * generator's sequence.
+ * @param index Index of relevant state to use and update.
+ * @return The next pseudorandom value using a MWC random number 
+ * generator.
  */
-uint randomNext(__global rng_state *states) {
+uint randomNext(__global rng_state *states, uint index) {
 
     enum { A=4294883355U};
 
-	// Get state index
-	uint index = getWorkitemIndex();
-	
 	// Unpack the state	
 	uint x = states[index].x, c = states[index].y;
 	// Calculate the result
