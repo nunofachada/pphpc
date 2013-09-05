@@ -6,9 +6,9 @@
 #ifndef LIBCL_WORKITEM_CL
 #define LIBCL_WORKITEM_CL
 
-#define GLOBAL_SIZE() (get_global_size(0) * get_global_size(1) * get_global_size(2))
+#define GLOBAL_SIZE() get_global_size(0)
 
-#define GID1() (get_global_id(0) * get_global_size(0) + get_global_id(1) * get_global_size(1) + get_global_id(2))
+#define GID1() get_global_id(0)
 
 #define GID2() ((uint2) (GID1(), GLOBAL_SIZE() + GID1()))
 	

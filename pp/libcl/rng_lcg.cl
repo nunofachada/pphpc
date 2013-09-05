@@ -9,8 +9,6 @@
  
 #ifndef LIBCL_RNG
 #define LIBCL_RNG
-
-#include "workitem.cl"
  
 typedef ulong rng_state;
  

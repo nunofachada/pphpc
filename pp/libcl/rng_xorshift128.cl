@@ -8,8 +8,6 @@
  
 #ifndef LIBCL_RNG
 #define LIBCL_RNG
-
-#include "workitem.cl"
  
 typedef uint4 rng_state;
 

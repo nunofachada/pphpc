@@ -1,3 +1,5 @@
+#include "workitem.cl"
+
 #ifdef PP_RNG_LCG
 #include "libcl/rng_lcg.cl"
 #elif defined PP_RNG_MWC64X
@@ -66,3 +68,4 @@ uint8 randomNextInt8( __global rng_state *states,
 					randomNext(states, index.s6) % n,
 					randomNext(states, index.s7) % n);
 }
+
