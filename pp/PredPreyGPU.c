@@ -816,7 +816,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = (params.grid_xy + args_vw.int_vw) * sizeof(cl_uchar); /** @todo verify that the extra args.vwint size is properly summed (reduced) as zero */
+	dataSizes->cells_grass_alive = pp_next_multiple(params.grid_xy, args_vw.int_vw) * sizeof(cl_uchar);
 	dataSizes->cells_grass_timer = params.grid_xy * sizeof(cl_ushort);
 	dataSizes->cells_agents_index_start = params.grid_xy * sizeof(cl_uint);
 	dataSizes->cells_agents_index_end = params.grid_xy * sizeof(cl_uint);

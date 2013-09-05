@@ -53,9 +53,11 @@
 	typedef uchar8 ucharx;
 #endif
 
-#define CELL_VECTOR_NUM() CELL_NUM/VW_INT
-#define REDUCE_GRASS_SERIAL_COUNT() ceil(CELL_VECTOR_NUM()/(float) REDUCE_GRASS_NUM_WORKITEMS)
+#define CELL_VECTOR_NUM() PP_DIV_CEIL(CELL_NUM, VW_INT)
 
+#define REDUCE_GRASS_SERIAL_COUNT() PP_DIV_CEIL(CELL_VECTOR_NUM(), REDUCE_GRASS_NUM_WORKITEMS)
+
+/* @todo vectorize this */
 __kernel void initCell(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer, 
@@ -76,12 +78,17 @@ __kernel void initCell(
 			grass_alive[gid] = 0;
 			grass_timer[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
 		}
+	} else if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
+		// This makes sure that grass in "extra" cells are dead so
+		// they're not incorrectly counted in the reduction step.
+		grass_alive[gid] = 0;
 	}
 	
 }
 
 /*
  * Grass kernel
+ * @todo Vectorize this
  */
 __kernel void grass(
 			__global uchar* grass_alive, 
