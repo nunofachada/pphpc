@@ -23,7 +23,7 @@
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -44,6 +44,7 @@ static GOptionEntry entries[] = {
 /** Kernel local worksizes. */
 static GOptionEntry entries_lws[] = {
 	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,    "Init. cells kernel",  "LWS"},
+	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,   "Init. agents kernel", "LWS"},
 	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",        "LWS"},
 	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel", "LWS"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
@@ -83,11 +84,11 @@ int main(int argc, char **argv)
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
 	
@@ -280,6 +281,28 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after init cells (OpenCL error %d)", status);
 #endif
 
+	/* Init. agents */
+	status = clEnqueueNDRangeKernel(
+		zone->queues[1], 
+		krnls.init_agent, 
+		1, 
+		NULL, 
+		&gws.init_agent, 
+		&lws.init_agent, 
+		0, 
+		NULL, 
+#ifdef CLPROFILER
+		&evts->init_agent
+#else
+		NULL
+#endif
+	);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: Init. agents (OpenCL error %d)", status);
+
+#ifdef PPG_DEBUG
+	status = clFinish(zone->queues[0]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after init agents (OpenCL error %d)", status);
+#endif
 	
 	/* *************** */
 	/* SIMULATION LOOP */
@@ -313,7 +336,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass1, iteration %d (OpenCL error %d)", iter, status);
 #endif
 		
-		/* Step 4.2: Perform grass reduction, part II. */
+		/* Step 4.2: Perform agents reduction, part I. */
+
+		/** @todo Agents reduction, part I, queue 1. */
+		
+		/* Step 4.3: Perform grass reduction, part II. */
 		status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.reduce_grass2, 
@@ -332,13 +359,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass2, iteration %d (OpenCL error %d)", iter, status);
 #endif
 
-		/* Step 4.3: Perform agents reduction, part I. */
-
-		/** @todo Agents reduction, part I. */
-
 		/* Step 4.4: Perform agents reduction, part II. */
 
-		/** @todo Agents reduction, part II. */
+		/** @todo Agents reduction, part II, queue 1. */
 
 		/* Step 4.5: Get statistics. */
 		status = clEnqueueReadBuffer(
@@ -451,10 +474,13 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	/* Perfomed detailed analysis onfy if profiling flag is set. */
 	
 	/* One time events. */
+	profcl_profile_add(profile, "Write data", evts->write_rng, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
+	
 	profcl_profile_add(profile, "Init cells", evts->init_cell, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-	profcl_profile_add(profile, "Write data", evts->write_rng, err);
+	profcl_profile_add(profile, "Init agents", evts->init_agent, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Simulation loop events. */
@@ -543,15 +569,19 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT). (OpenCL error %d)", status);	
 	}
 
-	/* init cell worksizes */
+	/* Init cell worksizes. */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
 	gws->init_cell = PP_GWS_MULT(paramsSim.grid_xy, lws->init_cell);
+	
+	/* Init agent worksizes. */
+	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : maxWorkGroupSize;
+	gws->init_agent = args.max_agents;
 
-	/* grass growth worksizes */
+	/* Grass growth worksizes. */
 	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
 	gws->grass = PP_GWS_MULT(paramsSim.grid_xy, lws->grass);
 	
-	/* grass count worksizes */
+	/* Grass count worksizes. */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
 	/* In order to perform reduction using just two kernel calls, 
 	 * reduce_grass1 and reduce_grass2, reduce_grass1 must have a number
@@ -609,7 +639,11 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	cl_int status;
 	
 	/* Private memory sizes. */
-	cl_ulong pm_init_cells, pm_grass, pm_reduce_grass1, pm_reduce_grass2;
+	cl_ulong pm_init_cells, 
+		pm_init_agents,
+		pm_grass, 
+		pm_reduce_grass1, 
+		pm_reduce_grass2;
 	
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -617,11 +651,18 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		dataSizes.cells_grass_timer + 
 		dataSizes.cells_agents_index_start +
 		dataSizes.cells_agents_index_end +
+		dataSizes.agents_x +
+		dataSizes.agents_y +
+		dataSizes.agents_alive +
+		dataSizes.agents_energy +
+		dataSizes.agents_type +
 		dataSizes.reduce_grass_global + 
 		dataSizes.rng_seeds;
 		
 	/* Determine private memory required by kernel workitems. */
 	status = clGetKernelWorkGroupInfo (krnls.init_cell, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_init_cells, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get init cell kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.init_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_init_agents, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get init cell kernel info (private memory). (OpenCL error %d)", status);	
 	status = clGetKernelWorkGroupInfo (krnls.grass, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_grass, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get grass kernel info (private memory). (OpenCL error %d)", status);	
@@ -639,6 +680,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	printf("       | Kernel           | GWS      | LWS   | Local memory    | Priv. mem. |\n");
 	printf("       ----------------------------------------------------------------------\n");
 	printf("       | init_cell        | %8d | %5d |               0 | %9ub |\n", (int) gws.init_cell, (int) lws.init_cell, (unsigned int) pm_init_cells);
+	printf("       | init_agent       | %8d | %5d |               0 | %9ub |\n", (int) gws.init_agent, (int) lws.init_agent, (unsigned int) pm_init_agents);
 	printf("       | grass            | %8d | %5d |               0 | %9ub |\n", (int) gws.grass, (int) lws.grass, (unsigned int) pm_grass);
 	printf("       | reducegrass1     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1, (int) dataSizes.reduce_grass_local1, (int) dataSizes.reduce_grass_local1 / 1024, (unsigned int) pm_reduce_grass1);
 	printf("       | reducegrass2     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local2, (int) dataSizes.reduce_grass_local2 / 1024, (unsigned int) pm_reduce_grass2);
@@ -672,17 +714,26 @@ finish:
  * */
 cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	
+	/* Status variable. */
 	cl_int status;
 	
+	/* Create init cells kernel. */
 	krnls->init_cell = clCreateKernel(program, "initCell", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: initCell (OpenCL error %d)", status);	
 
+	/* Create init agents kernel. */
+	krnls->init_agent = clCreateKernel(program, "initAgent", &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: initAgent (OpenCL error %d)", status);	
+
+	/* Create grass kernel. */
 	krnls->grass = clCreateKernel(program, "grass", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: grass (OpenCL error %d)", status);	
 	
+	/* Create reduce grass 1 kernel. */
 	krnls->reduce_grass1 = clCreateKernel(program, "reduceGrass1", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceGrass1 (OpenCL error %d)", status);	
 	
+	/* Create reduce grass 2 kernel. */
 	krnls->reduce_grass2 = clCreateKernel(program, "reduceGrass2", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceGrass2 (OpenCL error %d)", status);	
 	
@@ -708,6 +759,7 @@ finish:
  * */
 void ppg_kernels_free(PPGKernels* krnls) {
 	if (krnls->init_cell) clReleaseKernel(krnls->init_cell);
+	if (krnls->init_agent) clReleaseKernel(krnls->init_agent);
 	if (krnls->grass) clReleaseKernel(krnls->grass);
 	if (krnls->reduce_grass1) clReleaseKernel(krnls->reduce_grass1); 
 	if (krnls->reduce_grass2) clReleaseKernel(krnls->reduce_grass2);
@@ -730,7 +782,7 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	/* Aux. variable. */
 	cl_int status;
 	
-	/* Cell init kernel */
+	/* Cell init kernel. */
 	status = clSetKernelArg(krnls.init_cell, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_alive);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of init_cell (OpenCL error %d)", status);
 	
@@ -739,6 +791,25 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 
 	status = clSetKernelArg(krnls.init_cell, 2, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of init_cell (OpenCL error %d)", status);
+	
+	/* Agent init kernel. */
+	status = clSetKernelArg(krnls.init_agent, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_x);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_y);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of init_agent (OpenCL error %d)", status);
 
 	/* Grass kernel */
 	status = clSetKernelArg(krnls.grass, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_alive);
@@ -821,6 +892,13 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->cells_agents_index_start = params.grid_xy * sizeof(cl_uint);
 	dataSizes->cells_agents_index_end = params.grid_xy * sizeof(cl_uint);
 	
+	/* Agents. */
+	dataSizes->agents_x = args.max_agents * sizeof(cl_ushort);
+	dataSizes->agents_y = args.max_agents * sizeof(cl_ushort);
+	dataSizes->agents_alive = args.max_agents * sizeof(cl_uchar);
+	dataSizes->agents_energy = args.max_agents * sizeof(cl_ushort);
+	dataSizes->agents_type = args.max_agents * sizeof(cl_uchar);
+	
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint);
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
@@ -900,6 +978,22 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 
 	buffersDevice->cells_agents_index_end = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.cells_agents_index_end, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_index (OpenCL error %d)", status);
+	
+	/* Agents. */
+	buffersDevice->agents_x = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_x, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_x (OpenCL error %d)", status);
+
+	buffersDevice->agents_y = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_y, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_y (OpenCL error %d)", status);
+
+	buffersDevice->agents_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_alive, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_alive (OpenCL error %d)", status);
+
+	buffersDevice->agents_energy = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_energy, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_energy (OpenCL error %d)", status);
+
+	buffersDevice->agents_type = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_type, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_type (OpenCL error %d)", status);
 
 	/* Grass reduction (count) */
 	buffersDevice->reduce_grass_global = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.reduce_grass_global, NULL, &status);
@@ -935,6 +1029,11 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->cells_grass_timer) clReleaseMemObject(buffersDevice->cells_grass_timer);
 	if (buffersDevice->cells_agents_index_start) clReleaseMemObject(buffersDevice->cells_agents_index_start);
 	if (buffersDevice->cells_agents_index_end) clReleaseMemObject(buffersDevice->cells_agents_index_end);
+	if (buffersDevice->agents_x) clReleaseMemObject(buffersDevice->agents_x);
+	if (buffersDevice->agents_y) clReleaseMemObject(buffersDevice->agents_y);
+	if (buffersDevice->agents_alive) clReleaseMemObject(buffersDevice->agents_alive);
+	if (buffersDevice->agents_energy) clReleaseMemObject(buffersDevice->agents_energy);
+	if (buffersDevice->agents_type) clReleaseMemObject(buffersDevice->agents_type);
 	if (buffersDevice->reduce_grass_global) clReleaseMemObject(buffersDevice->reduce_grass_global);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }

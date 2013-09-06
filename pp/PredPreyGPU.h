@@ -26,6 +26,7 @@ typedef struct pp_g_args {
  * */
 typedef struct pp_g_args_lws {
 	size_t init_cell;    /**< Init. cells kernel. */
+	size_t init_agent;   /**< Init. agents kernel. */
 	size_t grass;        /**< Grass kernel. */
 	size_t reduce_grass; /**< Reduce grass 1 kernel. */
 } PPGArgsLWS;
@@ -46,6 +47,7 @@ typedef struct pp_g_args_vw {
  * */
 typedef struct pp_g_global_work_sizes {
 	size_t init_cell;     /**< Init cells kernel global worksize. */
+	size_t init_agent;    /**< Init agents kernel global worksize. */
 	size_t grass;         /**< Grass kernel global worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel global worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel global worksize. */
@@ -56,6 +58,7 @@ typedef struct pp_g_global_work_sizes {
  * */
 typedef struct pp_g_local_work_sizes {
 	size_t init_cell;     /**< Init cells kernel local worksize. */
+	size_t init_agent;    /**< Init agents kernel local worksize. */
 	size_t grass;         /**< Grass kernel local worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel local worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel local worksize. */
@@ -66,6 +69,7 @@ typedef struct pp_g_local_work_sizes {
  * */
 typedef struct pp_g_kernels {
 	cl_kernel init_cell;     /**< Init cells kernel. */
+	cl_kernel init_agent;    /**< Init agents kernel. */
 	cl_kernel grass;         /**< Grass kernel. */
 	cl_kernel reduce_grass1; /**< Reduce grass 1 kernel. */
 	cl_kernel reduce_grass2; /**< Reduce grass 2 kernel. */
@@ -77,6 +81,7 @@ typedef struct pp_g_kernels {
 typedef struct pp_g_events {
 	cl_event write_rng;      /**< Write RNG seeds to device. */
 	cl_event init_cell;      /**< Initialize cells. */
+	cl_event init_agent;     /**< Initialize agents. */
 	cl_event *grass;         /**< Grass kernel execution. */
 	cl_event *read_stats;    /**< Read stats from device to host. */
 	cl_event *reduce_grass1; /**< Reduce grass kernel 1 execution. */
@@ -92,6 +97,11 @@ typedef struct pp_g_data_sizes {
 	size_t cells_grass_timer;        /**< Grass regrowth timer array. */
 	size_t cells_agents_index_start; /**< Agent index start array. */
 	size_t cells_agents_index_end;   /**< Agent index end array. */
+	size_t agents_x;                 /**< Agents x-position. */
+	size_t agents_y;                 /**< Agents y-position. */
+	size_t agents_alive;             /**< Agents alive or dead flag. */
+	size_t agents_energy;            /**< Agents energy. */
+	size_t agents_type;              /**< Agents type (wolf or sheep). */
 	size_t reduce_grass_local1;      /**< Local grass reduction array 1. */
 	size_t reduce_grass_local2;      /**< Local grass reduction array 2. */
 	size_t reduce_grass_global;      /**< Global grass reduction array. */
@@ -116,6 +126,11 @@ typedef struct pp_g_buffers_device {
 	cl_mem cells_grass_timer;        /**< Grass regrowth timer array. */
 	cl_mem cells_agents_index_start; /**< Agent index start array. */
 	cl_mem cells_agents_index_end;   /**< Agent index end array. */
+	cl_mem agents_x;                 /**< Agents x-position. */
+	cl_mem agents_y;                 /**< Agents y-position. */
+	cl_mem agents_alive;             /**< Agents alive or dead flag. */
+	cl_mem agents_energy;            /**< Agents energy. */
+	cl_mem agents_type;	             /**< Agents type (wolf or sheep). */
 	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */
 } PPGBuffersDevice;

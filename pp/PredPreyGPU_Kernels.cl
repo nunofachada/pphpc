@@ -9,7 +9,7 @@
  * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
  * * CELL_NUM - Number of cells in simulation
  * 
- * * INIT_SHEEP . Initial number of sheep.
+ * * INIT_SHEEP - Initial number of sheep.
  * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
  * * SHEEP_REPRODUCE_THRESHOLD - Energy required for sheep to reproduce.
  * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep reproduction.
@@ -65,9 +65,9 @@
  * @param seeds RNG seeds.
  * */
 __kernel void initCell(
-			__global uchar* grass_alive, 
-			__global ushort* grass_timer, 
-			__global rng_state * seeds)
+			__global uchar *grass_alive, 
+			__global ushort *grass_timer, 
+			__global rng_state *seeds)
 {
 	
 	/* Grid position for this work-item */
@@ -93,6 +93,41 @@ __kernel void initCell(
 	
 }
 
+__kernel void initAgent(
+			__global ushort *x,
+			__global ushort *y,
+			__global uchar *alive,
+			__global ushort *energy,
+			__global uchar *type,
+			__global rng_state *seeds
+) 
+{
+	/* Agent to be handled by this workitem. */
+	uint gid = get_global_id(0);
+	
+	/* Determine what this workitem will do. */
+	if (gid < INIT_SHEEP + INIT_WOLVES) {
+		/* This workitem will initialize an alive agent. */
+		x[gid] = randomNextInt(seeds, GRID_X);
+		y[gid] = randomNextInt(seeds, GRID_Y);
+		alive[gid] = 1;
+		/* The remaining parameters depend on the type of agent. */
+		if (gid < INIT_SHEEP ) {
+			/* A sheep agent. */
+			type[gid] = SHEEP_ID;
+			energy[gid] = randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
+		} else {
+			/* A wolf agent. */
+			type[gid] = WOLF_ID;
+			energy[gid] = randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
+		}
+	} else {
+		/* This workitem will initialize a dead agent with no type. */
+		alive[gid] = 0;
+	}
+}
+
+
 /**
  * @brief Grass kernel.
  * 
@@ -100,8 +135,8 @@ __kernel void initCell(
  * @param grass_timer
  * */
 __kernel void grass(
-			__global uchar* grass_alive, 
-			__global ushort* grass_timer)
+			__global uchar *grass_alive, 
+			__global ushort *grass_timer)
 {
 	/* Grid position for this workitem */
 	uint gid = get_global_id(0);
