@@ -57,50 +57,59 @@
 
 #define REDUCE_GRASS_SERIAL_COUNT() PP_DIV_CEIL(CELL_VECTOR_NUM(), REDUCE_GRASS_NUM_WORKITEMS)
 
-/* @todo vectorize this */
+/**
+ * @brief Initialize grid cells. 
+ * 
+ * @param grass_alive "Is grass alive?" array.
+ * @param grass_timer Grass regrowth timer array.
+ * @param seeds RNG seeds.
+ * */
 __kernel void initCell(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer, 
 			__global rng_state * seeds)
 {
 	
-	// Grid position for this work-item
+	/* Grid position for this work-item */
 	uint gid = get_global_id(0);
 
-	// Check if this thread will do anything
+	/* Check if this workitem will initialize a cell... */
 	if (gid < CELL_NUM) {
+		/* ...yes, it will. */
 		if (randomNextInt(seeds, 2)) {
-			// Grass is alive
+			/* Grass is alive */
 			grass_alive[gid] = 1;
 			grass_timer[gid] = 0;
 		} else {
-			// Grass is dead
+			/* Grass is dead */
 			grass_alive[gid] = 0;
 			grass_timer[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
 		}
 	} else if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
-		// This makes sure that grass in "extra" cells are dead so
-		// they're not incorrectly counted in the reduction step.
+		/* Make sure that grass in padding cells are dead so
+		 * they're not incorrectly counted in the reduction step. */
 		grass_alive[gid] = 0;
 	}
 	
 }
 
-/*
- * Grass kernel
- * @todo Vectorize this
- */
+/**
+ * @brief Grass kernel.
+ * 
+ * @param grass_alive
+ * @param grass_timer
+ * */
 __kernel void grass(
 			__global uchar* grass_alive, 
 			__global ushort* grass_timer)
 {
-	// Grid position for this work-item
+	/* Grid position for this workitem */
 	uint gid = get_global_id(0);
 
-	// Check if this thread will do anything
+	/* Check if this workitem will do anything */
 	if (gid < CELL_NUM) {
 		
-		// Decrement counter if grass is dead
+		/* Decrement counter if grass is dead */
 		if (!grass_alive[gid]) {
 			ushort timer = --grass_timer[gid];
 			if (timer == 0) {
@@ -110,10 +119,17 @@ __kernel void grass(
 	}
 }
 
+/**
+ * @brief Grass reduction kernel, part 1.
+ * 
+ * @param grass_alive
+ * @param partial_sums
+ * @param reduce_grass_global
+ * */
 __kernel void reduceGrass1(
-			__global ucharx * grass_alive,
-			__local uintx * partial_sums,
-			__global uintx * reduce_grass_global) {
+			__global ucharx *grass_alive,
+			__local uintx *partial_sums,
+			__global uintx *reduce_grass_global) {
 				
 	// Global and local work-item IDs
 	uint gid = get_global_id(0);
@@ -153,10 +169,17 @@ __kernel void reduceGrass1(
 		
 }
 
-__kernel void reduceGrass2(
-			__global uintx * reduce_grass_global,
-			__local uintx * partial_sums,
-			__global PPStatisticsOcl * stats) {
+/**
+ * @brief Grass reduction kernel, part 2.
+ * 
+ * @param reduce_grass_global
+ * @param partial_sums
+ * @param stats
+ * */
+ __kernel void reduceGrass2(
+			__global uintx *reduce_grass_global,
+			__local uintx *partial_sums,
+			__global PPStatisticsOcl *stats) {
 				
 	// Global and local work-item IDs
 	uint lid = get_local_id(0);

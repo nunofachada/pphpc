@@ -822,9 +822,9 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->cells_agents_index_end = params.grid_xy * sizeof(cl_uint);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
+	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint);
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
-	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint); /** @todo Verify that GPU supports this local memory requirement */
+	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * pp_rng_bytes_get(args.rngen);
