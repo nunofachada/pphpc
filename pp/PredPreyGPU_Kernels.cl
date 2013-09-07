@@ -5,8 +5,7 @@
  * The kernels in this file expect the following preprocessor defines:
  * 
  * * VW_INT - Vector size used for integers 
- * * REDUCE_GRASS_NUM_WORKITEMS - Number of work items for grass reduction step 1 (equivalent to get_global_size(0))
- * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups for grass reduction step 1 (equivalent to get_num_groups(0))
+ * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
  * * CELL_NUM - Number of cells in simulation
  * 
  * * INIT_SHEEP - Initial number of sheep.
@@ -26,7 +25,7 @@
 #include "PredPreyCommon_Kernels.cl"
 
 
-/* Grass reduction pre defines */
+/* Integer vector width pre-defines */
 #if VW_INT == 1
 	#define VW_INT_ZERO 0
 	#define VW_REDUCE_FINAL_SUM(x) (x)
@@ -55,7 +54,7 @@
 
 #define CELL_VECTOR_NUM() PP_DIV_CEIL(CELL_NUM, VW_INT)
 
-#define REDUCE_GRASS_SERIAL_COUNT() PP_DIV_CEIL(CELL_VECTOR_NUM(), REDUCE_GRASS_NUM_WORKITEMS)
+#define REDUCE_GRASS_SERIAL_COUNT(gsize) PP_DIV_CEIL(CELL_VECTOR_NUM(), gsize)
 
 /**
  * @brief Initialize grid cells. 
@@ -93,6 +92,16 @@ __kernel void initCell(
 	
 }
 
+/**
+ * @brief Intialize agents.
+ * 
+ * @param x
+ * @param y
+ * @param alive
+ * @param energy
+ * @param type
+ * @param seeds
+ * */
 __kernel void initAgent(
 			__global ushort *x,
 			__global ushort *y,
@@ -166,30 +175,30 @@ __kernel void reduceGrass1(
 			__local uintx *partial_sums,
 			__global uintx *reduce_grass_global) {
 				
-	// Global and local work-item IDs
+	/* Global and local work-item IDs */
 	uint gid = get_global_id(0);
 	uint lid = get_local_id(0);
 	uint group_size = get_local_size(0);
+	uint global_size = get_global_size(0);
 	
-	// Serial sum
+	/* Serial sum */
 	uintx sum = VW_INT_ZERO;
 	
-	// Serial count
-	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT(); i++) {
-		uint index = i * REDUCE_GRASS_NUM_WORKITEMS + gid;
+	/* Serial count */
+	for (uint i = 0; i < REDUCE_GRASS_SERIAL_COUNT(global_size); i++) {
+		uint index = i * global_size + gid;
 		if (index < CELL_VECTOR_NUM()) {
 			sum += convert_uintx(grass_alive[index]);
 		}
 	}
 	
-	// Put serial sum in local memory
+	/* Put serial sum in local memory */
 	partial_sums[lid] = sum; 
-	//partial_sums[lid] = (1, 1, 1, 1);
 	
-	// Wait for all work items to perform previous operation
+	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
-	// Reduce
+	/* Reduce */
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
@@ -197,7 +206,7 @@ __kernel void reduceGrass1(
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 
-	// Put in global memory
+	/* Put in global memory */
 	if (lid == 0) {
 		reduce_grass_global[get_group_id(0)] = partial_sums[0];
 	}
@@ -216,20 +225,20 @@ __kernel void reduceGrass1(
 			__local uintx *partial_sums,
 			__global PPStatisticsOcl *stats) {
 				
-	// Global and local work-item IDs
+	/* Global and local work-item IDs */
 	uint lid = get_local_id(0);
 	uint group_size = get_local_size(0);
 	
-	// Load partial sum in local memory
+	/* Load partial sum in local memory */
 	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
 		partial_sums[lid] = reduce_grass_global[lid];
 	else
 		partial_sums[lid] = VW_INT_ZERO;
 	
-	// Wait for all work items to perform previous operation
+	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
 	
-	// Reduce
+	/* Reduce */
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
@@ -237,7 +246,7 @@ __kernel void reduceGrass1(
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 	
-	// Put in global memory
+	/* Put in global memory */
 	if (lid == 0) {
 		stats[0].grass = VW_REDUCE_FINAL_SUM(partial_sums[0]);
 		stats[0].sheep = 2;
