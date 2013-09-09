@@ -557,6 +557,18 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE). (OpenCL error %d)", status);	
 
+	/* Get the char vector width, if not specified by user. */
+	if (args_vw.char_vw == 0) {
+		status = clGetDeviceInfo(
+			device, 
+			CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 
+			sizeof(cl_uint), 
+			&args_vw.char_vw, 
+			NULL
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR). (OpenCL error %d)", status);	
+	}
+
 	/* Get the int vector width, if not specified by user. */
 	if (args_vw.int_vw == 0) {
 		status = clGetDeviceInfo(
@@ -1103,7 +1115,9 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
+	g_string_append_printf(compilerOpts, "-D VW_CHAR=%d ", args_vw.char_vw);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
+	g_string_append_printf(compilerOpts, "-D VW_CHAR2INT_MUL=%d ", args_vw.char_vw / args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", params.grid_xy);
 	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ", params.init_sheep);
