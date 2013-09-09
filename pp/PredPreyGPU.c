@@ -1119,6 +1119,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D VW_CHAR2INT_MUL=%d ", args_vw.char_vw / args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
+	g_string_append_printf(compilerOpts, "-D REDUCE_AGENT_NUM_WORKGROUPS=%d ", 128 /*(unsigned int) (gws.reduce_agent1 / lws.reduce_agent1)*/);
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", params.grid_xy);
 	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ", params.init_sheep);
 	g_string_append_printf(compilerOpts, "-D SHEEP_GAIN_FROM_FOOD=%d ", params.sheep_gain_from_food);
