@@ -23,7 +23,7 @@
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -47,6 +47,7 @@ static GOptionEntry entries_lws[] = {
 	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,   "Init. agents kernel", "LWS"},
 	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",        "LWS"},
 	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel", "LWS"},
+	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent, "Reduce agent kernel", "LWS"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -84,11 +85,11 @@ int main(int argc, char **argv)
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
 	
@@ -246,6 +247,12 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* Aux. var. */
 	cl_int status;
 	
+	/* The maximum agents there can be in the next iteration. */
+	cl_uint max_agents_iter = 2 * (params.init_sheep + params.init_wolves);
+	
+	/* Dynamic worksizes. */
+	size_t gws_reduce_agent1, ws_reduce_agent2;
+	
 	/* Current iteration. */
 	cl_uint iter = 0; 
 		
@@ -336,9 +343,46 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass1, iteration %d (OpenCL error %d)", iter, status);
 #endif
 		
+	
 		/* Step 4.2: Perform agents reduction, part I. */
 
-		/** @todo Agents reduction, part I, queue 1. */
+		/* Determine worksizes. */
+		/* See comment for grass reduction gws for an explanation the formulas bellow. */
+		gws_reduce_agent1 = MIN( 
+			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
+			PP_GWS_MULT(
+				PP_DIV_CEIL(max_agents_iter, args_vw.int_vw),
+				lws.reduce_agent1
+			)
+		);
+		ws_reduce_agent2 = nlpo2(gws_reduce_agent1 / lws.reduce_agent1);
+		
+		/* Set variable kernel arguments. */
+		status = clSetKernelArg(krnls.reduce_agent1, 4, sizeof(cl_uint), (void *) &max_agents_iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+		
+		/* Run kernel. */
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1], 
+			krnls.reduce_agent1, 
+			1, 
+			NULL, 
+			&gws_reduce_agent1, 
+			&lws.reduce_agent1, 
+			0, 
+			NULL,
+#ifdef CLPROFILER
+			&evts->reduce_agent1[iter]
+#else
+			NULL
+#endif
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+#endif
 		
 		/* Step 4.3: Perform grass reduction, part II. */
 		status = clEnqueueNDRangeKernel(
@@ -360,8 +404,23 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 
 		/* Step 4.4: Perform agents reduction, part II. */
-
-		/** @todo Agents reduction, part II, queue 1. */
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1], 
+			krnls.reduce_agent2, 
+			1, 
+			NULL, 
+			&ws_reduce_agent2, 
+			&ws_reduce_agent2, 
+			iter > 0 ? 1 : 0,  
+			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
+			&evts->reduce_agent2[iter]
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
+		
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
+#endif
 
 		/* Step 4.5: Get statistics. */
 		status = clEnqueueReadBuffer(
@@ -372,7 +431,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			sizeof(PPStatistics), 
 			&buffersHost.stats[iter], 
 			1, 
-			&evts->reduce_grass2[iter], 
+			&evts->reduce_grass2[iter],  /* Only need to wait for reduce_grass2 because reduce_agent2 is in same queue. */
 			&evts->read_stats[iter]
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d (OpenCL error %d)", iter, status);
@@ -427,6 +486,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		 * 1.3. findCellStartAndFinish, queue 1
 		 * 2. Agent actions, queue 1 */
 
+		/* Determine the maximum number of agents there can be in the
+		 * next iteration. */
+		max_agents_iter = 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
 		
 	}
 	/* ********************** */
@@ -497,6 +559,12 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Reduce grass 2", evts->reduce_grass2[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
+		profcl_profile_add(profile, "Reduce agent 1", evts->reduce_agent1[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+
+		profcl_profile_add(profile, "Reduce agent 2", evts->reduce_agent2[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+
 	}
 	/* Analyse event data. */
 	profcl_profile_aggregate(profile, err);
@@ -544,15 +612,12 @@ finish:
  * */
 cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
 	
-	/* Variable which will keep the maximum workgroup size */
-	size_t maxWorkGroupSize;
-	
 	/* Get the maximum workgroup size. */
 	cl_int status = clGetDeviceInfo(
 		device, 
 		CL_DEVICE_MAX_WORK_GROUP_SIZE,
 		sizeof(size_t),
-		&maxWorkGroupSize,
+		&lws->max_lws,
 		NULL
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE). (OpenCL error %d)", status);	
@@ -582,19 +647,19 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	}
 
 	/* Init cell worksizes. */
-	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : maxWorkGroupSize;
+	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->max_lws;
 	gws->init_cell = PP_GWS_MULT(paramsSim.grid_xy, lws->init_cell);
 	
 	/* Init agent worksizes. */
-	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : maxWorkGroupSize;
+	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : lws->max_lws;
 	gws->init_agent = args.max_agents;
 
 	/* Grass growth worksizes. */
-	lws->grass = args_lws.grass ? args_lws.grass : maxWorkGroupSize;
+	lws->grass = args_lws.grass ? args_lws.grass : lws->max_lws;
 	gws->grass = PP_GWS_MULT(paramsSim.grid_xy, lws->grass);
 	
-	/* Grass count worksizes. */
-	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : maxWorkGroupSize;
+	/* Grass reduce worksizes. */
+	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->max_lws;
 	/* In order to perform reduction using just two kernel calls, 
 	 * reduce_grass1 and reduce_grass2, reduce_grass1 must have a number
 	 * of workgroups smaller or equal to reduce_grass2's local work 
@@ -616,6 +681,11 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	 * step successfully (otherwise not all sums may be performed). */
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
+	
+	/* Agent reduce worksizes. */
+	lws->reduce_agent1 = args_lws.reduce_agent ?  args_lws.reduce_agent : lws->max_lws;
+	/* The remaining agent reduction worksizes are determined on the fly 
+	 * because the number of agents varies during the simulation. */
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -655,7 +725,9 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		pm_init_agents,
 		pm_grass, 
 		pm_reduce_grass1, 
-		pm_reduce_grass2;
+		pm_reduce_grass2,
+		pm_reduce_agent1,
+		pm_reduce_agent2;
 	
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -669,6 +741,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		dataSizes.agents_energy +
 		dataSizes.agents_type +
 		dataSizes.reduce_grass_global + 
+		dataSizes.reduce_agent_global +
 		dataSizes.rng_seeds;
 		
 	/* Determine private memory required by kernel workitems. */
@@ -682,6 +755,10 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass1 kernel info (private memory). (OpenCL error %d)", status);	
 	status = clGetKernelWorkGroupInfo (krnls.reduce_grass2, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_grass2, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass2 kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.reduce_agent1, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_agent1, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_agent1 kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.reduce_agent2, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_agent2, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_agent2 kernel info (private memory). (OpenCL error %d)", status);	
 
 	/* Print info. */
 	printf("\n   =========================== Simulation Info =============================\n\n");
@@ -696,6 +773,8 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	printf("       | grass            | %8d | %5d |               0 | %9ub |\n", (int) gws.grass, (int) lws.grass, (unsigned int) pm_grass);
 	printf("       | reducegrass1     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1, (int) dataSizes.reduce_grass_local1, (int) dataSizes.reduce_grass_local1 / 1024, (unsigned int) pm_reduce_grass1);
 	printf("       | reducegrass2     | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local2, (int) dataSizes.reduce_grass_local2 / 1024, (unsigned int) pm_reduce_grass2);
+	printf("       | reduceagent1     |     Var. | %5d | %6db = %3dKb | %9ub |\n", (int) lws.reduce_agent1, (int) dataSizes.reduce_agent_local1, (int) dataSizes.reduce_agent_local1 / 1024, (unsigned int) pm_reduce_agent1);
+	printf("       | reduceagent2     |     Var. |  Var. | %6db = %3dKb | %9ub |\n", (int) dataSizes.reduce_agent_local2, (int) dataSizes.reduce_agent_local2 / 1024, (unsigned int) pm_reduce_agent2);
 	printf("       ----------------------------------------------------------------------\n");
 
 	/* If we got here, everything is OK. */
@@ -748,6 +827,14 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	/* Create reduce grass 2 kernel. */
 	krnls->reduce_grass2 = clCreateKernel(program, "reduceGrass2", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceGrass2 (OpenCL error %d)", status);	
+	
+	/* Create reduce agent 1 kernel. */
+	krnls->reduce_agent1 = clCreateKernel(program, "reduceAgent1", &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceAgent1 (OpenCL error %d)", status);	
+	
+	/* Create reduce agent 2 kernel. */
+	krnls->reduce_agent2 = clCreateKernel(program, "reduceAgent2", &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceAgent2 (OpenCL error %d)", status);	
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -849,7 +936,31 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 
 	status = clSetKernelArg(krnls.reduce_grass2, 2, sizeof(cl_mem), (void *) &buffersDevice.stats);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_grass2 (OpenCL error %d)", status);
+ 	
+	/* reduce_agent1 kernel */
+	status = clSetKernelArg(krnls.reduce_agent1, 0, sizeof(cl_mem), (void *) &buffersDevice.agents_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_agent1 (OpenCL error %d)", status);
 	
+	status = clSetKernelArg(krnls.reduce_agent1, 1, sizeof(cl_mem), (void *) &buffersDevice.agents_type);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_agent1 (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.reduce_agent1, 2, dataSizes.reduce_agent_local1, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_agent1 (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.reduce_agent1, 3, sizeof(cl_mem), (void *) &buffersDevice.reduce_agent_global);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent1 (OpenCL error %d)", status);
+	/* The 4th argument is set on the fly. */
+
+	/* reduce_agent2 kernel */
+	status = clSetKernelArg(krnls.reduce_agent2, 0, sizeof(cl_mem), (void *) &buffersDevice.reduce_agent_global);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_agent2 (OpenCL error %d)", status);
+	
+	status = clSetKernelArg(krnls.reduce_agent2, 1, dataSizes.reduce_agent_local2, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_agent2 (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.reduce_agent2, 2, sizeof(cl_mem), (void *) &buffersDevice.stats);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_agent2 (OpenCL error %d)", status);
+
 	/* If we got here, everything is OK. */
 	goto finish;
 	
@@ -916,6 +1027,11 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
+	/* Agent reduction. */
+	dataSizes->reduce_agent_local1 = lws.reduce_agent1 * args_vw.int_vw * sizeof(cl_uint);
+	dataSizes->reduce_agent_global = lws.max_lws * args_vw.int_vw * sizeof(cl_uint);
+	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_global;
+
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * pp_rng_bytes_get(args.rngen);
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
@@ -1011,6 +1127,10 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	buffersDevice->reduce_grass_global = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.reduce_grass_global, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: reduce_grass_global (OpenCL error %d)", status);
 
+	/* Agent reduction (count) */
+	buffersDevice->reduce_agent_global = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.reduce_agent_global, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: reduce_agent_global (OpenCL error %d)", status);
+
 	/* RNG seeds. */
 	buffersDevice->rng_seeds = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.rng_seeds, NULL, &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: rng_seeds (OpenCL error %d)", status);
@@ -1062,10 +1182,12 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 #ifdef CLPROFILER
 	evts->grass = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 }
 
 /**
@@ -1100,6 +1222,18 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 			if (evts->reduce_grass2[i]) clReleaseEvent(evts->reduce_grass2[i]);
 		}
 		free(evts->reduce_grass2);
+	}
+	if (evts->reduce_agent1) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->reduce_agent1[i]) clReleaseEvent(evts->reduce_agent1[i]);
+		}
+		free(evts->reduce_agent1);
+	}
+	if (evts->reduce_agent2) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->reduce_agent2[i]) clReleaseEvent(evts->reduce_agent2[i]);
+		}
+		free(evts->reduce_agent2);
 	}
 }
 

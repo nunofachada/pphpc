@@ -330,7 +330,7 @@ __kernel void reduceAgent1(
 			__global ucharx *type,
 			__local uintx *partial_sums,
 			__global uintx *reduce_agent_global,
-			__private uint max_agents) {
+			uint max_agents) {
 				
 	/* Global and local work-item IDs */
 	uint gid = get_global_id(0);

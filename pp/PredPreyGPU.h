@@ -29,6 +29,7 @@ typedef struct pp_g_args_lws {
 	size_t init_agent;   /**< Init. agents kernel. */
 	size_t grass;        /**< Grass kernel. */
 	size_t reduce_grass; /**< Reduce grass 1 kernel. */
+	size_t reduce_agent; /**< Reduce agent 1 kernel. */
 } PPGArgsLWS;
 
 /**
@@ -51,17 +52,22 @@ typedef struct pp_g_global_work_sizes {
 	size_t grass;         /**< Grass kernel global worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel global worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel global worksize. */
+	//size_t reduce_agent1; /**< Reduce agent 1 kernel global worksize. */
+	//size_t reduce_agent2; /**< Reduce agent 2 kernel global worksize. */
 } PPGGlobalWorkSizes;
 
 /** 
  * @brief Local work sizes for all the kernels.
  * */
 typedef struct pp_g_local_work_sizes {
+	size_t max_lws;       /**< Maximum workgroup size supported by device. */
 	size_t init_cell;     /**< Init cells kernel local worksize. */
 	size_t init_agent;    /**< Init agents kernel local worksize. */
 	size_t grass;         /**< Grass kernel local worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel local worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel local worksize. */
+	size_t reduce_agent1; /**< Reduce agent 1 kernel global worksize. */
+	//size_t reduce_agent2; /**< Reduce agent 2 kernel global worksize. */
 } PPGLocalWorkSizes;
 
 /**
@@ -73,6 +79,8 @@ typedef struct pp_g_kernels {
 	cl_kernel grass;         /**< Grass kernel. */
 	cl_kernel reduce_grass1; /**< Reduce grass 1 kernel. */
 	cl_kernel reduce_grass2; /**< Reduce grass 2 kernel. */
+	cl_kernel reduce_agent1; /**< Reduce agent 1 kernel. */
+	cl_kernel reduce_agent2; /**< Reduce agent 2 kernel. */
 } PPGKernels;
 
 /** 
@@ -86,6 +94,8 @@ typedef struct pp_g_events {
 	cl_event *read_stats;    /**< Read stats from device to host. */
 	cl_event *reduce_grass1; /**< Reduce grass kernel 1 execution. */
 	cl_event *reduce_grass2; /**< Reduce grass kernel 2 execution. */
+	cl_event *reduce_agent1; /**< Reduce agent kernel 1 execution. */
+	cl_event *reduce_agent2; /**< Reduce agent kernel 2 execution. */
 } PPGEvents;
 
 /** 
@@ -105,6 +115,9 @@ typedef struct pp_g_data_sizes {
 	size_t reduce_grass_local1;      /**< Local grass reduction array 1. */
 	size_t reduce_grass_local2;      /**< Local grass reduction array 2. */
 	size_t reduce_grass_global;      /**< Global grass reduction array. */
+	size_t reduce_agent_local1;      /**< Local agent reduction array 1. */
+	size_t reduce_agent_local2;      /**< Local agent reduction array 2. */
+	size_t reduce_agent_global;      /**< Global agent reduction array. */
 	size_t rng_seeds;                /**< RNG seeds/state array. */
 	size_t rng_seeds_count;          /**< Number of RNG seeds. */
 } PPGDataSizes;
@@ -132,6 +145,7 @@ typedef struct pp_g_buffers_device {
 	cl_mem agents_energy;            /**< Agents energy. */
 	cl_mem agents_type;	             /**< Agents type (wolf or sheep). */
 	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
+	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */
 } PPGBuffersDevice;
 
