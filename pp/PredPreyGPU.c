@@ -17,7 +17,7 @@
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
-//#define PPG_DEBUG
+#define PPG_DEBUG
 
 /** Main command line arguments and respective default values. */
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
@@ -307,7 +307,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: Init. agents (OpenCL error %d)", status);
 
 #ifdef PPG_DEBUG
-	status = clFinish(zone->queues[0]);
+	status = clFinish(zone->queues[1]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after init agents (OpenCL error %d)", status);
 #endif
 	
@@ -355,11 +355,25 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 				lws.reduce_agent1
 			)
 		);
-		ws_reduce_agent2 = nlpo2(gws_reduce_agent1 / lws.reduce_agent1);
+		//~ gws_reduce_agent1 = MIN(
+			//~ lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
+			//~ PP_GWS_MULT(
+				//~ PP_DIV_CEIL(args.max_agents, args_vw.int_vw),
+				//~ lws.reduce_agent1
+			//~ )
+		//~ );
+
+		/* The bellow worksize must be exact because reduce_agent2 relies on
+		 * its global (which is the same as local) worksize to count sheep
+		 * and wolf separately. */
+		ws_reduce_agent2 = gws_reduce_agent1 / lws.reduce_agent1;
 		
 		/* Set variable kernel arguments. */
+		//cl_uint tmp_max_agents = 16384;
 		status = clSetKernelArg(krnls.reduce_agent1, 4, sizeof(cl_uint), (void *) &max_agents_iter);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+		
+		fprintf(stderr, "Iter %d => GWS1: %d, WS2: %d, MAI: %d, Sheep: %d, Wolves: %d, Grass: %d\n", iter, (int) gws_reduce_agent1, (int) ws_reduce_agent2, (int) max_agents_iter, (iter > 0) ? buffersHost.stats[iter - 1].sheep : params.init_sheep, (iter > 0) ? buffersHost.stats[iter - 1].wolves : params.init_wolves, (iter > 0) ? buffersHost.stats[iter - 1].grass : 0);
 		
 		/* Run kernel. */
 		status = clEnqueueNDRangeKernel(
@@ -487,13 +501,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		 * 2. Agent actions, queue 1 */
 
 		/* Determine the maximum number of agents there can be in the
-		 * next iteration. */
+		 * next iteration. Make sure stats are already transfered back
+		 * to host. */
+		status = clWaitForEvents(1, &evts->grass[iter]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
 		max_agents_iter = 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
 		
 	}
 	/* ********************** */
 	/* END OF SIMULATION LOOP */
 	/* ********************** */
+
+	fprintf(stderr, "Iter 0 => Sheep: %d, Wolves: %d, Grass: %d\n", buffersHost.stats[0].sheep, buffersHost.stats[0].wolves, buffersHost.stats[0].grass);
+
 	
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
@@ -1028,8 +1048,8 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = lws.reduce_agent1 * args_vw.int_vw * sizeof(cl_uint);
-	dataSizes->reduce_agent_global = lws.max_lws * args_vw.int_vw * sizeof(cl_uint);
+	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.int_vw * sizeof(cl_uint); /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_global = 2 * lws.max_lws * args_vw.int_vw * sizeof(cl_uint); /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_global;
 
 	/* Rng seeds */

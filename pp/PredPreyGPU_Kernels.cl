@@ -182,7 +182,7 @@ __kernel void initAgent(
 		y[gid] = randomNextInt(seeds, GRID_Y);
 		alive[gid] = 1;
 		/* The remaining parameters depend on the type of agent. */
-		if (gid < INIT_SHEEP ) {
+		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
 			type[gid] = SHEEP_ID;
 			energy[gid] = randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
@@ -337,6 +337,7 @@ __kernel void reduceAgent1(
 	uint lid = get_local_id(0);
 	uint group_size = get_local_size(0);
 	uint global_size = get_global_size(0);
+	uint group_id = get_group_id(0);
 	
 	/* Serial sum */
 	ucharx sumSheep = VW_CHAR_ZERO;
@@ -348,8 +349,10 @@ __kernel void reduceAgent1(
 	
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
-		sumSheep += alive[index] &  ~(type[index] ^ VW_SHEEP_ID);
-		sumWolves += alive[index] & ~(type[index] ^ VW_WOLF_ID);
+		if (index < agentVectorCount) {
+			sumSheep += alive[index] &  ~(type[index] ^ VW_SHEEP_ID);
+			sumWolves += alive[index] & ~(type[index] ^ VW_WOLF_ID);
+		}
 	}
 
 	
@@ -371,8 +374,8 @@ __kernel void reduceAgent1(
 
 	/* Put in global memory */
 	if (lid == 0) {
-		reduce_agent_global[get_group_id(0)] = partial_sums[0];
-		reduce_agent_global[group_size + get_group_id(0)] = partial_sums[group_size];
+		reduce_agent_global[group_id] = partial_sums[0];
+		reduce_agent_global[get_num_groups(0) + group_id] = partial_sums[group_size];
 	}
 		
 }
@@ -416,8 +419,8 @@ __kernel void reduceAgent1(
 	
 	/* Put in global memory */
 	if (lid == 0) {
-		stats[0].sheep =  VW_INT_SUM(partial_sums[0]);
-		stats[0].wolves =  VW_INT_SUM(partial_sums[group_size]);
+		stats[0].sheep = VW_INT_SUM(partial_sums[0]);
+		stats[0].wolves = VW_INT_SUM(partial_sums[group_size]);
 	}
 		
 }
