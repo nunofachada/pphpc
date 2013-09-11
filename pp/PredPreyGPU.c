@@ -251,7 +251,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint max_agents_iter = 2 * (params.init_sheep + params.init_wolves);
 	
 	/* Dynamic worksizes. */
-	size_t gws_reduce_agent1, ws_reduce_agent2;
+	size_t gws_reduce_agent1, ws_reduce_agent2, wg_reduce_agent1;
 	
 	/* Current iteration. */
 	cl_uint iter = 0; 
@@ -366,13 +366,17 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* The bellow worksize must be exact because reduce_agent2 relies on
 		 * its global (which is the same as local) worksize to count sheep
 		 * and wolf separately. */
-		ws_reduce_agent2 = gws_reduce_agent1 / lws.reduce_agent1;
+		wg_reduce_agent1 = gws_reduce_agent1 / lws.reduce_agent1;
+		ws_reduce_agent2 = nlpo2(wg_reduce_agent1);
 		
 		/* Set variable kernel arguments. */
 		//cl_uint tmp_max_agents = 16384;
 		status = clSetKernelArg(krnls.reduce_agent1, 4, sizeof(cl_uint), (void *) &max_agents_iter);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
 		
+		status = clSetKernelArg(krnls.reduce_agent2, 3, sizeof(cl_uint), (void *) &wg_reduce_agent1);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
+
 		fprintf(stderr, "Iter %d => GWS1: %d, WS2: %d, MAI: %d, Sheep: %d, Wolves: %d, Grass: %d\n", iter, (int) gws_reduce_agent1, (int) ws_reduce_agent2, (int) max_agents_iter, (iter > 0) ? buffersHost.stats[iter - 1].sheep : params.init_sheep, (iter > 0) ? buffersHost.stats[iter - 1].wolves : params.init_wolves, (iter > 0) ? buffersHost.stats[iter - 1].grass : 0);
 		
 		/* Run kernel. */
@@ -450,6 +454,22 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d (OpenCL error %d)", iter, status);
 
+		if (iter <= params.iters) {
+			unsigned int *hbuf = (unsigned int*) malloc(dataSizes.reduce_agent_global);
+			status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.reduce_agent_global, CL_TRUE, 0, dataSizes.reduce_agent_global, (void*) hbuf, 0, NULL, NULL);
+			//FILE *fp = fopen("dump.txt", "w");
+			unsigned int onesize = (gws_reduce_agent1 / lws.reduce_agent1) * args_vw.int_vw;
+			unsigned int s = 0, w = 0;
+			for (unsigned int l = 0; l < onesize; l++)
+				s += hbuf[l];
+			for (unsigned int l = lws.max_lws; l < lws.max_lws + onesize; l++)
+				w += hbuf[l];
+				//fprintf(fp, "%u\n", hbuf[l]);
+			fprintf(stderr, "Check with gws %u: Sheep: %u, Wolves: %u\n", gws_reduce_agent1, s, w);
+			//fclose(fp);
+			free(hbuf);
+		}
+		
 #ifdef PPG_DEBUG
 		status = clFinish(zone->queues[1]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after read stats, iteration %d (OpenCL error %d)", iter, status);
@@ -698,7 +718,8 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	);
 
 	/* The nlpo2() bellow is required for performing the final reduction
-	 * step successfully (otherwise not all sums may be performed). */
+	 * step successfully because the implemented reduction algorithm 
+	 * assumes power of 2 local work sizes. */
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	
@@ -1273,7 +1294,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D VW_CHAR2INT_MUL=%d ", args_vw.char_vw / args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
-	g_string_append_printf(compilerOpts, "-D REDUCE_AGENT_NUM_WORKGROUPS=%d ", 128 /*(unsigned int) (gws.reduce_agent1 / lws.reduce_agent1)*/);
+	g_string_append_printf(compilerOpts, "-D MAX_LWS=%d ", (unsigned int) lws.max_lws);
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", params.grid_xy);
 	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ", params.init_sheep);
 	g_string_append_printf(compilerOpts, "-D SHEEP_GAIN_FROM_FOOD=%d ", params.sheep_gain_from_food);

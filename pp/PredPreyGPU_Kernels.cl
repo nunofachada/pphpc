@@ -7,7 +7,7 @@
  * * VW_INT - Vector size used for integers 
  * * VW_CHAR - Vector size used for chars 
  * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
- * * REDUCE_AGENT_NUM_WORKGROUPS - Number of work groups in agents reduction step 1 (equivalent to get_num_groups(0)), but to be used in agent reduction step 2.
+ * * MAX_LWS - Maximum local work size used in simulation.
  * * CELL_NUM - Number of cells in simulation
  * 
  * * INIT_SHEEP - Initial number of sheep.
@@ -350,7 +350,7 @@ __kernel void reduceAgent1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			sumSheep += alive[index] &  ~(type[index] ^ VW_SHEEP_ID);
+			sumSheep += alive[index] & ~(type[index] ^ VW_SHEEP_ID);
 			sumWolves += alive[index] & ~(type[index] ^ VW_WOLF_ID);
 		}
 	}
@@ -375,7 +375,7 @@ __kernel void reduceAgent1(
 	/* Put in global memory */
 	if (lid == 0) {
 		reduce_agent_global[group_id] = partial_sums[0];
-		reduce_agent_global[get_num_groups(0) + group_id] = partial_sums[group_size];
+		reduce_agent_global[MAX_LWS + group_id] = partial_sums[group_size];
 	}
 		
 }
@@ -386,20 +386,22 @@ __kernel void reduceAgent1(
  * @param reduce_agent_global
  * @param partial_sums
  * @param stats
+ * @param num_slots Number of workgroups in step 1.
  * */
  __kernel void reduceAgent2(
 			__global uintx *reduce_agent_global,
 			__local uintx *partial_sums,
-			__global PPStatisticsOcl *stats) {
+			__global PPStatisticsOcl *stats,
+			uint num_slots) {
 				
 	/* Global and local work-item IDs */
 	uint lid = get_local_id(0);
 	uint group_size = get_local_size(0);
 	
 	/* Load partial sum in local memory */
-	if (lid < REDUCE_AGENT_NUM_WORKGROUPS) {
+	if (lid < num_slots) {
 		partial_sums[lid] = reduce_agent_global[lid];
-		partial_sums[group_size + lid] = reduce_agent_global[group_size + lid];
+		partial_sums[group_size + lid] = reduce_agent_global[MAX_LWS + lid];
 	} else {
 		partial_sums[lid] = VW_INT_ZERO;
 		partial_sums[group_size + lid] = VW_INT_ZERO;
