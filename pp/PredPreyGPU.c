@@ -17,7 +17,7 @@
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
-#define PPG_DEBUG
+//#define PPG_DEBUG
 
 /** Main command line arguments and respective default values. */
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
@@ -256,7 +256,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* Current iteration. */
 	cl_uint iter = 0; 
 		
-	/* Load data into device buffers. */
+	/* Load RNG seeds into device buffers. */
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds (OpenCL error %d)", status);
 	
@@ -308,7 +308,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 
 #ifdef PPG_DEBUG
 	status = clFinish(zone->queues[1]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after init agents (OpenCL error %d)", status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after init agents (OpenCL error %d)", status);
 #endif
 	
 	/* *************** */
@@ -347,7 +347,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* Step 4.2: Perform agents reduction, part I. */
 
 		/* Determine worksizes. */
-		/* See comment for grass reduction gws for an explanation the formulas bellow. */
+		/* See comment for grass reduction gws for an explanation the
+		 * formulas bellow. */
 		gws_reduce_agent1 = MIN( 
 			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
 			PP_GWS_MULT(
@@ -355,31 +356,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 				lws.reduce_agent1
 			)
 		);
-		//~ gws_reduce_agent1 = MIN(
-			//~ lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
-			//~ PP_GWS_MULT(
-				//~ PP_DIV_CEIL(args.max_agents, args_vw.int_vw),
-				//~ lws.reduce_agent1
-			//~ )
-		//~ );
 
-		/* The bellow worksize must be exact because reduce_agent2 relies on
-		 * its global (which is the same as local) worksize to count sheep
-		 * and wolf separately. */
+		/* The local/global worksize of reduce_agent2 must be a power of 
+		 * 2 for the same reason of reduce_grass2. */
 		wg_reduce_agent1 = gws_reduce_agent1 / lws.reduce_agent1;
 		ws_reduce_agent2 = nlpo2(wg_reduce_agent1);
 		
-		/* Set variable kernel arguments. */
-		//cl_uint tmp_max_agents = 16384;
+		/* Set variable kernel arguments in agent reduction kernels. */
 		status = clSetKernelArg(krnls.reduce_agent1, 4, sizeof(cl_uint), (void *) &max_agents_iter);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
-		
 		status = clSetKernelArg(krnls.reduce_agent2, 3, sizeof(cl_uint), (void *) &wg_reduce_agent1);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
 
-		fprintf(stderr, "Iter %d => GWS1: %d, WS2: %d, MAI: %d, Sheep: %d, Wolves: %d, Grass: %d\n", iter, (int) gws_reduce_agent1, (int) ws_reduce_agent2, (int) max_agents_iter, (iter > 0) ? buffersHost.stats[iter - 1].sheep : params.init_sheep, (iter > 0) ? buffersHost.stats[iter - 1].wolves : params.init_wolves, (iter > 0) ? buffersHost.stats[iter - 1].grass : 0);
-		
-		/* Run kernel. */
+		/* Run agent reduction kernel 1. */
 		status = clEnqueueNDRangeKernel(
 			zone->queues[1], 
 			krnls.reduce_agent1, 
@@ -399,7 +388,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 
 #ifdef PPG_DEBUG
 		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
 #endif
 		
 		/* Step 4.3: Perform grass reduction, part II. */
@@ -437,7 +426,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		
 #ifdef PPG_DEBUG
 		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
 #endif
 
 		/* Step 4.5: Get statistics. */
@@ -454,25 +443,10 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d (OpenCL error %d)", iter, status);
 
-		if (iter <= params.iters) {
-			unsigned int *hbuf = (unsigned int*) malloc(dataSizes.reduce_agent_global);
-			status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.reduce_agent_global, CL_TRUE, 0, dataSizes.reduce_agent_global, (void*) hbuf, 0, NULL, NULL);
-			//FILE *fp = fopen("dump.txt", "w");
-			unsigned int onesize = (gws_reduce_agent1 / lws.reduce_agent1) * args_vw.int_vw;
-			unsigned int s = 0, w = 0;
-			for (unsigned int l = 0; l < onesize; l++)
-				s += hbuf[l];
-			for (unsigned int l = lws.max_lws; l < lws.max_lws + onesize; l++)
-				w += hbuf[l];
-				//fprintf(fp, "%u\n", hbuf[l]);
-			fprintf(stderr, "Check with gws %u: Sheep: %u, Wolves: %u\n", gws_reduce_agent1, s, w);
-			//fclose(fp);
-			free(hbuf);
-		}
 		
 #ifdef PPG_DEBUG
 		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after read stats, iteration %d (OpenCL error %d)", iter, status);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after read stats, iteration %d (OpenCL error %d)", iter, status);
 #endif
 		
 		/* Stop simulation if this is the last iteration. */
@@ -532,9 +506,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* END OF SIMULATION LOOP */
 	/* ********************** */
 
-	fprintf(stderr, "Iter 0 => Sheep: %d, Wolves: %d, Grass: %d\n", buffersHost.stats[0].sheep, buffersHost.stats[0].wolves, buffersHost.stats[0].grass);
-
-	
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation (OpenCL error %d)", status);
