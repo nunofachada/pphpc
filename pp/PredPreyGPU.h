@@ -25,6 +25,7 @@ typedef struct pp_g_args {
  * @brief Local work sizes command-line arguments.
  * */
 typedef struct pp_g_args_lws {
+	size_t deflt;        /**< Default local worksize. */
 	size_t init_cell;    /**< Init. cells kernel. */
 	size_t init_agent;   /**< Init. agents kernel. */
 	size_t grass;        /**< Grass kernel. */
@@ -60,6 +61,7 @@ typedef struct pp_g_global_work_sizes {
  * @brief Local work sizes for all the kernels.
  * */
 typedef struct pp_g_local_work_sizes {
+	size_t deflt;         /**< Default workgroup size (defaults to maximum if not specified by user). */
 	size_t max_lws;       /**< Maximum workgroup size supported by device. */
 	size_t init_cell;     /**< Init cells kernel local worksize. */
 	size_t init_agent;    /**< Init agents kernel local worksize. */

@@ -19,6 +19,13 @@
 #ifndef BITSTUFF_H
 #define BITSTUFF_H
 
+/**
+ * @brief Yields true if x is a power of 2.
+ * 
+ * @param x Value to check if it is power of 2.
+ * */
+#define is_po2(x) (((x) & ((x) - 1)) == 0)
+
 /** @brief Returns the next larger power of 2 of the given value. */
 unsigned int nlpo2(register unsigned int x);
 

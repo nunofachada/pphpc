@@ -169,7 +169,8 @@ __kernel void initAgent(
 			__global uchar *alive,
 			__global ushort *energy,
 			__global uchar *type,
-			__global rng_state *seeds
+			__global rng_state *seeds,
+			uint max_agents
 ) 
 {
 	/* Agent to be handled by this workitem. */
@@ -191,7 +192,7 @@ __kernel void initAgent(
 			type[gid] = WOLF_ID;
 			energy[gid] = randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
 		}
-	} else {
+	} else if (gid < max_agents) {
 		/* This workitem will initialize a dead agent with no type. */
 		alive[gid] = 0;
 	}

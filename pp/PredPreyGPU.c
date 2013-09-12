@@ -23,7 +23,7 @@
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -43,11 +43,12 @@ static GOptionEntry entries[] = {
 
 /** Kernel local worksizes. */
 static GOptionEntry entries_lws[] = {
-	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,    "Init. cells kernel",  "LWS"},
-	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,   "Init. agents kernel", "LWS"},
-	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",        "LWS"},
-	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel", "LWS"},
-	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent, "Reduce agent kernel", "LWS"},
+	{"l-def",          0, 0, G_OPTION_ARG_INT, &args_lws.deflt,        "Default local worksize", "LWS"},
+	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,    "Init. cells kernel",     "LWS"},
+	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,   "Init. agents kernel",    "LWS"},
+	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",           "LWS"},
+	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel",    "LWS"},
+	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent, "Reduce agent kernel",    "LWS"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -631,7 +632,19 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 		&lws->max_lws,
 		NULL
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE). (OpenCL error %d)", status);	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_MAX_WORK_GROUP_SIZE). (OpenCL error %d)", status);
+	
+	/* Determine the default workgroup size. */
+	if (args_lws.deflt > 0) {
+		if (args_lws.deflt > lws->max_lws) {
+			fprintf(stderr, "The specified default workgroup size, %d, is higher than the device maximum, %d. Setting default workgroup size to %d.\n", (int) args_lws.deflt, (int) lws->max_lws, (int) lws->max_lws);
+			lws->deflt = lws->max_lws;
+		} else {
+			lws->deflt = args_lws.deflt;
+		}
+	} else {
+		lws->deflt = lws->max_lws;
+	}
 
 	/* Get the char vector width, if not specified by user. */
 	if (args_vw.char_vw == 0) {
@@ -658,19 +671,24 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	}
 
 	/* Init cell worksizes. */
-	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->max_lws;
+	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->deflt;
 	gws->init_cell = PP_GWS_MULT(paramsSim.grid_xy, lws->init_cell);
 	
 	/* Init agent worksizes. */
-	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : lws->max_lws;
-	gws->init_agent = args.max_agents;
+	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : lws->deflt;
+	gws->init_agent = PP_GWS_MULT(args.max_agents, lws->init_agent);
 
 	/* Grass growth worksizes. */
-	lws->grass = args_lws.grass ? args_lws.grass : lws->max_lws;
+	lws->grass = args_lws.grass ? args_lws.grass : lws->deflt;
 	gws->grass = PP_GWS_MULT(paramsSim.grid_xy, lws->grass);
 	
-	/* Grass reduce worksizes. */
-	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->max_lws;
+	/* Grass reduce worksizes, must be power of 2 for reduction to work. */
+	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->deflt;
+	if (!is_po2(lws->reduce_grass1)) {
+		lws->reduce_grass1 = MIN(lws->max_lws, nlpo2(lws->reduce_grass1));
+		fprintf(stderr, "The workgroup size of the grass reduction kernel must be a power of 2. Assuming a workgroup size of %d.\n", (int) lws->reduce_grass1);
+	}
+	
 	/* In order to perform reduction using just two kernel calls, 
 	 * reduce_grass1 and reduce_grass2, reduce_grass1 must have a number
 	 * of workgroups smaller or equal to reduce_grass2's local work 
@@ -694,8 +712,13 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	lws->reduce_grass2 = nlpo2(gws->reduce_grass1 / lws->reduce_grass1);
 	gws->reduce_grass2 = lws->reduce_grass2;
 	
-	/* Agent reduce worksizes. */
-	lws->reduce_agent1 = args_lws.reduce_agent ?  args_lws.reduce_agent : lws->max_lws;
+	/* Agent reduce worksizes, must be power of 2 for reduction to work. */
+	lws->reduce_agent1 = args_lws.reduce_agent ?  args_lws.reduce_agent : lws->deflt;
+	if (!is_po2(lws->reduce_agent1)) {
+		lws->reduce_agent1 = MIN(lws->max_lws, nlpo2(lws->reduce_agent1));
+		fprintf(stderr, "The workgroup size of the agent reduction kernel must be a power of 2. Assuming a workgroup size of %d.\n", (int) lws->reduce_agent1);
+	}
+	
 	/* The remaining agent reduction worksizes are determined on the fly 
 	 * because the number of agents varies during the simulation. */
 	
@@ -921,6 +944,9 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 
 	status = clSetKernelArg(krnls.init_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 6, sizeof(cl_uint), (void*) &args.max_agents);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 6 of init_agent (OpenCL error %d)", status);
 
 	/* Grass kernel */
 	status = clSetKernelArg(krnls.grass, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_alive);
