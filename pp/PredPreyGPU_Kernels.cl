@@ -162,6 +162,7 @@ __kernel void initCell(
  * @param energy
  * @param type
  * @param seeds
+ * @param max_agents
  * */
 __kernel void initAgent(
 			__global ushort *x,
@@ -428,4 +429,63 @@ __kernel void reduceAgent1(
 		
 }
 
+/**
+ * @brief Agent movement kernel.
+ * 
+ * @todo optimize! a lot!
+ */
+__kernel void moveAgent(
+			__global ushort *x_g,
+			__global ushort *y_g,
+			__global uchar *alive_g,
+			__global ushort *energy_g,
+			__global rng_state *seeds)
+{
+	
+	/* Global id for this work-item */
+	uint gid = get_global_id(0);
+
+	/* Load agent state locally. */
+	//~ ushort x = x_g[gid];
+	//~ ushort y = y_g[gid];
+	uchar alive = alive_g[gid];
+	ushort energy = energy_g[gid];
+
+	if (alive) {
+		
+		uint direction = randomNextInt(seeds, 5);
+		
+		//~ /* Perform the actual walk */
+		//~ if (direction == 1) {
+			//~ x++;
+			//~ if (x >= GRID_X) x = 0;
+		//~ } else if (direction == 2) {
+			//~ if (x == 0)
+				//~ x = GRID_X - 1;
+			//~ else
+				//~ x--;
+		//~ } else if (direction == 3) {
+			//~ y++;
+			//~ if (y >= GRID_Y) y = 0;
+		//~ } else if (direction == 4) {
+			//~ if (y == 0)
+				//~ y = GRID_Y - 1;
+			//~ else
+				//~ y--;
+		//~ }
+		
+		/* Lose energy
+		 * @todo Does agent lose energy if he doesn't walk? */
+		energy--;
+		if (energy < 1)
+			alive = 0;
+			
+		/* Update global mem */
+		//~ x_g[gid] = x;
+		//~ y_g[gid] = y;
+		alive_g[gid] = alive;
+		energy_g[gid] = energy;
+	
+	}
+}
 

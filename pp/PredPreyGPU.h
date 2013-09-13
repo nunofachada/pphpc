@@ -31,6 +31,7 @@ typedef struct pp_g_args_lws {
 	size_t grass;        /**< Grass kernel. */
 	size_t reduce_grass; /**< Reduce grass 1 kernel. */
 	size_t reduce_agent; /**< Reduce agent 1 kernel. */
+	size_t move_agent;   /**< Move agent kernel. */
 } PPGArgsLWS;
 
 /**
@@ -53,8 +54,6 @@ typedef struct pp_g_global_work_sizes {
 	size_t grass;         /**< Grass kernel global worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel global worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel global worksize. */
-	//size_t reduce_agent1; /**< Reduce agent 1 kernel global worksize. */
-	//size_t reduce_agent2; /**< Reduce agent 2 kernel global worksize. */
 } PPGGlobalWorkSizes;
 
 /** 
@@ -68,8 +67,8 @@ typedef struct pp_g_local_work_sizes {
 	size_t grass;         /**< Grass kernel local worksize. */
 	size_t reduce_grass1; /**< Reduce grass 1 kernel local worksize. */
 	size_t reduce_grass2; /**< Reduce grass 2 kernel local worksize. */
-	size_t reduce_agent1; /**< Reduce agent 1 kernel global worksize. */
-	//size_t reduce_agent2; /**< Reduce agent 2 kernel global worksize. */
+	size_t reduce_agent1; /**< Reduce agent 1 kernel local worksize. */
+	size_t move_agent;    /**< Move agent kernel local worksize. */
 } PPGLocalWorkSizes;
 
 /**
@@ -83,6 +82,7 @@ typedef struct pp_g_kernels {
 	cl_kernel reduce_grass2; /**< Reduce grass 2 kernel. */
 	cl_kernel reduce_agent1; /**< Reduce agent 1 kernel. */
 	cl_kernel reduce_agent2; /**< Reduce agent 2 kernel. */
+	cl_kernel move_agent;    /**< Move agent kernel. */
 } PPGKernels;
 
 /** 
@@ -98,6 +98,7 @@ typedef struct pp_g_events {
 	cl_event *reduce_grass2; /**< Reduce grass kernel 2 execution. */
 	cl_event *reduce_agent1; /**< Reduce agent kernel 1 execution. */
 	cl_event *reduce_agent2; /**< Reduce agent kernel 2 execution. */
+	cl_event *move_agent;    /**< Move agent kernel execution. */
 } PPGEvents;
 
 /** 
@@ -170,7 +171,7 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
 void ppg_kernels_free(PPGKernels* krnls);
 
 /** @brief Initialize host data buffers. */
-void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes dataSizes, PPParameters params, GRand* rng);
+void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes dataSizes, GRand* rng);
 
 /** @brief Free host buffers. */
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
