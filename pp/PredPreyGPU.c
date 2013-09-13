@@ -6,12 +6,12 @@
 #include "PredPreyGPU.h"
 
 /** The default maximum number of agents: 16777216. Each agent requires
- * 16 bytes, thus by default 256Mb of memory will be allocated for the
+ * 8 bytes, thus by default 128Mb of memory will be allocated for the
  * agents buffer. 
  * 
- * @todo Check if final agents will have 16 bytes
- * @todo Check the implications of having more or less memory for agents
- *  */
+ * The agent state is composed of x,y coordinates (2 + 2 bytes), alive
+ * flag (1 byte), energy (2 bytes) and type (1 byte).
+ * */
 #define PPG_DEFAULT_MAX_AGENTS 16777216
 
 /** A description of the program. */
@@ -209,13 +209,13 @@ cleanup:
 	ppg_events_free(params, &evts); 
 	
 	/* Free profile data structure */
-	profcl_profile_free(profile);
+	if (profile) profcl_profile_free(profile);
 	
 	/* Free compiler options. */
 	if (compilerOpts) g_free(compilerOpts);
 
 	/* Free RNG */
-	g_rand_free(rng);
+	if (rng) g_rand_free(rng);
 	
 	/* Bye bye. */
 	return 0;
