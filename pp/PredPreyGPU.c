@@ -14,6 +14,12 @@
  * */
 #define PPG_DEFAULT_MAX_AGENTS 16777216
 
+/**
+ * @brief A minimal number of possibly existing agents is required in
+ * order to determine minimum global worksizes of kernels. 
+ * */
+#define PPG_MIN_AGENTS 2
+
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
@@ -486,7 +492,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		 * to host. */
 		status = clWaitForEvents(1, &evts->read_stats[iter]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
-		max_agents_iter = 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
+		max_agents_iter = MAX(PPG_MIN_AGENTS, 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep));
 
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
@@ -498,24 +504,22 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			lws.move_agent
 		);
 		
-		if (gws_move_agent > 0) {
-			status = clEnqueueNDRangeKernel(
-				zone->queues[1], 
-				krnls.move_agent, 
-				1, 
-				NULL, 
-				&gws_move_agent, 
-				&lws.move_agent, 
-				0, 
-				NULL, 
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1], 
+			krnls.move_agent, 
+			1, 
+			NULL, 
+			&gws_move_agent, 
+			&lws.move_agent, 
+			0, 
+			NULL, 
 #ifdef CLPROFILER
-				&evts->move_agent[iter]
+			&evts->move_agent[iter]
 #else
-				NULL
+			NULL
 #endif
-			);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: move_agent, iteration %d (OpenCL error %d)", iter, status);
-		}
+		);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: move_agent, iteration %d (OpenCL error %d)", iter, status);
 
 #ifdef PPG_DEBUG
 		status = clFinish(zone->queues[1]);

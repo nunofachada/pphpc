@@ -446,8 +446,8 @@ __kernel void moveAgent(
 	uint gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	//~ ushort x = x_g[gid];
-	//~ ushort y = y_g[gid];
+	ushort x = x_g[gid];
+	ushort y = y_g[gid];
 	uchar alive = alive_g[gid];
 	ushort energy = energy_g[gid];
 
@@ -455,24 +455,24 @@ __kernel void moveAgent(
 		
 		uint direction = randomNextInt(seeds, 5);
 		
-		//~ /* Perform the actual walk */
-		//~ if (direction == 1) {
-			//~ x++;
-			//~ if (x >= GRID_X) x = 0;
-		//~ } else if (direction == 2) {
-			//~ if (x == 0)
-				//~ x = GRID_X - 1;
-			//~ else
-				//~ x--;
-		//~ } else if (direction == 3) {
-			//~ y++;
-			//~ if (y >= GRID_Y) y = 0;
-		//~ } else if (direction == 4) {
-			//~ if (y == 0)
-				//~ y = GRID_Y - 1;
-			//~ else
-				//~ y--;
-		//~ }
+		/* Perform the actual walk */
+		if (direction == 1) {
+			x++;
+			if (x >= GRID_X) x = 0;
+		} else if (direction == 2) {
+			if (x == 0)
+				x = GRID_X - 1;
+			else
+				x--;
+		} else if (direction == 3) {
+			y++;
+			if (y >= GRID_Y) y = 0;
+		} else if (direction == 4) {
+			if (y == 0)
+				y = GRID_Y - 1;
+			else
+				y--;
+		}
 		
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
@@ -481,8 +481,8 @@ __kernel void moveAgent(
 			alive = 0;
 			
 		/* Update global mem */
-		//~ x_g[gid] = x;
-		//~ y_g[gid] = y;
+		x_g[gid] = x;
+		y_g[gid] = y;
 		alive_g[gid] = alive;
 		energy_g[gid] = energy;
 	
