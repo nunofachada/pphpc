@@ -442,6 +442,9 @@ __kernel void moveAgent(
 			__global rng_state *seeds)
 {
 	
+	ushort x_op[5] = {0, 1, -1, 0, 0};
+	ushort y_op[5] = {0, 0, 0, 1, -1};
+	
 	/* Global id for this work-item */
 	uint gid = get_global_id(0);
 
@@ -451,32 +454,18 @@ __kernel void moveAgent(
 	uchar alive = alive_g[gid];
 	ushort energy = energy_g[gid];
 
+	/* Only perform if agent is alive. */
 	if (alive) {
 		
 		uint direction = randomNextInt(seeds, 5);
 		
 		/* Perform the actual walk */
-		if (direction == 1) {
-			x++;
-			if (x >= GRID_X) x = 0;
-		} else if (direction == 2) {
-			if (x == 0)
-				x = GRID_X - 1;
-			else
-				x--;
-		} else if (direction == 3) {
-			y++;
-			if (y >= GRID_Y) y = 0;
-		} else if (direction == 4) {
-			if (y == 0)
-				y = GRID_Y - 1;
-			else
-				y--;
-		}
+		x = (x + x_op[direction]) % GRID_X;
+		y = (y + y_op[direction])  % GRID_Y;
 		
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
-		energy--;
+		//energy--;
 		if (energy < 1)
 			alive = 0;
 			
@@ -488,4 +477,3 @@ __kernel void moveAgent(
 	
 	}
 }
-
