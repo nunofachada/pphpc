@@ -432,7 +432,11 @@ __kernel void reduceAgent1(
 /**
  * @brief Agent movement kernel.
  * 
- * @todo optimize! a lot!
+ * @param x_g
+ * @param y_g
+ * @param alive_g
+ * @param energy_g
+ * @param seeds
  */
 __kernel void moveAgent(
 			__global ushort *x_g,
@@ -465,7 +469,7 @@ __kernel void moveAgent(
 		
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
-		//energy--;
+		energy--;
 		if (energy < 1)
 			alive = 0;
 			
