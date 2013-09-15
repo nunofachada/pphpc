@@ -39,29 +39,29 @@
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1)
 	#define convert_ucharx(x) convert_uchar2(x)
 	typedef uchar2 ucharx;
-	#define VW_SHEEP_ID ((char2) (SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((char2) (WOLF_ID, WOLF_ID))
+	#define VW_SHEEP_ID ((uchar2) (SHEEP_ID, SHEEP_ID))
+	#define VW_WOLF_ID ((uchar2) (WOLF_ID, WOLF_ID))
 #elif VW_CHAR == 4
 	#define VW_CHAR_ZERO ((uchar4) (0, 0, 0, 0))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_ucharx(x) convert_uchar4(x)
 	typedef uchar4 ucharx;
-	#define VW_SHEEP_ID ((char4) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((char4) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
+	#define VW_SHEEP_ID ((uchar4) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
+	#define VW_WOLF_ID ((uchar4) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_CHAR == 8
 	#define VW_CHAR_ZERO ((uchar8) (0, 0, 0, 0, 0, 0, 0, 0))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_ucharx(x) convert_uchar8(x)
 	typedef uchar8 ucharx;
-	#define VW_SHEEP_ID ((char8) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((char8) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
+	#define VW_SHEEP_ID ((uchar8) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
+	#define VW_WOLF_ID ((uchar8) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_CHAR == 16
 	#define VW_CHAR_ZERO ((uchar16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_ucharx(x) convert_uchar16(x)
 	typedef uchar16 ucharx;
-	#define VW_SHEEP_ID ((char16) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((char16) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
+	#define VW_SHEEP_ID ((uchar16) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
+	#define VW_WOLF_ID ((uchar16) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #endif
 
 /* Integer vector width pre-defines */
