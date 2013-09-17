@@ -84,7 +84,9 @@ int main(int argc, char ** argv)
 		*agentupdate_event = NULL,
 		*grasscount1_event = NULL,
 		*grasscount2_event = NULL,
-		*readNumAgents_event = NULL;
+		*readNumAgents_event = NULL,
+		map_numagents_event = NULL,
+		unmap_numagents_event = NULL;
 	
 	
 	/* CL Zone */
@@ -331,6 +333,22 @@ int main(int argc, char ** argv)
 	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "Set arg 4 of countgrass2 kernel");
 
 	//printf("sort: %d\t agc2: %d\t gc2: %d\n", params.iters * sum(tzc(nlpo2(MAX_AGENTS))), params.iters * (MAX_AGENTS/4) / agentcount2_lws, params.iters * numGrassCount2Loops);
+	
+	// Map readNumAgents
+	numAgentsHost = (cl_uint*) clEnqueueMapBuffer(
+		zone->queues[0],
+		numAgentsDevice,
+		CL_FALSE,
+		CL_MAP_READ,
+		0,
+		sizeof(cl_uint),
+		0,
+		NULL,
+		&map_numagents_event,
+		&status
+	);	
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map numAgentsHost (OpenCL error %d)", status);
+	
 
 	// 8. Run the show
 	agentaction_move_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
@@ -448,6 +466,17 @@ int main(int argc, char ** argv)
 
 	}
 
+	// Unmap numAgentsHost
+	status = clEnqueueUnmapMemObject(
+		zone->queues[0],
+		numAgentsDevice,
+		(void*) numAgentsHost,
+		0,
+		NULL,
+		&unmap_numagents_event
+	);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap numAgents (OpenCL error %d)", status);
+
 	// Guarantee all kernels have really terminated...
 	clFinish(zone->queues[0]);
 
@@ -484,6 +513,8 @@ int main(int argc, char ** argv)
 	for (unsigned int i = 0; i < agentcount2_event_index; i++) {
 		profcl_profile_add(profile, "agentcount2", agentcount2_event[i], NULL);
 	}
+	profcl_profile_add(profile, "map_numAgents", map_numagents_event, NULL);
+	profcl_profile_add(profile, "unmap_numAgents", unmap_numagents_event, NULL);
 	profcl_profile_aggregate(profile, NULL);
 	profcl_profile_overmat(profile, NULL);	
 #endif
