@@ -92,6 +92,8 @@ typedef struct pp_g_events {
 	cl_event write_rng;      /**< Write RNG seeds to device. */
 	cl_event init_cell;      /**< Initialize cells. */
 	cl_event init_agent;     /**< Initialize agents. */
+	cl_event map_stats;      /**< Map stats. */
+	cl_event unmap_stats;      /**< Map stats. */
 	cl_event *grass;         /**< Grass kernel execution. */
 	cl_event *read_stats;    /**< Read stats from device to host. */
 	cl_event *reduce_grass1; /**< Reduce grass kernel 1 execution. */

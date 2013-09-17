@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
 	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -256,6 +256,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* Aux. var. */
 	cl_int status;
 	
+	/* Stats. */
+	cl_uint *stats_pinned;
+	
 	/* The maximum agents there can be in the next iteration. */
 	cl_uint max_agents_iter = 2 * (params.init_sheep + params.init_wolves);
 	
@@ -264,6 +267,20 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	
 	/* Current iteration. */
 	cl_uint iter = 0; 
+	
+	/* Map stats to host. */
+	stats_pinned = (cl_uint*) clEnqueueMapBuffer(
+		zone->queues[1],
+		buffersDevice.stats,
+		CL_FALSE,
+		CL_MAP_READ,
+		0,
+		sizeof(PPStatistics),
+		0,
+		NULL,
+		&evts->map_stats,
+		&status);	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map pinned stats (OpenCL error %d)", status);
 		
 	/* Load RNG seeds into device buffers. */
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
@@ -445,7 +462,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			CL_FALSE, 
 			0, 
 			sizeof(PPStatistics), 
-			&buffersHost.stats[iter], 
+			stats_pinned, 
 			1, 
 			&evts->reduce_grass2[iter],  /* Only need to wait for reduce_grass2 because reduce_agent2 is in same queue. */
 			&evts->read_stats[iter]
@@ -492,6 +509,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		 * to host. */
 		status = clWaitForEvents(1, &evts->read_stats[iter]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
+		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
 		max_agents_iter = MAX(PPG_MIN_AGENTS, 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep));
 
 		/* ***************************************** */
@@ -541,7 +559,24 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* ********************** */
 	/* END OF SIMULATION LOOP */
 	/* ********************** */
-
+	
+	/* Post-simulation ops. */
+	
+	/* Get last iteration stats. */
+	status = clWaitForEvents(1, &evts->read_stats[iter]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
+	memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
+	
+	/* Unmap stats. */
+	status = clEnqueueUnmapMemObject(
+		zone->queues[1],
+		buffersDevice.stats,
+		(void*) stats_pinned,
+		0,
+		NULL,
+		&evts->unmap_stats);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap pinned stats (OpenCL error %d)", status);
+		
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation (OpenCL error %d)", status);
@@ -1196,7 +1231,7 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	cl_int status;
 	
 	/* Statistics */
-	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(PPStatistics), NULL, &status);
+	buffersDevice->stats = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, sizeof(PPStatistics), NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: stats (OpenCL error %d)", status);
 
 	/* Cells */
