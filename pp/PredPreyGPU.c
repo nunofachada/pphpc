@@ -278,9 +278,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		sizeof(PPStatistics),
 		0,
 		NULL,
+#ifdef CLPROFILER
 		&evts->map_stats,
-		&status);	
+#else
+		NULL,
+#endif
+		&status
+	);	
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map pinned stats (OpenCL error %d)", status);
+	
+#ifdef PPG_DEBUG
+	status = clFinish(zone->queues[1]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: Map pinned stats (OpenCL error %d)", status);
+#endif	
 		
 	/* Load RNG seeds into device buffers. */
 	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
@@ -574,9 +584,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		(void*) stats_pinned,
 		0,
 		NULL,
-		&evts->unmap_stats);
+#ifdef CLPROFILER
+		&evts->unmap_stats
+#else
+		NULL
+#endif	
+	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Unmap pinned stats (OpenCL error %d)", status);
 		
+#ifdef PPG_DEBUG
+	status = clFinish(zone->queues[1]);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: Unmap pinned stats (OpenCL error %d)", status);
+#endif	
+
 	/* Guarantee all activity has terminated... */
 	status = clFinish(zone->queues[0]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation (OpenCL error %d)", status);
@@ -627,6 +647,12 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	profcl_profile_add(profile, "Init agents", evts->init_agent, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
+	profcl_profile_add(profile, "Map stats", evts->map_stats, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	
+	profcl_profile_add(profile, "Unmap stats", evts->unmap_stats, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		
 	/* Simulation loop events. */
 	for (guint i = 0; i < params.iters; i++) {
 		profcl_profile_add(profile, "Grass", evts->grass[i], err);
