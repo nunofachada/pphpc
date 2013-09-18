@@ -293,7 +293,17 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif	
 		
 	/* Load RNG seeds into device buffers. */
-	status = clEnqueueWriteBuffer(zone->queues[0], buffersDevice.rng_seeds, CL_FALSE, 0, dataSizes.rng_seeds, buffersHost.rng_seeds, 0, NULL, &evts->write_rng);
+	status = clEnqueueWriteBuffer(
+		zone->queues[0], 
+		buffersDevice.rng_seeds, 
+		CL_FALSE, 
+		0, 
+		dataSizes.rng_seeds, 
+		buffersHost.rng_seeds, 
+		0, 
+		NULL, 
+		&evts->write_rng
+	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds (OpenCL error %d)", status);
 	
 #ifdef PPG_DEBUG
@@ -1343,7 +1353,6 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
  * @param evts Structure to hold OpenCL events (to be modified by
  * function).
  * 
- * @todo Check if events within CLPROFILER are correctly there and vice versa.
  * */
 void ppg_events_create(PPParameters params, PPGEvents* evts) {
 
@@ -1352,11 +1361,11 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_grass1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->move_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 }
 
 /**

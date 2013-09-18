@@ -443,6 +443,7 @@ __kernel void moveAgent(
 			__global ushort *y_g,
 			__global uchar *alive_g,
 			__global ushort *energy_g,
+			//__global uint *hashes,
 			__global rng_state *seeds)
 {
 	
@@ -453,13 +454,13 @@ __kernel void moveAgent(
 	uint gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	ushort x = x_g[gid];
-	ushort y = y_g[gid];
 	uchar alive = alive_g[gid];
-	ushort energy = energy_g[gid];
 
 	/* Only perform if agent is alive. */
 	if (alive) {
+		ushort x = x_g[gid];
+		ushort y = y_g[gid];
+		ushort energy = energy_g[gid];
 		
 		uint direction = randomNextInt(seeds, 5);
 		
@@ -480,4 +481,7 @@ __kernel void moveAgent(
 		energy_g[gid] = energy;
 	
 	}
+	
+	/* Determine and set agent hash (for sorting). */
+	//hashes[gid] = (alive
 }
