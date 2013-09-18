@@ -1200,8 +1200,8 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	
 	/* Agent reduction. */
 	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.int_vw * sizeof(cl_uint); /* 2x to count sheep and wolves. */
-	dataSizes->reduce_agent_global = 2 * lws.max_lws * args_vw.int_vw * sizeof(cl_uint); /* 2x to count sheep and wolves. */
-	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_global;
+	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
+	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * pp_rng_bytes_get(args.rngen);
@@ -1366,8 +1366,11 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
  * @param evts Structure which holds OpenCL events.
  * */
 void ppg_events_free(PPParameters params, PPGEvents* evts) {
-	if (evts->init_cell) clReleaseEvent(evts->init_cell);
 	if (evts->write_rng) clReleaseEvent(evts->write_rng);
+	if (evts->init_cell) clReleaseEvent(evts->init_cell);
+	if (evts->init_agent) clReleaseEvent(evts->init_agent);
+	if (evts->map_stats) clReleaseEvent(evts->map_stats);
+	if (evts->unmap_stats) clReleaseEvent(evts->unmap_stats);
 	if (evts->grass) {
 		for (guint i = 0; i < params.iters; i++) {
 			if (evts->grass[i]) clReleaseEvent(evts->grass[i]);
