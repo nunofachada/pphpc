@@ -444,6 +444,7 @@ __kernel void reduceAgent1(
  * @param y_g
  * @param alive_g
  * @param energy_g
+ * @param hashes
  * @param seeds
  */
 __kernel void moveAgent(

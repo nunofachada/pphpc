@@ -399,8 +399,6 @@ int main(int argc, char ** argv)
 				gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 2 of sort kernel");
 				status = clEnqueueNDRangeKernel( zone->queues[0], sort_kernel, 1, NULL, &agentsort_gws, &agentsort_lws, 0, NULL, agentsort_event + agentsort_event_index);
 				gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "sort kernel");
-				status = clEnqueueBarrier(zone->queues[0]);
-				gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "in sort agents loop");
 
 				agentsort_event_index++;
 			}

@@ -569,7 +569,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/** @todo Agent actions. Several kernels: 
-		 * 1.1. calcHash, queue 1
 		 * 1.2. fastRadixSort, queue 1
 		 * 1.3. findCellStartAndFinish, queue 1
 		 * 2. Agent actions, queue 1 */
