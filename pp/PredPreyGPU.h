@@ -117,6 +117,7 @@ typedef struct pp_g_data_sizes {
 	size_t agents_alive;             /**< Agents alive or dead flag. */
 	size_t agents_energy;            /**< Agents energy. */
 	size_t agents_type;              /**< Agents type (wolf or sheep). */
+	size_t agents_hash;              /**< Agents hash (for sorting). */
 	size_t reduce_grass_local1;      /**< Local grass reduction array 1. */
 	size_t reduce_grass_local2;      /**< Local grass reduction array 2. */
 	size_t reduce_grass_global;      /**< Global grass reduction array. */
@@ -149,6 +150,7 @@ typedef struct pp_g_buffers_device {
 	cl_mem agents_alive;             /**< Agents alive or dead flag. */
 	cl_mem agents_energy;            /**< Agents energy. */
 	cl_mem agents_type;	             /**< Agents type (wolf or sheep). */
+	cl_mem agents_hash;              /**< Agents hash (for sorting). */
 	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
 	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */

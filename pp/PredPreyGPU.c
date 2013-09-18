@@ -6,11 +6,11 @@
 #include "PredPreyGPU.h"
 
 /** The default maximum number of agents: 16777216. Each agent requires
- * 8 bytes, thus by default 128Mb of memory will be allocated for the
+ * 12 bytes, thus by default 192Mb of memory will be allocated for the
  * agents buffer. 
  * 
  * The agent state is composed of x,y coordinates (2 + 2 bytes), alive
- * flag (1 byte), energy (2 bytes) and type (1 byte).
+ * flag (1 byte), energy (2 bytes), type (1 byte) and hash (4 bytes).
  * */
 #define PPG_DEFAULT_MAX_AGENTS 16777216
 
@@ -97,7 +97,7 @@ int main(int argc, char **argv)
 	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
 	
@@ -892,6 +892,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		dataSizes.agents_alive +
 		dataSizes.agents_energy +
 		dataSizes.agents_type +
+		dataSizes.agents_hash +
 		dataSizes.reduce_grass_global + 
 		dataSizes.reduce_agent_global +
 		dataSizes.rng_seeds;
@@ -1069,11 +1070,14 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.init_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
+	status = clSetKernelArg(krnls.init_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 6, sizeof(cl_uint), (void*) &args.max_agents);
+	status = clSetKernelArg(krnls.init_agent, 6, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 6 of init_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.init_agent, 7, sizeof(cl_uint), (void*) &args.max_agents);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 7 of init_agent (OpenCL error %d)", status);
 
 	/* Grass kernel */
 	status = clSetKernelArg(krnls.grass, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_alive);
@@ -1139,8 +1143,11 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.move_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of move_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.move_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
+	status = clSetKernelArg(krnls.move_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of move_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.move_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of move_agent (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1202,6 +1209,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->agents_alive = args.max_agents * sizeof(cl_uchar);
 	dataSizes->agents_energy = args.max_agents * sizeof(cl_ushort);
 	dataSizes->agents_type = args.max_agents * sizeof(cl_uchar);
+	dataSizes->agents_hash = args.max_agents * sizeof(cl_uint);
 	
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint);
@@ -1299,6 +1307,9 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	buffersDevice->agents_type = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_type, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_type (OpenCL error %d)", status);
 
+	buffersDevice->agents_hash = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_hash, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_hash (OpenCL error %d)", status);
+
 	/* Grass reduction (count) */
 	buffersDevice->reduce_grass_global = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.reduce_grass_global, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: reduce_grass_global (OpenCL error %d)", status);
@@ -1342,6 +1353,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->agents_alive) clReleaseMemObject(buffersDevice->agents_alive);
 	if (buffersDevice->agents_energy) clReleaseMemObject(buffersDevice->agents_energy);
 	if (buffersDevice->agents_type) clReleaseMemObject(buffersDevice->agents_type);
+	if (buffersDevice->agents_hash) clReleaseMemObject(buffersDevice->agents_hash);
 	if (buffersDevice->reduce_grass_global) clReleaseMemObject(buffersDevice->reduce_grass_global);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }

@@ -26,6 +26,8 @@
 
 #include "PredPreyCommon_Kernels.cl"
 
+#define PPG_CALC_HASH(alive, x, y) (((alive) << 32) | ((x) << 16) | (y))
+
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
 	#define VW_CHAR_ZERO 0
@@ -170,6 +172,7 @@ __kernel void initAgent(
 			__global uchar *alive,
 			__global ushort *energy,
 			__global uchar *type,
+			__global uint *hashes,
 			__global rng_state *seeds,
 			uint max_agents
 ) 
@@ -180,9 +183,13 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < INIT_SHEEP + INIT_WOLVES) {
 		/* This workitem will initialize an alive agent. */
-		x[gid] = randomNextInt(seeds, GRID_X);
-		y[gid] = randomNextInt(seeds, GRID_Y);
-		alive[gid] = 1;
+		ushort x_l = randomNextInt(seeds, GRID_X);
+		ushort y_l = randomNextInt(seeds, GRID_Y);
+		uchar alive_l = 1;
+		x[gid] = x_l;
+		y[gid] = y_l;
+		alive[gid] = alive_l;
+		hashes[gid] = PPG_CALC_HASH(alive_l, x_l, y_l);
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
@@ -196,6 +203,7 @@ __kernel void initAgent(
 	} else if (gid < max_agents) {
 		/* This workitem will initialize a dead agent with no type. */
 		alive[gid] = 0;
+		hashes[gid] = -1;
 	}
 }
 
@@ -443,7 +451,7 @@ __kernel void moveAgent(
 			__global ushort *y_g,
 			__global uchar *alive_g,
 			__global ushort *energy_g,
-			//__global uint *hashes,
+			__global uint *hashes,
 			__global rng_state *seeds)
 {
 	
@@ -466,7 +474,7 @@ __kernel void moveAgent(
 		
 		/* Perform the actual walk */
 		x = (x + x_op[direction]) % GRID_X;
-		y = (y + y_op[direction])  % GRID_Y;
+		y = (y + y_op[direction]) % GRID_Y;
 		
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
@@ -480,8 +488,8 @@ __kernel void moveAgent(
 		alive_g[gid] = alive;
 		energy_g[gid] = energy;
 	
+		/* Determine and set agent hash (for sorting). */
+		hashes[gid] = PPG_CALC_HASH(alive, x, y);
 	}
 	
-	/* Determine and set agent hash (for sorting). */
-	//hashes[gid] = (alive
 }
