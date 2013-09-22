@@ -64,22 +64,20 @@
 #endif
 
 /**
- * @brief Returns the requested information about a RNG.
+ * @brief Obtains information about an algorithm by finding where this
+ * information is located within a vector.
  * 
- * @param i Loop variable.
- * @param rng_infos The array containing data about the RNGs.
- * @param rng_tag Tag identifying the RNG.
- * @param field Requested information about the RNG.
- * @return The requested information about a RNG.
+ * @param info The requested information about an algorithm.
+ * @param info_v The information vector containing info about algorithms.
+ * @param tag Tag identifying the requested algorithm.
  * */
-#define PP_RNG_RETURN(i, rng_infos, rng_tag, field) \
-	i = 0; \
-	while(rng_infos[i].tag) { \
-		if (g_strcmp0(rng_infos[i].tag, rng_tag) == 0) \
-			return rng_infos[i].field; \
-		i++; \
+#define PP_ALG_GET(info, info_v, arg_tag) \
+	for (int i___priv = 0; info_v[i___priv].tag; i___priv++) { \
+		if (g_strcmp0(info_v[i___priv].tag, arg_tag) == 0) { \
+			info = info_v[i___priv]; \
+			break; \
+		} \
 	} \
-	return rng_infos[i].field; \
 
 /**
  * @brief Performs integer division returning the ceiling instead of
@@ -104,7 +102,7 @@
  * @brief Information about a RNG.
  * */	
 typedef struct pp_rng_info {
-	char* tag;            /**< Tag identifying the  TNG. */
+	char* tag;            /**< Tag identifying the RNG. */
 	char* compiler_const; /**< RNG OpenCL compiler constant. */
 	size_t bytes;         /**< Bytes required per RNG seed. */
 } PPRngInfo;
@@ -169,6 +167,9 @@ typedef struct pp_agent_params {
 	cl_uint reproduce_prob;      /**< Probability (between 1 and 100) of agent reproduction. */
 } PPAgentParams;
 
+/** @brief Information about the random number generation algorithms. */
+extern PPRngInfo rng_infos[];
+
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, char * filename, GError** err);
 
@@ -178,14 +179,6 @@ void pp_error_handle(GError* err, int status);
 /** @brief Callback function which will be called when non-option 
  *  command line arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
-
-/** @brief Returns the proper OpenCL compiler constant for the provided
- * random number generator tag. */
-const gchar* pp_rng_const_get(gchar *rng_tag);
-
-/** @brief Returns the number of bytes required per seed per workitem 
- * for the provided random number generator tag. */
-size_t pp_rng_bytes_get(gchar *rng_tag);
 
 /** @brief Returns the next multiple of a given divisor which is equal or
  * larger than a given value. */

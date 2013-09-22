@@ -37,6 +37,9 @@ static GOptionEntry entries[] = {
 /** OpenCL kernel files. */
 static const char* kernelFiles[] = {"pp/PredPreyCPU_Kernels.cl"};
 
+/** Information about the requested random number generation algorithm. */
+static PPRngInfo rng_info = {NULL, NULL, 0};
+
 /**
  * @brief Main program.
  * 
@@ -82,7 +85,8 @@ int main(int argc, char ** argv) {
 	
 	/* Validate arguments. */
 	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
-	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(args.rngen), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
+	PP_ALG_GET(i, rng_info, rng_infos);
+	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
 	
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -274,9 +278,11 @@ finish:
  * @return Final compiler options to be passed to OpenCL compiler.
  * */
 gchar* ppc_compiler_opts_build(gchar* cliOpts) {
-	gchar* compilerOptsStr;
+	int i;
+	gchar *compilerOptsStr, *out;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
-	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
+	PP_ALG_GET(i, out, rng_infos, args.rngen, compiler_const);
+	g_string_append_printf(compilerOpts, "-D %s ", out);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
@@ -392,6 +398,12 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
  * */
 void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
+	/* Aux. loop var. */
+	int i;
+	
+	/* Size in bytes of rng seeds. */
+	size_t bytes_rng;
+
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
@@ -402,7 +414,8 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSize
 	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
 	
 	/* Rng seeds */
-	dataSizes->rng_seeds = ws.gws * pp_rng_bytes_get(args.rngen);
+	PP_ALG_GET(i, bytes_rng, rng_infos, args.rngen, bytes);
+	dataSizes->rng_seeds = ws.gws * bytes_rng;
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 	/* Agent parameters */

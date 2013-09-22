@@ -7,8 +7,8 @@
 
 #define PP_ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 
-/* Recognized RNGs. */
-const PPRngInfo rng_infos[] = {
+/** @brief Information about the random number generation algorithms. */
+PPRngInfo rng_infos[] = {
 	{"lcg", "PP_RNG_LCG", 8}, 
 	{"xorshift", "PP_RNG_XORSHIFT", 8},
 	{"xorshift128", "PP_RNG_XORSHIFT128", 16},
@@ -184,30 +184,6 @@ gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer dat
 	/* Set error and return FALSE. */
 	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
 	return FALSE;
-}
-
-/** 
- * @brief Returns the proper OpenCL compiler constant for the provided
- * random number generator tag. 
- * 
- * @param rng_tag Tag identifying the RNG.
- * @return The respective compiler constant.
- * */
-const gchar* pp_rng_const_get(gchar *rng_tag) {
-	int i;
-	PP_RNG_RETURN(i, rng_infos, rng_tag, compiler_const);
-}
-
-/** 
- * @brief Returns the number of bytes required per seed per workitem 
- * for the provided random number generator tag. 
- * 
- * @param rng_tag Tag identifying the RNG.
- * @return The respective number of required bytes per seed.
- * */
-size_t pp_rng_bytes_get(gchar *rng_tag) {
-	int i;
-	PP_RNG_RETURN(i, rng_infos, rng_tag, bytes);
 }
 
 /**

@@ -5,31 +5,21 @@
 
 #include "PredPreyGPU.h"
 
-/** The default maximum number of agents: 16777216. Each agent requires
- * 12 bytes, thus by default 192Mb of memory will be allocated for the
- * agents buffer. 
- * 
- * The agent state is composed of x,y coordinates (2 + 2 bytes), alive
- * flag (1 byte), energy (2 bytes), type (1 byte) and hash (4 bytes).
- * */
-#define PPG_DEFAULT_MAX_AGENTS 16777216
-
-/**
- * @brief A minimal number of possibly existing agents is required in
- * order to determine minimum global worksizes of kernels. 
- * */
-#define PPG_MIN_AGENTS 2
-
-/** A description of the program. */
-#define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
-
 //#define PPG_DEBUG
 
+PPGSortInfo sort_infos[] = {
+	{"s-bitonic", "SBIT"}, 
+	{NULL, NULL}
+};
+
 /** Main command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, NULL, PPG_DEFAULT_MAX_AGENTS};
+static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+
+/** Algorithm selection arguments. */
+static PPGArgsAlg args_alg = {NULL, NULL};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -41,9 +31,15 @@ static GOptionEntry entries[] = {
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " PP_RNGS,                                                         "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
+};
+
+/** Algorithm selection options. */
+static GOptionEntry entries_alg[] = {
+	{"a-rng",  0, 0, G_OPTION_ARG_STRING, &args_alg.rng,  "Random number generator: " PP_RNGS,       "ALGORITHM"},
+	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort, "Sorting:                 " PPG_SORT_ALGS, "ALGORITHM"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -56,6 +52,7 @@ static GOptionEntry entries_lws[] = {
 	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel",    "LWS"},
 	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent, "Reduce agent kernel",    "LWS"},
 	{"l-move-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.move_agent,   "Move agent kernel",      "LWS"},
+	{"l-sort-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.sort_agent,   "Sort agent kernel",      "LWS"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -81,11 +78,16 @@ const char* kernelFiles[] = {"pp/PredPreyGPU_Kernels.cl"};
  * terminates successfully, or another value of #pp_error_codes if an
  * error occurs.
  * */
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 
-	/* Status var aux */
+	/* Auxiliary status variable. */
 	int status = PP_SUCCESS;
+	
+	/* Auxiliary loop variable. */
+	int i = 0;
+	
+	/* Auxiliary character info variable. */
+	gchar *out;
 	
 	/* Context object for command line argument parsing. */
 	GOptionContext *context = NULL;
@@ -93,8 +95,8 @@ int main(int argc, char **argv)
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -118,8 +120,15 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 
 	/* Validate arguments. */
-	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
-	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(args.rngen), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
+	if (!args_alg.rng) args_alg.rng = g_strdup(PP_DEFAULT_RNG);
+	out = NULL;
+	PP_ALG_GET(i, out, rng_infos, args_alg.rng, tag);
+	gef_if_error_create_goto(err, PP_ERROR, !out, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
+	
+	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_DEFAULT_SORT);
+	out = NULL;
+	PP_ALG_GET(i, out, sort_infos, args_alg.sort, tag);
+	gef_if_error_create_goto(err, PP_ERROR, !out, PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
 
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -263,7 +272,10 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint max_agents_iter = 2 * (params.init_sheep + params.init_wolves);
 	
 	/* Dynamic worksizes. */
-	size_t gws_reduce_agent1, ws_reduce_agent2, wg_reduce_agent1, gws_move_agent;
+	size_t gws_reduce_agent1, 
+		ws_reduce_agent2, 
+		wg_reduce_agent1, 
+		gws_move_agent;
 	
 	/* Current iteration. */
 	cl_uint iter = 0; 
@@ -568,8 +580,16 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ********* Step 3: Agent actions ********* */
 		/* ***************************************** */
 
+		ppg_simulate_sort(
+			zone->queues[1], 
+			krnls.sort_agent, 
+			lws.sort_agent, 
+			evts->sort_agent, 
+			err
+		);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
+
 		/** @todo Agent actions. Several kernels: 
-		 * 1.2. fastRadixSort, queue 1
 		 * 1.3. findCellStartAndFinish, queue 1
 		 * 2. Agent actions, queue 1 */
 
@@ -837,6 +857,10 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	 * number of existing agents. */
 	lws->move_agent = args_lws.move_agent ? args_lws.move_agent : lws->deflt;
 	
+	/* Agent sort local worksize. Global worksize depends on the 
+	 * number of existing agents. */
+	lws->sort_agent = args_lws.sort_agent ? args_lws.sort_agent : lws->deflt;
+
 	/* If we got here, everything is OK. */
 	goto finish;
 	
@@ -1192,6 +1216,12 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
  * @param lws Kernel local work sizes.
  * */
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
+	
+	/* Aux. loop var. */
+	int i = 0;
+	
+	/* Size in bytes of random number generator seed. */
+	size_t rng_bytes;
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -1221,7 +1251,8 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
 	/* Rng seeds */
-	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * pp_rng_bytes_get(args.rngen);
+	PP_ALG_GET(i, rng_bytes, rng_infos, args_alg.rng, bytes);
+	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * rng_bytes;
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 }
@@ -1445,7 +1476,9 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
  * @return The final OpenCL compiler options string.
  */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
-	gchar* compilerOptsStr;
+	int i = 0;
+	gchar* compilerOptsStr, *out = NULL;
+	PP_ALG_GET(i, out, rng_infos, args_alg.rng, compiler_const);
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D VW_CHAR=%d ", args_vw.char_vw);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
@@ -1465,7 +1498,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D GRID_X=%d ", params.grid_x);
 	g_string_append_printf(compilerOpts, "-D GRID_Y=%d ", params.grid_y);
 	g_string_append_printf(compilerOpts, "-D ITERS=%d ", params.iters);
-	g_string_append_printf(compilerOpts, "-D %s ", pp_rng_const_get(args.rngen));
+	g_string_append_printf(compilerOpts, "-D %s ", out);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
@@ -1487,6 +1520,10 @@ void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 	g_option_context_add_main_entries(*context, entries, NULL);
 
 	/* Create separate option groups. */
+	GOptionGroup *group_alg = g_option_group_new("alg", 
+		"Algorithm selection:", 
+		"Show options for algorithm selection", 
+		NULL, NULL);
 	GOptionGroup *group_lws = g_option_group_new("lws", 
 		"Kernel local work sizes:", 
 		"Show options which define the kernel local work sizes", 
@@ -1497,10 +1534,12 @@ void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 		NULL, NULL);
 
 	/* Add entries to separate option groups. */
+	g_option_group_add_entries(group_alg, entries_alg);
 	g_option_group_add_entries(group_lws, entries_lws);
 	g_option_group_add_entries(group_vw, entries_vw);
 	
 	/* Add option groups to main options context. */
+	g_option_context_add_group(*context, group_alg);
 	g_option_context_add_group(*context, group_lws);
 	g_option_context_add_group(*context, group_vw);
 	
@@ -1520,5 +1559,6 @@ void ppg_args_free(GOptionContext* context) {
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
-	if (args.rngen) g_free(args.rngen);
+	if (args_alg.rng) g_free(args_alg.rng);
+	if (args_alg.sort) g_free(args_alg.sort);
 }

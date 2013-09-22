@@ -8,6 +8,34 @@
 
 #include "PredPreyCommon.h"
 
+/** The default maximum number of agents: 16777216. Each agent requires
+ * 12 bytes, thus by default 192Mb of memory will be allocated for the
+ * agents buffer. 
+ * 
+ * The agent state is composed of x,y coordinates (2 + 2 bytes), alive
+ * flag (1 byte), energy (2 bytes), type (1 byte) and hash (4 bytes).
+ * */
+#define PPG_DEFAULT_MAX_AGENTS 16777216
+
+/**
+ * @brief A minimal number of possibly existing agents is required in
+ * order to determine minimum global worksizes of kernels. 
+ * */
+#define PPG_MIN_AGENTS 2
+
+/**
+ * @brief Available sorting algorithms.
+ * */
+#define PPG_SORT_ALGS "s-bitonic (default)"
+
+/**
+ * @brief Default sorting algorithm.
+ * */
+#define PPG_DEFAULT_SORT "s-bitonic"
+
+/** A description of the program. */
+#define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
+
 /** 
  * @brief Main command-line arguments. 
  * */
@@ -17,9 +45,16 @@ typedef struct pp_g_args {
 	gchar* compiler_opts; /**< Compiler options. */
 	cl_int dev_idx;       /**< Index of device to use. */
 	guint32 rng_seed;     /**< Rng seed. */
-	gchar* rngen;         /**< Random number generator. */
 	cl_uint max_agents;   /**< Maximum number of agents. */
 } PPGArgs;
+
+/** 
+ * @brief Algorithm selection arguments. 
+ * */
+typedef struct pp_g_args_alg {
+	gchar* rng;  /**< Random number generator. */
+	gchar* sort; /**< Agent sorting algorithm. */
+} PPGArgsAlg;
 
 /**
  * @brief Local work sizes command-line arguments.
@@ -32,6 +67,7 @@ typedef struct pp_g_args_lws {
 	size_t reduce_grass; /**< Reduce grass 1 kernel. */
 	size_t reduce_agent; /**< Reduce agent 1 kernel. */
 	size_t move_agent;   /**< Move agent kernel. */
+	size_t sort_agent;   /**< Sort agent kernel local worksize. */
 } PPGArgsLWS;
 
 /**
@@ -69,6 +105,7 @@ typedef struct pp_g_local_work_sizes {
 	size_t reduce_grass2; /**< Reduce grass 2 kernel local worksize. */
 	size_t reduce_agent1; /**< Reduce agent 1 kernel local worksize. */
 	size_t move_agent;    /**< Move agent kernel local worksize. */
+	size_t sort_agent;    /**< Sort agent kernel local worksize. */
 } PPGLocalWorkSizes;
 
 /**
@@ -83,6 +120,7 @@ typedef struct pp_g_kernels {
 	cl_kernel reduce_agent1; /**< Reduce agent 1 kernel. */
 	cl_kernel reduce_agent2; /**< Reduce agent 2 kernel. */
 	cl_kernel move_agent;    /**< Move agent kernel. */
+	cl_kernel *sort_agent;    /**< Sort agent kernels. */
 } PPGKernels;
 
 /** 
@@ -101,6 +139,7 @@ typedef struct pp_g_events {
 	cl_event *reduce_agent1; /**< Reduce agent kernel 1 execution. */
 	cl_event *reduce_agent2; /**< Reduce agent kernel 2 execution. */
 	cl_event *move_agent;    /**< Move agent kernel execution. */
+	cl_event **sort_agent;   /**< Sort agent kernel executions. */
 } PPGEvents;
 
 /** 
@@ -155,6 +194,17 @@ typedef struct pp_g_buffers_device {
 	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */
 } PPGBuffersDevice;
+
+/**
+ * @brief Information about an agent sorting algorithm.
+ * */	
+typedef struct ppg_sort_info {
+	char* tag;            /**< Tag identifying the RNG. */
+	char* compiler_const; /**< RNG OpenCL compiler constant. */
+} PPGSortInfo;
+
+/** @brief Information about the available agent sorting algorithms. */
+extern PPGSortInfo sort_infos[];
 
 /** @brief Compute worksizes depending on the device type and number of available compute units. */
 cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
