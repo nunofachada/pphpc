@@ -163,6 +163,7 @@ __kernel void initCell(
  * @param alive
  * @param energy
  * @param type
+ * @param hashes
  * @param seeds
  * @param max_agents
  * */
