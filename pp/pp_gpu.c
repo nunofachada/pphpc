@@ -4,14 +4,9 @@
  */
 
 #include "pp_gpu.h"
+#include "pp_gpu_sort.h"
 
 //#define PPG_DEBUG
-
-/** Available sorting algorithms and respective properties. */
-PPGSortInfo sort_infos[] = {
-	{"s-bitonic", "SBIT"}, 
-	{NULL, NULL}
-};
 
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL};

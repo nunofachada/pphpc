@@ -23,16 +23,6 @@
  * */
 #define PPG_MIN_AGENTS 2
 
-/**
- * @brief Available sorting algorithms.
- * */
-#define PPG_SORT_ALGS "s-bitonic (default)"
-
-/**
- * @brief Default sorting algorithm.
- * */
-#define PPG_DEFAULT_SORT "s-bitonic"
-
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
@@ -194,17 +184,6 @@ typedef struct pp_g_buffers_device {
 	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */
 } PPGBuffersDevice;
-
-/**
- * @brief Information about an agent sorting algorithm.
- * */	
-typedef struct ppg_sort_info {
-	char* tag;            /**< Tag identifying the RNG. */
-	char* compiler_const; /**< RNG OpenCL compiler constant. */
-} PPGSortInfo;
-
-/** @brief Information about the available agent sorting algorithms. */
-extern PPGSortInfo sort_infos[];
 
 /** @brief Compute worksizes depending on the device type and number of available compute units. */
 cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
