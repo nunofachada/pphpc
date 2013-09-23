@@ -27,36 +27,36 @@ TESTSDIR = tests
 .PHONY: all clean mkdirs profiling
 
 # Targets and rules
-all: mkdirs PredPreyGPUSort PredPreyCPU PredPreyGPU rng_test
+all: mkdirs pp_gpu_legacy pp_cpu pp_gpu rng_test
 
 profiling: CLMACROS += -DCLPROFILER
 profiling: all
 
-PredPreyGPUSort: PredPreyGPUSort.o PredPreyCommon.o bitstuff.o
+pp_gpu_legacy: pp_gpu_legacy.o pp_common.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 	
-PredPreyGPU: PredPreyGPU.o PredPreyCommon.o bitstuff.o
+pp_gpu: pp_gpu.o pp_common.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
-PredPreyCPU: PredPreyCPU.o PredPreyCommon.o bitstuff.o
+pp_cpu: pp_cpu.o pp_common.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
-rng_test: rng_test.o PredPreyCommon.o
+rng_test: rng_test.o pp_common.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 rng_test.o: rng_test.c
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
-PredPreyGPUSort.o: PredPreyGPUSort.c PredPreyGPUSort.h
+pp_gpu_legacy.o: pp_gpu_legacy.c pp_gpu_legacy.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
-PredPreyGPU.o: PredPreyGPU.c PredPreyGPU.h
+pp_gpu.o: pp_gpu.c pp_gpu.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
-PredPreyCPU.o: PredPreyCPU.c PredPreyCPU.h
+pp_cpu.o: pp_cpu.c pp_cpu.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
-PredPreyCommon.o: PredPreyCommon.c PredPreyCommon.h $(UTILSINCLUDEDIR)/gerrorf.h
+pp_common.o: pp_common.c pp_common.h $(UTILSINCLUDEDIR)/gerrorf.h
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@ -c $<
 	
 bitstuff.o: bitstuff.c bitstuff.h

@@ -3,7 +3,7 @@
  * @brief OpenCL CPU kernels and data structures for PredPrey simulation.
  */
 
-#include "PredPreyCommon_Kernels.cl"
+#include "pp_common.cl"
 
 #define PPCCell_GRASS_OFFSET 0
 #define PPCCell_AGINDEX_OFFSET 1

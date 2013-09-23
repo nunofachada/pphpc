@@ -16,7 +16,7 @@
 #define GRASS_ID 2
 #define TOTALPPGSAgentS_ID 3
 
-#include "PredPreyCommon_Kernels.cl"
+#include "pp_common.cl"
 
 typedef struct pp_gs_sim_params {
 	uint size_x;

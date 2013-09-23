@@ -24,7 +24,7 @@
  * * ITERS - Number of iterations. 
  * */
 
-#include "PredPreyCommon_Kernels.cl"
+#include "pp_common.cl"
 
 #define PPG_CALC_HASH(alive, x, y) (((alive) << 32) | ((x) << 16) | (y))
 

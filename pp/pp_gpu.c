@@ -3,7 +3,7 @@
  * @brief PredPrey OpenCL GPU implementation.
  */
 
-#include "PredPreyGPU.h"
+#include "pp_gpu.h"
 
 //#define PPG_DEBUG
 
@@ -74,7 +74,7 @@ static GOptionEntry entries_vw[] = {
 };
 
 /* OpenCL kernel files */
-const char* kernelFiles[] = {"pp/PredPreyGPU_Kernels.cl"};
+const char* kernelFiles[] = {"pp/pp_gpu.cl"};
 
 /**
  * @brief Main program.

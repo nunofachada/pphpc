@@ -6,7 +6,7 @@
 #ifndef PREDPREYGPU_H
 #define PREDPREYGPU_H
 
-#include "PredPreyCommon.h"
+#include "pp_common.h"
 
 /** The default maximum number of agents: 16777216. Each agent requires
  * 12 bytes, thus by default 192Mb of memory will be allocated for the

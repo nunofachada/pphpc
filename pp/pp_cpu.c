@@ -3,7 +3,7 @@
  * @brief PredPrey OpenCL CPU implementation.
  */
  
-#include "PredPreyCPU.h"
+#include "pp_cpu.h"
 
 /** The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
@@ -35,7 +35,7 @@ static GOptionEntry entries[] = {
 };
 
 /** OpenCL kernel files. */
-static const char* kernelFiles[] = {"pp/PredPreyCPU_Kernels.cl"};
+static const char* kernelFiles[] = {"pp/pp_cpu.cl"};
 
 /** Information about the requested random number generation algorithm. */
 static PPRngInfo rng_info = {NULL, NULL, 0};

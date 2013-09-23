@@ -3,7 +3,7 @@
  * @brief Test RNGs.
  */
 
-#include "PredPreyCommon.h"
+#include "pp_common.h"
 
 #define RNGT_OUTPUT "out"
 #define RNGT_GWS 262144

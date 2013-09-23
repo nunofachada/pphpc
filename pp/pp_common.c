@@ -3,7 +3,7 @@
  * @brief Implementations of common functions for PredPrey simulation.
  */
 
-#include "PredPreyCommon.h"
+#include "pp_common.h"
 
 #define PP_ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 

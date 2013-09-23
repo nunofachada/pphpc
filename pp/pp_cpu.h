@@ -6,7 +6,7 @@
 #ifndef PREDPREYCPU_H
 #define PREDPREYCPU_H
 
-#include "PredPreyCommon.h"
+#include "pp_common.h"
 
 /** 
  * @brief Constant which indicates no further agents are in a cell. 

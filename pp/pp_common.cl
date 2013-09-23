@@ -36,7 +36,7 @@ typedef struct pp_statistics_ocl {
 	uint grass;
 } PPStatisticsOcl;
 
-/** @todo This is only required for PredPreyCPU, but if we pass sim 
+/** @todo This is only required for pp_cpu, but if we pass sim 
  * as compiler params we can remove this altogheter. */
 typedef struct pp_agent_params_ocl {
 	uint gain_from_food;

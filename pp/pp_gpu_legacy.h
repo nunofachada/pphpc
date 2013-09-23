@@ -6,7 +6,7 @@
 #ifndef PREDPREYGPUSORT_H
 #define PREDPREYGPUSORT_H
 
-#include "PredPreyCommon.h"
+#include "pp_common.h"
 
 typedef struct pp_gs_agent {
 	cl_uint x;
