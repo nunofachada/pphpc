@@ -7,10 +7,17 @@
 
 //#define PPG_DEBUG
 
+/** Available sorting algorithms and respective properties. */
 PPGSortInfo sort_infos[] = {
 	{"s-bitonic", "SBIT"}, 
 	{NULL, NULL}
 };
+
+/** Information about the requested sorting algorithm. */
+static PPGSortInfo sort_info = {NULL, NULL};
+
+/** Information about the requested random number generation algorithm. */
+static PPRngInfo rng_info = {NULL, NULL, 0};
 
 /** Main command line arguments and respective default values. */
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
@@ -83,12 +90,6 @@ int main(int argc, char **argv) {
 	/* Auxiliary status variable. */
 	int status = PP_SUCCESS;
 	
-	/* Auxiliary loop variable. */
-	int i = 0;
-	
-	/* Auxiliary character info variable. */
-	gchar *out;
-	
 	/* Context object for command line argument parsing. */
 	GOptionContext *context = NULL;
 	
@@ -121,14 +122,12 @@ int main(int argc, char **argv) {
 
 	/* Validate arguments. */
 	if (!args_alg.rng) args_alg.rng = g_strdup(PP_DEFAULT_RNG);
-	out = NULL;
-	PP_ALG_GET(i, out, rng_infos, args_alg.rng, tag);
-	gef_if_error_create_goto(err, PP_ERROR, !out, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
+	PP_ALG_GET(rng_info, rng_infos, args_alg.rng);
+	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
 	
 	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_DEFAULT_SORT);
-	out = NULL;
-	PP_ALG_GET(i, out, sort_infos, args_alg.sort, tag);
-	gef_if_error_create_goto(err, PP_ERROR, !out, PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
+	PP_ALG_GET(sort_info, sort_infos, args_alg.sort);
+	gef_if_error_create_goto(err, PP_ERROR, !sort_info.tag, PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
 
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -1216,12 +1215,7 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
  * @param lws Kernel local work sizes.
  * */
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
-	
-	/* Aux. loop var. */
-	int i = 0;
-	
-	/* Size in bytes of random number generator seed. */
-	size_t rng_bytes;
+
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -1251,8 +1245,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
 	/* Rng seeds */
-	PP_ALG_GET(i, rng_bytes, rng_infos, args_alg.rng, bytes);
-	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * rng_bytes;
+	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * rng_info.bytes;
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 }
@@ -1476,9 +1469,7 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
  * @return The final OpenCL compiler options string.
  */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
-	int i = 0;
-	gchar* compilerOptsStr, *out = NULL;
-	PP_ALG_GET(i, out, rng_infos, args_alg.rng, compiler_const);
+	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
 	g_string_append_printf(compilerOpts, "-D VW_CHAR=%d ", args_vw.char_vw);
 	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
@@ -1498,7 +1489,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D GRID_X=%d ", params.grid_x);
 	g_string_append_printf(compilerOpts, "-D GRID_Y=%d ", params.grid_y);
 	g_string_append_printf(compilerOpts, "-D ITERS=%d ", params.iters);
-	g_string_append_printf(compilerOpts, "-D %s ", out);
+	g_string_append_printf(compilerOpts, "-D %s ", rng_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);

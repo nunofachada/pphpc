@@ -85,7 +85,7 @@ int main(int argc, char ** argv) {
 	
 	/* Validate arguments. */
 	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
-	PP_ALG_GET(i, rng_info, rng_infos);
+	PP_ALG_GET(rng_info, rng_infos, args.rngen);
 	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
 	
 	/* Create RNG with specified seed. */
@@ -278,11 +278,9 @@ finish:
  * @return Final compiler options to be passed to OpenCL compiler.
  * */
 gchar* ppc_compiler_opts_build(gchar* cliOpts) {
-	int i;
-	gchar *compilerOptsStr, *out;
+	gchar *compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
-	PP_ALG_GET(i, out, rng_infos, args.rngen, compiler_const);
-	g_string_append_printf(compilerOpts, "-D %s ", out);
+	g_string_append_printf(compilerOpts, "-D %s ", rng_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
@@ -398,12 +396,6 @@ PPCSimParams ppc_simparams_init(PPParameters params, cl_uint null_agent_pointer,
  * */
 void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
-	/* Aux. loop var. */
-	int i;
-	
-	/* Size in bytes of rng seeds. */
-	size_t bytes_rng;
-
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
@@ -414,8 +406,7 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes, PPCWorkSize
 	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
 	
 	/* Rng seeds */
-	PP_ALG_GET(i, bytes_rng, rng_infos, args.rngen, bytes);
-	dataSizes->rng_seeds = ws.gws * bytes_rng;
+	dataSizes->rng_seeds = ws.gws * rng_info.bytes;
 	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
 
 	/* Agent parameters */
