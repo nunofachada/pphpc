@@ -48,6 +48,9 @@ static GOptionEntry entries[] = {
 /* OpenCL kernel files */
 static const char* kernelFiles[] = {"pp/rng_test.cl"};
 
+/** Information about the requested random number generation algorithm. */
+static PPRngInfo rng_info = {NULL, NULL, 0};
+
 /**
  * @brief Main program.
  * 
@@ -95,7 +98,8 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	if (output == NULL) output = g_strdup(RNGT_OUTPUT);
 	if (rng == NULL) rng = g_strdup(PP_DEFAULT_RNG);
-	gef_if_error_create_goto(err, PP_ERROR, !pp_rng_const_get(rng), PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
+	PP_ALG_GET(rng_info, rng_infos, rng);
+	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
 	gef_if_error_create_goto(err, PP_ERROR, (bits > 32) || (bits < 1), PP_INVALID_ARGS, error_handler, "Number of bits must be between 1 and 32.");
 	
 	/* Get the required CL zone. */
@@ -103,7 +107,7 @@ int main(int argc, char **argv)
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Build program. */
-	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D ", pp_rng_const_get(rng), maxint ? " -D RNGT_MAXINT" : "", NULL);
+	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D ", rng_info.compiler_const, maxint ? " -D RNGT_MAXINT" : "", NULL);
 	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
@@ -118,7 +122,7 @@ int main(int argc, char **argv)
 	}
 	
 	/* Create device buffer */
-	seeds_count = gws * pp_rng_bytes_get(rng) / sizeof(cl_ulong);
+	seeds_count = gws * rng_info.bytes / sizeof(cl_ulong);
 	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, seeds_count * sizeof(cl_ulong), NULL, &status);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 1 (OpenCL error %d)", status);
 	

@@ -3,6 +3,11 @@
  * @brief PredPrey OpenCL GPU sorting algorithms header file.
  */
 
+#ifndef PREDPREYGPUSORT_H
+#define PREDPREYGPUSORT_H
+
+#include <stdlib.h>
+
 /**
  * @brief Available sorting algorithms.
  * */
@@ -23,3 +28,5 @@ typedef struct ppg_sort_info {
 
 /** @brief Information about the available agent sorting algorithms. */
 extern PPGSortInfo sort_infos[];
+
+#endif

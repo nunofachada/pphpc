@@ -3,8 +3,8 @@
  * @brief PredPrey OpenCL GPU w/ sorting data structures and function headers.
  */
 
-#ifndef PREDPREYGPUSORT_H
-#define PREDPREYGPUSORT_H
+#ifndef PREDPREYGPULEGACY_H
+#define PREDPREYGPULEGACY_H
 
 #include "pp_common.h"
 

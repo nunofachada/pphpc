@@ -35,7 +35,7 @@ profiling: all
 pp_gpu_legacy: pp_gpu_legacy.o pp_common.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 	
-pp_gpu: pp_gpu.o pp_common.o bitstuff.o
+pp_gpu: pp_gpu.o pp_gpu_sort.o pp_common.o bitstuff.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 pp_cpu: pp_cpu.o pp_common.o bitstuff.o
@@ -51,6 +51,9 @@ pp_gpu_legacy.o: pp_gpu_legacy.c pp_gpu_legacy.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
 pp_gpu.o: pp_gpu.c pp_gpu.h
+	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
+	
+pp_gpu_sort.o: pp_gpu_sort.c pp_gpu_sort.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
 pp_cpu.o: pp_cpu.c pp_cpu.h

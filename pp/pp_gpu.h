@@ -166,23 +166,37 @@ typedef struct pp_g_buffers_host {
 } PPGBuffersHost;
 
 /**
+ * @brief Cell-related device buffers. 
+ * */
+typedef struct pp_g_buffers_device_cell {
+	cl_mem grass_alive;        /**< "Is grass alive?" array. */
+	cl_mem grass_timer;        /**< Grass regrowth timer array. */
+	cl_mem agents_index_start; /**< Agent index start array. */
+	cl_mem agents_index_end;   /**< Agent index end array. */
+} PPGBuffersDeviceCell;
+
+/**
+ * @brief Agent-related device buffers.
+ * */
+typedef struct pp_g_buffers_device_agent {
+	cl_mem x;      /**< Agents x-position. */
+	cl_mem y;      /**< Agents y-position. */
+	cl_mem alive;  /**< Agents alive or dead flag. */
+	cl_mem energy; /**< Agents energy. */
+	cl_mem type;   /**< Agents type (wolf or sheep). */
+	cl_mem hash;   /**< Agents hash (for sorting). */
+} PPGBuffersDeviceAgent;
+
+/**
  * @brief Device buffers.
  * */
 typedef struct pp_g_buffers_device {
-	cl_mem stats;                    /**< Simulation statistics. */
-	cl_mem cells_grass_alive;        /**< "Is grass alive?" array. */
-	cl_mem cells_grass_timer;        /**< Grass regrowth timer array. */
-	cl_mem cells_agents_index_start; /**< Agent index start array. */
-	cl_mem cells_agents_index_end;   /**< Agent index end array. */
-	cl_mem agents_x;                 /**< Agents x-position. */
-	cl_mem agents_y;                 /**< Agents y-position. */
-	cl_mem agents_alive;             /**< Agents alive or dead flag. */
-	cl_mem agents_energy;            /**< Agents energy. */
-	cl_mem agents_type;	             /**< Agents type (wolf or sheep). */
-	cl_mem agents_hash;              /**< Agents hash (for sorting). */
-	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
-	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
-	cl_mem rng_seeds;                /**< RNG seeds/state array. */
+	PPGBuffersDeviceCell cell;   /**< Cell buffers. */
+	PPGBuffersDeviceAgent agent; /**< Agent buffers. */
+	cl_mem stats;                /**< Simulation statistics. */
+	cl_mem reduce_grass_global;  /**< Global grass reduction array. */
+	cl_mem reduce_agent_global;  /**< Global agent reduction array. */
+	cl_mem rng_seeds;            /**< RNG seeds/state array. */
 } PPGBuffersDevice;
 
 /** @brief Compute worksizes depending on the device type and number of available compute units. */

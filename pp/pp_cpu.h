@@ -78,28 +78,28 @@ typedef struct pp_c_work_sizes {
 * @brief OpenCL kernels.
 * */
 typedef struct pp_c_kernels {
-	cl_kernel step1;	/**< Step 1 kernel: move agents, grow grass. */
-	cl_kernel step2;	/**< Step 2 kernel: agent actions, get stats. */
+	cl_kernel step1; /**< Step 1 kernel: move agents, grow grass. */
+	cl_kernel step2; /**< Step 2 kernel: agent actions, get stats. */
 } PPCKernels;
 
 /** 
 * @brief OpenCL events.
 * */
 typedef struct pp_c_events {
-	cl_event map_stats_start;		/**< Map stats (start of simulation). */
-	cl_event unmap_stats_start;	/**< Unmap stats (start of simulation). */
-	cl_event map_matrix;			/**< Map matrix. */
-	cl_event unmap_matrix;			/**< Unmap matrix. */
-	cl_event map_agents;			/**< Map agents. */
-	cl_event unmap_agents;			/**< Unmap agents. */
-	cl_event map_rng_seeds;		/**< Map RNG seeds. */
-	cl_event unmap_rng_seeds;		/**< Unmap RNG seeds. */
-	cl_event map_agent_params;		/**< Map agent parameters. */
-	cl_event unmap_agent_params;	/**< Unmap agent parameters. */
-	cl_event *step1;				/**< Execution of step1 kernel. */
-	cl_event *step2;				/**< Execution of step2 kernel. */
-	cl_event map_stats_end;		/**< Map stats (end of simulation). */
-	cl_event unmap_stats_end;		/**< Unmap stats (end of simulation). */
+	cl_event map_stats_start;   /**< Map stats (start of simulation). */
+	cl_event unmap_stats_start; /**< Unmap stats (start of simulation). */
+	cl_event map_matrix;        /**< Map matrix. */
+	cl_event unmap_matrix;      /**< Unmap matrix. */
+	cl_event map_agents;        /**< Map agents. */
+	cl_event unmap_agents;      /**< Unmap agents. */
+	cl_event map_rng_seeds;     /**< Map RNG seeds. */
+	cl_event unmap_rng_seeds;   /**< Unmap RNG seeds. */
+	cl_event map_agent_params;  /**< Map agent parameters. */
+	cl_event unmap_agent_params;/**< Unmap agent parameters. */
+	cl_event *step1;            /**< Execution of step1 kernel. */
+	cl_event *step2;            /**< Execution of step2 kernel. */
+	cl_event map_stats_end;     /**< Map stats (end of simulation). */
+	cl_event unmap_stats_end;   /**< Unmap stats (end of simulation). */
 } PPCEvents;
 
 /** 
