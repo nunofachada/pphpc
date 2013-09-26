@@ -27,7 +27,7 @@
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 
-#define PPG_CALC_HASH(alive, x, y) (((alive) << 32) | ((x) << 16) | (y))
+#define PPG_CALC_HASH(alive, xy) (((alive) << 32) | ((xy.x) << 16) | (xy.y))
 
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
@@ -159,8 +159,7 @@ __kernel void initCell(
 /**
  * @brief Intialize agents.
  * 
- * @param x
- * @param y
+ * @param xy
  * @param alive
  * @param energy
  * @param type
@@ -169,8 +168,7 @@ __kernel void initCell(
  * @param max_agents
  * */
 __kernel void initAgent(
-			__global ushort *x,
-			__global ushort *y,
+			__global ushort2 *xy,
 			__global uchar *alive,
 			__global ushort *energy,
 			__global uchar *type,
@@ -185,13 +183,11 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < INIT_SHEEP + INIT_WOLVES) {
 		/* This workitem will initialize an alive agent. */
-		ushort x_l = randomNextInt(seeds, GRID_X);
-		ushort y_l = randomNextInt(seeds, GRID_Y);
+		ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		uchar alive_l = 1;
-		x[gid] = x_l;
-		y[gid] = y_l;
+		xy[gid] = xy_l;
 		alive[gid] = alive_l;
-		hashes[gid] = PPG_CALC_HASH(alive_l, x_l, y_l);
+		hashes[gid] = PPG_CALC_HASH(alive_l, xy_l);
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
@@ -442,24 +438,27 @@ __kernel void reduceAgent1(
 /**
  * @brief Agent movement kernel.
  * 
- * @param x_g
- * @param y_g
+ * @param xy_g
  * @param alive_g
  * @param energy_g
  * @param hashes
  * @param seeds
  */
 __kernel void moveAgent(
-			__global ushort *x_g,
-			__global ushort *y_g,
+			__global ushort2 *xy_g,
 			__global uchar *alive_g,
 			__global ushort *energy_g,
 			__global uint *hashes,
 			__global rng_state *seeds)
 {
 	
-	ushort x_op[5] = {0, 1, -1, 0, 0};
-	ushort y_op[5] = {0, 0, 0, 1, -1};
+	ushort2 xy_op[5] = {
+		(ushort2) (0, 0), 
+		(ushort2) (1, 0),
+		(ushort2) (-1, 0),
+		(ushort2) (0, 1),
+		(ushort2) (0, -1)
+	};
 	
 	/* Global id for this work-item */
 	uint gid = get_global_id(0);
@@ -469,16 +468,14 @@ __kernel void moveAgent(
 
 	/* Only perform if agent is alive. */
 	if (alive) {
-		ushort x = x_g[gid];
-		ushort y = y_g[gid];
+		ushort2 xy = xy_g[gid];
 		ushort energy = energy_g[gid];
 		
 		uint direction = randomNextInt(seeds, 5);
 		
 		/* Perform the actual walk */
-		x = (x + x_op[direction]) % GRID_X;
-		y = (y + y_op[direction]) % GRID_Y;
-		
+		xy = (xy + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
+
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
 		energy--;
@@ -486,13 +483,12 @@ __kernel void moveAgent(
 			alive = 0;
 			
 		/* Update global mem */
-		x_g[gid] = x;
-		y_g[gid] = y;
+		xy_g[gid] = xy;
 		alive_g[gid] = alive;
 		energy_g[gid] = energy;
 	
 		/* Determine and set agent hash (for sorting). */
-		hashes[gid] = PPG_CALC_HASH(alive, x, y);
+		hashes[gid] = PPG_CALC_HASH(alive, xy);
 	}
 	
 }

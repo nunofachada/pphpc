@@ -141,8 +141,7 @@ typedef struct pp_g_data_sizes {
 	size_t cells_grass_timer;        /**< Grass regrowth timer array. */
 	size_t cells_agents_index_start; /**< Agent index start array. */
 	size_t cells_agents_index_end;   /**< Agent index end array. */
-	size_t agents_x;                 /**< Agents x-position. */
-	size_t agents_y;                 /**< Agents y-position. */
+	size_t agents_xy;                /**< Agents coordinates. */
 	size_t agents_alive;             /**< Agents alive or dead flag. */
 	size_t agents_energy;            /**< Agents energy. */
 	size_t agents_type;              /**< Agents type (wolf or sheep). */
@@ -174,8 +173,7 @@ typedef struct pp_g_buffers_device {
 	cl_mem cells_grass_timer;        /**< Grass regrowth timer array. */
 	cl_mem cells_agents_index_start; /**< Agent index start array. */
 	cl_mem cells_agents_index_end;   /**< Agent index end array. */
-	cl_mem agents_x;                 /**< Agents x-position. */
-	cl_mem agents_y;                 /**< Agents y-position. */
+	cl_mem agents_xy;                /**< Agents coordinates. */
 	cl_mem agents_alive;             /**< Agents alive or dead flag. */
 	cl_mem agents_energy;            /**< Agents energy. */
 	cl_mem agents_type;	             /**< Agents type (wolf or sheep). */
