@@ -1,6 +1,6 @@
 /** 
  * @file
- * @brief PredPrey OpenCL GPU sorting algorithms kernels.
+ * @brief PredPrey OpenCL GPU simple bitonic sort implementation.
  */
 
 /**
@@ -15,7 +15,7 @@
  * @param stage
  * @param step
  */
-__kernel void BitonicSort(
+__kernel void sbitonicSort(
 			__global ushort *x,
 			__global ushort *y,
 			__global uchar *alive,

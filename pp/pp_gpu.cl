@@ -25,6 +25,7 @@
  * */
 
 #include "pp_common.cl"
+#include "libcl/sort.cl"
 
 #define PPG_CALC_HASH(alive, x, y) (((alive) << 32) | ((x) << 16) | (y))
 

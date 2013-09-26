@@ -127,7 +127,8 @@ enum pp_error_codes {
 	PP_LIBRARY_ERROR = -3,              /**< Error in external library. */
 	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4, /**< Parameters file not found. */
 	PP_INVALID_PARAMS_FILE = -5,        /**< Invalid parameters file. */
-	PP_UNABLE_SAVE_STATS = -6           /**< Unable to save stats. */
+	PP_UNABLE_SAVE_STATS = -6,          /**< Unable to save stats. */
+	PP_ALLOC_MEM_FAIL = -7,             /**< Unable to allocate memory. */
 };
 
 /** 

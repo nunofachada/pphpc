@@ -9,7 +9,7 @@
 //#define PPG_DEBUG
 
 /** Information about the requested sorting algorithm. */
-static PPGSortInfo sort_info = {NULL, NULL};
+static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
 static PPRngInfo rng_info = {NULL, NULL, 0};
@@ -577,8 +577,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		//~ ppg_simulate_sort(
 			//~ zone->queues[1], 
 			//~ krnls.sort_agent, 
-			//~ lws.sort_agent, 
 			//~ evts->sort_agent, 
+			//~ lws.sort_agent, 
 			//~ err
 		//~ );
 		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
@@ -1009,9 +1009,13 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	krnls->reduce_agent2 = clCreateKernel(program, "reduceAgent2", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: reduceAgent2 (OpenCL error %d)", status);	
 	
-	/* Create move agent kernel. */
+	/* Create move agents kernel. */
 	krnls->move_agent = clCreateKernel(program, "moveAgent", &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: moveAgent (OpenCL error %d)", status);	
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: moveAgent (OpenCL error %d)", status);
+	
+	/* Create sort agents kernel. */
+	status = sort_info.kernels_create(&krnls->sort_agent, program, err);
+	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1042,6 +1046,7 @@ void ppg_kernels_free(PPGKernels* krnls) {
 	if (krnls->reduce_agent1) clReleaseKernel(krnls->reduce_agent1);
 	if (krnls->reduce_agent2) clReleaseKernel(krnls->reduce_agent2);
 	if (krnls->move_agent) clReleaseKernel(krnls->move_agent);
+	if (krnls->sort_agent) sort_info.kernels_free(&krnls->sort_agent);
 }
 
 /**
@@ -1485,6 +1490,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D GRID_Y=%d ", params.grid_y);
 	g_string_append_printf(compilerOpts, "-D ITERS=%d ", params.iters);
 	g_string_append_printf(compilerOpts, "-D %s ", rng_info.compiler_const);
+	g_string_append_printf(compilerOpts, "-D %s ", sort_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
