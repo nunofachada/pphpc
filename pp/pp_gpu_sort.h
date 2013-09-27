@@ -41,6 +41,8 @@ typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, GErr
 
 typedef void (*ppg_sort_events_free)(cl_event ***evts);
 
+typedef int (*ppg_sort_events_profile)(cl_event **evts, ProfCLProfile *profile, GError **err);
+
 /**
  * @brief Object which represents an agent sorting algorithm.
  * */	
@@ -54,6 +56,7 @@ typedef struct ppg_sort_info {
 	ppg_sort_kernels_free kernels_free;
 	ppg_sort_events_create events_create;
 	ppg_sort_events_free events_free;
+	ppg_sort_events_profile events_profile;
 } PPGSortInfo;
 
 /** @brief Information about the available agent sorting algorithms. */
@@ -73,5 +76,6 @@ int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError
 
 void ppg_sort_sbitonic_events_free(cl_event ***evts);
 
+int ppg_sort_sbitonic_events_profile(cl_event **evts, ProfCLProfile *profile, GError **err);
 
 #endif

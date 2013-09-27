@@ -7,8 +7,8 @@
 
 /** Available sorting algorithms and respective properties. */
 PPGSortInfo sort_infos[] = {
-	{"s-bitonic", "PPG_SORT_SBITONIC", 1, ppg_sort_sbitonic_sort, ppg_sort_sbitonic_kernels_create, ppg_sort_sbitonic_kernelargs_set, ppg_sort_sbitonic_kernels_free, ppg_sort_sbitonic_events_create, ppg_sort_sbitonic_events_free}, 
-	{NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL}
+	{"s-bitonic", "PPG_SORT_SBITONIC", 1, ppg_sort_sbitonic_sort, ppg_sort_sbitonic_kernels_create, ppg_sort_sbitonic_kernelargs_set, ppg_sort_sbitonic_kernels_free, ppg_sort_sbitonic_events_create, ppg_sort_sbitonic_events_free, ppg_sort_sbitonic_events_profile}, 
+	{NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
 /** Event index for simple bitonic sort kernel. */
@@ -69,7 +69,7 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 				0, 
 				NULL, 
 #ifdef CLPROFILER
-				evts[0] + sbitonic_evt_idx
+				&evts[0][sbitonic_evt_idx]
 #else
 				NULL
 #endif
@@ -190,8 +190,8 @@ int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError
 	gef_if_error_create_goto(*err, PP_ERROR, *evts == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (1).");	
 	
 	/* Allocate memory for all occurrences of the event (i.e. executions of the simple bitonic sort kernel). */
-	*evts[0] = (cl_event*) calloc(num_evts, sizeof(cl_event));
-	gef_if_error_create_goto(*err, PP_ERROR, *evts[0] == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (2).");	
+	(*evts)[0] = (cl_event*) calloc(num_evts, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, (*evts)[0] == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (2).");	
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -209,16 +209,42 @@ finish:
 }
 
 void ppg_sort_sbitonic_events_free(cl_event ***evts) {
-	if (*evts) {
-		if (*evts[0]) {
-			for (unsigned int i = 0; i < sbitonic_evt_idx; i++) {
-				if (*evts[0][i]) {
-					clReleaseEvent(*evts[0][i]);
+	if (evts) {
+		if (*evts) {
+			if ((*evts)[0]) {
+				for (unsigned int i = 0; i < sbitonic_evt_idx; i++) {
+					if ((*evts)[0][i]) {
+						clReleaseEvent((*evts)[0][i]);
+					}
 				}
+				free((*evts)[0]);
 			}
-			free(*evts[0]);
+			free(*evts);
 		}
-		free(*evts);
 	}
 }
 
+int ppg_sort_sbitonic_events_profile(cl_event **evts, ProfCLProfile *profile, GError **err) {
+	
+	int status = PP_SUCCESS;
+
+	for (unsigned int i = 0; i < sbitonic_evt_idx; i++) {
+		profcl_profile_add(profile, "SBitonic Sort", evts[0][i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	}
+
+	/* If we got here, everything is OK. */
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	/* Set status to error code. */
+	status = (*err)->code;
+	
+finish:
+	
+	/* Return. */
+	return status;	
+	
+}

@@ -9,7 +9,7 @@
 //#define PPG_DEBUG
 
 /** Information about the requested sorting algorithm. */
-static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL};
+static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
 static PPRngInfo rng_info = {NULL, NULL, 0};
@@ -472,7 +472,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&ws_reduce_agent2, 
 			iter > 0 ? 1 : 0,  
 			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
+#ifdef CLPROFILER		
 			&evts->reduce_agent2[iter]
+#else
+			NULL
+#endif
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
 		
@@ -703,8 +707,12 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 			profcl_profile_add(profile, "Move agent", evts->move_agent[i], err);
 			gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 		}
-
+	
 	}
+	sort_info.events_profile(evts->sort_agent, profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+
+
 	/* Analyse event data. */
 	profcl_profile_aggregate(profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
@@ -723,6 +731,7 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* If we got here, everything is OK. */
+	status = PP_SUCCESS;
 	goto finish;
 	
 error_handler:
@@ -1391,6 +1400,7 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->move_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	sort_info.events_create(&evts->sort_agent, params.iters, NULL);
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
@@ -1451,6 +1461,7 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 		}
 		free(evts->move_agent);
 	}
+	sort_info.events_free(&evts->sort_agent);
 }
 
 /**
