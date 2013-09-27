@@ -29,15 +29,17 @@
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_sort)(cl_command_queue *queues, cl_kernel *krnls, cl_event *evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err);
+typedef int (*ppg_sort_sort)(cl_command_queue *queues, cl_kernel *krnls, cl_event **evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err);
 
 typedef int (*ppg_sort_kernels_create)(cl_kernel **krnls, cl_program program, GError **err);
 
+typedef int (*ppg_sort_kernelargs_set)(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err);
+
 typedef void (*ppg_sort_kernels_free)(cl_kernel **krnls);
 
-typedef int (*ppg_sort_events_create)(cl_event **evts, unsigned int iters, GError **err);
+typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, GError **err);
 
-typedef void (*ppg_sort_events_free)(cl_event **evts);
+typedef void (*ppg_sort_events_free)(cl_event ***evts);
 
 /**
  * @brief Object which represents an agent sorting algorithm.
@@ -48,6 +50,7 @@ typedef struct ppg_sort_info {
 	unsigned int num_queues;  /**< Number of OpenCL command queues required for the algorithm. */
 	ppg_sort_sort sort;   /**< The sorting function. */
 	ppg_sort_kernels_create kernels_create;
+	ppg_sort_kernelargs_set kernelargs_set;
 	ppg_sort_kernels_free kernels_free;
 	ppg_sort_events_create events_create;
 	ppg_sort_events_free events_free;
@@ -58,15 +61,17 @@ extern PPGSortInfo sort_infos[];
 
 
 /** @brief A simple bitonic sort kernel. */
-int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event *evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err);
+int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event **evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err);
 
 int ppg_sort_sbitonic_kernels_create(cl_kernel **krnls, cl_program program, GError **err);
 
+int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err);
+
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls);
 
-int ppg_sort_sbitonic_events_create(cl_event **evts, unsigned int iters, GError **err);
+int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError **err);
 
-void ppg_sort_sbitonic_events_free(cl_event **evts);
+void ppg_sort_sbitonic_events_free(cl_event ***evts);
 
 
 #endif

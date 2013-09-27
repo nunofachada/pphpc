@@ -9,7 +9,7 @@
 //#define PPG_DEBUG
 
 /** Information about the requested sorting algorithm. */
-static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL};
+static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
 static PPRngInfo rng_info = {NULL, NULL, 0};
@@ -574,14 +574,16 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ********* Step 3: Agent actions ********* */
 		/* ***************************************** */
 
-		//~ ppg_simulate_sort(
-			//~ zone->queues[1], 
-			//~ krnls.sort_agent, 
-			//~ evts->sort_agent, 
-			//~ lws.sort_agent, 
-			//~ err
-		//~ );
-		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
+		sort_info.sort(
+			&zone->queues[1], 
+			krnls.sort_agent, 
+			evts->sort_agent, 
+			lws.sort_agent,
+			max_agents_iter,
+			iter,
+			err
+		);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
 
 		/** @todo Agent actions. Several kernels: 
 		 * 1.3. findCellStartAndFinish, queue 1
@@ -1163,6 +1165,10 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 
 	status = clSetKernelArg(krnls.move_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of move_agent (OpenCL error %d)", status);
+	
+	/* Agent sorting kernel. */
+	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, err);
+	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 
 	/* If we got here, everything is OK. */
 	goto finish;

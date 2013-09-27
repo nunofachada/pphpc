@@ -6,8 +6,7 @@
 /**
  * @brief A simple bitonic sort kernel.
  * 
- * @param x
- * @param y
+ * @param xy
  * @param alive
  * @param energy
  * @param type
@@ -16,8 +15,7 @@
  * @param step
  */
 __kernel void sbitonicSort(
-			__global ushort *x,
-			__global ushort *y,
+			__global ushort *xy,
 			__global uchar *alive,
 			__global ushort *energy,
 			__global uchar *type,
@@ -46,21 +44,18 @@ __kernel void sbitonicSort(
 	/* Perform swap if needed */ 
 	if (swap) {
 		
-		ushort x_l = x[index1];
-		ushort y_l = y[index1];
+		ushort xy_l = xy[index1];
 		uchar alive_l = alive[index1]; 
 		ushort energy_l = energy[index1]; 
 		uchar type_l = type[index1]; 
 		
-		x[index1] = x[index2];
-		y[index1] = y[index2];
+		xy[index1] = xy[index2];
 		alive[index1] = alive[index2]; 
 		energy[index1] = energy[index2]; 
 		type[index1] = type[index2]; 
 		hashes[index1] = hash2;
 
-		x[index2] = x_l;
-		y[index2] = y_l;
+		xy[index2] = xy_l;
 		alive[index2] = alive_l; 
 		energy[index2] = energy_l; 
 		type[index2] = type_l; 
