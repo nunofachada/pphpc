@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
 	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
 	
@@ -913,8 +913,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	size_t dev_mem = sizeof(PPStatistics) +
 		dataSizes.cells_grass_alive +
 		dataSizes.cells_grass_timer + 
-		dataSizes.cells_agents_index_start +
-		dataSizes.cells_agents_index_end +
+		dataSizes.cells_agents_index +
 		dataSizes.agents_xy +
 		dataSizes.agents_alive +
 		dataSizes.agents_energy +
@@ -1115,6 +1114,9 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.grass, 1, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_timer);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of grass (OpenCL error %d)", status);
 
+	status = clSetKernelArg(krnls.grass, 2, sizeof(cl_mem), (void*) &buffersDevice.cells_agents_index);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of grass (OpenCL error %d)", status);
+
 	/* reduce_grass1 kernel */
 	status = clSetKernelArg(krnls.reduce_grass1, 0, sizeof(cl_mem), (void *) &buffersDevice.cells_grass_alive);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_grass1 (OpenCL error %d)", status);
@@ -1231,8 +1233,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	/* Environment cells */
 	dataSizes->cells_grass_alive = pp_next_multiple(params.grid_xy, args_vw.int_vw) * sizeof(cl_uchar);
 	dataSizes->cells_grass_timer = params.grid_xy * sizeof(cl_ushort);
-	dataSizes->cells_agents_index_start = params.grid_xy * sizeof(cl_uint);
-	dataSizes->cells_agents_index_end = params.grid_xy * sizeof(cl_uint);
+	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_uint2);
 	
 	/* Agents. */
 	dataSizes->agents_xy = args.max_agents * sizeof(cl_ushort2);
@@ -1315,10 +1316,7 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	buffersDevice->cells_grass_timer = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.cells_grass_timer, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_grass_timer (OpenCL error %d)", status);
 
-	buffersDevice->cells_agents_index_start = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.cells_agents_index_start, NULL, &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_number (OpenCL error %d)", status);
-
-	buffersDevice->cells_agents_index_end = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.cells_agents_index_end, NULL, &status);
+	buffersDevice->cells_agents_index = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.cells_agents_index, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: cells_agents_index (OpenCL error %d)", status);
 	
 	/* Agents. */
@@ -1373,8 +1371,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
 	if (buffersDevice->cells_grass_alive) clReleaseMemObject(buffersDevice->cells_grass_alive);
 	if (buffersDevice->cells_grass_timer) clReleaseMemObject(buffersDevice->cells_grass_timer);
-	if (buffersDevice->cells_agents_index_start) clReleaseMemObject(buffersDevice->cells_agents_index_start);
-	if (buffersDevice->cells_agents_index_end) clReleaseMemObject(buffersDevice->cells_agents_index_end);
+	if (buffersDevice->cells_agents_index) clReleaseMemObject(buffersDevice->cells_agents_index);
 	if (buffersDevice->agents_xy) clReleaseMemObject(buffersDevice->agents_xy);
 	if (buffersDevice->agents_alive) clReleaseMemObject(buffersDevice->agents_alive);
 	if (buffersDevice->agents_energy) clReleaseMemObject(buffersDevice->agents_energy);
@@ -1481,6 +1478,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D VW_CHAR2INT_MUL=%d ", args_vw.char_vw / args_vw.int_vw);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D MAX_LWS=%d ", (unsigned int) lws.max_lws);
+	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ", PPG_DEFAULT_MAX_AGENTS);
 	g_string_append_printf(compilerOpts, "-D CELL_NUM=%d ", params.grid_xy);
 	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ", params.init_sheep);
 	g_string_append_printf(compilerOpts, "-D SHEEP_GAIN_FROM_FOOD=%d ", params.sheep_gain_from_food);

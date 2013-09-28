@@ -9,6 +9,7 @@
  * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
  * * MAX_LWS - Maximum local work size used in simulation.
  * * CELL_NUM - Number of cells in simulation
+ * * MAX_AGENTS - Maximum allowed agents in the simulation
  * 
  * * INIT_SHEEP - Initial number of sheep.
  * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
@@ -214,7 +215,8 @@ __kernel void initAgent(
  * */
 __kernel void grass(
 			__global uchar *grass_alive, 
-			__global ushort *grass_timer)
+			__global ushort *grass_timer,
+			__global uint2 *agents_index)
 {
 	/* Grid position for this workitem */
 	uint gid = get_global_id(0);
@@ -229,6 +231,9 @@ __kernel void grass(
 				grass_alive[gid] = 1;
 			}
 		}
+		
+		/* Reset cell start and finish. */
+		agents_index[gid] = (uint2) (MAX_AGENTS, MAX_AGENTS);
 	}
 }
 
@@ -478,7 +483,7 @@ __kernel void moveAgent(
 
 		/* Lose energy
 		 * @todo Does agent lose energy if he doesn't walk? */
-		energy--;
+		//energy--;
 		if (energy < 1)
 			alive = 0;
 			
@@ -492,3 +497,19 @@ __kernel void moveAgent(
 	}
 	
 }
+//~ 
+//~ /**
+ //~ * @brief Find cell start and finish.
+ //~ * 
+ //~ * @param xy
+ //~ * @param alive
+ //~ * */
+//~ __kernel void findCellStartFinish(
+			//~ __global ushort2 *xy,
+			//~ __global uchar *alive,
+//~ ) 
+//~ {
+	//~ /* Agent to be handled by this workitem. */
+	//~ uint gid = get_global_id(0);
+	//~ 
+//~ }
