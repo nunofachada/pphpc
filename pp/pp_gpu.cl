@@ -560,21 +560,71 @@ __kernel void actionAgent(
 	
 	/* If agent is alive, do stuff */
 	if (alive_l) {
-		energy_l++;
+		
+		/* Get cell index where agent is */
+		uint cell_idx = PPG_CALC_CELL_IDX(xy, gid);
+		
+		/* Reproduction threshold and probability (used further ahead) */
+		uchar reproduce_threshold, reproduce_prob;
+				
+		/* Perform specific agent actions */
+		if (type_l == SHEEP_ID) { /* Agent is sheep, perform sheep actions. */
+		
+			/* Set reproduction threshold and probability */
+			reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
+			reproduce_prob = SHEEP_REPRODUCE_PROB;
+
+			/* If there is grass, eat it (and I can be the only one to do so)! */
+			if (atomic_cmpxchg(&grass_alive[cell_idx], (uchar) 1, (uchar) 0)) {
+				/* If grass is alive, sheep eats it and gains energy */
+				energy_l += SHEEP_GAIN_FROM_FOOD;
+				/* Reset grass counter. */
+				grass_timer[cell_idx] = GRASS_RESTART;
+			}
+			
+		} else { /* Agent is wolf, perform wolf actions. */
+			
+			/* Set reproduction threshold and probability */
+			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
+			reproduce_prob = WOLVES_REPRODUCE_PROB;
+
+			/* Cycle through agents in this cell */
+			uint2 cai = cell_agents_idx[cell_idx];
+			for (uint i = cai.s0; i < cai.s1; i++) {
+				if (type[i] == SHEEP_ID) {
+					/* If it is a sheep, try to eat it! */
+					if (atomic_cmpxchg(&(alive[i]), 1, 0)) {
+						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+						energy_l += WOLF_GAIN_FROM_FOOD;
+						break;
+					}
+				}
+			}
+
+		}
+		
+		/* Try reproducing this agent if energy > reproduce_threshold */
+		if (energy_l > reproduce_threshold) {
+			
+			/* Throw dice to see if agent reproduces */
+			if (randomNextInt(seeds, 100) < reproduce_prob ) {
+				
+				/* Agent will reproduce! */
+				uint pos_new = get_global_size(0) + gid;
+				ushort energy_new_l = energy_l / 2;
+				type[pos_new] = type_l;
+				energy[pos_new] = energy_new_l;
+				xy[pos_new] = xy_l;
+				alive[pos_new] = 1;
+				
+				/* Current agent's energy will be halved also */
+				energy_l = energy_l - energy_new_l;
+				
+			}
+		}
+		
+		/* My actions only affect my energy, so I will only put back energy... */
 		energy[gid] = energy_l;
 		
-		
-		//~ /* Perform specific agent actions */
-		//~ switch (agent.type) {
-			//~ case SHEEP_ID : agent = sheepAction(agent, matrix, sim_params, params); break;
-			//~ case WOLF_ID : agent = wolfAction(agent, agents, matrix, sim_params, params); break;
-			//~ default : break;
-		//~ }
-		//~ 
-		//~ /* Try reproducing this agent */
-		//~ agent = agentReproduction(agents, agent, params, num_agents, seeds);
-		//~ 
-		//~ /* My actions only affect my energy, so I will only put back energy... */
-		//~ agents[gid].energy = agent.energy;
 	}
 }
