@@ -21,7 +21,7 @@ static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AG
 static PPGArgsAlg args_alg = {NULL, NULL};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -91,8 +91,8 @@ int main(int argc, char **argv) {
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -269,7 +269,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	size_t gws_reduce_agent1, 
 		ws_reduce_agent2, 
 		wg_reduce_agent1, 
-		gws_move_agent;
+		gws_move_agent,
+		gws_find_cell_idx;
 	
 	/* Current iteration. */
 	cl_uint iter = 0; 
@@ -575,7 +576,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 		
 		/* ***************************************** */
-		/* ********* Step 3: Agent actions ********* */
+		/* ********* Step 3.1: Agent sort ********** */
 		/* ***************************************** */
 
 		sort_info.sort(
@@ -587,10 +588,39 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			iter,
 			err
 		);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		
+		/* ***************************************** */
+		/* **** Step 3.2: Find cell agent index **** */
+		/* ***************************************** */
+
+		/* Determine agent movement global worksize. */
+		gws_find_cell_idx = PP_GWS_MULT(
+			max_agents_iter,
+			lws.find_cell_idx
+		);
+
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1],
+			krnls.find_cell_idx,
+			1,
+			NULL,
+			&gws_find_cell_idx,
+			&lws.find_cell_idx,
+			0,
+			NULL,
+#ifdef CLPROFILER
+			&evts->find_cell_idx[iter]
+#else
+			NULL
+#endif
+		);
+
+		/* ***************************************** */
+		/* ******* Step 3.3: Agent actions ********* */
+		/* ***************************************** */
 
 		/** @todo Agent actions. Several kernels: 
-		 * 1.3. findCellStartAndFinish, queue 1
 		 * 2. Agent actions, queue 1 */
 
 		
@@ -667,7 +697,7 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	/* Perfomed detailed analysis onfy if profiling flag is set. */
 	
 	/* One time events. */
-	profcl_profile_add(profile, "Write data", evts->write_rng, err);
+	profcl_profile_add(profile, "Write RNG seeds", evts->write_rng, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);	
 	
 	profcl_profile_add(profile, "Init cells", evts->init_cell, err);
@@ -702,11 +732,11 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Reduce agent 2", evts->reduce_agent2[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		if (evts->move_agent[i]) {
-			/* This kernel may have not run sometimes if all agents are dead. */
-			profcl_profile_add(profile, "Move agent", evts->move_agent[i], err);
-			gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-		}
+		profcl_profile_add(profile, "Move agent", evts->move_agent[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+
+		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	}
 	sort_info.events_profile(evts->sort_agent, profile, err);
@@ -865,7 +895,11 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	/* Agent sort local worksize. Global worksize depends on the 
 	 * number of existing agents. */
 	lws->sort_agent = args_lws.sort_agent ? args_lws.sort_agent : lws->deflt;
-
+	
+	/* Find cell agent index local worksize. Global worksize depends on the 
+	 * number of existing agents. */
+	lws->find_cell_idx = args_lws.find_cell_idx ? args_lws.find_cell_idx : lws->deflt;
+	
 	/* If we got here, everything is OK. */
 	goto finish;
 	
@@ -907,7 +941,8 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		pm_reduce_grass2,
 		pm_reduce_agent1,
 		pm_reduce_agent2,
-		pm_move_agent;
+		pm_move_agent,
+		pm_find_cell_idx;
 	
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -940,6 +975,8 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_agent2 kernel info (private memory). (OpenCL error %d)", status);	
 	status = clGetKernelWorkGroupInfo (krnls.move_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_move_agent, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get move_agent kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.find_cell_idx, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_find_cell_idx, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get find_cell_idx kernel info (private memory). (OpenCL error %d)", status);	
 
 	/* Print info. @todo Make ints unsigned or change %d to something nice for size_t */
 	printf("\n   =========================== Simulation Info =============================\n\n");
@@ -957,6 +994,9 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	printf("       | reduce_agent1    |     Var. | %5d | %6db = %3dKb | %9ub |\n", (int) lws.reduce_agent1, (int) dataSizes.reduce_agent_local1, (int) dataSizes.reduce_agent_local1 / 1024, (unsigned int) pm_reduce_agent1);
 	printf("       | reduce_agent2    |     Var. |  Var. | %6db = %3dKb | %9ub |\n", (int) dataSizes.reduce_agent_local2, (int) dataSizes.reduce_agent_local2 / 1024, (unsigned int) pm_reduce_agent2);
 	printf("       | move_agent       |     Var. | %5d |              0b | %9ub |\n", (int) lws.move_agent, (unsigned int) pm_move_agent);
+	/// @todo The sorting information should come from a specific function for each sorting approach
+	printf("       | sort_agent       |     Var. | %5d |              0b |         0b |\n", (int) lws.sort_agent); 
+	printf("       | find_cell_idx    |     Var. | %5d |              0b | %9ub |\n", (int) lws.find_cell_idx, (unsigned int) pm_find_cell_idx);
 	printf("       ----------------------------------------------------------------------\n");
 
 	/* If we got here, everything is OK. */
@@ -1026,6 +1066,10 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	status = sort_info.kernels_create(&krnls->sort_agent, program, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 	
+	/* Find cell agent index kernel. */
+	krnls->find_cell_idx = clCreateKernel(program, "findCellIdx", &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: findCellIdx (OpenCL error %d)", status);
+	
 	/* If we got here, everything is OK. */
 	goto finish;
 	
@@ -1056,6 +1100,7 @@ void ppg_kernels_free(PPGKernels* krnls) {
 	if (krnls->reduce_agent2) clReleaseKernel(krnls->reduce_agent2);
 	if (krnls->move_agent) clReleaseKernel(krnls->move_agent);
 	if (krnls->sort_agent) sort_info.kernels_free(&krnls->sort_agent);
+	if (krnls->find_cell_idx) clReleaseKernel(krnls->find_cell_idx);
 }
 
 /**
@@ -1180,6 +1225,16 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	/* Agent sorting kernel. */
 	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
+	
+	/* Find cell agent index. */
+	status = clSetKernelArg(krnls.find_cell_idx, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of find_cell_idx (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.find_cell_idx, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of find_cell_idx (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.find_cell_idx, 2, sizeof(cl_mem), (void*) &buffersDevice.cells_agents_index);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of find_cell_idx (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1397,7 +1452,8 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->move_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	sort_info.events_create(&evts->sort_agent, params.iters, NULL);
+	sort_info.events_create(&evts->sort_agent, params.iters, NULL); // @todo Verify possible error from this function (pass err instead of NULL)
+	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
@@ -1459,6 +1515,12 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 		free(evts->move_agent);
 	}
 	sort_info.events_free(&evts->sort_agent);
+	if (evts->find_cell_idx) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->find_cell_idx[i]) clReleaseEvent(evts->find_cell_idx[i]);
+		}
+		free (evts->find_cell_idx);
+	}
 }
 
 /**

@@ -497,19 +497,31 @@ __kernel void moveAgent(
 	}
 	
 }
-//~ 
-//~ /**
- //~ * @brief Find cell start and finish.
- //~ * 
- //~ * @param xy
- //~ * @param alive
- //~ * */
-//~ __kernel void findCellStartFinish(
-			//~ __global ushort2 *xy,
-			//~ __global uchar *alive,
-//~ ) 
-//~ {
-	//~ /* Agent to be handled by this workitem. */
-	//~ uint gid = get_global_id(0);
-	//~ 
-//~ }
+
+/**
+ * @brief Find cell start and finish.
+ * 
+ * @param xy
+ * @param alive
+ * */
+__kernel void findCellIdx(
+			__global uchar *alive,
+			__global uint *hashes,
+			__global uint2 *agents_index) 
+{
+	/* Agent to be handled by this workitem. */
+	uint gid = get_global_id(0);
+	
+	/* Only perform this if agent is alive. */
+	if (alive[gid]) {
+		/* Check if this agents is the start of a cell index. */
+		if ((gid == 0) || (hashes[gid] - hashes[max((int) (gid - 1), (int) 0)])) {
+			agents_index[gid].s0 = gid;
+		}
+		/* Check if this agents is the end of a cell index. */
+		if (hashes[gid] - hashes[gid + 1]) {
+			agents_index[gid].s1 = gid;
+		}
+	}
+	
+}

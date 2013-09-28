@@ -58,6 +58,7 @@ typedef struct pp_g_args_lws {
 	size_t reduce_agent; /**< Reduce agent 1 kernel. */
 	size_t move_agent;   /**< Move agent kernel. */
 	size_t sort_agent;   /**< Sort agent kernel local worksize. */
+	size_t find_cell_idx;/**< Find cell agent index kernel. */
 } PPGArgsLWS;
 
 /**
@@ -96,6 +97,7 @@ typedef struct pp_g_local_work_sizes {
 	size_t reduce_agent1; /**< Reduce agent 1 kernel local worksize. */
 	size_t move_agent;    /**< Move agent kernel local worksize. */
 	size_t sort_agent;    /**< Sort agent kernel local worksize. */
+	size_t find_cell_idx; /**< Find cell agent index kernel local worksize. */
 } PPGLocalWorkSizes;
 
 /**
@@ -110,7 +112,8 @@ typedef struct pp_g_kernels {
 	cl_kernel reduce_agent1; /**< Reduce agent 1 kernel. */
 	cl_kernel reduce_agent2; /**< Reduce agent 2 kernel. */
 	cl_kernel move_agent;    /**< Move agent kernel. */
-	cl_kernel *sort_agent;    /**< Sort agent kernels. */
+	cl_kernel *sort_agent;   /**< Sort agent kernels. */
+	cl_kernel find_cell_idx; /**< Find cell agent index kernel. */
 } PPGKernels;
 
 /** 
@@ -130,6 +133,7 @@ typedef struct pp_g_events {
 	cl_event *reduce_agent2; /**< Reduce agent kernel 2 execution. */
 	cl_event *move_agent;    /**< Move agent kernel execution. */
 	cl_event **sort_agent;   /**< Sort agent kernel executions. */
+	cl_event *find_cell_idx; /**< Find cell agent index. */
 } PPGEvents;
 
 /** 
