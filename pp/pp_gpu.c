@@ -21,7 +21,7 @@ static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AG
 static PPGArgsAlg args_alg = {NULL, NULL};
 
 /** Local work sizes command-line arguments*/
-static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
 static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
@@ -47,14 +47,16 @@ static GOptionEntry entries_alg[] = {
 
 /** Kernel local worksizes. */
 static GOptionEntry entries_lws[] = {
-	{"l-def",          0, 0, G_OPTION_ARG_INT, &args_lws.deflt,        "Default local worksize", "LWS"},
-	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,    "Init. cells kernel",     "LWS"},
-	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,   "Init. agents kernel",    "LWS"},
-	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,        "Grass kernel",           "LWS"},
-	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass, "Reduce grass kernel",    "LWS"},
-	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent, "Reduce agent kernel",    "LWS"},
-	{"l-move-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.move_agent,   "Move agent kernel",      "LWS"},
-	{"l-sort-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.sort_agent,   "Sort agent kernel",      "LWS"},
+	{"l-def",          0, 0, G_OPTION_ARG_INT, &args_lws.deflt,         "Default local worksize",       "LWS"},
+	{"l-init-cell",    0, 0, G_OPTION_ARG_INT, &args_lws.init_cell,     "Init. cells kernel",           "LWS"},
+	{"l-init-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.init_agent,    "Init. agents kernel",          "LWS"},
+	{"l-grass",        0, 0, G_OPTION_ARG_INT, &args_lws.grass,         "Grass kernel",                 "LWS"},
+	{"l-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_grass,  "Reduce grass kernel",          "LWS"},
+	{"l-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.reduce_agent,  "Reduce agent kernel",          "LWS"},
+	{"l-move-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.move_agent,    "Move agent kernel",            "LWS"},
+	{"l-sort-agent",   0, 0, G_OPTION_ARG_INT, &args_lws.sort_agent,    "Sort agent kernel",            "LWS"},
+	{"l-find-index",   0, 0, G_OPTION_ARG_INT, &args_lws.find_cell_idx, "Find cell agent index kernel", "LWS"},
+	{"l-action-agent", 0, 0, G_OPTION_ARG_INT, &args_lws.action_agent,  "Agent actions kernel",         "LWS"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -91,8 +93,8 @@ int main(int argc, char **argv) {
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -270,7 +272,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		ws_reduce_agent2, 
 		wg_reduce_agent1, 
 		gws_move_agent,
-		gws_find_cell_idx;
+		gws_find_cell_idx,
+		gws_action_agent;
 	
 	/* Current iteration. */
 	cl_uint iter = 0; 
@@ -594,7 +597,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* **** Step 3.2: Find cell agent index **** */
 		/* ***************************************** */
 
-		/* Determine agent movement global worksize. */
+		/* Determine kernel global worksize. */
 		gws_find_cell_idx = PP_GWS_MULT(
 			max_agents_iter,
 			lws.find_cell_idx
@@ -620,8 +623,27 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ******* Step 3.3: Agent actions ********* */
 		/* ***************************************** */
 
-		/** @todo Agent actions. Several kernels: 
-		 * 2. Agent actions, queue 1 */
+		/* Determine agent actions kernel global worksize. */
+		gws_action_agent = PP_GWS_MULT(
+			max_agents_iter,
+			lws.action_agent
+		);
+
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1],
+			krnls.action_agent,
+			1,
+			NULL,
+			&gws_action_agent,
+			&lws.action_agent,
+			0,
+			NULL,
+#ifdef CLPROFILER
+			&evts->action_agent[iter]
+#else
+			NULL
+#endif
+		);
 
 		
 	}
@@ -738,6 +760,8 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
+		profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
 	sort_info.events_profile(evts->sort_agent, profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
@@ -899,6 +923,10 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	/* Find cell agent index local worksize. Global worksize depends on the 
 	 * number of existing agents. */
 	lws->find_cell_idx = args_lws.find_cell_idx ? args_lws.find_cell_idx : lws->deflt;
+	
+	/* Agent actions local worksize. Global worksize depends on the 
+	 * number of existing agents. */
+	lws->action_agent = args_lws.action_agent ? args_lws.action_agent : lws->deflt;
 	
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1070,6 +1098,10 @@ cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err) {
 	krnls->find_cell_idx = clCreateKernel(program, "findCellIdx", &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: findCellIdx (OpenCL error %d)", status);
 	
+	/* Agent actions kernel. */
+	krnls->action_agent = clCreateKernel(program, "actionAgent", &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: actionAgent (OpenCL error %d)", status);
+
 	/* If we got here, everything is OK. */
 	goto finish;
 	
@@ -1101,6 +1133,7 @@ void ppg_kernels_free(PPGKernels* krnls) {
 	if (krnls->move_agent) clReleaseKernel(krnls->move_agent);
 	if (krnls->sort_agent) sort_info.kernels_free(&krnls->sort_agent);
 	if (krnls->find_cell_idx) clReleaseKernel(krnls->find_cell_idx);
+	if (krnls->action_agent) clReleaseKernel(krnls->action_agent);
 }
 
 /**
@@ -1226,7 +1259,7 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 	
-	/* Find cell agent index. */
+	/* Find cell agent index kernel. */
 	status = clSetKernelArg(krnls.find_cell_idx, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of find_cell_idx (OpenCL error %d)", status);
 
@@ -1238,6 +1271,31 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 
 	status = clSetKernelArg(krnls.find_cell_idx, 3, sizeof(cl_mem), (void*) &buffersDevice.cells_agents_index);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of find_cell_idx (OpenCL error %d)", status);
+
+	/* Agent actions kernel. */
+	status = clSetKernelArg(krnls.action_agent, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of action_agent (OpenCL error %d)", status);
+	
+	status = clSetKernelArg(krnls.action_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.cells_grass_timer);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.cells_agents_index);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 6, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 6 of action_agent (OpenCL error %d)", status);
+
+	status = clSetKernelArg(krnls.action_agent, 7, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 7 of action_agent (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1457,6 +1515,7 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	sort_info.events_create(&evts->sort_agent, params.iters, NULL); // @todo Verify possible error from this function (pass err instead of NULL)
 	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->action_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
@@ -1523,6 +1582,12 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 			if (evts->find_cell_idx[i]) clReleaseEvent(evts->find_cell_idx[i]);
 		}
 		free (evts->find_cell_idx);
+	}
+	if (evts->action_agent) {
+		for (guint i = 0; i < params.iters; i++) {
+			if (evts->action_agent[i]) clReleaseEvent(evts->action_agent[i]);
+		}
+		free (evts->action_agent);
 	}
 }
 

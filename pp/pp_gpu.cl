@@ -532,3 +532,49 @@ __kernel void findCellIdx(
 	}
 	
 }
+
+/**
+ * @brief Agents action kernel
+ * 
+ * @param matrix
+ */
+__kernel void actionAgent(
+			__global uchar *grass_alive, 
+			__global ushort *grass_timer, 
+			__global uint2 *cell_agents_idx,
+			__global ushort2 *xy,
+			__global uchar *alive,
+			__global ushort *energy,
+			__global uchar *type,
+			__global rng_state *seeds)
+{
+	
+	/* Global id for this workitem */
+	uint gid = get_global_id(0);
+	
+	/* Get agent for this workitem */
+	ushort2 xy_l = xy[gid];
+	uchar alive_l = alive[gid];
+	ushort energy_l = energy[gid];
+	uchar type_l = type[gid];
+	
+	/* If agent is alive, do stuff */
+	if (alive_l) {
+		energy_l++;
+		energy[gid] = energy_l;
+		
+		
+		//~ /* Perform specific agent actions */
+		//~ switch (agent.type) {
+			//~ case SHEEP_ID : agent = sheepAction(agent, matrix, sim_params, params); break;
+			//~ case WOLF_ID : agent = wolfAction(agent, agents, matrix, sim_params, params); break;
+			//~ default : break;
+		//~ }
+		//~ 
+		//~ /* Try reproducing this agent */
+		//~ agent = agentReproduction(agents, agent, params, num_agents, seeds);
+		//~ 
+		//~ /* My actions only affect my energy, so I will only put back energy... */
+		//~ agents[gid].energy = agent.energy;
+	}
+}
