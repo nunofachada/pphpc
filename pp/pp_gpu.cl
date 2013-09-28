@@ -30,6 +30,8 @@
 
 #define PPG_CALC_HASH(alive, xy) (((alive) << 32) | ((xy.x) << 16) | (xy.y))
 
+#define PPG_CALC_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
+
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
 	#define VW_CHAR_ZERO 0
@@ -505,22 +507,27 @@ __kernel void moveAgent(
  * @param alive
  * */
 __kernel void findCellIdx(
+			__global ushort2 *xy,
 			__global uchar *alive,
 			__global uint *hashes,
-			__global uint2 *agents_index) 
+			__global uint2 *cell_agents_idx) 
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
 	
 	/* Only perform this if agent is alive. */
 	if (alive[gid]) {
+		
+		/* Find cell where this agent lurks... */
+		uint cell_idx = PPG_CALC_CELL_IDX(xy, gid);
+		
 		/* Check if this agents is the start of a cell index. */
 		if ((gid == 0) || (hashes[gid] - hashes[max((int) (gid - 1), (int) 0)])) {
-			agents_index[gid].s0 = gid;
+			cell_agents_idx[cell_idx].s0 = gid;
 		}
 		/* Check if this agents is the end of a cell index. */
 		if (hashes[gid] - hashes[gid + 1]) {
-			agents_index[gid].s1 = gid;
+			cell_agents_idx[cell_idx].s1 = gid;
 		}
 	}
 	
