@@ -16,9 +16,9 @@
  */
 __kernel void sbitonicSort(
 			__global ushort *xy,
-			__global uchar *alive,
+			__global uint *alive,
 			__global ushort *energy,
-			__global uchar *type,
+			__global uint *type,
 			__global uint *hashes,
 			const uint stage,
 			const uint step)
