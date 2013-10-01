@@ -1347,15 +1347,15 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass_alive = pp_next_multiple(params.grid_xy, args_vw.int_vw) * sizeof(cl_uchar);
+	dataSizes->cells_grass_alive = pp_next_multiple(params.grid_xy, args_vw.int_vw) * sizeof(cl_uint);
 	dataSizes->cells_grass_timer = params.grid_xy * sizeof(cl_ushort);
 	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_uint2);
 	
 	/* Agents. */
 	dataSizes->agents_xy = args.max_agents * sizeof(cl_ushort2);
-	dataSizes->agents_alive = args.max_agents * sizeof(cl_uchar);
+	dataSizes->agents_alive = args.max_agents * sizeof(cl_uint);
 	dataSizes->agents_energy = args.max_agents * sizeof(cl_ushort);
-	dataSizes->agents_type = args.max_agents * sizeof(cl_uchar);
+	dataSizes->agents_type = args.max_agents * sizeof(cl_uint);
 	dataSizes->agents_hash = args.max_agents * sizeof(cl_uint);
 	
 	/* Grass reduction. */
