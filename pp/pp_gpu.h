@@ -145,8 +145,7 @@ typedef struct pp_g_events {
 * */
 typedef struct pp_g_data_sizes {
 	size_t stats;                    /**< Simulation statistics. */
-	size_t cells_grass_alive;        /**< "Is grass alive?" array. */
-	size_t cells_grass_timer;        /**< Grass regrowth timer array. */
+	size_t cells_grass;              /**< Grass regrowth timer array. */
 	size_t cells_agents_index;       /**< Agent index in cell array. */
 	size_t agents_xy;                /**< Agents coordinates. */
 	size_t agents_alive;             /**< Agents alive or dead flag. */
@@ -176,8 +175,7 @@ typedef struct pp_g_buffers_host {
  * */
 typedef struct pp_g_buffers_device {
 	cl_mem stats;                    /**< Simulation statistics. */
-	cl_mem cells_grass_alive;        /**< "Is grass alive?" array. */
-	cl_mem cells_grass_timer;        /**< Grass regrowth timer array. */
+	cl_mem cells_grass;              /**< Grass regrowth timer array. */
 	cl_mem cells_agents_index;       /**< Agent index in cells array. */
 	cl_mem agents_xy;                /**< Agents coordinates. */
 	cl_mem agents_alive;             /**< Agents alive or dead flag. */

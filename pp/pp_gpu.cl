@@ -34,27 +34,27 @@
 
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
-	#define VW_CHAR_ZERO 0
+	#define VW_CHAR_VALUE(x) ((uchar) (x))
 	#define VW_CHAR_SUM(x) (x)
 	#define convert_ucharx(x) convert_uchar(x)
 	typedef uchar ucharx;
 #elif VW_CHAR == 2
-	#define VW_CHAR_ZERO ((uchar2) (0, 0))
+	#define VW_CHAR_VALUE(x) ((uchar2) (x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1)
 	#define convert_ucharx(x) convert_uchar2(x)
 	typedef uchar2 ucharx;
 #elif VW_CHAR == 4
-	#define VW_CHAR_ZERO ((uchar4) (0, 0, 0, 0))
+	#define VW_CHAR_VALUE(x) ((uchar4) (x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_ucharx(x) convert_uchar4(x)
 	typedef uchar4 ucharx;
 #elif VW_CHAR == 8
-	#define VW_CHAR_ZERO ((uchar8) (0, 0, 0, 0, 0, 0, 0, 0))
+	#define VW_CHAR_VALUE(x) ((uchar8) (x, x, x, x, x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_ucharx(x) convert_uchar8(x)
 	typedef uchar8 ucharx;
 #elif VW_CHAR == 16
-	#define VW_CHAR_ZERO ((uchar16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+	#define VW_CHAR_VALUE(x) ((uchar16) (x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_ucharx(x) convert_uchar16(x)
 	typedef uchar16 ucharx;
@@ -62,35 +62,35 @@
 
 /* Integer vector width pre-defines */
 #if VW_INT == 1
-	#define VW_INT_ZERO 0
+	#define VW_INT_VALUE(x) ((uint) (x))
 	#define VW_INT_SUM(x) (x)
 	#define convert_uintx(x) convert_uint(x)
 	typedef uint uintx;
 	#define VW_SHEEP_ID ((uint) SHEEP_ID)
 	#define VW_WOLF_ID ((uint) WOLF_ID)
 #elif VW_INT == 2
-	#define VW_INT_ZERO (uint2) (0, 0)
+	#define VW_INT_VALUE(x) ((uint2) (x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1)
 	#define convert_uintx(x) convert_uint2(x)
 	typedef uint2 uintx;
 	#define VW_SHEEP_ID ((uint2) (SHEEP_ID, SHEEP_ID))
 	#define VW_WOLF_ID ((uint2) (WOLF_ID, WOLF_ID))
 #elif VW_INT == 4
-	#define VW_INT_ZERO (uint4) (0, 0, 0, 0)
+	#define VW_INT_VALUE(x) ((uint4) (x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_uintx(x) convert_uint4(x)
 	typedef uint4 uintx;
 	#define VW_SHEEP_ID ((uint4) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
 	#define VW_WOLF_ID ((uint4) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_INT == 8
-	#define VW_INT_ZERO (uint8) (0, 0, 0, 0, 0, 0, 0, 0)
+	#define VW_INT_VALUE(x) ((uint8) (x, x, x, x, x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_uintx(x) convert_uint8(x)
 	typedef uint8 uintx;
 	#define VW_SHEEP_ID ((uint8) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
 	#define VW_WOLF_ID ((uint8) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_INT == 16
-	#define VW_INT_ZERO (uint16) (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	#define VW_INT_VALUE(x) ((uint16) (x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_uintx(x) convert_uint16(x)
 	typedef uint16 uintx;
@@ -131,8 +131,7 @@
  * @param seeds RNG seeds.
  * */
 __kernel void initCell(
-			__global uint *grass_alive, 
-			__global ushort *grass_timer, 
+			__global uint *grass, 
 			__global rng_state *seeds)
 {
 	
@@ -144,17 +143,15 @@ __kernel void initCell(
 		/* ...yes, it will. */
 		if (randomNextInt(seeds, 2)) {
 			/* Grass is alive */
-			grass_alive[gid] = 1;
-			grass_timer[gid] = 0;
+			grass[gid] = 0;
 		} else {
 			/* Grass is dead */
-			grass_alive[gid] = 0;
-			grass_timer[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
+			grass[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
 		}
 	} else if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
 		/* Make sure that grass in padding cells are dead so
 		 * they're not incorrectly counted in the reduction step. */
-		grass_alive[gid] = 0;
+		grass[gid] = GRASS_RESTART;
 	}
 	
 }
@@ -216,8 +213,7 @@ __kernel void initAgent(
  * @param grass_timer
  * */
 __kernel void grass(
-			__global uint *grass_alive, 
-			__global ushort *grass_timer,
+			__global uint *grass,
 			__global uint2 *agents_index)
 {
 	/* Grid position for this workitem */
@@ -226,13 +222,9 @@ __kernel void grass(
 	/* Check if this workitem will do anything */
 	if (gid < CELL_NUM) {
 		
+		uint grass_l = grass[gid];
 		/* Decrement counter if grass is dead */
-		if (!grass_alive[gid]) {
-			ushort timer = --grass_timer[gid];
-			if (timer == 0) {
-				grass_alive[gid] = 1;
-			}
-		}
+		grass[gid] = select((uint) 0, grass_l - 1, grass_l);
 		
 		/* Reset cell start and finish. */
 		agents_index[gid] = (uint2) (MAX_AGENTS, MAX_AGENTS);
@@ -247,7 +239,7 @@ __kernel void grass(
  * @param reduce_grass_global
  * */
 __kernel void reduceGrass1(
-			__global uintx *grass_alive,
+			__global uintx *grass,
 			__local uintx *partial_sums,
 			__global uintx *reduce_grass_global) {
 				
@@ -258,7 +250,7 @@ __kernel void reduceGrass1(
 	uint global_size = get_global_size(0);
 	
 	/* Serial sum */
-	uintx sum = VW_INT_ZERO;
+	uintx sum = VW_INT_VALUE(0);
 	
 	/* Serial count */
 	uint cellVectorCount = PP_DIV_CEIL(CELL_NUM, VW_INT);
@@ -266,7 +258,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += grass_alive[index];
+			sum += VW_INT_VALUE(1) & !grass[index];
 		}
 	}
 	
@@ -311,7 +303,7 @@ __kernel void reduceGrass1(
 	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
 		partial_sums[lid] = reduce_grass_global[lid];
 	else
-		partial_sums[lid] = VW_INT_ZERO;
+		partial_sums[lid] = VW_INT_VALUE(0);
 	
 	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -355,8 +347,8 @@ __kernel void reduceAgent1(
 	uint group_id = get_group_id(0);
 	
 	/* Serial sum */
-	uintx sumSheep = VW_INT_ZERO;
-	uintx sumWolves = VW_INT_ZERO;
+	uintx sumSheep = VW_INT_VALUE(0);
+	uintx sumWolves = VW_INT_VALUE(0);
 	
 	/* Serial count */
 	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_INT);
@@ -418,8 +410,8 @@ __kernel void reduceAgent1(
 		partial_sums[lid] = reduce_agent_global[lid];
 		partial_sums[group_size + lid] = reduce_agent_global[MAX_LWS + lid];
 	} else {
-		partial_sums[lid] = VW_INT_ZERO;
-		partial_sums[group_size + lid] = VW_INT_ZERO;
+		partial_sums[lid] = VW_INT_VALUE(0);
+		partial_sums[group_size + lid] = VW_INT_VALUE(0);
 	}
 	
 	/* Wait for all work items to perform previous operation */
@@ -539,8 +531,7 @@ __kernel void findCellIdx(
  * @param matrix
  */
 __kernel void actionAgent(
-			__global uint *grass_alive, 
-			__global ushort *grass_timer, 
+			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
 			__global ushort2 *xy,
 			__global uint *alive,
@@ -575,11 +566,9 @@ __kernel void actionAgent(
 			reproduce_prob = SHEEP_REPRODUCE_PROB;
 
 			/* If there is grass, eat it (and I can be the only one to do so)! */
-			if (atomic_cmpxchg(&grass_alive[cell_idx], (uint) 1, (uint) 0)) {
+			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART)) {
 				/* If grass is alive, sheep eats it and gains energy */
 				energy_l += SHEEP_GAIN_FROM_FOOD;
-				/* Reset grass counter. */
-				grass_timer[cell_idx] = GRASS_RESTART;
 			}
 			
 		} else { /* Agent is wolf, perform wolf actions. */
