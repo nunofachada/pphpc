@@ -16,9 +16,7 @@
  */
 __kernel void sbitonicSort(
 			__global ushort *xy,
-			__global uint *alive,
-			__global ushort *energy,
-			__global uint *type,
+			__global uint *data,
 			__global uint *hashes,
 			const uint stage,
 			const uint step)
@@ -45,20 +43,14 @@ __kernel void sbitonicSort(
 	if (swap) {
 		
 		ushort xy_l = xy[index1];
-		uchar alive_l = alive[index1]; 
-		ushort energy_l = energy[index1]; 
-		uchar type_l = type[index1]; 
+		uint data_l = data[index1]; 
 		
 		xy[index1] = xy[index2];
-		alive[index1] = alive[index2]; 
-		energy[index1] = energy[index2]; 
-		type[index1] = type[index2]; 
+		data[index1] = data[index2]; 
 		hashes[index1] = hash2;
 
 		xy[index2] = xy_l;
-		alive[index2] = alive_l; 
-		energy[index2] = energy_l; 
-		type[index2] = type_l; 
+		data[index2] = data_l; 
 		hashes[index2] = hash1;
 	}
 

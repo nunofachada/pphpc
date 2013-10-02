@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	PPGEvents evts = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPGDataSizes dataSizes;
 	PPGBuffersHost buffersHost = {NULL, NULL};
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
 	
@@ -419,8 +419,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		ws_reduce_agent2 = nlpo2(wg_reduce_agent1);
 		
 		/* Set variable kernel arguments in agent reduction kernels. */
-		status = clSetKernelArg(krnls.reduce_agent1, 4, sizeof(cl_uint), (void *) &max_agents_iter);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
+		status = clSetKernelArg(krnls.reduce_agent1, 3, sizeof(cl_uint), (void *) &max_agents_iter);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent1, iteration %d (OpenCL error %d)", iter, status);
 		status = clSetKernelArg(krnls.reduce_agent2, 3, sizeof(cl_uint), (void *) &wg_reduce_agent1);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent2, iteration %d (OpenCL error %d)", iter, status);
 
@@ -993,9 +993,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		dataSizes.cells_grass + 
 		dataSizes.cells_agents_index +
 		dataSizes.agents_xy +
-		dataSizes.agents_alive +
-		dataSizes.agents_energy +
-		dataSizes.agents_type +
+		dataSizes.agents_data +
 		dataSizes.agents_hash +
 		dataSizes.reduce_grass_global + 
 		dataSizes.reduce_agent_global +
@@ -1179,23 +1177,17 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.init_agent, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	status = clSetKernelArg(krnls.init_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	status = clSetKernelArg(krnls.init_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
+	status = clSetKernelArg(krnls.init_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of init_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.init_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
+	status = clSetKernelArg(krnls.init_agent, 4, sizeof(cl_uint), (void*) &args.max_agents);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of init_agent (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.init_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of init_agent (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.init_agent, 6, sizeof(cl_uint), (void*) &args.max_agents);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 6 of init_agent (OpenCL error %d)", status);
 
 	/* Grass kernel */
 	status = clSetKernelArg(krnls.grass, 0, sizeof(cl_mem), (void*) &buffersDevice.cells_grass);
@@ -1225,18 +1217,15 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_grass2 (OpenCL error %d)", status);
  	
 	/* reduce_agent1 kernel */
-	status = clSetKernelArg(krnls.reduce_agent1, 0, sizeof(cl_mem), (void *) &buffersDevice.agents_alive);
+	status = clSetKernelArg(krnls.reduce_agent1, 0, sizeof(cl_mem), (void *) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of reduce_agent1 (OpenCL error %d)", status);
 	
-	status = clSetKernelArg(krnls.reduce_agent1, 1, sizeof(cl_mem), (void *) &buffersDevice.agents_type);
+	status = clSetKernelArg(krnls.reduce_agent1, 1, dataSizes.reduce_agent_local1, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of reduce_agent1 (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.reduce_agent1, 2, dataSizes.reduce_agent_local1, NULL);
+	status = clSetKernelArg(krnls.reduce_agent1, 2, sizeof(cl_mem), (void *) &buffersDevice.reduce_agent_global);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of reduce_agent1 (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.reduce_agent1, 3, sizeof(cl_mem), (void *) &buffersDevice.reduce_agent_global);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent1 (OpenCL error %d)", status);
-	/* The 4th argument is set on the fly. */
+	/* The 3rd argument is set on the fly. */
 
 	/* reduce_agent2 kernel */
 	status = clSetKernelArg(krnls.reduce_agent2, 0, sizeof(cl_mem), (void *) &buffersDevice.reduce_agent_global);
@@ -1252,17 +1241,14 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.move_agent, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of move_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.move_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	status = clSetKernelArg(krnls.move_agent, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of move_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.move_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	status = clSetKernelArg(krnls.move_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of move_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.move_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
+	status = clSetKernelArg(krnls.move_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of move_agent (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.move_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of move_agent (OpenCL error %d)", status);
 	
 	/* Agent sorting kernel. */
 	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, err);
@@ -1272,7 +1258,7 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.find_cell_idx, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of find_cell_idx (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.find_cell_idx, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	status = clSetKernelArg(krnls.find_cell_idx, 1, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of find_cell_idx (OpenCL error %d)", status);
 
 	status = clSetKernelArg(krnls.find_cell_idx, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
@@ -1291,17 +1277,11 @@ cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGD
 	status = clSetKernelArg(krnls.action_agent, 2, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of action_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.action_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	status = clSetKernelArg(krnls.action_agent, 3, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of action_agent (OpenCL error %d)", status);
 
-	status = clSetKernelArg(krnls.action_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	status = clSetKernelArg(krnls.action_agent, 4, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of action_agent (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.action_agent, 5, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 5 of action_agent (OpenCL error %d)", status);
-
-	status = clSetKernelArg(krnls.action_agent, 6, sizeof(cl_mem), (void*) &buffersDevice.rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 6 of action_agent (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	goto finish;
@@ -1358,9 +1338,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	
 	/* Agents. */
 	dataSizes->agents_xy = args.max_agents * sizeof(cl_ushort2);
-	dataSizes->agents_alive = args.max_agents * sizeof(cl_uint);
-	dataSizes->agents_energy = args.max_agents * sizeof(cl_ushort);
-	dataSizes->agents_type = args.max_agents * sizeof(cl_uint);
+	dataSizes->agents_data = args.max_agents * sizeof(cl_uint);
 	dataSizes->agents_hash = args.max_agents * sizeof(cl_uint);
 	
 	/* Grass reduction. */
@@ -1441,14 +1419,8 @@ cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDev
 	buffersDevice->agents_xy = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_xy, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_xy (OpenCL error %d)", status);
 
-	buffersDevice->agents_alive = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_alive, NULL, &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_alive (OpenCL error %d)", status);
-
-	buffersDevice->agents_energy = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_energy, NULL, &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_energy (OpenCL error %d)", status);
-
-	buffersDevice->agents_type = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_type, NULL, &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_type (OpenCL error %d)", status);
+	buffersDevice->agents_data = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_data, NULL, &status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_data (OpenCL error %d)", status);
 
 	buffersDevice->agents_hash = clCreateBuffer(context, CL_MEM_READ_WRITE, dataSizes.agents_hash, NULL, &status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer: agents_hash (OpenCL error %d)", status);
@@ -1490,9 +1462,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->cells_grass) clReleaseMemObject(buffersDevice->cells_grass);
 	if (buffersDevice->cells_agents_index) clReleaseMemObject(buffersDevice->cells_agents_index);
 	if (buffersDevice->agents_xy) clReleaseMemObject(buffersDevice->agents_xy);
-	if (buffersDevice->agents_alive) clReleaseMemObject(buffersDevice->agents_alive);
-	if (buffersDevice->agents_energy) clReleaseMemObject(buffersDevice->agents_energy);
-	if (buffersDevice->agents_type) clReleaseMemObject(buffersDevice->agents_type);
+	if (buffersDevice->agents_data) clReleaseMemObject(buffersDevice->agents_data);
 	if (buffersDevice->agents_hash) clReleaseMemObject(buffersDevice->agents_hash);
 	if (buffersDevice->reduce_grass_global) clReleaseMemObject(buffersDevice->reduce_grass_global);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);

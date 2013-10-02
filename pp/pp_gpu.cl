@@ -28,9 +28,7 @@
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 
-#define PPG_CALC_HASH(alive, xy) (((alive) << 32) | ((xy.x) << 16) | (xy.y))
 
-#define PPG_CALC_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
 
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
@@ -122,6 +120,27 @@
 			)
 #endif
 
+#define PPG_AG_ENERGY(data) ((data) & 0xFFFF)
+#define PPG_AG_ENERGY_V(data) ((data) & VW_INT_VALUE(0xFFFF))
+
+#define PPG_AG_TYPE(data) ((data) >> 16)
+#define PPG_AG_TYPE_V(data) ((data) >> VW_INT_VALUE(16))
+
+#define PPG_AG_IS_SHEEP(data) !(((data) & 0x10000) ^ (SHEEP_ID << 16))
+#define PPG_AG_IS_WOLF(data) !(((data) & 0x10000) ^ (WOLF_ID << 16))
+#define PPG_AG_IS_SHEEP_V(data) !(((data) & VW_INT_VALUE(0x10000)) ^ (VW_SHEEP_ID << VW_INT_VALUE(16)))
+#define PPG_AG_IS_WOLF_V(data) !(((data) & VW_INT_VALUE(0x10000)) ^ (VW_WOLF_ID << VW_INT_VALUE(16)))
+
+#define PPG_AG_SET(type, energy) (((type) << 16) | ((energy) & 0xFFFF))
+#define PPG_AG_SET_V(type, energy) (((type) << VW_INT_VALUE(16)) | ((energy) & VW_INT_VALUE(0xFFFF)))
+
+#define PPG_AG_IS_ALIVE(data) (((data) & 0xFFFF) > 0)
+#define PPG_AG_IS_ALIVE_V(data) (((data) & VW_INT_VALUE(0xFFFF)) > VW_INT_VALUE(0))
+
+#define PPG_AG_HASH(data, x, y) (((PPG_AG_ENERGY(data) == 0) << 31) | ((x) << 15) | (y)) // This assumes 15-bit coordinates at most (32768=x_max=y_max.)
+#define PPG_AG_HASH_DEAD -1
+
+#define PPG_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
 
 /**
  * @brief Initialize grid cells. 
@@ -169,9 +188,7 @@ __kernel void initCell(
  * */
 __kernel void initAgent(
 			__global ushort2 *xy,
-			__global uint *alive,
-			__global ushort *energy,
-			__global uint *type,
+			__global uint *data,
 			__global uint *hashes,
 			__global rng_state *seeds,
 			uint max_agents
@@ -184,24 +201,19 @@ __kernel void initAgent(
 	if (gid < INIT_SHEEP + INIT_WOLVES) {
 		/* This workitem will initialize an alive agent. */
 		ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		uint alive_l = 1;
 		xy[gid] = xy_l;
-		alive[gid] = alive_l;
-		hashes[gid] = PPG_CALC_HASH(alive_l, xy_l);
+		hashes[gid] = PPG_AG_HASH(1, xy_l.x, xy_l.y);
 		/* The remaining parameters depend on the type of agent. */
-		if (gid < INIT_SHEEP) {
+		if (gid < INIT_SHEEP) { /// @todo Use select instead of if
 			/* A sheep agent. */
-			type[gid] = SHEEP_ID;
-			energy[gid] = randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
+			data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
 		} else {
 			/* A wolf agent. */
-			type[gid] = WOLF_ID;
-			energy[gid] = randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
+			data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
 	} else if (gid < max_agents) {
 		/* This workitem will initialize a dead agent with no type. */
-		alive[gid] = 0;
-		hashes[gid] = -1;
+		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
 }
 
@@ -258,7 +270,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += VW_INT_VALUE(1) & !grass[index];
+			sum += VW_INT_VALUE(1) & !grass[index]; /// I can use select here instead of making the &. Is it worth it?
 		}
 	}
 	
@@ -333,8 +345,7 @@ __kernel void reduceGrass1(
  * @param max_agents = (stats[0].sheep + stats[0].wolves) * 2 //set in host
  * */
 __kernel void reduceAgent1(
-			__global uintx *alive,
-			__global uintx *type,
+			__global uintx *data,
 			__local uintx *partial_sums,
 			__global uintx *reduce_agent_global,
 			uint max_agents) {
@@ -357,8 +368,11 @@ __kernel void reduceAgent1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			sumSheep += alive[index] & ~(type[index] ^ VW_SHEEP_ID);
-			sumWolves += alive[index] & ~(type[index] ^ VW_WOLF_ID);
+			uintx data_l = data[gid];
+			sumSheep += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
+			//(VW_INT_VALUE(1) & ((data_l & VW_INT_VALUE(0xFFFF)) > 0)) & ~((data_l >> 16) ^ VW_SHEEP_ID);
+			sumWolves += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
+			//(VW_INT_VALUE(1) & ((data_l & VW_INT_VALUE(0xFFFF)) > 0)) & ~((data_l >> 16) ^ VW_WOLF_ID);
 		}
 	}
 
@@ -445,8 +459,7 @@ __kernel void reduceAgent1(
  */
 __kernel void moveAgent(
 			__global ushort2 *xy_g,
-			__global uint *alive_g,
-			__global ushort *energy_g,
+			__global uint *data_g,
 			__global uint *hashes,
 			__global rng_state *seeds)
 {
@@ -463,31 +476,26 @@ __kernel void moveAgent(
 	uint gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	uint alive = alive_g[gid];
+	uint data = data_g[gid];
 
 	/* Only perform if agent is alive. */
-	if (alive) {
+	if (PPG_AG_IS_ALIVE(data)) {
 		ushort2 xy = xy_g[gid];
-		ushort energy = energy_g[gid];
 		
 		uint direction = randomNextInt(seeds, 5);
 		
 		/* Perform the actual walk */
 		xy = (xy + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
 
-		/* Lose energy
-		 * @todo Does agent lose energy if he doesn't walk? */
-		//energy--;
-		if (energy < 1)
-			alive = 0;
-			
+		/* Lose energy */
+		data--;
+		
 		/* Update global mem */
 		xy_g[gid] = xy;
-		alive_g[gid] = alive;
-		energy_g[gid] = energy;
+		data_g[gid] = data;
 	
 		/* Determine and set agent hash (for sorting). */
-		hashes[gid] = PPG_CALC_HASH(alive, xy);
+		hashes[gid] = PPG_AG_HASH(data, xy.x, xy.y);
 	}
 	
 }
@@ -500,7 +508,7 @@ __kernel void moveAgent(
  * */
 __kernel void findCellIdx(
 			__global ushort2 *xy,
-			__global uint *alive,
+			__global uint *data,
 			__global uint *hashes,
 			__global uint2 *cell_agents_idx) 
 {
@@ -508,16 +516,16 @@ __kernel void findCellIdx(
 	uint gid = get_global_id(0);
 	
 	/* Only perform this if agent is alive. */
-	if (alive[gid]) {
+	if (PPG_AG_IS_ALIVE(data[gid])) {
 		
 		/* Find cell where this agent lurks... */
-		uint cell_idx = PPG_CALC_CELL_IDX(xy, gid);
+		uint cell_idx = PPG_CELL_IDX(xy, gid);
 		
-		/* Check if this agents is the start of a cell index. */
+		/* Check if this agent is the start of a cell index. */
 		if ((gid == 0) || (hashes[gid] - hashes[max((int) (gid - 1), (int) 0)])) {
 			cell_agents_idx[cell_idx].s0 = gid;
 		}
-		/* Check if this agents is the end of a cell index. */
+		/* Check if this agent is the end of a cell index. */
 		if (hashes[gid] - hashes[gid + 1]) {
 			cell_agents_idx[cell_idx].s1 = gid;
 		}
@@ -534,86 +542,84 @@ __kernel void actionAgent(
 			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
 			__global ushort2 *xy,
-			__global uint *alive,
-			__global ushort *energy,
-			__global uint *type,
+			__global uint *data,
 			__global rng_state *seeds)
 {
 	
 	/* Global id for this workitem */
 	uint gid = get_global_id(0);
 	
-	/* Get agent for this workitem */
-	ushort2 xy_l = xy[gid];
-	uint alive_l = alive[gid];
-	ushort energy_l = energy[gid];
-	uint type_l = type[gid];
-	
-	/* If agent is alive, do stuff */
-	if (alive_l) {
-		
-		/* Get cell index where agent is */
-		uint cell_idx = PPG_CALC_CELL_IDX(xy, gid);
-		
-		/* Reproduction threshold and probability (used further ahead) */
-		uchar reproduce_threshold, reproduce_prob;
-				
-		/* Perform specific agent actions */
-		if (type_l == SHEEP_ID) { /* Agent is sheep, perform sheep actions. */
-		
-			/* Set reproduction threshold and probability */
-			reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
-			reproduce_prob = SHEEP_REPRODUCE_PROB;
-
-			/* If there is grass, eat it (and I can be the only one to do so)! */
-			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART)) {
-				/* If grass is alive, sheep eats it and gains energy */
-				energy_l += SHEEP_GAIN_FROM_FOOD;
-			}
-			
-		} else { /* Agent is wolf, perform wolf actions. */
-			
-			/* Set reproduction threshold and probability */
-			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
-			reproduce_prob = WOLVES_REPRODUCE_PROB;
-
-			/* Cycle through agents in this cell */
-			uint2 cai = cell_agents_idx[cell_idx];
-			for (uint i = cai.s0; i < cai.s1; i++) {
-				if (type[i] == SHEEP_ID) {
-					/* If it is a sheep, try to eat it! */
-					if (atomic_cmpxchg(&(alive[i]), 1, 0)) {
-						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-						energy_l += WOLVES_GAIN_FROM_FOOD;
-						break;
-					}
-				}
-			}
-
-		}
-		
-		/* Try reproducing this agent if energy > reproduce_threshold */
-		if (energy_l > reproduce_threshold) {
-			
-			/* Throw dice to see if agent reproduces */
-			if (randomNextInt(seeds, 100) < reproduce_prob ) {
-				
-				/* Agent will reproduce! */
-				uint pos_new = get_global_size(0) + gid;
-				ushort energy_new_l = energy_l / 2;
-				type[pos_new] = type_l;
-				energy[pos_new] = energy_new_l;
-				xy[pos_new] = xy_l;
-				alive[pos_new] = 1;
-				
-				/* Current agent's energy will be halved also */
-				energy_l = energy_l - energy_new_l;
-				
-			}
-		}
-		
-		/* My actions only affect my energy, so I will only put back energy... */
-		energy[gid] = energy_l;
-		
-	}
+	//~ /* Get agent for this workitem */
+	//~ ushort2 xy_l = xy[gid];
+	//~ uint alive_l = alive[gid];
+	//~ ushort energy_l = energy[gid];
+	//~ uint type_l = type[gid];
+	//~ 
+	//~ /* If agent is alive, do stuff */
+	//~ if (alive_l) {
+		//~ 
+		//~ /* Get cell index where agent is */
+		//~ uint cell_idx = PPG_CALC_CELL_IDX(xy, gid);
+		//~ 
+		//~ /* Reproduction threshold and probability (used further ahead) */
+		//~ uchar reproduce_threshold, reproduce_prob;
+				//~ 
+		//~ /* Perform specific agent actions */
+		//~ if (type_l == SHEEP_ID) { /* Agent is sheep, perform sheep actions. */
+		//~ 
+			//~ /* Set reproduction threshold and probability */
+			//~ reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
+			//~ reproduce_prob = SHEEP_REPRODUCE_PROB;
+//~ 
+			//~ /* If there is grass, eat it (and I can be the only one to do so)! */
+			//~ if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART)) {
+				//~ /* If grass is alive, sheep eats it and gains energy */
+				//~ energy_l += SHEEP_GAIN_FROM_FOOD;
+			//~ }
+			//~ 
+		//~ } else { /* Agent is wolf, perform wolf actions. */
+			//~ 
+			//~ /* Set reproduction threshold and probability */
+			//~ reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
+			//~ reproduce_prob = WOLVES_REPRODUCE_PROB;
+//~ 
+			//~ /* Cycle through agents in this cell */
+			//~ uint2 cai = cell_agents_idx[cell_idx];
+			//~ for (uint i = cai.s0; i < cai.s1; i++) {
+				//~ if (type[i] == SHEEP_ID) {
+					//~ /* If it is a sheep, try to eat it! */
+					//~ if (atomic_cmpxchg(&(alive[i]), 1, 0)) {
+						//~ /* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+						//~ energy_l += WOLVES_GAIN_FROM_FOOD;
+						//~ break;
+					//~ }
+				//~ }
+			//~ }
+//~ 
+		//~ }
+		//~ 
+		//~ /* Try reproducing this agent if energy > reproduce_threshold */
+		//~ if (energy_l > reproduce_threshold) {
+			//~ 
+			//~ /* Throw dice to see if agent reproduces */
+			//~ if (randomNextInt(seeds, 100) < reproduce_prob ) {
+				//~ 
+				//~ /* Agent will reproduce! */
+				//~ uint pos_new = get_global_size(0) + gid;
+				//~ ushort energy_new_l = energy_l / 2;
+				//~ type[pos_new] = type_l;
+				//~ energy[pos_new] = energy_new_l;
+				//~ xy[pos_new] = xy_l;
+				//~ alive[pos_new] = 1;
+				//~ 
+				//~ /* Current agent's energy will be halved also */
+				//~ energy_l = energy_l - energy_new_l;
+				//~ 
+			//~ }
+		//~ }
+		//~ 
+		//~ /* My actions only affect my energy, so I will only put back energy... */
+		//~ energy[gid] = energy_l;
+		//~ 
+	//~ }
 }

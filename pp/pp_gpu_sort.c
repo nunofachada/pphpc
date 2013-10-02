@@ -53,11 +53,11 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 		cl_uint step = currentStage;
 		for (cl_uint currentStep = step; currentStep > 0; currentStep--) {
 			
-			status = clSetKernelArg(krnls[0], 5, sizeof(cl_uint), (void *) &currentStage);
-			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 5 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
+			status = clSetKernelArg(krnls[0], 3, sizeof(cl_uint), (void *) &currentStage);
+			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 3 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
 			
-			status = clSetKernelArg(krnls[0], 6, sizeof(cl_uint), (void *) &currentStep);
-			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 6 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
+			status = clSetKernelArg(krnls[0], 4, sizeof(cl_uint), (void *) &currentStep);
+			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 4 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
 			
 			status = clEnqueueNDRangeKernel(
 				queues[0], 
@@ -137,17 +137,11 @@ int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffers
 	status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of sbitonic_sort (OpenCL error %d)", status);
 
-	status = clSetKernelArg(*krnls[0], 1, sizeof(cl_mem), (void*) &buffersDevice.agents_alive);
+	status = clSetKernelArg(*krnls[0], 1, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of sbitonic_sort(OpenCL error %d)", status);
 
-	status = clSetKernelArg(*krnls[0], 2, sizeof(cl_mem), (void*) &buffersDevice.agents_energy);
+	status = clSetKernelArg(*krnls[0], 2, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of sbitonic_sort (OpenCL error %d)", status);
-
-	status = clSetKernelArg(*krnls[0], 3, sizeof(cl_mem), (void*) &buffersDevice.agents_type);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of sbitonic_sort (OpenCL error %d)", status);
-
-	status = clSetKernelArg(*krnls[0], 4, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 4 of sbitonic_sort (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	status = PP_SUCCESS;
