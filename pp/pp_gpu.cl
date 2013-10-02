@@ -369,10 +369,8 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			uintx data_l = data[gid];
-			sumSheep += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
-			//(VW_INT_VALUE(1) & ((data_l & VW_INT_VALUE(0xFFFF)) > 0)) & ~((data_l >> 16) ^ VW_SHEEP_ID);
-			sumWolves += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
-			//(VW_INT_VALUE(1) & ((data_l & VW_INT_VALUE(0xFFFF)) > 0)) & ~((data_l >> 16) ^ VW_WOLF_ID);
+			sumSheep += (data_l & VW_INT_VALUE(0x1)) > 0; //alive[index] & ~(type[index] ^ VW_SHEEP_ID); //VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
+			sumWolves += VW_INT_VALUE(0); //VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
 		}
 	}
 
@@ -488,7 +486,7 @@ __kernel void moveAgent(
 		xy = (xy + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
 
 		/* Lose energy */
-		data--;
+		//data--;
 		
 		/* Update global mem */
 		xy_g[gid] = xy;

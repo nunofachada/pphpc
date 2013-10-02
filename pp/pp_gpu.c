@@ -545,6 +545,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
 		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
 		max_agents_iter = MAX(PPG_MIN_AGENTS, 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep));
+		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
 
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
@@ -582,52 +583,52 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ********* Step 3.1: Agent sort ********** */
 		/* ***************************************** */
 
-		sort_info.sort(
-			&zone->queues[1], 
-			krnls.sort_agent, 
-			evts->sort_agent, 
-			lws.sort_agent,
-			max_agents_iter,
-			iter,
-			err
-		);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-		
-#ifdef PPG_DEBUG
-		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d (OpenCL error %d)", iter, status);
-#endif
+		//~ sort_info.sort(
+			//~ &zone->queues[1], 
+			//~ krnls.sort_agent, 
+			//~ evts->sort_agent, 
+			//~ lws.sort_agent,
+			//~ max_agents_iter,
+			//~ iter,
+			//~ err
+		//~ );
+		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		//~ 
+//~ #ifdef PPG_DEBUG
+		//~ status = clFinish(zone->queues[1]);
+		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d (OpenCL error %d)", iter, status);
+//~ #endif
 
 		/* ***************************************** */
 		/* **** Step 3.2: Find cell agent index **** */
 		/* ***************************************** */
 
 		/* Determine kernel global worksize. */
-		gws_find_cell_idx = PP_GWS_MULT(
-			max_agents_iter,
-			lws.find_cell_idx
-		);
-
-		status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.find_cell_idx,
-			1,
-			NULL,
-			&gws_find_cell_idx,
-			&lws.find_cell_idx,
-			0,
-			NULL,
-#ifdef CLPROFILER
-			&evts->find_cell_idx[iter]
-#else
-			NULL
-#endif
-		);
-		
-#ifdef PPG_DEBUG
-		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after find_cell_idx, iteration %d (OpenCL error %d)", iter, status);
-#endif
+		//~ gws_find_cell_idx = PP_GWS_MULT(
+			//~ max_agents_iter,
+			//~ lws.find_cell_idx
+		//~ );
+//~ 
+		//~ status = clEnqueueNDRangeKernel(
+			//~ zone->queues[1],
+			//~ krnls.find_cell_idx,
+			//~ 1,
+			//~ NULL,
+			//~ &gws_find_cell_idx,
+			//~ &lws.find_cell_idx,
+			//~ 0,
+			//~ NULL,
+//~ #ifdef CLPROFILER
+			//~ &evts->find_cell_idx[iter]
+//~ #else
+			//~ NULL
+//~ #endif
+		//~ );
+		//~ 
+//~ #ifdef PPG_DEBUG
+		//~ status = clFinish(zone->queues[1]);
+		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after find_cell_idx, iteration %d (OpenCL error %d)", iter, status);
+//~ #endif
 	
 
 		/* ***************************************** */
@@ -773,14 +774,14 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Move agent", evts->move_agent[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		//~ profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
+		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
 		//~ profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
 		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
-	sort_info.events_profile(evts->sort_agent, profile, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	//~ sort_info.events_profile(evts->sort_agent, profile, err);
+	//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 
 	/* Analyse event data. */

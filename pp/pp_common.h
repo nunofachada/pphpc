@@ -129,6 +129,7 @@ enum pp_error_codes {
 	PP_INVALID_PARAMS_FILE = -5,        /**< Invalid parameters file. */
 	PP_UNABLE_SAVE_STATS = -6,          /**< Unable to save stats. */
 	PP_ALLOC_MEM_FAIL = -7,             /**< Unable to allocate memory. */
+	PP_OUT_OF_RESOURCES = -8            /**< Program state above limits. */
 };
 
 /** 
