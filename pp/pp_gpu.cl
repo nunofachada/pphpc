@@ -126,16 +126,16 @@
 #define PPG_AG_TYPE(data) ((data) >> 16)
 #define PPG_AG_TYPE_V(data) ((data) >> VW_INT_VALUE(16))
 
-#define PPG_AG_IS_SHEEP(data) !(((data) & 0x10000) ^ (SHEEP_ID << 16))
-#define PPG_AG_IS_WOLF(data) !(((data) & 0x10000) ^ (WOLF_ID << 16))
-#define PPG_AG_IS_SHEEP_V(data) !(((data) & VW_INT_VALUE(0x10000)) ^ (VW_SHEEP_ID << VW_INT_VALUE(16)))
-#define PPG_AG_IS_WOLF_V(data) !(((data) & VW_INT_VALUE(0x10000)) ^ (VW_WOLF_ID << VW_INT_VALUE(16)))
+#define PPG_AG_IS_SHEEP(data) ((uint) !(((data) & 0x10000) ^ (SHEEP_ID << 16)))
+#define PPG_AG_IS_WOLF(data) ((uint) !(((data) & 0x10000) ^ (WOLF_ID << 16)))
+#define PPG_AG_IS_SHEEP_V(data) convert_uintx(!(((data) & VW_INT_VALUE(0x10000)) ^ (VW_SHEEP_ID << VW_INT_VALUE(16))))
+#define PPG_AG_IS_WOLF_V(data) convert_uintx(!(((data) & VW_INT_VALUE(0x10000)) ^ (VW_WOLF_ID << VW_INT_VALUE(16))))
 
 #define PPG_AG_SET(type, energy) (((type) << 16) | ((energy) & 0xFFFF))
 #define PPG_AG_SET_V(type, energy) (((type) << VW_INT_VALUE(16)) | ((energy) & VW_INT_VALUE(0xFFFF)))
 
-#define PPG_AG_IS_ALIVE(data) (((data) & 0xFFFF) > 0)
-#define PPG_AG_IS_ALIVE_V(data) (((data) & VW_INT_VALUE(0xFFFF)) > VW_INT_VALUE(0))
+#define PPG_AG_IS_ALIVE(data) ((uint) (((data) & 0xFFFF) > 0))
+#define PPG_AG_IS_ALIVE_V(data) convert_uintx((((data) & VW_INT_VALUE(0xFFFF)) > VW_INT_VALUE(0)))
 
 #define PPG_AG_DEAD 0
 
@@ -193,51 +193,51 @@ __kernel void initAgent(
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
-	/* Agent state. */
 	
-	ushort2 xy_l = (ushort2) (0, 0);
-	uint data_l = PPG_AG_DEAD;
-	uint hash = PPG_AG_HASH_DEAD;
-	
-	/* Check if this workitem will initialize an agent. */
-	if (gid < INIT_SHEEP + INIT_WOLVES) {
-		/* Is this agent a sheep? */
-		uint isSheep = gid < INIT_SHEEP;
-		/* Determine agent coordinates. */
-		xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		/* Set agent type and energy. */
-		data_l = PPG_AG_SET(
-			select(WOLF_ID, SHEEP_ID, isSheep),
-			randomNextInt(seeds, select((uint) WOLVES_GAIN_FROM_FOOD, (uint) SHEEP_GAIN_FROM_FOOD, isSheep) * 2) + 1
-		);
-		/* Determine agent hash. */
-		hash = PPG_AG_HASH(data_l, xy_l);
-	}
-	
-	/* Store agent state in global memory. */
-	xy[gid] = xy_l;
-	data[gid] = data_l;
-	hashes[gid] = hash;
-	
-	//~ /* Determine what this workitem will do. */
+	//~ /* Agent state. */
+	//~ ushort2 xy_l = (ushort2) (0, 0);
+	//~ uint data_l = PPG_AG_DEAD;
+	//~ uint hash = PPG_AG_HASH_DEAD;
+	//~ 
+	//~ /* Check if this workitem will initialize an agent. */
 	//~ if (gid < INIT_SHEEP + INIT_WOLVES) {
-		//~ /* This workitem will initialize an alive agent. */
-		//~ ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		//~ xy[gid] = xy_l;
-		//~ hashes[gid] = PPG_AG_HASH(1, xy_l.x, xy_l.y);
-		//~ /* The remaining parameters depend on the type of agent. */
-		//~ if (gid < INIT_SHEEP) { /// @todo Use select instead of if
-			//~ /* A sheep agent. */
-			//~ data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
-		//~ } else {
-			//~ /* A wolf agent. */
-			//~ data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
-		//~ }
-	//~ } else if (gid < max_agents) {
-		//~ /* This workitem will initialize a dead agent with no type. */
-		//~ data[gid] = 0;
-		//~ hashes[gid] = PPG_AG_HASH_DEAD;
+		//~ /* Is this agent a sheep? */
+		//~ uint isSheep = gid < INIT_SHEEP;
+		//~ /* Determine agent coordinates. */
+		//~ xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		//~ /* Set agent type and energy. */
+		//~ data_l = PPG_AG_SET(
+			//~ select(WOLF_ID, SHEEP_ID, isSheep),
+			//~ randomNextInt(seeds, select((uint) WOLVES_GAIN_FROM_FOOD, (uint) SHEEP_GAIN_FROM_FOOD, isSheep) * 2) + 1
+		//~ );
+		//~ /* Determine agent hash. */
+		//~ hash = PPG_AG_HASH(data_l, xy_l);
 	//~ }
+	//~ 
+	//~ /* Store agent state in global memory. */
+	//~ xy[gid] = xy_l;
+	//~ data[gid] = data_l;
+	//~ hashes[gid] = hash;
+	
+	/* Determine what this workitem will do. */
+	if (gid < INIT_SHEEP + INIT_WOLVES) {
+		/* This workitem will initialize an alive agent. */
+		ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		xy[gid] = xy_l;
+		hashes[gid] = PPG_AG_HASH(1, xy_l);
+		/* The remaining parameters depend on the type of agent. */
+		if (gid < INIT_SHEEP) { 
+			/* A sheep agent. */
+			data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
+		} else {
+			/* A wolf agent. */
+			data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
+		}
+	} else if (gid < max_agents) {
+		/* This workitem will initialize a dead agent with no type. */
+		data[gid] = 0;
+		hashes[gid] = PPG_AG_HASH_DEAD;
+	}
 }
 
 
@@ -293,7 +293,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += VW_INT_VALUE(1) & !grass[index]; /// I can use select here instead of making the &. Is it worth it?
+			sum += VW_INT_VALUE(1) & ~grass[index]; /// I can use select here instead of making the &. Is it worth it?
 		}
 	}
 	
