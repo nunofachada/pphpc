@@ -157,20 +157,18 @@ __kernel void initCell(
 	/* Grid position for this work-item */
 	uint gid = get_global_id(0);
 
-	/* Check if this workitem will initialize a cell... */
-	if (gid < CELL_NUM) {
-		/* ...yes, it will. */
-		if (randomNextInt(seeds, 2)) {
-			/* Grass is alive */
-			grass[gid] = 0;
-		} else {
-			/* Grass is dead */
-			grass[gid] = randomNextInt(seeds, GRASS_RESTART) + 1;
-		}
-	} else if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
-		/* Make sure that grass in padding cells are dead so
-		 * they're not incorrectly counted in the reduction step. */
-		grass[gid] = GRASS_RESTART;
+	/* Check if this workitem will initialize a cell. This might include
+	 * padding cells if vectors are used. */
+	if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
+		/* Only cells within the correct bound (0-CELL_NUM) are
+		 * properly initialized but we have to make sure that padding 
+		 * cells (when vectors are used) are dead so they're not 
+		 * incorrectly counted in the reduction step. */
+		uint grass_l = select((uint) GRASS_RESTART, (uint) (randomNextInt(seeds, GRASS_RESTART) + 1), gid < CELL_NUM);
+		/* The single random number determined in the previous step is 
+		 * used both to determine if grass is alive or dead, and if 
+		 * dead, the countdown counter initial value. */
+		grass[gid] = select(grass_l, (uint) 0, grass_l <= GRASS_RESTART / 2);
 	}
 	
 }
