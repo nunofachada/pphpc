@@ -213,6 +213,7 @@ __kernel void initAgent(
 		}
 	} else if (gid < max_agents) {
 		/* This workitem will initialize a dead agent with no type. */
+		data[gid] = 0;
 		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
 }
@@ -369,8 +370,8 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			uintx data_l = data[gid];
-			sumSheep += (data_l & VW_INT_VALUE(0x1)) > 0; //alive[index] & ~(type[index] ^ VW_SHEEP_ID); //VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
-			sumWolves += VW_INT_VALUE(0); //VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
+			sumSheep += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
+			sumWolves += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
 		}
 	}
 
