@@ -604,31 +604,31 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/* Determine kernel global worksize. */
-		//~ gws_find_cell_idx = PP_GWS_MULT(
-			//~ max_agents_iter,
-			//~ lws.find_cell_idx
-		//~ );
-//~ 
-		//~ status = clEnqueueNDRangeKernel(
-			//~ zone->queues[1],
-			//~ krnls.find_cell_idx,
-			//~ 1,
-			//~ NULL,
-			//~ &gws_find_cell_idx,
-			//~ &lws.find_cell_idx,
-			//~ 0,
-			//~ NULL,
-//~ #ifdef CLPROFILER
-			//~ &evts->find_cell_idx[iter]
-//~ #else
-			//~ NULL
-//~ #endif
-		//~ );
-		//~ 
-//~ #ifdef PPG_DEBUG
-		//~ status = clFinish(zone->queues[1]);
-		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after find_cell_idx, iteration %d (OpenCL error %d)", iter, status);
-//~ #endif
+		gws_find_cell_idx = PP_GWS_MULT(
+			max_agents_iter,
+			lws.find_cell_idx
+		);
+
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1],
+			krnls.find_cell_idx,
+			1,
+			NULL,
+			&gws_find_cell_idx,
+			&lws.find_cell_idx,
+			0,
+			NULL,
+#ifdef CLPROFILER
+			&evts->find_cell_idx[iter]
+#else
+			NULL
+#endif
+		);
+		
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after find_cell_idx, iteration %d (OpenCL error %d)", iter, status);
+#endif
 	
 
 		/* ***************************************** */
@@ -774,8 +774,8 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Move agent", evts->move_agent[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
-		//~ profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
-		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
 		//~ profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
 		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);

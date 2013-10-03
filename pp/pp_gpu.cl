@@ -194,31 +194,6 @@ __kernel void initAgent(
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
 	
-	//~ /* Agent state. */
-	//~ ushort2 xy_l = (ushort2) (0, 0);
-	//~ uint data_l = PPG_AG_DEAD;
-	//~ uint hash = PPG_AG_HASH_DEAD;
-	//~ 
-	//~ /* Check if this workitem will initialize an agent. */
-	//~ if (gid < INIT_SHEEP + INIT_WOLVES) {
-		//~ /* Is this agent a sheep? */
-		//~ uint isSheep = gid < INIT_SHEEP;
-		//~ /* Determine agent coordinates. */
-		//~ xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		//~ /* Set agent type and energy. */
-		//~ data_l = PPG_AG_SET(
-			//~ select(WOLF_ID, SHEEP_ID, isSheep),
-			//~ randomNextInt(seeds, select((uint) WOLVES_GAIN_FROM_FOOD, (uint) SHEEP_GAIN_FROM_FOOD, isSheep) * 2) + 1
-		//~ );
-		//~ /* Determine agent hash. */
-		//~ hash = PPG_AG_HASH(data_l, xy_l);
-	//~ }
-	//~ 
-	//~ /* Store agent state in global memory. */
-	//~ xy[gid] = xy_l;
-	//~ data[gid] = data_l;
-	//~ hashes[gid] = hash;
-	
 	/* Determine what this workitem will do. */
 	if (gid < INIT_SHEEP + INIT_WOLVES) {
 		/* This workitem will initialize an alive agent. */
@@ -238,6 +213,10 @@ __kernel void initAgent(
 		data[gid] = 0;
 		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
+	
+	/* In commit 00ea5434a83d7aa134a7ecba413e2f2341086630 there is a
+	 * streamlined, theoretically faster version of this kernel, with
+	 * less divergence and so on, but it is actually slower. */
 }
 
 
