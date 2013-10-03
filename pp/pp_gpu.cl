@@ -137,7 +137,9 @@
 #define PPG_AG_IS_ALIVE(data) (((data) & 0xFFFF) > 0)
 #define PPG_AG_IS_ALIVE_V(data) (((data) & VW_INT_VALUE(0xFFFF)) > VW_INT_VALUE(0))
 
-#define PPG_AG_HASH(data, x, y) (((PPG_AG_ENERGY(data) == 0) << 31) | ((x) << 15) | (y)) // This assumes 15-bit coordinates at most (32768=x_max=y_max.)
+#define PPG_AG_DEAD 0
+
+#define PPG_AG_HASH(data, xy) (((PPG_AG_ENERGY(data) == 0) << 31) | ((xy.x) << 15) | (xy.y)) // This assumes 15-bit coordinates at most (32768=x_max=y_max.)
 #define PPG_AG_HASH_DEAD -1
 
 #define PPG_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
@@ -160,15 +162,12 @@ __kernel void initCell(
 	/* Check if this workitem will initialize a cell. This might include
 	 * padding cells if vectors are used. */
 	if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
-		/* Only cells within the correct bound (0-CELL_NUM) are
-		 * properly initialized but we have to make sure that padding 
-		 * cells (when vectors are used) are dead so they're not 
-		 * incorrectly counted in the reduction step. */
-		uint grass_l = select((uint) GRASS_RESTART, (uint) (randomNextInt(seeds, GRASS_RESTART) + 1), gid < CELL_NUM);
-		/* The single random number determined in the previous step is 
-		 * used both to determine if grass is alive or dead, and if 
-		 * dead, the countdown counter initial value. */
-		grass[gid] = select(grass_l, (uint) 0, grass_l <= GRASS_RESTART / 2);
+		/* Cells within bounds may be dead or alive with 50% chance.
+		 * Padding cells (gid >= CELL_NUM) are always dead. */
+		uint is_alive = select((uint) 0, (uint) randomNextInt(seeds, 2), gid < CELL_NUM);
+		/* If cell is alive, value will be zero. Otherwise, randomly
+		 * determine a counter value. */
+		grass[gid] = select((uint) (randomNextInt(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
 	}
 	
 }
@@ -194,26 +193,51 @@ __kernel void initAgent(
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
+	/* Agent state. */
 	
-	/* Determine what this workitem will do. */
+	ushort2 xy_l = (ushort2) (0, 0);
+	uint data_l = PPG_AG_DEAD;
+	uint hash = PPG_AG_HASH_DEAD;
+	
+	/* Check if this workitem will initialize an agent. */
 	if (gid < INIT_SHEEP + INIT_WOLVES) {
-		/* This workitem will initialize an alive agent. */
-		ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		xy[gid] = xy_l;
-		hashes[gid] = PPG_AG_HASH(1, xy_l.x, xy_l.y);
-		/* The remaining parameters depend on the type of agent. */
-		if (gid < INIT_SHEEP) { /// @todo Use select instead of if
-			/* A sheep agent. */
-			data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
-		} else {
-			/* A wolf agent. */
-			data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
-		}
-	} else if (gid < max_agents) {
-		/* This workitem will initialize a dead agent with no type. */
-		data[gid] = 0;
-		hashes[gid] = PPG_AG_HASH_DEAD;
+		/* Is this agent a sheep? */
+		uint isSheep = gid < INIT_SHEEP;
+		/* Determine agent coordinates. */
+		xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		/* Set agent type and energy. */
+		data_l = PPG_AG_SET(
+			select(WOLF_ID, SHEEP_ID, isSheep),
+			randomNextInt(seeds, select((uint) WOLVES_GAIN_FROM_FOOD, (uint) SHEEP_GAIN_FROM_FOOD, isSheep) * 2) + 1
+		);
+		/* Determine agent hash. */
+		hash = PPG_AG_HASH(data_l, xy_l);
 	}
+	
+	/* Store agent state in global memory. */
+	xy[gid] = xy_l;
+	data[gid] = data_l;
+	hashes[gid] = hash;
+	
+	//~ /* Determine what this workitem will do. */
+	//~ if (gid < INIT_SHEEP + INIT_WOLVES) {
+		//~ /* This workitem will initialize an alive agent. */
+		//~ ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		//~ xy[gid] = xy_l;
+		//~ hashes[gid] = PPG_AG_HASH(1, xy_l.x, xy_l.y);
+		//~ /* The remaining parameters depend on the type of agent. */
+		//~ if (gid < INIT_SHEEP) { /// @todo Use select instead of if
+			//~ /* A sheep agent. */
+			//~ data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
+		//~ } else {
+			//~ /* A wolf agent. */
+			//~ data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
+		//~ }
+	//~ } else if (gid < max_agents) {
+		//~ /* This workitem will initialize a dead agent with no type. */
+		//~ data[gid] = 0;
+		//~ hashes[gid] = PPG_AG_HASH_DEAD;
+	//~ }
 }
 
 
@@ -492,7 +516,7 @@ __kernel void moveAgent(
 		data_g[gid] = data;
 	
 		/* Determine and set agent hash (for sorting). */
-		hashes[gid] = PPG_AG_HASH(data, xy.x, xy.y);
+		hashes[gid] = PPG_AG_HASH(data, xy);
 	}
 	
 }
