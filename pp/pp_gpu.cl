@@ -32,27 +32,22 @@
 
 /* Char vector width pre-defines */
 #if VW_CHAR == 1
-	#define VW_CHAR_VALUE(x) ((uchar) (x))
 	#define VW_CHAR_SUM(x) (x)
 	#define convert_ucharx(x) convert_uchar(x)
 	typedef uchar ucharx;
 #elif VW_CHAR == 2
-	#define VW_CHAR_VALUE(x) ((uchar2) (x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1)
 	#define convert_ucharx(x) convert_uchar2(x)
 	typedef uchar2 ucharx;
 #elif VW_CHAR == 4
-	#define VW_CHAR_VALUE(x) ((uchar4) (x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_ucharx(x) convert_uchar4(x)
 	typedef uchar4 ucharx;
 #elif VW_CHAR == 8
-	#define VW_CHAR_VALUE(x) ((uchar8) (x, x, x, x, x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_ucharx(x) convert_uchar8(x)
 	typedef uchar8 ucharx;
 #elif VW_CHAR == 16
-	#define VW_CHAR_VALUE(x) ((uchar16) (x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x))
 	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_ucharx(x) convert_uchar16(x)
 	typedef uchar16 ucharx;
@@ -60,82 +55,37 @@
 
 /* Integer vector width pre-defines */
 #if VW_INT == 1
-	#define VW_INT_VALUE(x) ((uint) (x))
 	#define VW_INT_SUM(x) (x)
 	#define convert_uintx(x) convert_uint(x)
 	typedef uint uintx;
-	#define VW_SHEEP_ID ((uint) SHEEP_ID)
-	#define VW_WOLF_ID ((uint) WOLF_ID)
 #elif VW_INT == 2
-	#define VW_INT_VALUE(x) ((uint2) (x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1)
 	#define convert_uintx(x) convert_uint2(x)
 	typedef uint2 uintx;
-	#define VW_SHEEP_ID ((uint2) (SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((uint2) (WOLF_ID, WOLF_ID))
 #elif VW_INT == 4
-	#define VW_INT_VALUE(x) ((uint4) (x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_uintx(x) convert_uint4(x)
 	typedef uint4 uintx;
-	#define VW_SHEEP_ID ((uint4) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((uint4) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_INT == 8
-	#define VW_INT_VALUE(x) ((uint8) (x, x, x, x, x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_uintx(x) convert_uint8(x)
 	typedef uint8 uintx;
-	#define VW_SHEEP_ID ((uint8) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((uint8) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
 #elif VW_INT == 16
-	#define VW_INT_VALUE(x) ((uint16) (x, x, x, x, x, x, x, x, x, x, x, x, x, x, x, x))
 	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_uintx(x) convert_uint16(x)
 	typedef uint16 uintx;
-	#define VW_SHEEP_ID ((uint16) (SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID, SHEEP_ID))
-	#define VW_WOLF_ID ((uint16) (WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID, WOLF_ID))
-#endif
-
-/* Char to vector conversion pre-defines */
-#if VW_CHAR2INT_MUL == 1
-	#define VW_CHAR2INT(c) convert_uintx(c)
-#elif VW_CHAR2INT_MUL == 2
-	#define VW_CHAR2INT(c) convert_uintx(c.hi + c.lo)
-#elif VW_CHAR2INT_MUL == 4
-	#define VW_CHAR2INT(c) convert_uintx((c.hi + c.lo).hi + (c.hi + c.lo).lo)
-#elif VW_CHAR2INT_MUL == 8
-	#define VW_CHAR2INT(c) convert_uintx( \
-			((c.hi + c.lo).hi + (c.hi + c.lo).lo).hi +  \
-			((c.hi + c.lo).hi + (c.hi + c.lo).lo).lo)
-#elif VW_CHAR2INT_MUL == 16
-	#define VW_CHAR2INT(c) convert_uintx( \
-				( \
-					((c.hi + c.lo).hi + (c.hi + c.lo).lo).hi +  \
-					((c.hi + c.lo).hi + (c.hi + c.lo).lo).lo \
-				).hi + \
-				( \
-					((c.hi + c.lo).hi + (c.hi + c.lo).lo).hi +  \
-					((c.hi + c.lo).hi + (c.hi + c.lo).lo).lo \
-				).lo \
-			)
 #endif
 
 #define PPG_AG_ENERGY(data) ((data) & 0xFFFF)
-#define PPG_AG_ENERGY_V(data) ((data) & VW_INT_VALUE(0xFFFF))
 
 #define PPG_AG_TYPE(data) ((data) >> 16)
-#define PPG_AG_TYPE_V(data) ((data) >> VW_INT_VALUE(16))
 
-#define PPG_AG_IS_SHEEP(data) ((uint) !(((data) & 0x10000) ^ (SHEEP_ID << 16)))
-#define PPG_AG_IS_WOLF(data) ((uint) !(((data) & 0x10000) ^ (WOLF_ID << 16)))
-#define PPG_AG_IS_SHEEP_V(data) convert_uintx(!(((data) & VW_INT_VALUE(0x10000)) ^ (VW_SHEEP_ID << VW_INT_VALUE(16))))
-#define PPG_AG_IS_WOLF_V(data) convert_uintx(!(((data) & VW_INT_VALUE(0x10000)) ^ (VW_WOLF_ID << VW_INT_VALUE(16))))
+#define PPG_AG_IS_SHEEP(data) !(((data) & 0x10000) ^ (SHEEP_ID << 16))
+#define PPG_AG_IS_WOLF(data) !(((data) & 0x10000) ^ (WOLF_ID << 16))
 
 #define PPG_AG_SET(type, energy) (((type) << 16) | ((energy) & 0xFFFF))
-#define PPG_AG_SET_V(type, energy) (((type) << VW_INT_VALUE(16)) | ((energy) & VW_INT_VALUE(0xFFFF)))
 
-#define PPG_AG_IS_ALIVE(data) ((uint) (((data) & 0xFFFF) > 0))
-#define PPG_AG_IS_ALIVE_V(data) convert_uintx((((data) & VW_INT_VALUE(0xFFFF)) > VW_INT_VALUE(0)))
+#define PPG_AG_IS_ALIVE(data) (((data) & 0xFFFF) > 0)
 
 #define PPG_AG_DEAD 0
 
@@ -173,7 +123,7 @@ __kernel void initCell(
 }
 
 /**
- * @brief Intialize agents.
+ * @brief Initialize agents.
  * 
  * @param xy
  * @param alive
@@ -264,7 +214,7 @@ __kernel void reduceGrass1(
 	uint global_size = get_global_size(0);
 	
 	/* Serial sum */
-	uintx sum = VW_INT_VALUE(0);
+	uintx sum = 0;
 	
 	/* Serial count */
 	uint cellVectorCount = PP_DIV_CEIL(CELL_NUM, VW_INT);
@@ -272,7 +222,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += VW_INT_VALUE(1) & ~grass[index]; /// I can use select here instead of making the &. Is it worth it?
+			sum += 0x1 & convert_uintx(!grass[index]); /// I can use select here instead of making the &. Is it worth it?
 		}
 	}
 	
@@ -317,7 +267,7 @@ __kernel void reduceGrass1(
 	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
 		partial_sums[lid] = reduce_grass_global[lid];
 	else
-		partial_sums[lid] = VW_INT_VALUE(0);
+		partial_sums[lid] = 0;
 	
 	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -360,8 +310,8 @@ __kernel void reduceAgent1(
 	uint group_id = get_group_id(0);
 	
 	/* Serial sum */
-	uintx sumSheep = VW_INT_VALUE(0);
-	uintx sumWolves = VW_INT_VALUE(0);
+	uintx sumSheep = 0;
+	uintx sumWolves = 0;
 	
 	/* Serial count */
 	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_INT);
@@ -371,8 +321,9 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			uintx data_l = data[gid];
-			sumSheep += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_SHEEP_V(data_l);
-			sumWolves += VW_INT_VALUE(1) & PPG_AG_IS_ALIVE_V(data_l) & PPG_AG_IS_WOLF_V(data_l);
+			uintx is_alive = 0x1 & convert_uintx(((data_l) & 0xFFFF) > 0);
+			sumSheep += is_alive & convert_uintx(PPG_AG_IS_SHEEP(data_l));
+			sumWolves += is_alive & convert_uintx(PPG_AG_IS_WOLF(data_l));
 		}
 	}
 
@@ -424,8 +375,8 @@ __kernel void reduceAgent1(
 		partial_sums[lid] = reduce_agent_global[lid];
 		partial_sums[group_size + lid] = reduce_agent_global[MAX_LWS + lid];
 	} else {
-		partial_sums[lid] = VW_INT_VALUE(0);
-		partial_sums[group_size + lid] = VW_INT_VALUE(0);
+		partial_sums[lid] = 0;
+		partial_sums[group_size + lid] = 0;
 	}
 	
 	/* Wait for all work items to perform previous operation */
