@@ -5,10 +5,6 @@
 
 #include "libcl/rng.cl"
 
-#define SHEEP_ID 0
-#define WOLF_ID 1
-#define GRASS_ID 2
-
 /**
  * @brief Performs integer division returning the ceiling instead of
  * the floor if it is not an exact division.

@@ -5,6 +5,9 @@
 
 #include "pp_common.cl"
 
+#define SHEEP_ID 0
+#define WOLF_ID 1
+
 #define PPCCell_GRASS_OFFSET 0
 #define PPCCell_AGINDEX_OFFSET 1
 

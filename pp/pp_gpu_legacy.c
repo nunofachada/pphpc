@@ -22,7 +22,7 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // OpenCL kernel files
-const char* kernelFiles[] = {"pp/pp_gpu_legacy_Kernels.cl"};
+const char* kernelFiles[] = {"pp/pp_gpu_legacy.cl"};
 
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];

@@ -583,21 +583,21 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ********* Step 3.1: Agent sort ********** */
 		/* ***************************************** */
 
-		//~ sort_info.sort(
-			//~ &zone->queues[1], 
-			//~ krnls.sort_agent, 
-			//~ evts->sort_agent, 
-			//~ lws.sort_agent,
-			//~ max_agents_iter,
-			//~ iter,
-			//~ err
-		//~ );
-		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-		//~ 
-//~ #ifdef PPG_DEBUG
-		//~ status = clFinish(zone->queues[1]);
-		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d (OpenCL error %d)", iter, status);
-//~ #endif
+		sort_info.sort(
+			&zone->queues[1], 
+			krnls.sort_agent, 
+			evts->sort_agent, 
+			lws.sort_agent,
+			max_agents_iter,
+			iter,
+			err
+		);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d (OpenCL error %d)", iter, status);
+#endif
 
 		/* ***************************************** */
 		/* **** Step 3.2: Find cell agent index **** */
@@ -635,33 +635,32 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ******* Step 3.3: Agent actions ********* */
 		/* ***************************************** */
 
-		//~ /* Determine agent actions kernel global worksize. */
-		//~ gws_action_agent = PP_GWS_MULT(
-			//~ max_agents_iter,
-			//~ lws.action_agent
-		//~ );
-//~ 
-		//~ status = clEnqueueNDRangeKernel(
-			//~ zone->queues[1],
-			//~ krnls.action_agent,
-			//~ 1,
-			//~ NULL,
-			//~ &gws_action_agent,
-			//~ &lws.action_agent,
-			//~ 0,
-			//~ NULL,
-//~ #ifdef CLPROFILER
-			//~ &evts->action_agent[iter]
-//~ #else
-			//~ NULL
-//~ #endif
-		//~ );
-//~ 
-//~ #ifdef PPG_DEBUG
-		//~ status = clFinish(zone->queues[1]);
-		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
-//~ #endif
+		/* Determine agent actions kernel global worksize. */
+		gws_action_agent = PP_GWS_MULT(
+			max_agents_iter,
+			lws.action_agent
+		);
 
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1],
+			krnls.action_agent,
+			1,
+			NULL,
+			&gws_action_agent,
+			&lws.action_agent,
+			0,
+			NULL,
+#ifdef CLPROFILER
+			&evts->action_agent[iter]
+#else
+			NULL
+#endif
+		);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
+#endif
 		
 	}
 	/* ********************** */
@@ -777,11 +776,11 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
-		//~ profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
-		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
-	//~ sort_info.events_profile(evts->sort_agent, profile, err);
-	//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	sort_info.events_profile(evts->sort_agent, profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 
 	/* Analyse event data. */

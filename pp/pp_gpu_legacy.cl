@@ -13,7 +13,6 @@
 
 #define SHEEP_ID 0
 #define WOLF_ID 1
-#define GRASS_ID 2
 #define TOTALPPGSAgentS_ID 3
 
 #include "pp_common.cl"
