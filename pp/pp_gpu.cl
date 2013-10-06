@@ -222,7 +222,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += 0x1 & convert_uintx(!grass[index]); /// I can use select here instead of making the &. Is it worth it?
+			sum += 0x1 & convert_uintx(!grass[index]);
 		}
 	}
 	
@@ -320,7 +320,7 @@ __kernel void reduceAgent1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			uintx data_l = data[gid];
+			uintx data_l = data[index];
 			uintx is_alive = 0x1 & convert_uintx(((data_l) & 0xFFFF) > 0);
 			sumSheep += is_alive & convert_uintx(PPG_AG_IS_SHEEP(data_l));
 			sumWolves += is_alive & convert_uintx(PPG_AG_IS_WOLF(data_l));

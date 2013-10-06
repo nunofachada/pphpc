@@ -546,7 +546,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
 		max_agents_iter = MAX(PPG_MIN_AGENTS, 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep));
 		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
-
+		
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
 		/* ***************************************** */
