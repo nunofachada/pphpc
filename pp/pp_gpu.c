@@ -8,6 +8,8 @@
 
 //#define PPG_DEBUG
 
+#define PPG_AGENTS_DUMP
+
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
@@ -258,6 +260,13 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice,
 	GError** err) {
 
+#ifdef PPG_AGENTS_DUMP
+	FILE *fp_agent_dump = fopen("ag_dump.txt", "w");
+	cl_ushort2 *agents_xy = (cl_ushort2*) malloc(sizeof(cl_ushort2) * args.max_agents);
+	cl_uint *agents_data = (cl_uint*) malloc(sizeof(cl_uint) * args.max_agents);
+	cl_uint *agents_hash = (cl_uint*) malloc(sizeof(cl_uint) * args.max_agents);
+#endif
+
 	/* Aux. var. */
 	cl_int status;
 	
@@ -301,6 +310,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	status = clFinish(zone->queues[1]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: Map pinned stats (OpenCL error %d)", status);
 #endif	
+
 		
 	/* Load RNG seeds into device buffers. */
 	status = clEnqueueWriteBuffer(
@@ -635,37 +645,60 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ******* Step 3.3: Agent actions ********* */
 		/* ***************************************** */
 
-		/* Determine agent actions kernel global worksize. */
-		gws_action_agent = PP_GWS_MULT(
-			max_agents_iter,
-			lws.action_agent
-		);
+		//~ /* Determine agent actions kernel global worksize. */
+		//~ gws_action_agent = PP_GWS_MULT(
+			//~ max_agents_iter,
+			//~ lws.action_agent
+		//~ );
+//~ 
+		//~ status = clEnqueueNDRangeKernel(
+			//~ zone->queues[1],
+			//~ krnls.action_agent,
+			//~ 1,
+			//~ NULL,
+			//~ &gws_action_agent,
+			//~ &lws.action_agent,
+			//~ 0,
+			//~ NULL,
+//~ #ifdef CLPROFILER
+			//~ &evts->action_agent[iter]
+//~ #else
+			//~ NULL
+//~ #endif
+		//~ );
+//~ 
+//~ #ifdef PPG_DEBUG
+		//~ status = clFinish(zone->queues[1]);
+		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
+//~ #endif
 
-		status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.action_agent,
-			1,
-			NULL,
-			&gws_action_agent,
-			&lws.action_agent,
-			0,
-			NULL,
-#ifdef CLPROFILER
-			&evts->action_agent[iter]
-#else
-			NULL
-#endif
-		);
 
-#ifdef PPG_DEBUG
-		status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
+#ifdef PPG_AGENTS_DUMP
+
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_xy, CL_TRUE, 0, max_agents_iter, agents_xy, 0, NULL, NULL);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read xy, iteration %d (OpenCL error %d)", iter, status);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_data, CL_TRUE, 0, max_agents_iter, agents_data, 0, NULL, NULL);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read data, iteration %d (OpenCL error %d)", iter, status);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_hash, CL_TRUE, 0, max_agents_iter, agents_hash, 0, NULL, NULL);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read hashes, iteration %d (OpenCL error %d)", iter, status);
+		
+		fprintf(fp_agent_dump, "\nIteration %d\n", iter);
+		for (unsigned int k = 0; k < max_agents_iter; k++) {
+			fprintf(fp_agent_dump, "%d\t%d\t(%d,%d)\t%x\n", agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k]);
+		}
 #endif
 		
 	}
 	/* ********************** */
 	/* END OF SIMULATION LOOP */
 	/* ********************** */
+	
+#ifdef PPG_AGENTS_DUMP
+	fclose(fp_agent_dump);
+	free(agents_xy);
+	free(agents_data);
+	free(agents_hash);
+#endif
 	
 	/* Post-simulation ops. */
 	
@@ -776,8 +809,8 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
-		profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		//~ profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
+		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
 	sort_info.events_profile(evts->sort_agent, profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);

@@ -93,7 +93,7 @@
 #define PPG_AG_DEAD 0
 
 #define PPG_AG_HASH(data, xy) (((PPG_AG_ENERGY(data) == 0) << 31) | ((xy.x) << 15) | (xy.y)) // This assumes 15-bit coordinates at most (32768=x_max=y_max.)
-#define PPG_AG_HASH_DEAD -1
+#define PPG_AG_HASH_DEAD 0xFFFFFFFF
 
 #define PPG_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
 
