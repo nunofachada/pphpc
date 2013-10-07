@@ -15,7 +15,7 @@
  * @param step
  */
 __kernel void sbitonicSort(
-			__global ushort *xy,
+			__global ushort2 *xy,
 			__global uint *data,
 			__global uint *hashes,
 			const uint stage,
@@ -42,7 +42,7 @@ __kernel void sbitonicSort(
 	/* Perform swap if needed */ 
 	if (swap) {
 		
-		ushort xy_l = xy[index1];
+		ushort2 xy_l = xy[index1];
 		uint data_l = data[index1]; 
 		
 		xy[index1] = xy[index2];

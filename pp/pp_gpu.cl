@@ -539,13 +539,15 @@ __kernel void actionAgent(
 
 			/* Cycle through agents in this cell */
 			uint2 cai = cell_agents_idx[cell_idx];
-			for (uint i = cai.s0; i < cai.s1; i++) {
-				if (PPG_AG_IS_SHEEP(data[i])) {
-					/* If it is a sheep, try to eat it! */
-					if (atomic_min(&(data[i]), PPG_AG_DEAD)) {
-						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-						data_l += WOLVES_GAIN_FROM_FOOD;
-						break;
+			if (cai.s0 < MAX_AGENTS) {
+				for (uint i = cai.s0; i < cai.s1; i++) {
+					if (PPG_AG_IS_SHEEP(data[i])) {
+						/* If it is a sheep, try to eat it! */
+						if (atomic_min(&(data[i]), PPG_AG_DEAD)) {
+							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+							data_l += WOLVES_GAIN_FROM_FOOD;
+							break;
+						}
 					}
 				}
 			}
@@ -556,7 +558,7 @@ __kernel void actionAgent(
 		if (PPG_AG_ENERGY(data_l) > reproduce_threshold) {
 			
 			/* Throw dice to see if agent reproduces */
-			if (randomNextInt(seeds, 100) < reproduce_prob ) {
+			if (randomNextInt(seeds, 100) < reproduce_prob) {
 				
 				/* Agent will reproduce! */
 				uint pos_new = get_global_size(0) + gid;

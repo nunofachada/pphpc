@@ -6,9 +6,9 @@
 #include "pp_gpu.h"
 #include "pp_gpu_sort.h"
 
-//#define PPG_DEBUG
+#define PPG_DEBUG
 
-#define PPG_AGENTS_DUMP
+#define PPG_DUMP
 
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -260,13 +260,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice,
 	GError** err) {
 
-#ifdef PPG_AGENTS_DUMP
-	FILE *fp_agent_dump = fopen("ag_dump.txt", "w");
-	cl_ushort2 *agents_xy = (cl_ushort2*) malloc(sizeof(cl_ushort2) * args.max_agents);
-	cl_uint *agents_data = (cl_uint*) malloc(sizeof(cl_uint) * args.max_agents);
-	cl_uint *agents_hash = (cl_uint*) malloc(sizeof(cl_uint) * args.max_agents);
-#endif
-
 	/* Aux. var. */
 	cl_int status;
 	
@@ -274,7 +267,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint *stats_pinned;
 	
 	/* The maximum agents there can be in the next iteration. */
-	cl_uint max_agents_iter = 2 * (params.init_sheep + params.init_wolves);
+	cl_uint max_agents_iter = params.init_sheep + params.init_wolves;
 	
 	/* Dynamic worksizes. */
 	size_t gws_reduce_agent1, 
@@ -376,6 +369,38 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	status = clFinish(zone->queues[1]);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after init agents (OpenCL error %d)", status);
 #endif
+
+#ifdef PPG_DUMP
+
+	FILE *fp_agent_dump = fopen("dump_agents.txt", "w");
+	FILE* fp_cell_dump = fopen("dump_cells.txt", "w");
+	cl_ushort2 *agents_xy = (cl_ushort2*) malloc(dataSizes.agents_xy);
+	cl_uint *agents_data = (cl_uint*) malloc(dataSizes.agents_data);
+	cl_uint *agents_hash = (cl_uint*) malloc(dataSizes.agents_hash);
+	cl_uint2 *cells_agents_index = (cl_uint2*) malloc(dataSizes.cells_agents_index);
+
+	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_xy, CL_TRUE, 0, dataSizes.agents_xy, agents_xy, 0, NULL, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read xy, iteration %d (OpenCL error %d)", iter, status);
+	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_data, CL_TRUE, 0, dataSizes.agents_data, agents_data, 0, NULL, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read data, iteration %d (OpenCL error %d)", iter, status);
+	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_hash, CL_TRUE, 0, dataSizes.agents_hash, agents_hash, 0, NULL, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read hashes, iteration %d (OpenCL error %d)", iter, status);
+	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_agents_index, CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index, 0, NULL, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read agents index, iteration %d (OpenCL error %d)", iter, status);
+	
+	fprintf(fp_agent_dump, "\nIteration -1\n");
+	for (unsigned int k = 0; k < args.max_agents; k++) {
+		fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((((agents_data[k] & 0xFFFF) == 0) << 31) | (agents_xy[k].s[0] << 15) | (agents_xy[k].s[1])));
+	}
+	
+	fprintf(fp_cell_dump, "\nIteration -1\n");
+	for (unsigned int k = 0; k < params.grid_xy; k++) {
+		fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d)\n", k % params.grid_x, k / params.grid_y, cells_agents_index[k].s[0], cells_agents_index[k].s[1]);
+	}
+
+#endif
+
+
 	
 	/* *************** */
 	/* SIMULATION LOOP */
@@ -418,7 +443,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gws_reduce_agent1 = MIN( 
 			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
 			PP_GWS_MULT(
-				PP_DIV_CEIL(max_agents_iter, args_vw.int_vw),
+				PP_DIV_CEIL(2 * max_agents_iter, args_vw.int_vw),
 				lws.reduce_agent1
 			)
 		);
@@ -645,46 +670,53 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ******* Step 3.3: Agent actions ********* */
 		/* ***************************************** */
 
-		//~ /* Determine agent actions kernel global worksize. */
-		//~ gws_action_agent = PP_GWS_MULT(
-			//~ max_agents_iter,
-			//~ lws.action_agent
-		//~ );
-//~ 
-		//~ status = clEnqueueNDRangeKernel(
-			//~ zone->queues[1],
-			//~ krnls.action_agent,
-			//~ 1,
-			//~ NULL,
-			//~ &gws_action_agent,
-			//~ &lws.action_agent,
-			//~ 0,
-			//~ NULL,
-//~ #ifdef CLPROFILER
-			//~ &evts->action_agent[iter]
-//~ #else
-			//~ NULL
-//~ #endif
-		//~ );
-//~ 
-//~ #ifdef PPG_DEBUG
-		//~ status = clFinish(zone->queues[1]);
-		//~ gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
-//~ #endif
+		/* Determine agent actions kernel global worksize. */
+		gws_action_agent = PP_GWS_MULT(
+			max_agents_iter,
+			lws.action_agent
+		);
+
+		status = clEnqueueNDRangeKernel(
+			zone->queues[1],
+			krnls.action_agent,
+			1,
+			NULL,
+			&gws_action_agent,
+			&lws.action_agent,
+			0,
+			NULL,
+#ifdef CLPROFILER
+			&evts->action_agent[iter]
+#else
+			NULL
+#endif
+		);
+
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
+#endif
 
 
-#ifdef PPG_AGENTS_DUMP
+#ifdef PPG_DUMP
 
-		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_xy, CL_TRUE, 0, max_agents_iter, agents_xy, 0, NULL, NULL);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_xy, CL_TRUE, 0, dataSizes.agents_xy, agents_xy, 0, NULL, NULL);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read xy, iteration %d (OpenCL error %d)", iter, status);
-		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_data, CL_TRUE, 0, max_agents_iter, agents_data, 0, NULL, NULL);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_data, CL_TRUE, 0, dataSizes.agents_data, agents_data, 0, NULL, NULL);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read data, iteration %d (OpenCL error %d)", iter, status);
-		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_hash, CL_TRUE, 0, max_agents_iter, agents_hash, 0, NULL, NULL);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_hash, CL_TRUE, 0, dataSizes.agents_hash, agents_hash, 0, NULL, NULL);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read hashes, iteration %d (OpenCL error %d)", iter, status);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_agents_index, CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index, 0, NULL, NULL);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read agents index, iteration %d (OpenCL error %d)", iter, status);
 		
-		fprintf(fp_agent_dump, "\nIteration %d\n", iter);
-		for (unsigned int k = 0; k < max_agents_iter; k++) {
-			fprintf(fp_agent_dump, "%d\t%d\t(%d,%d)\t%x\n", agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k]);
+		fprintf(fp_agent_dump, "\nIteration %d, gws_action_ag=%d, gws_mov_ag=%d\n", iter, (unsigned int) gws_action_agent, (unsigned int) gws_move_agent);
+		for (unsigned int k = 0; k < args.max_agents; k++) {
+			fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((((agents_data[k] & 0xFFFF) == 0) << 31) | (agents_xy[k].s[0] << 15) | (agents_xy[k].s[1])));
+		}
+		
+		fprintf(fp_cell_dump, "\nIteration %d\n", iter);
+		for (unsigned int k = 0; k < params.grid_xy; k++) {
+			fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d)\n", k % params.grid_x, k / params.grid_y, cells_agents_index[k].s[0], cells_agents_index[k].s[1]);
 		}
 #endif
 		
@@ -693,8 +725,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	/* END OF SIMULATION LOOP */
 	/* ********************** */
 	
-#ifdef PPG_AGENTS_DUMP
+#ifdef PPG_DUMP
 	fclose(fp_agent_dump);
+	fclose(fp_cell_dump);
 	free(agents_xy);
 	free(agents_data);
 	free(agents_hash);
@@ -809,8 +842,8 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 		profcl_profile_add(profile, "Find cell idx", evts->find_cell_idx[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
-		//~ profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
-		//~ gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
+		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
 	sort_info.events_profile(evts->sort_agent, profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
