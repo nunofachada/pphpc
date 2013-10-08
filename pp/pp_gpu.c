@@ -6,9 +6,9 @@
 #include "pp_gpu.h"
 #include "pp_gpu_sort.h"
 
-#define PPG_DEBUG
-
-#define PPG_DUMP
+//~ #define PPG_DEBUG
+//~ 
+//~ #define PPG_DUMP
 
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -572,15 +572,6 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		status = clFinish(zone->queues[0]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after grass, iteration %d (OpenCL error %d)", iter, status);
 #endif
-
-		/* Determine the maximum number of agents there can be in the
-		 * next iteration. Make sure stats are already transfered back
-		 * to host. */
-		status = clWaitForEvents(1, &evts->read_stats[iter]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
-		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
-		max_agents_iter = MAX(PPG_MIN_AGENTS, 2 * (buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep));
-		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
 		
 		/* ***************************************** */
 		/* ******** Step 2: Agent movement ********* */
@@ -633,6 +624,15 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		status = clFinish(zone->queues[1]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d (OpenCL error %d)", iter, status);
 #endif
+
+		/* Determine the maximum number of agents there can be in the
+		 * next iteration. Make sure stats are already transfered back
+		 * to host. */
+		status = clWaitForEvents(1, &evts->read_stats[iter]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d (OpenCL error %d)", iter, status);
+		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
+		max_agents_iter = MAX(PPG_MIN_AGENTS, buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
+		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
 
 		/* ***************************************** */
 		/* **** Step 3.2: Find cell agent index **** */
@@ -696,6 +696,9 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		status = clFinish(zone->queues[1]);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d (OpenCL error %d)", iter, status);
 #endif
+
+		/* Agent actions may, in the worst case, double the number of agents. */
+		max_agents_iter = max_agents_iter * 2;
 
 
 #ifdef PPG_DUMP
