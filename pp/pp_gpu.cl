@@ -88,12 +88,13 @@
 
 #define PPG_AG_REPRODUCE(data) (((data) & 0xF0000) | (((data) & 0xFFFF) / 2))
 
-#define PPG_AG_IS_ALIVE(data) ((data) & 0xFFFF)
+#define PPG_NO_AG 0
 
-#define PPG_AG_DEAD 0
-
-#define PPG_AG_HASH(data, xy) (((PPG_AG_ENERGY(data) == 0) << 31) | ((xy.x) << 15) | (xy.y)) // This assumes 15-bit coordinates at most (32768=x_max=y_max.)
 #define PPG_AG_HASH_DEAD 0xFFFFFFFF
+#define PPG_AG_HASH(data, xy) select((uint) PPG_AG_HASH_DEAD, (uint) ((xy.x) << 15) | (xy.y), PPG_AG_ENERGY(data))
+
+#define PPG_AG_IS_ALIVE(hash) (~((hash) ^ PPG_AG_HASH_DEAD))
+
 
 #define PPG_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
 
@@ -163,7 +164,7 @@ __kernel void initAgent(
 		}
 	} else if (gid < max_agents) {
 		/* This workitem will initialize a dead agent with no type. */
-		data[gid] = PPG_AG_DEAD;
+		data[gid] = PPG_NO_AG;
 		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
 	
@@ -433,7 +434,8 @@ __kernel void moveAgent(
 	uint data_l = data[gid];
 
 	/* Only perform if agent is alive. */
-	if (PPG_AG_IS_ALIVE(data_l)) {
+	if (PPG_AG_IS_ALIVE(hashes[gid])) {
+		
 		ushort2 xy_l = xy[gid];
 		
 		uint direction = randomNextInt(seeds, 5);
@@ -442,9 +444,7 @@ __kernel void moveAgent(
 		xy_l = (xy_l + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
 
 		/* Lose energy */
-		data_l--;
-		if (!PPG_AG_IS_ALIVE(data_l))
-			data_l = PPG_AG_DEAD;
+		//~ data_l--;
 		
 		/* Update global mem */
 		xy[gid] = xy_l;
@@ -472,7 +472,7 @@ __kernel void findCellIdx(
 	uint gid = get_global_id(0);
 	
 	/* Only perform this if agent is alive. */
-	if (PPG_AG_IS_ALIVE(data[gid])) {
+	if (PPG_AG_IS_ALIVE(hashes[gid])) {
 		
 		/* Find cell where this agent lurks... */
 		uint cell_idx = PPG_CELL_IDX(xy, gid);
@@ -499,6 +499,7 @@ __kernel void actionAgent(
 			__global uint2 *cell_agents_idx,
 			__global ushort2 *xy,
 			__global uint *data,
+			__global uint *hashes,
 			__global rng_state *seeds)
 {
 	
@@ -510,7 +511,7 @@ __kernel void actionAgent(
 	uint data_l = data[gid];
 	
 	/* If agent is alive, do stuff */
-	if (PPG_AG_IS_ALIVE(data_l)) {
+	if (PPG_AG_IS_ALIVE(hashes[gid])) {
 		
 		/* Get cell index where agent is */
 		uint cell_idx = PPG_CELL_IDX(xy, gid);
@@ -543,7 +544,7 @@ __kernel void actionAgent(
 				for (uint i = cai.s0; i < cai.s1; i++) {
 					if (PPG_AG_IS_SHEEP(data[i])) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_min(&(data[i]), PPG_AG_DEAD)) {
+						if (atomic_or(&(hashes[i]), PPG_AG_HASH_DEAD) != PPG_AG_HASH_DEAD) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
 							data_l += WOLVES_GAIN_FROM_FOOD;
 							break;
@@ -571,7 +572,6 @@ __kernel void actionAgent(
 				
 			}
 		}
-		
 		
 		/* My actions only affect my data (energy), so I will only put back data (energy)... */
 		data[gid] = data_l;

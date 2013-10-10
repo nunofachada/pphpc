@@ -76,7 +76,7 @@ __kernel void RandomWalk(__global PPGSAgent * agents,
 				agent.y--;
 		}
 		// Lose energy
-		agent.energy--;
+		//agent.energy--;
 		if (agent.energy < 1)
 			agent.alive = 0;
 		// Update global mem
