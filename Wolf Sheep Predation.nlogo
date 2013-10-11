@@ -17,14 +17,13 @@ to setup
   ;; check GRASS? switch.
   ;; if it is true, then grass grows and the sheep eat it
   ;; if it false, then the sheep don't need to eat
-  if grass? [
-    ask patches [
-      if random 2 = 1 [
-        set countdown 1 + random grass-regrowth-time ;; initialize grass grow clocks randomly
-        set pcolor brown
-      ]
+  ask patches [
+    if random 2 = 1 [
+      set countdown 1 + random grass-regrowth-time ;; initialize grass grow clocks randomly
+      set pcolor brown
     ]
   ]
+
   set-default-shape sheep "sheep"
   create-sheep initial-number-sheep  ;; create the sheep, then initialize their variables
   [
@@ -48,14 +47,12 @@ end
 
 to go
   if not any? turtles [ stop ]
-  if grass? [ ask patches [ grow-grass ] ]
+  ask patches [ grow-grass ]
 
   ask sheep [
     move
-    if grass? [
-      set energy energy - 1  ;; deduct energy for sheep only if grass? switch is on
-      death
-    ]
+    set energy energy - 1  ;; deduct energy for sheep only if grass? switch is on
+    death
   ]
   ask wolves [
     move
@@ -64,9 +61,7 @@ to go
   ]
   
   ask sheep [
-    if grass? [
-      eat-grass
-    ]
+    eat-grass
     reproduce-sheep
   ]
   ask wolves [
@@ -76,6 +71,7 @@ to go
   tick
   update-plot
   display-labels
+  if ticks = iterations [ stop ]
 end
 
 to move  ;; turtle procedure
@@ -95,18 +91,22 @@ to eat-grass  ;; sheep procedure
 end
 
 to reproduce-sheep  ;; sheep procedure
-  if random-float 100 < sheep-reproduce [  ;; throw "dice" to see if you will reproduce
-    let energy_offspring int (energy / 2)
-    set energy energy - energy_offspring               ;; divide energy between parent and offspring
-    hatch 1 [ set energy energy_offspring]                            ;; hatch an offspring which stays in the same place
+  if energy > sheep-reprod-thres [
+    if random 100 < sheep-reprod-prob [  ;; throw "dice" to see if you will reproduce
+      let energy_offspring int (energy / 2)
+      set energy energy - energy_offspring   ;; divide energy between parent and offspring
+      hatch 1 [ set energy energy_offspring] ;; hatch an offspring which stays in the same place
+    ]
   ]
 end
 
 to reproduce-wolves  ;; wolf procedure
-  if random-float 100 < wolf-reproduce [  ;; throw "dice" to see if you will reproduce
-    let energy_offspring int (energy / 2)
-    set energy energy - energy_offspring               ;; divide energy between parent and offspring
-    hatch 1 [ set energy energy_offspring]                            ;; hatch an offspring which stays in the same place
+  if energy > wolf-reprod-thres [
+    if random 100 < wolf-reprod-prob [  ;; throw "dice" to see if you will reproduce
+      let energy_offspring int (energy / 2)
+      set energy energy - energy_offspring   ;; divide energy between parent and offspring
+      hatch 1 [ set energy energy_offspring] ;; hatch an offspring which stays in the same place
+    ]
   ]
 end
 
@@ -139,18 +139,16 @@ to update-plot
   plot count sheep
   set-current-plot-pen "wolves"
   plot count wolves
-  if grass? [
-    set-current-plot-pen "grass / 4"
-    plot grass / 4  ;; divide by four to keep it within similar
+  set-current-plot-pen "grass / 4"
+  plot grass / 4  ;; divide by four to keep it within similar
                     ;; range as wolf and sheep populations
-  ]
 end
 
 to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
     ask wolves [ set label round energy ]
-    if grass? [ ask sheep [ set label round energy ] ]
+    ask sheep [ set label round energy ]
   ]
 end
 
@@ -159,13 +157,13 @@ end
 ; The full copyright notice is in the Information tab.
 @#$#@#$#@
 GRAPHICS-WINDOW
-350
-10
-660
-341
+405
+14
+1036
+666
 -1
 -1
-3.0
+6.21
 1
 14
 1
@@ -186,25 +184,10 @@ ticks
 30.0
 
 SLIDER
-3
-150
-177
-183
-initial-number-sheep
-initial-number-sheep
-0
-6400
-400
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-3
-187
-177
-220
+5
+231
+179
+264
 sheep-gain-from-food
 sheep-gain-from-food
 0.0
@@ -216,13 +199,13 @@ NIL
 HORIZONTAL
 
 SLIDER
-3
-222
-177
-255
-sheep-reproduce
-sheep-reproduce
-1.0
+5
+267
+179
+300
+sheep-reprod-prob
+sheep-reprod-prob
+0
 20.0
 4
 1.0
@@ -231,25 +214,10 @@ sheep-reproduce
 HORIZONTAL
 
 SLIDER
-181
-150
-346
-183
-initial-number-wolves
-initial-number-wolves
-0
-3200
-200
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-181
-186
-346
-219
+185
+232
+350
+265
 wolf-gain-from-food
 wolf-gain-from-food
 0.0
@@ -261,12 +229,12 @@ NIL
 HORIZONTAL
 
 SLIDER
-181
-222
-346
-255
-wolf-reproduce
-wolf-reproduce
+185
+268
+349
+301
+wolf-reprod-prob
+wolf-reprod-prob
 0.0
 20.0
 5
@@ -275,21 +243,10 @@ wolf-reproduce
 %
 HORIZONTAL
 
-SWITCH
-5
-87
-99
-120
-grass?
-grass?
-0
-1
--1000
-
 SLIDER
-106
+5
 88
-318
+178
 121
 grass-regrowth-time
 grass-regrowth-time
@@ -302,10 +259,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-8
-28
-77
-61
+20
+30
+89
+63
 setup
 setup
 NIL
@@ -319,10 +276,10 @@ NIL
 1
 
 BUTTON
-90
-28
-157
-61
+102
+30
+169
+63
 go
 go
 T
@@ -336,10 +293,10 @@ NIL
 1
 
 PLOT
-12
-312
-328
-509
+5
+433
+397
+703
 populations
 time
 pop.
@@ -356,10 +313,10 @@ PENS
 "grass / 4" 1.0 0 -10899396 true "" ""
 
 MONITOR
-50
-265
-121
-310
+83
+386
+154
+431
 sheep
 count sheep
 3
@@ -367,10 +324,10 @@ count sheep
 11
 
 MONITOR
-125
-265
-207
-310
+158
+386
+240
+431
 wolves
 count wolves
 3
@@ -378,10 +335,10 @@ count wolves
 11
 
 MONITOR
-211
-265
-287
-310
+244
+386
+320
+431
 NIL
 grass / 4
 0
@@ -389,45 +346,110 @@ grass / 4
 11
 
 TEXTBOX
-8
-130
-148
-149
+7
+155
+147
+174
 Sheep settings
 11
 0.0
 0
 
 TEXTBOX
-186
-130
-299
-148
+184
+154
+297
+172
 Wolf settings
 11
 0.0
 0
 
 TEXTBOX
-9
-68
-161
-86
+4
+74
+156
+92
 Grass settings
 11
 0.0
-0
+1
 
 SWITCH
-167
-28
-303
-61
+184
+30
+320
+63
 show-energy?
 show-energy?
 1
 1
 -1000
+
+INPUTBOX
+4
+303
+180
+363
+sheep-reprod-thres
+2
+1
+0
+Number
+
+INPUTBOX
+185
+304
+350
+364
+wolf-reprod-thres
+2
+1
+0
+Number
+
+INPUTBOX
+5
+168
+179
+228
+initial-number-sheep
+400
+1
+0
+Number
+
+INPUTBOX
+184
+168
+350
+228
+initial-number-wolves
+200
+1
+0
+Number
+
+INPUTBOX
+184
+87
+351
+147
+iterations
+2000
+1
+0
+Number
+
+TEXTBOX
+185
+72
+335
+90
+Number of iterations
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
