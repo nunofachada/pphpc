@@ -450,7 +450,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gws_reduce_agent1 = MIN( 
 			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
 			PP_GWS_MULT(
-				PP_DIV_CEIL(2 * max_agents_iter, args_vw.int_vw),
+				PP_DIV_CEIL(max_agents_iter, args_vw.int_vw),
 				lws.reduce_agent1
 			)
 		);
