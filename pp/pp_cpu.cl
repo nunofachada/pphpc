@@ -178,7 +178,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
 					// Set action as performed
 					agents[agentIndex].action = 1;
 					// Agent looses energy by moving
-					//agents[agentIndex].energy--;
+					agents[agentIndex].energy--;
 					// Let's see if agent has any energy left...
 					if (agents[agentIndex].energy == 0) {
 						// Agent has no energy left, so will die
