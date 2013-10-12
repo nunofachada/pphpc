@@ -447,7 +447,7 @@ __kernel void moveAgent(
 		
 		/* Update global mem */
 		xy[gid] = xy_l;
-		data[gid] = data_l;
+		data[gid] = data_l; /// @todo We could use a select here and make data[gid] = PPG_NO_AG, but I don't think it's necessary
 	
 		/* Determine and set agent hash (for sorting). */
 		hashes[gid] = PPG_AG_HASH(data_l, xy_l);
@@ -526,7 +526,7 @@ __kernel void actionAgent(
 			reproduce_prob = SHEEP_REPRODUCE_PROB;
 
 			/* If there is grass, eat it (and I can be the only one to do so)! */
-			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) {
+			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
 				/* If grass is alive, sheep eats it and gains energy */
 				data_l += SHEEP_GAIN_FROM_FOOD;
 			}

@@ -267,7 +267,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint *stats_pinned;
 	
 	/* The maximum agents there can be in the next iteration. */
-	cl_uint max_agents_iter = params.init_sheep + params.init_wolves;
+	cl_uint max_agents_iter = MAX(params.init_sheep + params.init_wolves, PPG_MIN_AGENTS);
 	
 	/* Dynamic worksizes. */
 	size_t gws_reduce_agent1, 
@@ -394,7 +394,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		if ((!PPG_DUMP) || (agents_hash[k] != 0xFFFFFFFF)) {
 			if (blank_line) fprintf(fp_agent_dump, "\n");
 			blank_line = FALSE;
-			fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((((agents_data[k] & 0xFFFF) == 0) << 31) | (agents_xy[k].s[0] << 15) | (agents_xy[k].s[1])));
+			fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((agents_xy[k].s[0] << 16) | (agents_xy[k].s[1])));
 		} else {
 			blank_line = TRUE;
 		}
@@ -731,7 +731,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			if ((!PPG_DUMP) || (agents_hash[k] != 0xFFFFFFFF)) {
 				if (blank_line) fprintf(fp_agent_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((((agents_data[k] & 0xFFFF) == 0) << 31) | (agents_xy[k].s[0] << 15) | (agents_xy[k].s[1])));
+				fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((agents_xy[k].s[0] << 16) | (agents_xy[k].s[1])));
 			} else {
 				blank_line = TRUE;
 			}
@@ -741,7 +741,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		blank_line = FALSE;
 		for (unsigned int k = 0; k < params.grid_xy; k++) {
 			if ((!PPG_DUMP) || (cells_agents_index[k].s[0] != args.max_agents)) {
-				if (blank_line) fprintf(fp_agent_dump, "\n");
+				if (blank_line) fprintf(fp_cell_dump, "\n");
 				blank_line = FALSE;
 				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d)\n", k % params.grid_x, k / params.grid_y, cells_agents_index[k].s[0], cells_agents_index[k].s[1]);
 			} else {
