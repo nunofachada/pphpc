@@ -14,9 +14,7 @@ to setup
   ask patches [ 
     set pcolor green 
     set countdown 0]
-  ;; check GRASS? switch.
-  ;; if it is true, then grass grows and the sheep eat it
-  ;; if it false, then the sheep don't need to eat
+
   ask patches [
     if random 2 = 1 [
       set countdown 1 + random grass-regrowth-time ;; initialize grass grow clocks randomly
@@ -46,7 +44,6 @@ to setup
 end
 
 to go
-  if not any? turtles [ stop ]
   ask patches [ grow-grass ]
 
   ask sheep [
@@ -184,10 +181,10 @@ ticks
 30.0
 
 SLIDER
-5
-231
-179
-264
+11
+230
+185
+263
 sheep-gain-from-food
 sheep-gain-from-food
 0.0
@@ -199,10 +196,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-267
-179
-300
+11
+266
+185
+299
 sheep-reprod-prob
 sheep-reprod-prob
 0
@@ -214,10 +211,10 @@ sheep-reprod-prob
 HORIZONTAL
 
 SLIDER
-185
-232
-350
-265
+191
+231
+356
+264
 wolf-gain-from-food
 wolf-gain-from-food
 0.0
@@ -229,10 +226,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-185
-268
-349
-301
+191
+267
+355
+300
 wolf-reprod-prob
 wolf-reprod-prob
 0.0
@@ -244,10 +241,10 @@ wolf-reprod-prob
 HORIZONTAL
 
 SLIDER
-5
-88
-178
-121
+11
+87
+184
+120
 grass-regrowth-time
 grass-regrowth-time
 0
@@ -259,10 +256,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-20
-30
-89
-63
+5
+23
+74
+56
 setup
 setup
 NIL
@@ -276,10 +273,10 @@ NIL
 1
 
 BUTTON
-102
-30
-169
-63
+77
+23
+144
+56
 go
 go
 T
@@ -346,40 +343,40 @@ grass / 4
 11
 
 TEXTBOX
-7
-155
-147
-174
+13
+154
+153
+173
 Sheep settings
 11
 0.0
 0
 
 TEXTBOX
-184
-154
-297
-172
+190
+153
+303
+171
 Wolf settings
 11
 0.0
 0
 
 TEXTBOX
-4
-74
-156
-92
+10
+73
+162
+91
 Grass settings
 11
 0.0
 1
 
 SWITCH
-184
-30
-320
-63
+223
+24
+359
+57
 show-energy?
 show-energy?
 1
@@ -387,10 +384,10 @@ show-energy?
 -1000
 
 INPUTBOX
-4
-303
-180
-363
+10
+302
+186
+362
 sheep-reprod-thres
 2
 1
@@ -398,10 +395,10 @@ sheep-reprod-thres
 Number
 
 INPUTBOX
-185
-304
-350
-364
+191
+303
+356
+363
 wolf-reprod-thres
 2
 1
@@ -409,10 +406,10 @@ wolf-reprod-thres
 Number
 
 INPUTBOX
-5
-168
-179
-228
+11
+167
+185
+227
 initial-number-sheep
 400
 1
@@ -420,10 +417,10 @@ initial-number-sheep
 Number
 
 INPUTBOX
-184
-168
-350
-228
+190
+167
+356
+227
 initial-number-wolves
 200
 1
@@ -431,10 +428,10 @@ initial-number-wolves
 Number
 
 INPUTBOX
-184
-87
-351
-147
+190
+86
+357
+146
 iterations
 2000
 1
@@ -442,13 +439,30 @@ iterations
 Number
 
 TEXTBOX
-185
-72
-335
-90
+191
+71
+341
+89
 Number of iterations
 11
 0.0
+1
+
+BUTTON
+147
+23
+220
+56
+Reset
+set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
 1
 
 @#$#@#$#@
