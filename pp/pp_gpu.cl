@@ -440,7 +440,34 @@ __kernel void moveAgent(
 		uint direction = randomNextInt(seeds, 5);
 		
 		/* Perform the actual walk */
-		xy_l = (xy_l + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
+		//xy_l = (xy_l + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
+		
+		// Perform the actual walk
+		if (direction == 1) 
+		{
+			xy_l.x++;
+			if (xy_l.x >= GRID_X) xy_l.x = 0;
+		}
+		else if (direction == 2) 
+		{
+			if (xy_l.x == 0)
+				xy_l.x = GRID_X - 1;
+			else
+				xy_l.x--;
+		}
+		else if (direction == 3)
+		{
+			xy_l.y++;
+			if (xy_l.y >= GRID_Y) xy_l.y = 0;
+		}
+		else if (direction == 4)
+		{
+			if (xy_l.y == 0)
+				xy_l.y = GRID_Y - 1;
+			else
+				xy_l.y--;
+		}
+		
 
 		/* Lose energy */
 		data_l--;
