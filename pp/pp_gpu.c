@@ -1078,7 +1078,8 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		pm_reduce_agent1,
 		pm_reduce_agent2,
 		pm_move_agent,
-		pm_find_cell_idx;
+		pm_find_cell_idx,
+		pm_action_agent;
 	
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -1110,6 +1111,8 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get move_agent kernel info (private memory). (OpenCL error %d)", status);	
 	status = clGetKernelWorkGroupInfo (krnls.find_cell_idx, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_find_cell_idx, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get find_cell_idx kernel info (private memory). (OpenCL error %d)", status);	
+	status = clGetKernelWorkGroupInfo (krnls.action_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_action_agent, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get action_agent kernel info (private memory). (OpenCL error %d)", status);	
 
 	/* Print info. @todo Make ints unsigned or change %d to something nice for size_t */
 	printf("\n   =========================== Simulation Info =============================\n\n");
@@ -1130,6 +1133,7 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 	/// @todo The sorting information should come from a specific function for each sorting approach
 	printf("       | sort_agent       |     Var. | %5d |              0b |         0b |\n", (int) lws.sort_agent); 
 	printf("       | find_cell_idx    |     Var. | %5d |              0b | %9ub |\n", (int) lws.find_cell_idx, (unsigned int) pm_find_cell_idx);
+	printf("       | action_agent     |     Var. | %5d |              0b | %9ub |\n", (int) lws.action_agent, (unsigned int) pm_action_agent);
 	printf("       ----------------------------------------------------------------------\n");
 
 	/* If we got here, everything is OK. */
