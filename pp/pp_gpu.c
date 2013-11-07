@@ -1646,7 +1646,8 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 		}
 		free(evts->move_agent);
 	}
-	sort_info.events_free(&evts->sort_agent);
+	if (evts->sort_agent)
+		sort_info.events_free(&evts->sort_agent);
 	if (evts->find_cell_idx) {
 		for (guint i = 0; i < params.iters; i++) {
 			if (evts->find_cell_idx[i]) clReleaseEvent(evts->find_cell_idx[i]);
