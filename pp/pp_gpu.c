@@ -426,8 +426,8 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			NULL, 
 			&gws.reduce_grass1, 
 			&lws.reduce_grass1, 
-			0, 
-			NULL,
+			iter > 0 ? 1 : 0,
+			iter > 0 ? &evts->action_agent[iter - 1] : NULL,
 #ifdef CLPROFILER
 			&evts->reduce_grass1[iter]
 #else
@@ -695,11 +695,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			&lws.action_agent,
 			0,
 			NULL,
-#ifdef CLPROFILER
 			&evts->action_agent[iter]
-#else
-			NULL
-#endif
 		);
 
 #ifdef PPG_DEBUG
@@ -1585,11 +1581,11 @@ void ppg_events_create(PPParameters params, PPGEvents* evts) {
 	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	sort_info.events_create(&evts->sort_agent, params.iters, NULL); // @todo Verify possible error from this function (pass err instead of NULL)
 	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	evts->action_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
 #endif
 
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->action_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
 }
 
 /**
