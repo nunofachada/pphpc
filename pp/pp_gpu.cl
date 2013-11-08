@@ -492,7 +492,7 @@ __kernel void findCellIdx(
 			__global ushort2 *xy,
 			__global uint *data,
 			__global uint *hashes,
-			__global uint2 *cell_agents_idx) 
+			__global uint *cell_agents_idx) 
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
@@ -501,15 +501,15 @@ __kernel void findCellIdx(
 	if (PPG_AG_IS_ALIVE(hashes[gid])) {
 		
 		/* Find cell where this agent lurks... */
-		uint cell_idx = PPG_CELL_IDX(xy, gid);
+		uint cell_idx = 2 * PPG_CELL_IDX(xy, gid);
 		
 		/* Check if this agent is the start of a cell index. */
 		if ((gid == 0) || (hashes[gid] - hashes[max((int) (gid - 1), (int) 0)])) {
-			cell_agents_idx[cell_idx].s0 = gid;
+			cell_agents_idx[cell_idx] = gid;
 		}
 		/* Check if this agent is the end of a cell index. */
 		if (hashes[gid] - hashes[gid + 1]) {
-			cell_agents_idx[cell_idx].s1 = gid;
+			cell_agents_idx[cell_idx + 1] = gid;
 		}
 	}
 	
@@ -567,7 +567,7 @@ __kernel void actionAgent(
 			/* Cycle through agents in this cell */
 			uint2 cai = cell_agents_idx[cell_idx];
 			if (cai.s0 < MAX_AGENTS) {
-				for (uint i = cai.s0; i < cai.s1; i++) {
+				for (uint i = cai.s0; i <= cai.s1; i++) {
 					if (PPG_AG_IS_SHEEP(data[i])) {
 						/* If it is a sheep, try to eat it! */
 						if (atomic_or(&(hashes[i]), PPG_AG_HASH_DEAD) != PPG_AG_HASH_DEAD) {

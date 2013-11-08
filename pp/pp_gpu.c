@@ -727,7 +727,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			if ((!PPG_DUMP) || (agents_hash[k] != 0xFFFFFFFF)) {
 				if (blank_line) fprintf(fp_agent_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x)\n", k, agents_data[k], agents_data[k] >> 16, agents_data[k] & 0xFFFF, agents_xy[k].s[0], agents_xy[k].s[1], agents_hash[k], ((agents_xy[k].s[0] << 16) | (agents_xy[k].s[1])));
+				fprintf(fp_agent_dump, "%d: %x (%d, %d)\t(%d,%d)\t%x (should be %x) %s\n", 
+					k, 
+					agents_data[k], 
+					agents_data[k] >> 16, 
+					agents_data[k] & 0xFFFF, 
+					agents_xy[k].s[0], 
+					agents_xy[k].s[1], 
+					agents_hash[k], 
+					((agents_xy[k].s[0] << 16) | (agents_xy[k].s[1])),
+					(k < cells_agents_index[agents_xy[k].s[1] * params.grid_x + agents_xy[k].s[0]].s[0]) || (k > cells_agents_index[agents_xy[k].s[1] * params.grid_x + agents_xy[k].s[0]].s[1]) 
+						? "NOT IN CELL!" 
+						: ""
+				);
 			} else {
 				blank_line = TRUE;
 			}
@@ -757,6 +769,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	free(agents_xy);
 	free(agents_data);
 	free(agents_hash);
+	free(cells_agents_index);
 #endif
 	
 	/* Post-simulation ops. */
