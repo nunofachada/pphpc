@@ -113,19 +113,22 @@ __kernel void initCell(
 	/* Grid position for this work-item */
 	uint gid = get_global_id(0);
 
+	/* Counter variable, by default it's the maximum possible value. */
 	uint counter = UINT_MAX;
 
-	/* Check if this workitem will initialize a cell. This might include
-	 * padding cells if vectors are used. */
+	/* Check if this workitem will initialize a cell.*/
 	if (gid < CELL_NUM) {
-		/* Cells within bounds may be dead or alive with 50% chance.
-		 * Padding cells (gid >= CELL_NUM) are always dead. */
+		/* Cells within bounds may be dead or alive with 50% chance. */
 		uint is_alive = select((uint) 0, (uint) randomNextInt(seeds, 2), gid < CELL_NUM);
 		/* If cell is alive, value will be zero. Otherwise, randomly
 		 * determine a counter value. */
 		counter = select((uint) (randomNextInt(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
 	}
 	
+	/* Initialize cell counter. Padding cells (gid >= CELL_NUM) will 
+	 * have their counter initialized to UINT_MAX, thus this value will 
+	 * limit the maximum number of iterations (otherwise padding cells
+	 * will become alive, see grass kernel below). */
 	grass[gid] = counter;
 }
 
@@ -191,13 +194,18 @@ __kernel void grass(
 	/* Check if this workitem will do anything */
 	if (gid < PP_DIV_CEIL(CELL_NUM, VW_INT)) {
 		
+		/* Get grass counter from global memory. */
 		uintx grass_l = grass[gid];
-		/* Decrement counter if grass is dead */
+		
+		/* Decrement counter if grass is dead. This might also decrement
+		 * counters of padding cells (which are initialized to UIN_MAX) 
+		 * if vw_int > 1. */
 		grass[gid] = select((uintx) 0, grass_l - 1, grass_l > 0);
 		
 		/* Reset cell start and finish. */
 		agents_index[gid] = (uintx) MAX_AGENTS;
 		agents_index[get_global_size(0) + gid] = (uintx) MAX_AGENTS;
+		/* We have experimented with one vstore here, but it's slower. */
 	}
 }
 
