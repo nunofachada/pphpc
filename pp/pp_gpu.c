@@ -991,7 +991,7 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 
 	/* Grass growth worksizes. */
 	lws->grass = args_lws.grass ? args_lws.grass : lws->deflt;
-	gws->grass = PP_GWS_MULT(paramsSim.grid_xy, lws->grass);
+	gws->grass = PP_GWS_MULT(paramsSim.grid_xy / args_vw.int_vw, lws->grass);
 	
 	/* Grass reduce worksizes, must be power of 2 for reduction to work. */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->deflt;

@@ -113,17 +113,20 @@ __kernel void initCell(
 	/* Grid position for this work-item */
 	uint gid = get_global_id(0);
 
+	uint counter = UINT_MAX;
+
 	/* Check if this workitem will initialize a cell. This might include
 	 * padding cells if vectors are used. */
-	if (gid < PP_NEXT_MULTIPLE(CELL_NUM, VW_INT)) {
+	if (gid < CELL_NUM) {
 		/* Cells within bounds may be dead or alive with 50% chance.
 		 * Padding cells (gid >= CELL_NUM) are always dead. */
 		uint is_alive = select((uint) 0, (uint) randomNextInt(seeds, 2), gid < CELL_NUM);
 		/* If cell is alive, value will be zero. Otherwise, randomly
 		 * determine a counter value. */
-		grass[gid] = select((uint) (randomNextInt(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
+		counter = select((uint) (randomNextInt(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
 	}
 	
+	grass[gid] = counter;
 }
 
 /**
@@ -179,21 +182,22 @@ __kernel void initAgent(
  * @param grass_timer
  * */
 __kernel void grass(
-			__global uint *grass,
-			__global uint2 *agents_index)
+			__global uintx *grass,
+			__global uintx *agents_index)
 {
 	/* Grid position for this workitem */
 	uint gid = get_global_id(0);
 
 	/* Check if this workitem will do anything */
-	if (gid < CELL_NUM) {
+	if (gid < PP_DIV_CEIL(CELL_NUM, VW_INT)) {
 		
-		uint grass_l = grass[gid];
+		uintx grass_l = grass[gid];
 		/* Decrement counter if grass is dead */
-		grass[gid] = select((uint) 0, grass_l - 1, grass_l);
+		grass[gid] = select((uintx) 0, grass_l - 1, grass_l > 0);
 		
 		/* Reset cell start and finish. */
-		agents_index[gid] = (uint2) (MAX_AGENTS, MAX_AGENTS);
+		agents_index[gid] = (uintx) MAX_AGENTS;
+		agents_index[get_global_size(0) + gid] = (uintx) MAX_AGENTS;
 	}
 }
 
@@ -440,9 +444,12 @@ __kernel void moveAgent(
 		uint direction = randomNextInt(seeds, 5);
 		
 		/* Perform the actual walk */
-		//xy_l = (xy_l + xy_op[direction]) % ((ushort2) (GRID_X, GRID_Y));
 		
-		// Perform the actual walk
+		// Alternative (instead of the if's below) - it's slower, only works if xy is short2 (not ushort2)
+		// xy_l = xy_l + xy_op[direction];
+		// xy_l = select(xy_l, (short2) (0, 0), xy_l == ((short2) (GRID_X, GRID_Y)));
+		// xy_l = select(xy_l, (short2) (GRID_X-1, GRID_Y-1), xy_l == ((short2) (-1, -1)));
+			
 		if (direction == 1) 
 		{
 			xy_l.x++;
