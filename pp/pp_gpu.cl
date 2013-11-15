@@ -172,7 +172,8 @@ __kernel void initAgent(
 		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
 	
-	/* In commit 00ea5434a83d7aa134a7ecba413e2f2341086630 there is a
+	/* @ALTERNATIVE
+	 * In commit 00ea5434a83d7aa134a7ecba413e2f2341086630 there is a
 	 * streamlined, theoretically faster version of this kernel, with
 	 * less divergence and so on, but it is actually slower. */
 }
@@ -205,7 +206,8 @@ __kernel void grass(
 		/* Reset cell start and finish. */
 		agents_index[gid] = (uintx) MAX_AGENTS;
 		agents_index[get_global_size(0) + gid] = (uintx) MAX_AGENTS;
-		/* We have experimented with one vstore here, but it's slower. */
+		/* @ALTERNATIVE
+		 * We have experimented with one vstore here, but it's slower. */
 	}
 }
 
@@ -453,10 +455,14 @@ __kernel void moveAgent(
 		
 		/* Perform the actual walk */
 		
-		// Alternative (instead of the if's below) - it's slower, only works if xy is short2 (not ushort2)
-		// xy_l = xy_l + xy_op[direction];
-		// xy_l = select(xy_l, (short2) (0, 0), xy_l == ((short2) (GRID_X, GRID_Y)));
-		// xy_l = select(xy_l, (short2) (GRID_X-1, GRID_Y-1), xy_l == ((short2) (-1, -1)));
+		/* @ALTERNATIVE (instead of the if's below):
+		 * 
+		 * xy_l = xy_l + xy_op[direction];
+		 * xy_l = select(xy_l, (short2) (0, 0), xy_l == ((short2) (GRID_X, GRID_Y)));
+		 * xy_l = select(xy_l, (short2) (GRID_X-1, GRID_Y-1), xy_l == ((short2) (-1, -1))); 
+		 * 
+		 * It's slower. Requires xy to be short2 instead of ushort2.
+		 * */
 			
 		if (direction == 1) 
 		{
@@ -489,7 +495,7 @@ __kernel void moveAgent(
 		
 		/* Update global mem */
 		xy[gid] = xy_l;
-		data[gid] = data_l; /// @todo We could use a select here and make data[gid] = PPG_NO_AG, but I don't think it's necessary
+		data[gid] = data_l;
 	
 		/* Determine and set agent hash (for sorting). */
 		hashes[gid] = PPG_AG_HASH(data_l, xy_l);
@@ -614,6 +620,16 @@ __kernel void actionAgent(
 				
 			}
 		}
+		
+		/* @ALTERNATIVE for agent reproduction:
+		 * 1 - Create new agents in workgroup local memory using a local 
+		 * atomic counter to determine new agent index. 
+		 * 2 - In the end of the workitem put a workgroup local mem 
+		 * barrier, then push new agents in a coalesced fashion to 
+		 * global memory using a global atomic counter to determine 
+		 * the index of the first agent in the group. 
+		 * - Problems: the additional complexity and the use of atomics
+		 * will probably not allow for any performance improvements. */
 		
 		/* My actions only affect my data (energy), so I will only put back data (energy)... */
 		data[gid] = data_l;
