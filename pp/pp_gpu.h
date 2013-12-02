@@ -32,6 +32,9 @@
 typedef struct pp_g_args {
 	gchar* params;        /**< Parameters file. */
 	gchar* stats;         /**< Stats output file. */
+#ifdef CLPROFILER	
+	gchar* prof_info;     /**< Profiling info. */
+#endif
 	gchar* compiler_opts; /**< Compiler options. */
 	cl_int dev_idx;       /**< Index of device to use. */
 	guint32 rng_seed;     /**< Rng seed. */

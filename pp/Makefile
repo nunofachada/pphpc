@@ -20,7 +20,7 @@ CLINCLUDES = -I$$AMDAPPSDKROOT/include
 UTILSINCLUDES = -I$(UTILSINCLUDEDIR)
 LFLAGS = -lOpenCL -lm `pkg-config --libs glib-2.0`
 CLLIBDIR = -L$$AMDAPPSDKROOT/lib/x86_64 
-UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/clprofiler.o
+UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/clprofiler.o $(OBJDIR)/clerrors.o
 TESTSDIR = tests
 
 # Phony targets

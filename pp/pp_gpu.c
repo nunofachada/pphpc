@@ -17,7 +17,11 @@ static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NUL
 static PPRngInfo rng_info = {NULL, NULL, 0};
 
 /** Main command line arguments and respective default values. */
+#ifdef CLPROFILER
+static PPGArgs args = {NULL, NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+#else
 static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+#endif
 
 /** Algorithm selection arguments. */
 static PPGArgsAlg args_alg = {NULL, NULL};
@@ -32,6 +36,9 @@ static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
 static GOptionEntry entries[] = {
 	{"params",          'p', 0, G_OPTION_ARG_FILENAME, &args.params,        "Specify parameters file (default is " PP_DEFAULT_PARAMS_FILE ")",                           "FILENAME"},
 	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,         "Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",                     "FILENAME"},
+#ifdef CLPROFILER
+	{"profinfo",        'i', 0, G_OPTION_ARG_FILENAME, &args.prof_info,     "File where to export profiling info (if omitted, prof. info will not be exported)",         "FILENAME"},
+#endif
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
@@ -892,6 +899,12 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 	profcl_profile_aggregate(profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	profcl_profile_overmat(profile, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	
+	/* Export profiling data. */
+	if (args.prof_info) {
+		profcl_export_info_file(profile, args.prof_info, err);
+	}
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 
 #else
@@ -1767,6 +1780,9 @@ void ppg_args_free(GOptionContext* context) {
 	}
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
+#ifdef CLPROFILER	
+	if (args.prof_info) g_free(args.prof_info);
+#endif
 	if (args.compiler_opts) g_free(args.compiler_opts);
 	if (args_alg.rng) g_free(args_alg.rng);
 	if (args_alg.sort) g_free(args_alg.sort);
