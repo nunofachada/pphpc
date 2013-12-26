@@ -8,7 +8,7 @@ BUILDDIR := ../bin
 $(warning BUILDDIR is not defined, assuming default $(BUILDDIR))
 endif
 ifndef UTILSINCLUDEDIR
-UTILSINCLUDEDIR := ../cf4ocl
+UTILSINCLUDEDIR := ../cf4ocl/lib
 $(warning UTILSINCLUDEDIR is not defined, assuming default $(UTILSINCLUDEDIR))
 endif
 

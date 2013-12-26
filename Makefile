@@ -3,7 +3,7 @@ export OBJDIR := ${CURDIR}/obj
 export BUILDDIR := ${CURDIR}/bin
 export CLMACROS
 
-UTILSDIR := cf4ocl
+UTILSDIR := cf4ocl/lib
 
 SUBDIRS = pp $(UTILSDIR)
 
