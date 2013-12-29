@@ -77,6 +77,11 @@
 	typedef uint16 uintx;
 #endif
 
+typedef union agent_data {
+	ulong all;
+	uchar4 par;
+} agentData;
+
 #define PPG_AG_ENERGY(data) ((data) & 0xFFFF)
 
 #define PPG_AG_TYPE(data) ((data) >> 16)
@@ -143,9 +148,7 @@ __kernel void initCell(
  * @param seeds
  * */
 __kernel void initAgent(
-			__global ushort2 *xy,
-			__global uint *data,
-			__global uint *hashes,
+			__global ulong *data,
 			__global rng_state *seeds
 ) 
 {
@@ -155,21 +158,22 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		ushort2 xy_l = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
-		xy[gid] = xy_l;
-		hashes[gid] = PPG_AG_HASH(1, xy_l);
+		agentData new_agent;
+		new_agent.par.xy = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
 			/* A sheep agent. */
-			data[gid] = PPG_AG_SET(SHEEP_ID, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
+			new_agent.par.z = SHEEP_ID
+			new_agent.par.w = randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
 		} else {
 			/* A wolf agent. */
-			data[gid] = PPG_AG_SET(WOLF_ID, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
+			new_agent.par.z = WOLF_ID
+			new_agent.par.w = randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
 		}
+		data[gid] = new_agent.all;
 	} else if (gid < MAX_AGENTS) {
 		/* This workitem will initialize a dead agent with no type. */
 		data[gid] = PPG_NO_AG;
-		hashes[gid] = PPG_AG_HASH_DEAD;
 	}
 	
 	/* @ALTERNATIVE
@@ -313,8 +317,7 @@ __kernel void reduceGrass1(
  * @param max_agents = (stats[0].sheep + stats[0].wolves) * 2 //set in host
  * */
 __kernel void reduceAgent1(
-			__global uintx *data,
-			__global uintx *hashes,
+			__global agentDatax *data,
 			__local uintx *partial_sums,
 			__global uintx *reduce_agent_global,
 			uint max_agents) {
@@ -337,7 +340,7 @@ __kernel void reduceAgent1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			uintx data_l = data[index];
+			uintx data_l = data[index].lo; //bitselect?
 			uintx is_alive = 0x1 & convert_uintx(PPG_AG_IS_ALIVE(hashes[index]));
 			sumSheep += is_alive & convert_uintx(PPG_AG_IS_SHEEP(data_l));
 			sumWolves += is_alive & convert_uintx(PPG_AG_IS_WOLF(data_l));
