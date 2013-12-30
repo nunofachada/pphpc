@@ -178,11 +178,13 @@ __kernel void initAgent(
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
+	agentData new_agent;
+	new_agent.all = PPG_AG_DEAD;
 	
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		agentData new_agent;
+		//agentData new_agent;
 		PPG_AG_XY_SET(new_agent, randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
@@ -194,11 +196,13 @@ __kernel void initAgent(
 			PPG_AG_ENERGY_SET(new_agent, WOLF_ID);
 			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
-		data[gid] = new_agent;
-	} else if (gid < MAX_AGENTS) {
+		//data[gid] = new_agent;
+	} //else if (gid < MAX_AGENTS) {
 		/* This workitem will initialize a dead agent with no type. */
-		data[gid] = (agentData) PPG_AG_DEAD;
-	}
+		//data[gid] = (agentData) PPG_AG_DEAD;
+	//}
+	data[gid] = new_agent;
+
 	
 	/* @ALTERNATIVE
 	 * In commit 00ea5434a83d7aa134a7ecba413e2f2341086630 there is a
