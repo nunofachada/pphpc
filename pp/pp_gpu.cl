@@ -25,8 +25,6 @@
  * * ITERS - Number of iterations. 
  * */
 
-#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
-
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 
@@ -107,27 +105,27 @@ typedef union agent_data {
 	ushort4 par;
 } agentData;
 
-#define PPG_AG_ENERGY_GET(agent) (((agentData) (agent)).par.w)
-#define PPG_AG_ENERGY_SET(agent, energy) (((agentData) (agent)).par.w = (energy))
-#define PPG_AG_ENERGY_ADD(agent, energy) (((agentData) (agent)).par.w += (energy))
-#define PPG_AG_ENERGY_SUB(agent, energy) (((agentData) (agent)).par.w -= (energy))
+#define PPG_AG_ENERGY_GET(agent) ((agent).par.w)
+#define PPG_AG_ENERGY_SET(agent, energy) ((agent).par.w = (energy))
+#define PPG_AG_ENERGY_ADD(agent, energy) ((agent).par.w += (energy))
+#define PPG_AG_ENERGY_SUB(agent, energy) ((agent).par.w -= (energy))
 
-#define PPG_AG_TYPE_GET(agent) (((agentData) (agent)).par.z)
-#define PPG_AG_TYPE_SET(agent, type) (((agentData) (agent)).par.z = (type))
+#define PPG_AG_TYPE_GET(agent) ((agent).par.z)
+#define PPG_AG_TYPE_SET(agent, type) ((agent).par.z = (type))
 
-#define PPG_AG_XY_GET(agent) (((agentData) (agent)).par.xy)
-#define PPG_AG_XY_SET(agent, x, y) (((agentData) (agent)).par.xy = (ushort2) (x, y))
+#define PPG_AG_XY_GET(agent) ((agent).par.xy)
+#define PPG_AG_XY_SET(agent, x, y) ((agent).par.xy = (ushort2) (x, y))
 
-#define PPG_AG_IS_SHEEP(agent) ((((agent) >> 16) & 0xFFFF) == SHEEP_ID)
-#define PPG_AG_IS_WOLF(agent) ((((agent) >> 16) & 0xFFFF) == WOLF_ID)
+#define PPG_AG_IS_SHEEP(agent) ((agent).par.z == SHEEP_ID)
+#define PPG_AG_IS_WOLF(agent) ((agent).par.z == WOLF_ID)
 
-#define PPG_AG_REPRODUCE(agent) ((ulong) ((ushort4) (((agentData) (agent)).par.x, ((agentData) (agent)).par.y, ((agentData) (agent)).par.z, ((agentData) (agent)).par.w/2)))
+#define PPG_AG_REPRODUCE(agent) ((agentData) ((ushort4) ((agent).par.x, (agent).par.y, (agent).par.z, (agent).par.w/2)))
 
 #define PPG_AG_DEAD 0xFFFFFFFFFFFFFFFF
 
-#define PPG_AG_IS_ALIVE(agent) ((agent) != PPG_AG_DEAD)
+#define PPG_AG_IS_ALIVE(agent) ((agent).all != PPG_AG_DEAD)
 
-#define PPG_CELL_IDX(agent) (((agentData) (agent)).par.y * GRID_X + ((agentData) (agent)).par.z)
+#define PPG_CELL_IDX(agent) ((agent).par.y * GRID_X + (agent).par.z)
 
 /**
  * @brief Initialize grid cells. 
@@ -174,7 +172,7 @@ __kernel void initCell(
  * @param seeds
  * */
 __kernel void initAgent(
-			__global ulong *data,
+			__global agentData *data,
 			__global rng_state *seeds
 ) 
 {
@@ -184,7 +182,7 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		ulong new_agent;
+		agentData new_agent;
 		PPG_AG_XY_SET(new_agent, randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
@@ -199,7 +197,7 @@ __kernel void initAgent(
 		data[gid] = new_agent;
 	} else if (gid < MAX_AGENTS) {
 		/* This workitem will initialize a dead agent with no type. */
-		data[gid] = PPG_AG_DEAD;
+		data[gid] = (agentData) PPG_AG_DEAD;
 	}
 	
 	/* @ALTERNATIVE
@@ -367,9 +365,9 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			ulongx data_l = data[index];
-			ulongx is_alive = 0x1 & convert_ulongx(PPG_AG_IS_ALIVE(data_l));
-			sumSheep += is_alive & convert_ulongx(PPG_AG_IS_SHEEP(data_l));
-			sumWolves += is_alive & convert_ulongx(PPG_AG_IS_WOLF(data_l));
+			ulongx is_alive = 0x1 & convert_ulongx(data_l != PPG_AG_DEAD);
+			sumSheep += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
+			sumWolves += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == WOLF_ID);
 		}
 	}
 
@@ -455,7 +453,7 @@ __kernel void reduceAgent1(
  * @param seeds
  */
 __kernel void moveAgent(
-			__global ulong *data,
+			__global agentData *data,
 			__global rng_state *seeds)
 {
 	
@@ -471,7 +469,7 @@ __kernel void moveAgent(
 	uint gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	ulong data_l = data[gid];
+	agentData data_l = data[gid];
 
 	/* Only perform if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -520,7 +518,7 @@ __kernel void moveAgent(
 		/* Lose energy */
 		PPG_AG_ENERGY_SUB(data_l, 1);
 		if (PPG_AG_ENERGY_GET(data_l) == 0)
-			data_l = PPG_AG_DEAD;
+			data_l.all = PPG_AG_DEAD;
 		
 		/* Update global mem */
 		data[gid] = data_l;
@@ -536,13 +534,13 @@ __kernel void moveAgent(
  * @param alive
  * */
 __kernel void findCellIdx(
-			__global ulong *data,
+			__global agentData *data,
 			__global uint *cell_agents_idx) 
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
 	
-	ulong data_l = data[gid];
+	agentData data_l = data[gid];
 	
 	/* Only perform this if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -577,7 +575,8 @@ __kernel void findCellIdx(
 __kernel void actionAgent(
 			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
-			__global ulong *data,
+			__global agentData *data,
+			__global uint *data_dup,
 			__global rng_state *seeds)
 {
 	
@@ -585,7 +584,7 @@ __kernel void actionAgent(
 	uint gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	ulong data_l = data[gid];
+	agentData data_l = data[gid];
 	
 	/* If agent is alive, do stuff */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -621,8 +620,9 @@ __kernel void actionAgent(
 				for (uint i = cai.s0; i <= cai.s1; i++) {
 					if (PPG_AG_IS_SHEEP(data[i])) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(data[i]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+						if (atomic_or(&(data_dup[i * 2 + 1]), 0xFFFFFFFF) != 0xFFFFFFFF) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+							data_dup[i * 2] = 0xFFFFFFFF;
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
 						}
@@ -640,7 +640,7 @@ __kernel void actionAgent(
 				
 				/* Agent will reproduce! */
 				uint pos_new = get_global_size(0) + gid;
-				ulong data_new = PPG_AG_REPRODUCE(data_l);
+				agentData data_new = PPG_AG_REPRODUCE(data_l);
 				data[pos_new] = data_new;
 				
 				/* Current agent's energy will be halved also */
