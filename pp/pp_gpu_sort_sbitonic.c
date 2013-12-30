@@ -128,14 +128,8 @@ int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffers
 	int status;
 	
 	/* Set kernel arguments. */
-	status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_xy);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of sbitonic_sort (OpenCL error %d)", status);
-
-	status = clSetKernelArg(*krnls[0], 1, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of sbitonic_sort(OpenCL error %d)", status);
-
-	status = clSetKernelArg(*krnls[0], 2, sizeof(cl_mem), (void*) &buffersDevice.agents_hash);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 of sbitonic_sort (OpenCL error %d)", status);
 
 	/* If we got here, everything is OK. */
 	status = PP_SUCCESS;

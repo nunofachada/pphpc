@@ -15,9 +15,7 @@
  * @param step
  */
 __kernel void sbitonicSort(
-			__global ushort2 *xy,
-			__global uint *data,
-			__global uint *hashes,
+			__global ulong *data,
 			const uint stage,
 			const uint step)
 {
@@ -30,28 +28,19 @@ __kernel void sbitonicSort(
 	uint index2 = index1 + pair_stride;
 	
 	/* Get hashes from global memory. */
-	uint hash1 = hashes[index1];
-	uint hash2 = hashes[index2];
+	ulong data1 = data[index1];
+	ulong data2 = data[index2];
 	
 	/* Determine if ascending or descending */
 	bool desc = (bool) (0x1 & (gid >> stage - 1));
 	
 	/* Determine it is required to swap the agents. */
-	bool swap = (hash1 > hash2) ^ desc;  
+	bool swap = (data1 > data2) ^ desc;  
 	
 	/* Perform swap if needed */ 
 	if (swap) {
-		
-		ushort2 xy_l = xy[index1];
-		uint data_l = data[index1]; 
-		
-		xy[index1] = xy[index2];
-		data[index1] = data[index2]; 
-		hashes[index1] = hash2;
-
-		xy[index2] = xy_l;
-		data[index2] = data_l; 
-		hashes[index2] = hash1;
+		data[index1] = data2; 
+		data[index2] = data1; 
 	}
 
 

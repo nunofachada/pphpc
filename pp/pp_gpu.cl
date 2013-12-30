@@ -25,6 +25,8 @@
  * * ITERS - Number of iterations. 
  * */
 
+#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics: enable
+
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 
@@ -77,31 +79,55 @@
 	typedef uint16 uintx;
 #endif
 
+/* Long vector width pre-defines */
+#if VW_LONG == 1
+	#define VW_LONG_SUM(x) (x)
+	#define convert_ulong(x) convert_ulong(x)
+	typedef ulong ulongx;
+#elif VW_LONG == 2
+	#define VW_LONG_SUM(x) (x.s0 + x.s1)
+	#define convert_ulongx(x) convert_ulong2(x)
+	typedef ulong2 ulongx;
+#elif VW_LONG == 4
+	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_ulongx(x) convert_ulong4(x)
+	typedef ulong4 ulongx;
+#elif VW_LONG == 8
+	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_ulongx(x) convert_ulong8(x)
+	typedef ulong8 ulongx;
+#elif VW_LONG == 16
+	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+	#define convert_ulongx(x) convert_ulong16(x)
+	typedef ulong16 ulongx;
+#endif
+
 typedef union agent_data {
 	ulong all;
-	uchar4 par;
+	ushort4 par;
 } agentData;
 
-#define PPG_AG_ENERGY(data) ((data) & 0xFFFF)
+#define PPG_AG_ENERGY_GET(agent) (((agentData) (agent)).par.w)
+#define PPG_AG_ENERGY_SET(agent, energy) (((agentData) (agent)).par.w = (energy))
+#define PPG_AG_ENERGY_ADD(agent, energy) (((agentData) (agent)).par.w += (energy))
+#define PPG_AG_ENERGY_SUB(agent, energy) (((agentData) (agent)).par.w -= (energy))
 
-#define PPG_AG_TYPE(data) ((data) >> 16)
+#define PPG_AG_TYPE_GET(agent) (((agentData) (agent)).par.z)
+#define PPG_AG_TYPE_SET(agent, type) (((agentData) (agent)).par.z = (type))
 
-#define PPG_AG_IS_SHEEP(data) !(((data) & 0xF0000) ^ (SHEEP_ID << 16))
-#define PPG_AG_IS_WOLF(data) !(((data) & 0xF0000) ^ (WOLF_ID << 16))
+#define PPG_AG_XY_GET(agent) (((agentData) (agent)).par.xy)
+#define PPG_AG_XY_SET(agent, x, y) (((agentData) (agent)).par.xy = (ushort2) (x, y))
 
-#define PPG_AG_SET(type, energy) (((type) << 16) | ((energy) & 0xFFFF))
+#define PPG_AG_IS_SHEEP(agent) ((((agent) >> 16) & 0xFFFF) == SHEEP_ID)
+#define PPG_AG_IS_WOLF(agent) ((((agent) >> 16) & 0xFFFF) == WOLF_ID)
 
-#define PPG_AG_REPRODUCE(data) (((data) & 0xF0000) | (((data) & 0xFFFF) / 2))
+#define PPG_AG_REPRODUCE(agent) ((ulong) ((ushort4) (((agentData) (agent)).par.x, ((agentData) (agent)).par.y, ((agentData) (agent)).par.z, ((agentData) (agent)).par.w/2)))
 
-#define PPG_NO_AG 0
+#define PPG_AG_DEAD 0xFFFFFFFFFFFFFFFF
 
-#define PPG_AG_HASH_DEAD 0xFFFFFFFF
-#define PPG_AG_HASH(data, xy) select((uint) PPG_AG_HASH_DEAD, (uint) (((xy.x) << 16) | (xy.y)), PPG_AG_ENERGY(data))
+#define PPG_AG_IS_ALIVE(agent) ((agent) != PPG_AG_DEAD)
 
-#define PPG_AG_IS_ALIVE(hash) (((hash) ^ PPG_AG_HASH_DEAD) > 0)
-
-
-#define PPG_CELL_IDX(xy, gid) (xy[gid].y * GRID_X + xy[gid].x)
+#define PPG_CELL_IDX(agent) (((agentData) (agent)).par.y * GRID_X + ((agentData) (agent)).par.z)
 
 /**
  * @brief Initialize grid cells. 
@@ -158,22 +184,22 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		agentData new_agent;
-		new_agent.par.xy = (ushort2) (randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		ulong new_agent;
+		PPG_AG_XY_SET(new_agent, randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
 			/* A sheep agent. */
-			new_agent.par.z = SHEEP_ID
-			new_agent.par.w = randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
+			PPG_AG_ENERGY_SET(new_agent, SHEEP_ID);
+			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
 		} else {
 			/* A wolf agent. */
-			new_agent.par.z = WOLF_ID
-			new_agent.par.w = randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
+			PPG_AG_ENERGY_SET(new_agent, WOLF_ID);
+			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
-		data[gid] = new_agent.all;
+		data[gid] = new_agent;
 	} else if (gid < MAX_AGENTS) {
 		/* This workitem will initialize a dead agent with no type. */
-		data[gid] = PPG_NO_AG;
+		data[gid] = PPG_AG_DEAD;
 	}
 	
 	/* @ALTERNATIVE
@@ -317,9 +343,9 @@ __kernel void reduceGrass1(
  * @param max_agents = (stats[0].sheep + stats[0].wolves) * 2 //set in host
  * */
 __kernel void reduceAgent1(
-			__global agentDatax *data,
-			__local uintx *partial_sums,
-			__global uintx *reduce_agent_global,
+			__global ulongx *data,
+			__local ulongx *partial_sums,
+			__global ulongx *reduce_agent_global,
 			uint max_agents) {
 				
 	/* Global and local work-item IDs */
@@ -330,20 +356,20 @@ __kernel void reduceAgent1(
 	uint group_id = get_group_id(0);
 	
 	/* Serial sum */
-	uintx sumSheep = 0;
-	uintx sumWolves = 0;
+	ulongx sumSheep = 0;
+	ulongx sumWolves = 0;
 	
 	/* Serial count */
-	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_INT);
+	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_LONG);
 	uint serialCount = PP_DIV_CEIL(agentVectorCount, global_size);
 	
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			uintx data_l = data[index].lo; //bitselect?
-			uintx is_alive = 0x1 & convert_uintx(PPG_AG_IS_ALIVE(hashes[index]));
-			sumSheep += is_alive & convert_uintx(PPG_AG_IS_SHEEP(data_l));
-			sumWolves += is_alive & convert_uintx(PPG_AG_IS_WOLF(data_l));
+			ulongx data_l = data[index];
+			ulongx is_alive = 0x1 & convert_ulongx(PPG_AG_IS_ALIVE(data_l));
+			sumSheep += is_alive & convert_ulongx(PPG_AG_IS_SHEEP(data_l));
+			sumWolves += is_alive & convert_ulongx(PPG_AG_IS_WOLF(data_l));
 		}
 	}
 
@@ -381,8 +407,8 @@ __kernel void reduceAgent1(
  * @param num_slots Number of workgroups in step 1.
  * */
  __kernel void reduceAgent2(
-			__global uintx *reduce_agent_global,
-			__local uintx *partial_sums,
+			__global ulongx *reduce_agent_global,
+			__local ulongx *partial_sums,
 			__global PPStatisticsOcl *stats,
 			uint num_slots) {
 				
@@ -413,8 +439,8 @@ __kernel void reduceAgent1(
 	
 	/* Put in global memory */
 	if (lid == 0) {
-		stats[0].sheep = VW_INT_SUM(partial_sums[0]);
-		stats[0].wolves = VW_INT_SUM(partial_sums[group_size]);
+		stats[0].sheep = (uint) VW_LONG_SUM(partial_sums[0]);
+		stats[0].wolves = (uint) VW_LONG_SUM(partial_sums[group_size]);
 	}
 		
 }
@@ -429,9 +455,7 @@ __kernel void reduceAgent1(
  * @param seeds
  */
 __kernel void moveAgent(
-			__global ushort2 *xy,
-			__global uint *data,
-			__global uint *hashes,
+			__global ulong *data,
 			__global rng_state *seeds)
 {
 	
@@ -447,12 +471,12 @@ __kernel void moveAgent(
 	uint gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	uint data_l = data[gid];
+	ulong data_l = data[gid];
 
 	/* Only perform if agent is alive. */
-	if (PPG_AG_IS_ALIVE(hashes[gid])) {
+	if (PPG_AG_IS_ALIVE(data_l)) {
 		
-		ushort2 xy_l = xy[gid];
+		ushort2 xy_l = PPG_AG_XY_GET(data_l);
 		
 		uint direction = randomNextInt(seeds, 5);
 		
@@ -494,14 +518,13 @@ __kernel void moveAgent(
 		
 
 		/* Lose energy */
-		data_l--;
+		PPG_AG_ENERGY_SUB(data_l, 1);
+		if (PPG_AG_ENERGY_GET(data_l) == 0)
+			data_l = PPG_AG_DEAD;
 		
 		/* Update global mem */
-		xy[gid] = xy_l;
 		data[gid] = data_l;
 	
-		/* Determine and set agent hash (for sorting). */
-		hashes[gid] = PPG_AG_HASH(data_l, xy_l);
 	}
 	
 }
@@ -513,26 +536,33 @@ __kernel void moveAgent(
  * @param alive
  * */
 __kernel void findCellIdx(
-			__global ushort2 *xy,
-			__global uint *data,
-			__global uint *hashes,
+			__global ulong *data,
 			__global uint *cell_agents_idx) 
 {
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
 	
+	ulong data_l = data[gid];
+	
 	/* Only perform this if agent is alive. */
-	if (PPG_AG_IS_ALIVE(hashes[gid])) {
+	if (PPG_AG_IS_ALIVE(data_l)) {
 		
 		/* Find cell where this agent lurks... */
-		uint cell_idx = 2 * PPG_CELL_IDX(xy, gid);
+		uint cell_idx = 2 * PPG_CELL_IDX(data_l);
 		
 		/* Check if this agent is the start of a cell index. */
-		if ((gid == 0) || (hashes[gid] - hashes[max((int) (gid - 1), (int) 0)])) {
+		ushort2 xy_current = PPG_AG_XY_GET(data_l);
+		ushort2 xy_prev = PPG_AG_XY_GET(data[max((int) (gid - 1), (int) 0)]);
+		ushort2 xy_next = PPG_AG_XY_GET(data[gid + 1]);
+		
+		ushort2 diff_prev = xy_current - xy_prev;
+		ushort2 diff_next = xy_current - xy_next;
+		
+		if ((gid == 0) || any(diff_prev != ((ushort2) (0, 0)))) {
 			cell_agents_idx[cell_idx] = gid;
 		}
 		/* Check if this agent is the end of a cell index. */
-		if (hashes[gid] - hashes[gid + 1]) {
+		if (any(diff_next != ((ushort2) (0, 0)))) {
 			cell_agents_idx[cell_idx + 1] = gid;
 		}
 	}
@@ -547,9 +577,7 @@ __kernel void findCellIdx(
 __kernel void actionAgent(
 			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
-			__global ushort2 *xy,
-			__global uint *data,
-			__global uint *hashes,
+			__global ulong *data,
 			__global rng_state *seeds)
 {
 	
@@ -557,14 +585,13 @@ __kernel void actionAgent(
 	uint gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	ushort2 xy_l = xy[gid];
-	uint data_l = data[gid];
+	ulong data_l = data[gid];
 	
 	/* If agent is alive, do stuff */
-	if (PPG_AG_IS_ALIVE(hashes[gid])) {
+	if (PPG_AG_IS_ALIVE(data_l)) {
 		
 		/* Get cell index where agent is */
-		uint cell_idx = PPG_CELL_IDX(xy, gid);
+		uint cell_idx = PPG_CELL_IDX(data_l);
 		
 		/* Reproduction threshold and probability (used further ahead) */
 		uchar reproduce_threshold, reproduce_prob;
@@ -579,10 +606,10 @@ __kernel void actionAgent(
 			/* If there is grass, eat it (and I can be the only one to do so)! */
 			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
 				/* If grass is alive, sheep eats it and gains energy */
-				data_l += SHEEP_GAIN_FROM_FOOD;
+				PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
 			}
 			
-		} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */
+		} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case
 			
 			/* Set reproduction threshold and probability */
 			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
@@ -594,9 +621,9 @@ __kernel void actionAgent(
 				for (uint i = cai.s0; i <= cai.s1; i++) {
 					if (PPG_AG_IS_SHEEP(data[i])) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(hashes[i]), PPG_AG_HASH_DEAD) != PPG_AG_HASH_DEAD) {
+						if (atomic_or(&(data[i]), PPG_AG_DEAD) != PPG_AG_DEAD) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-							data_l += WOLVES_GAIN_FROM_FOOD;
+							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
 						}
 					}
@@ -606,20 +633,18 @@ __kernel void actionAgent(
 		}
 		
 		/* Try reproducing this agent if energy > reproduce_threshold */
-		if (PPG_AG_ENERGY(data_l) > reproduce_threshold) {
+		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
 			
 			/* Throw dice to see if agent reproduces */
 			if (randomNextInt(seeds, 100) < reproduce_prob) {
 				
 				/* Agent will reproduce! */
 				uint pos_new = get_global_size(0) + gid;
-				uint data_new = PPG_AG_REPRODUCE(data_l);
+				ulong data_new = PPG_AG_REPRODUCE(data_l);
 				data[pos_new] = data_new;
-				xy[pos_new] = xy_l;
-				hashes[pos_new] = PPG_AG_HASH(data_new, xy_l);
 				
 				/* Current agent's energy will be halved also */
-				data_l =  data_l - PPG_AG_ENERGY(data_new);
+				PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
 				
 			}
 		}

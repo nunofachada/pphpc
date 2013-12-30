@@ -150,9 +150,7 @@ typedef struct pp_g_data_sizes {
 	size_t stats;                    /**< Simulation statistics. */
 	size_t cells_grass;              /**< Grass regrowth timer array. */
 	size_t cells_agents_index;       /**< Agent index in cell array. */
-	size_t agents_xy;                /**< Agents coordinates. */
 	size_t agents_data;              /**< Agents type and energy. */
-	size_t agents_hash;              /**< Agents hash (for sorting). */
 	size_t reduce_grass_local1;      /**< Local grass reduction array 1. */
 	size_t reduce_grass_local2;      /**< Local grass reduction array 2. */
 	size_t reduce_grass_global;      /**< Global grass reduction array. */
@@ -178,9 +176,7 @@ typedef struct pp_g_buffers_device {
 	cl_mem stats;                    /**< Simulation statistics. */
 	cl_mem cells_grass;              /**< Grass regrowth timer array. */
 	cl_mem cells_agents_index;       /**< Agent index in cells array. */
-	cl_mem agents_xy;                /**< Agents coordinates. */
 	cl_mem agents_data;	             /**< Agents type and energy. */
-	cl_mem agents_hash;              /**< Agents hash (for sorting). */
 	cl_mem reduce_grass_global;      /**< Global grass reduction array. */
 	cl_mem reduce_agent_global;      /**< Global agent reduction array. */
 	cl_mem rng_seeds;                /**< RNG seeds/state array. */
