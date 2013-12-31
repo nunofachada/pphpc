@@ -6,6 +6,7 @@
 #include "pp_common.h"
 
 #define RNGT_OUTPUT "out"
+#define RNGT_OUTPUT_TYPE "tsv"
 #define RNGT_GWS 262144
 #define RNGT_LWS 256
 #define RNGT_RUNS 50
@@ -17,6 +18,7 @@
 /* Command line arguments and respective default values. */
 static char *rng = NULL;
 static char *output = NULL;
+static char *output_type = NULL;
 static size_t gws = RNGT_GWS;
 static size_t lws = RNGT_LWS;
 static unsigned int runs = RNGT_RUNS;
@@ -30,7 +32,8 @@ static gboolean host_mt = FALSE;
 /* Valid command line options. */
 static GOptionEntry entries[] = {
 	{"rng",          'r', 0, G_OPTION_ARG_STRING,   &rng,           "Random number generator: " PP_RNGS,                                           "RNG"},
-	{"output",       'o', 0, G_OPTION_ARG_FILENAME, &output,        "Output file w/o extension (default is " RNGT_OUTPUT ")",                      "FILENAME"},
+	{"output-file",  'o', 0, G_OPTION_ARG_FILENAME, &output,        "Output file w/o extension (default is " RNGT_OUTPUT ")",                      "FILENAME"},
+	{"output-type",  't', 0, G_OPTION_ARG_STRING,   &output_type,   "Output type: tsv or dieharder (default is" RNGT_OUTPUT_TYPE ")",              "TYPE"},
 	{"globalsize",   'g', 0, G_OPTION_ARG_INT,      &gws,           "Global work size (default is " STR(RNGT_GWS) ")",                             "SIZE"},
 	{"localsize",    'l', 0, G_OPTION_ARG_INT,      &lws,           "Local work size (default is " STR(RNGT_LWS) ")",                              "SIZE"},
 	{"runs",         'n', 0, G_OPTION_ARG_INT,      &runs,          "Number of random numbers per workitem (default is " STR(RNGT_RUNS) ")",       "SIZE"},
@@ -74,8 +77,8 @@ int main(int argc, char **argv)
 	cl_uint **result_host = NULL;
 	cl_ulong *seeds_host = NULL;
 	cl_mem seeds_dev = NULL, result_dev = NULL;
-	FILE *fp_dh, *fp_tsv;
-	gchar *outputTsv = NULL, *outputDieharder = NULL;
+	FILE *fp;
+	gchar *output_filename = NULL;
 	gchar* compilerOpts = NULL;
 	size_t seeds_count;
 
@@ -97,9 +100,11 @@ int main(int argc, char **argv)
 	g_option_context_parse(context, &argc, &argv, &err);	
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	if (output == NULL) output = g_strdup(RNGT_OUTPUT);
+	if (output_type == NULL) output_type = g_strdup(RNGT_OUTPUT_TYPE);
 	if (rng == NULL) rng = g_strdup(PP_DEFAULT_RNG);
 	PP_ALG_GET(rng_info, rng_infos, rng);
 	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
+	gef_if_error_create_goto(err, PP_ERROR, g_strcmp0(output_type, "tsv") && g_strcmp0(output_type, "dieharder"), PP_INVALID_ARGS, error_handler, "Unknown output type '%s'.", output_type);
 	gef_if_error_create_goto(err, PP_ERROR, (bits > 32) || (bits < 1), PP_INVALID_ARGS, error_handler, "Number of bits must be between 1 and 32.");
 	
 	/* Get the required CL zone. */
@@ -255,23 +260,29 @@ int main(int argc, char **argv)
 	printf("     Finished, ellapsed time: %lfs\n", g_timer_elapsed(timer, NULL));
 	printf("     Saving to files...\n");
 
-	/* Output results to files to dieharder and TSV format. */
-	outputTsv = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host",".tsv", NULL);
-	outputDieharder = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host", ".dh.txt", NULL);
-	fp_dh = fopen(outputDieharder, "w");
-	fp_tsv = fopen(outputTsv, "w");
-	fprintf(fp_dh, "type: d\n");
-	fprintf(fp_dh, "count: %d\n", (int) (gws * runs));
-	fprintf(fp_dh, "numbit: %d\n", bits);
-	for (unsigned int i = 0; i < runs; i++) {
-		for (unsigned int j = 0; j < gws; j++) {
-			fprintf(fp_dh, "%u\n", result_host[i][j]);
-			fprintf(fp_tsv, "%u\t", result_host[i][j]);
+	/* Output results to file. */
+	if (!g_strcmp0(output_type, "tsv")) {
+		output_filename = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host",".tsv", NULL);
+		fp = fopen(output_filename, "w");
+		for (unsigned int i = 0; i < runs; i++) {
+			for (unsigned int j = 0; j < gws; j++) {
+				fprintf(fp, "%u\t", result_host[i][j]);
+			}
+			fprintf(fp, "\n");
 		}
-		fprintf(fp_tsv, "\n");
+	} else {
+		output_filename = g_strconcat(output, "_", rng, "_", gid_seed ? "gid" : "host", ".dh.txt", NULL);
+		fp = fopen(output_filename, "w");
+		fprintf(fp, "type: d\n");
+		fprintf(fp, "count: %d\n", (int) (gws * runs));
+		fprintf(fp, "numbit: %d\n", bits);
+		for (unsigned int i = 0; i < runs; i++) {
+			for (unsigned int j = 0; j < gws; j++) {
+				fprintf(fp, "%u\n", result_host[i][j]);
+			}
+		}
 	}
-	fclose(fp_dh);
-	fclose(fp_tsv);
+	fclose(fp);
 
 	/* Create a file with random numbers from GLib's Mersenne Twister. */
 	if (host_mt) {
@@ -301,8 +312,9 @@ cleanup:
 
 	/* Free command line options. */
 	if (context) g_option_context_free(context);
-	if (rng) g_free(rng);	
+	if (rng) g_free(rng);
 	if (output) g_free(output);
+	if (output_type) g_free(output_type);
 	if (compilerOpts) g_free(compilerOpts);
 	
 	/* Free timer. */
@@ -312,8 +324,7 @@ cleanup:
 	if (rng_host) g_rand_free(rng_host);
 	
 	/* Free filename strings. */
-	if (outputTsv) g_free(outputTsv);
-	if (outputDieharder) g_free(outputDieharder);
+	if (output_filename) g_free(output_filename);
 	
 	/* Release OpenCL kernels */
 	if (init_rng) clReleaseKernel(init_rng);
