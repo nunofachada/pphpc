@@ -27,6 +27,6 @@ __kernel void testRng(
 #ifdef RNGT_MAXINT
 	result[gid] = randomNextInt(seeds, bits);
 #else
-	result[gid] = randomNext(seeds) >> (32 - bits);
+	result[gid] = randomNext(seeds, gid) >> (32 - bits);
 #endif	
 }
