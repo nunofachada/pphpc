@@ -189,11 +189,11 @@ __kernel void initAgent(
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
 			/* A sheep agent. */
-			PPG_AG_ENERGY_SET(new_agent, SHEEP_ID);
+			PPG_AG_TYPE_SET(new_agent, SHEEP_ID);
 			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
 		} else {
 			/* A wolf agent. */
-			PPG_AG_ENERGY_SET(new_agent, WOLF_ID);
+			PPG_AG_TYPE_SET(new_agent, WOLF_ID);
 			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
 		//data[gid] = new_agent;
@@ -370,8 +370,8 @@ __kernel void reduceAgent1(
 		if (index < agentVectorCount) {
 			ulongx data_l = data[index];
 			ulongx is_alive = 0x1 & convert_ulongx(data_l != PPG_AG_DEAD);
-			sumSheep += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
-			sumWolves += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == WOLF_ID);
+			sumSheep += is_alive & convert_ulongx(((data_l >> 32) & 0xFFFF) == SHEEP_ID); 
+			sumWolves += is_alive & convert_ulongx(((data_l >> 32) & 0xFFFF) == WOLF_ID);
 		}
 	}
 

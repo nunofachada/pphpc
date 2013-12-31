@@ -8,7 +8,7 @@
 
 //#define PPG_DEBUG 1000 // x - interval of iterations to print info
 
-#define PPG_DUMP 1 // 0 - dump all, 1 - dump smart (only alive)
+//#define PPG_DUMP 1 // 0 - dump all, 1 - dump smart (only alive)
 
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -395,7 +395,13 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		if ((!PPG_DUMP) || (agents_data[k] != 0xFFFFFFFFFFFFFFFF)) {
 			if (blank_line) fprintf(fp_agent_dump, "\n");
 			blank_line = FALSE;
-			fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", k, agents_data[k], (cl_uint) (agents_data[k] >> 48), (cl_uint) ((agents_data[k] >> 32) & 0xFFFF), (cl_uint) ((agents_data[k] >> 16) & 0xFFFF), (cl_uint) (agents_data[k] & 0xFFFF));
+			fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
+				k, 
+				agents_data[k], 
+				(cl_uint) (agents_data[k] & 0xFFFF),
+				(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
+				(cl_uint) ((agents_data[k] >> 32) & 0xFFFF), 
+				(cl_uint) (agents_data[k] >> 48));
 		} else {
 			blank_line = TRUE;
 		}
@@ -727,11 +733,11 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 				fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
 					k, 
 					agents_data[k], 
-					(cl_uint) (agents_data[k] >> 48), 
-					(cl_uint) ((agents_data[k] >> 32) & 0xFFFF), 
+					(cl_uint) (agents_data[k] & 0xFFFF),
 					(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
-					(cl_uint) (agents_data[k] & 0xFFFF)
-				);
+					(cl_uint) ((agents_data[k] >> 32) & 0xFFFF), 
+					(cl_uint) (agents_data[k] >> 48)
+					);
 			} else {
 				blank_line = TRUE;
 			}
