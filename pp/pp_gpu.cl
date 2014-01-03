@@ -105,27 +105,27 @@ typedef union agent_data {
 	ushort4 par;
 } agentData;
 
-#define PPG_AG_ENERGY_GET(agent) ((agent).par.w)
-#define PPG_AG_ENERGY_SET(agent, energy) ((agent).par.w = (energy))
-#define PPG_AG_ENERGY_ADD(agent, energy) ((agent).par.w += (energy))
-#define PPG_AG_ENERGY_SUB(agent, energy) ((agent).par.w -= (energy))
+#define PPG_AG_ENERGY_GET(agent) ((agent).par.x)
+#define PPG_AG_ENERGY_SET(agent, energy) ((agent).par.x = (energy))
+#define PPG_AG_ENERGY_ADD(agent, energy) ((agent).par.x += (energy))
+#define PPG_AG_ENERGY_SUB(agent, energy) ((agent).par.x -= (energy))
 
-#define PPG_AG_TYPE_GET(agent) ((agent).par.z)
-#define PPG_AG_TYPE_SET(agent, type) ((agent).par.z = (type))
+#define PPG_AG_TYPE_GET(agent) ((agent).par.y)
+#define PPG_AG_TYPE_SET(agent, type) ((agent).par.y = (type))
 
-#define PPG_AG_XY_GET(agent) ((agent).par.xy)
-#define PPG_AG_XY_SET(agent, x, y) ((agent).par.xy = (ushort2) (x, y))
+#define PPG_AG_IS_SHEEP(agent) ((agent).par.y == SHEEP_ID)
+#define PPG_AG_IS_WOLF(agent) ((agent).par.y == WOLF_ID)
 
-#define PPG_AG_IS_SHEEP(agent) ((agent).par.z == SHEEP_ID)
-#define PPG_AG_IS_WOLF(agent) ((agent).par.z == WOLF_ID)
+#define PPG_AG_XY_GET(agent) ((agent).par.wz)
+#define PPG_AG_XY_SET(agent, x, y) ((agent).par.wz = (ushort2) (x, y))
 
-#define PPG_AG_REPRODUCE(agent) ((agentData) ((ushort4) ((agent).par.x, (agent).par.y, (agent).par.z, (agent).par.w/2)))
+#define PPG_AG_REPRODUCE(agent) ((agentData) ((ushort4) ((agent).par.x/2, (agent).par.y, (agent).par.z, (agent).par.w)))
 
 #define PPG_AG_DEAD 0xFFFFFFFFFFFFFFFF
 
 #define PPG_AG_IS_ALIVE(agent) ((agent).all != PPG_AG_DEAD)
 
-#define PPG_CELL_IDX(agent) ((agent).par.y * GRID_X + (agent).par.z)
+#define PPG_CELL_IDX(agent) ((agent).par.z * GRID_X + (agent).par.w)
 
 /**
  * @brief Initialize grid cells. 
@@ -370,8 +370,8 @@ __kernel void reduceAgent1(
 		if (index < agentVectorCount) {
 			ulongx data_l = data[index];
 			ulongx is_alive = 0x1 & convert_ulongx(data_l != PPG_AG_DEAD);
-			sumSheep += is_alive & convert_ulongx(((data_l >> 32) & 0xFFFF) == SHEEP_ID); 
-			sumWolves += is_alive & convert_ulongx(((data_l >> 32) & 0xFFFF) == WOLF_ID);
+			sumSheep += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
+			sumWolves += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == WOLF_ID);
 		}
 	}
 
@@ -534,13 +534,19 @@ __kernel void moveAgent(
 /**
  * @brief Find cell start and finish.
  * 
- * @param xy
- * @param alive
+ * The cell_agents_idx array is used as uint instead of uint2 because
+ * it makes accessing global memory easier, as most likely this kernel
+ * will only have to write to an 32-bit address instead of the full
+ * 64-bit space occupied by a start and end index.
+ * 
+ * @param data The agent data array.
+ * @param cell_agents_idx The agents index in cell array.
  * */
 __kernel void findCellIdx(
 			__global agentData *data,
 			__global uint *cell_agents_idx) 
 {
+	
 	/* Agent to be handled by this workitem. */
 	uint gid = get_global_id(0);
 	

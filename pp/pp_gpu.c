@@ -398,20 +398,15 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
 				k, 
 				agents_data[k], 
-				(cl_uint) (agents_data[k] & 0xFFFF),
-				(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
+				(cl_uint) (agents_data[k] >> 48),
 				(cl_uint) ((agents_data[k] >> 32) & 0xFFFF), 
-				(cl_uint) (agents_data[k] >> 48));
+				(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
+				(cl_uint) (agents_data[k] & 0xFFFF));
 		} else {
 			blank_line = TRUE;
 		}
 	}	
 	
-	fprintf(fp_cell_dump, "\nIteration -1\n");
-	for (unsigned int k = 0; k < params.grid_xy; k++) {
-		fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d)\n", k % params.grid_x, k / params.grid_y, cells_agents_index[k].s[0], cells_agents_index[k].s[1]);
-	}
-
 #endif
 
 
@@ -733,10 +728,10 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 				fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
 					k, 
 					agents_data[k], 
-					(cl_uint) (agents_data[k] & 0xFFFF),
-					(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
+					(cl_uint) (agents_data[k] >> 48),
 					(cl_uint) ((agents_data[k] >> 32) & 0xFFFF), 
-					(cl_uint) (agents_data[k] >> 48)
+					(cl_uint) ((agents_data[k] >> 16) & 0xFFFF), 
+					(cl_uint) (agents_data[k] & 0xFFFF)
 					);
 			} else {
 				blank_line = TRUE;
@@ -749,7 +744,12 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			if ((!PPG_DUMP) || (cells_agents_index[k].s[0] != args.max_agents)) {
 				if (blank_line) fprintf(fp_cell_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d)\n", k % params.grid_x, k / params.grid_y, cells_agents_index[k].s[0], cells_agents_index[k].s[1]);
+				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s\n", 
+					k % params.grid_x, 
+					k / params.grid_y, 
+					cells_agents_index[k].s[0], 
+					cells_agents_index[k].s[1],
+					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "");
 			} else {
 				blank_line = TRUE;
 			}
