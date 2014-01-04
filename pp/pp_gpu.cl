@@ -225,19 +225,20 @@ __kernel void grass(
 	uint gid = get_global_id(0);
 
 	/* Check if this workitem will do anything */
-	if (gid < PP_DIV_CEIL(CELL_NUM, VW_INT)) {
+	uint half_index = PP_DIV_CEIL(CELL_NUM, VW_INT);
+	if (gid < half_index) {
 		
 		/* Get grass counter from global memory. */
 		uintx grass_l = grass[gid];
 		
 		/* Decrement counter if grass is dead. This might also decrement
-		 * counters of padding cells (which are initialized to UIN_MAX) 
+		 * counters of padding cells (which are initialized to UINT_MAX) 
 		 * if vw_int > 1. */
 		grass[gid] = select((uintx) 0, grass_l - 1, grass_l > 0);
 		
 		/* Reset cell start and finish. */
 		agents_index[gid] = (uintx) MAX_AGENTS;
-		agents_index[get_global_size(0) + gid] = (uintx) MAX_AGENTS;
+		agents_index[half_index + gid] = (uintx) MAX_AGENTS;
 		/* @ALTERNATIVE
 		 * We have experimented with one vstore here, but it's slower. */
 	}
