@@ -667,6 +667,13 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		max_agents_iter = MAX(PPG_MIN_AGENTS, buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
 		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
 
+#ifdef PPG_DEBUG
+		status = clFinish(zone->queues[0]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after copying pinned stats to host, iteration %d (OpenCL error %d)", iter, status);
+		status = clFinish(zone->queues[1]);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after copying pinned stats to host, iteration %d (OpenCL error %d)", iter, status);
+#endif
+
 		/* ***************************************** */
 		/* **** Step 3.2: Find cell agent index **** */
 		/* ***************************************** */
