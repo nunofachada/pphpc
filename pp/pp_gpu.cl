@@ -602,51 +602,53 @@ __kernel void actionAgent(
 	/* Get agent for this workitem */
 	agentData data_l = data[gid];
 	
-	/* If agent is alive, do stuff */
-	if (PPG_AG_IS_ALIVE(data_l)) {
+	/* Get cell index where agent is */
+	uint cell_idx = PPG_CELL_IDX(data_l);
 		
-		/* Get cell index where agent is */
-		uint cell_idx = PPG_CELL_IDX(data_l);
-		
-		/* Reproduction threshold and probability (used further ahead) */
-		uchar reproduce_threshold, reproduce_prob;
+	/* Reproduction threshold and probability (used further ahead) */
+	uchar reproduce_threshold, reproduce_prob;
 				
-		/* Perform specific agent actions */
-		if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
+	/* Perform specific agent actions */
+	
+	if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
 		
-			/* Set reproduction threshold and probability */
-			reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
-			reproduce_prob = SHEEP_REPRODUCE_PROB;
+		/* Set reproduction threshold and probability */
+		reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
+		reproduce_prob = SHEEP_REPRODUCE_PROB;
 
-			/* If there is grass, eat it (and I can be the only one to do so)! */
-			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
-				/* If grass is alive, sheep eats it and gains energy */
-				PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
-			}
+		/* If there is grass, eat it (and I can be the only one to do so)! */
+		if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
+			/* If grass is alive, sheep eats it and gains energy */
+			PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
+		}
+		
+	} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case (not if he's dead)
 			
-		} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case
-			
-			/* Set reproduction threshold and probability */
-			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
-			reproduce_prob = WOLVES_REPRODUCE_PROB;
+		/* Set reproduction threshold and probability */
+		reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
+		reproduce_prob = WOLVES_REPRODUCE_PROB;
 
-			/* Cycle through agents in this cell */
-			uint2 cai = cell_agents_idx[cell_idx];
-			if (cai.s0 < MAX_AGENTS) {
-				for (uint i = cai.s0; i <= cai.s1; i++) {
-					if (PPG_AG_IS_SHEEP(data[i])) {
-						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(data_dup[i * 2 + 1]), 0xFFFFFFFF) != 0xFFFFFFFF) {
-							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-							data_dup[i * 2] = 0xFFFFFFFF;
-							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
-							break;
-						}
+		/* Cycle through agents in this cell */
+		uint2 cai = cell_agents_idx[cell_idx];
+		if (cai.s0 < MAX_AGENTS) {
+			for (uint i = cai.s0; i <= cai.s1; i++) {
+				if (PPG_AG_IS_SHEEP(data[i])) {
+					/* If it is a sheep, try to eat it! */
+					if (atomic_or(&(data_dup[i * 2]), 0xFFFFFFFF) != 0xFFFFFFFF) {
+						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+						data_dup[i * 2 + 1] = 0xFFFFFFFF;
+						PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
+						break;
 					}
 				}
 			}
-
 		}
+
+	}
+	
+	barrier(CLK_GLOBAL_MEM_FENCE);
+	
+	if (PPG_AG_IS_ALIVE(data[gid])) {
 		
 		/* Try reproducing this agent if energy > reproduce_threshold */
 		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
