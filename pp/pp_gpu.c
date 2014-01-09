@@ -8,7 +8,13 @@
 
 //#define PPG_DEBUG 1000 // x - interval of iterations to print info
 
-//#define PPG_DUMP 1 // 0 - dump all, 1 - dump smart (only alive)
+/* 
+ * 0x00 - dump all agents + all grass
+ * 0x01 - dump only alive agents + all grass
+ * 0x10 - dump all agents + only dead grass (counter>0)
+ * 0x11 - dump only alive agents + only dead grass (counter>0)
+ * */ 
+//#define PPG_DUMP 0x01 
 
 /** Information about the requested sorting algorithm. */
 static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
@@ -383,16 +389,19 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	FILE* fp_cell_dump = fopen("dump_cells.txt", "w");
 	cl_ulong *agents_data = (cl_ulong*) malloc(dataSizes.agents_data);
 	cl_uint2 *cells_agents_index = (cl_uint2*) malloc(dataSizes.cells_agents_index);
+	cl_uint *cells_grass = (cl_uint*) malloc(dataSizes.cells_grass);
 	int blank_line;
 
 	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.agents_data, CL_TRUE, 0, dataSizes.agents_data, agents_data, 0, NULL, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read data, iteration %d (OpenCL error %d)", iter, status);
 	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_agents_index, CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index, 0, NULL, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read agents index, iteration %d (OpenCL error %d)", iter, status);
+	status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_grass, CL_TRUE, 0, dataSizes.cells_grass, cells_grass, 0, NULL, NULL);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read grass, iteration %d (OpenCL error %d)", iter, status);
 	
 	fprintf(fp_agent_dump, "\nIteration -1\n");
 	for (unsigned int k = 0; k < args.max_agents; k++) {
-		if ((!PPG_DUMP) || (agents_data[k] != 0xFFFFFFFFFFFFFFFF)) {
+		if (!(PPG_DUMP & 0x01) || (agents_data[k] != 0xFFFFFFFFFFFFFFFF)) {
 			if (blank_line) fprintf(fp_agent_dump, "\n");
 			blank_line = FALSE;
 			fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
@@ -406,6 +415,21 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 			blank_line = TRUE;
 		}
 	}	
+
+	fprintf(fp_cell_dump, "\nIteration %d\n", iter);
+	blank_line = FALSE;
+	for (unsigned int k = 0; k < params.grid_xy; k++) {
+		if (!(PPG_DUMP & 0x10)) {
+			if (blank_line) fprintf(fp_cell_dump, "\n");
+			blank_line = FALSE;
+			fprintf(fp_cell_dump, "(%d, %d) -> (-, -) [Grass: %d]\n", 
+				k % params.grid_x, 
+				k / params.grid_y, 
+				cells_grass[k]);
+		} else {
+			blank_line = TRUE;
+		}
+	}
 	
 #endif
 
@@ -718,11 +742,13 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Agents dump, read data, iteration %d (OpenCL error %d)", iter, status);
 		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_agents_index, CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index, 0, NULL, NULL);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read agents index, iteration %d (OpenCL error %d)", iter, status);
+		status = clEnqueueReadBuffer(zone->queues[1], buffersDevice.cells_grass, CL_TRUE, 0, dataSizes.cells_grass, cells_grass, 0, NULL, NULL);
+		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Cells dump, read grass, iteration %d (OpenCL error %d)", iter, status);
 		
 		fprintf(fp_agent_dump, "\nIteration %d, gws_action_ag=%d, gws_mov_ag=%d\n", iter, (unsigned int) gws_action_agent, (unsigned int) gws_move_agent);
 		blank_line = FALSE;
 		for (unsigned int k = 0; k < args.max_agents; k++) {
-			if ((!PPG_DUMP) || (agents_data[k] != 0xFFFFFFFFFFFFFFFF)) {
+			if (!(PPG_DUMP & 0x01) || (agents_data[k] != 0xFFFFFFFFFFFFFFFF)) {
 				if (blank_line) fprintf(fp_agent_dump, "\n");
 				blank_line = FALSE;
 				fprintf(fp_agent_dump, "[%d] %lx: (%d, %d)\ttype=%d\tenergy=%d\n", 
@@ -741,15 +767,16 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		fprintf(fp_cell_dump, "\nIteration %d\n", iter);
 		blank_line = FALSE;
 		for (unsigned int k = 0; k < params.grid_xy; k++) {
-			if ((!PPG_DUMP) || (cells_agents_index[k].s[0] != args.max_agents)) {
+			if (!(PPG_DUMP & 0x10) || (cells_agents_index[k].s[0] != args.max_agents)) {
 				if (blank_line) fprintf(fp_cell_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s\n", 
+				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s [Grass: %d]\n", 
 					k % params.grid_x, 
 					k / params.grid_y, 
 					cells_agents_index[k].s[0], 
 					cells_agents_index[k].s[1],
-					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "");
+					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "",
+					cells_grass[k]);
 			} else {
 				blank_line = TRUE;
 			}
@@ -766,6 +793,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 	fclose(fp_cell_dump);
 	free(agents_data);
 	free(cells_agents_index);
+	free(cells_grass);
 #endif
 	
 	/* Post-simulation ops. */
