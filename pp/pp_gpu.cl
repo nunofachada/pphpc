@@ -519,11 +519,16 @@ __kernel void moveAgent(
 				xy_l.y--;
 		}
 		
-
 		/* Lose energy */
 		PPG_AG_ENERGY_SUB(data_l, 1);
+		/* Check if energy is zero... */
 		if (PPG_AG_ENERGY_GET(data_l) == 0)
+			/* If so, "kill" agent... */
 			data_l.all = PPG_AG_DEAD;
+		else
+			/* Otherwise update agent location. */
+			PPG_AG_XY_SET(data_l, xy_l.x, xy_l.y);
+		
 		
 		/* Update global mem */
 		data[gid] = data_l;
