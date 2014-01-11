@@ -102,6 +102,7 @@
 
 typedef union agent_data {
 	ulong all;
+	uint2 dual;
 	ushort4 par;
 } agentData;
 
@@ -554,7 +555,7 @@ __kernel void findCellIdx(
 {
 	
 	/* Agent to be handled by this workitem. */
-	uint gid = get_global_id(0);
+	size_t gid = get_global_id(0);
 	
 	agentData data_l = data[gid];
 	
@@ -591,16 +592,16 @@ __kernel void findCellIdx(
 __kernel void actionAgent(
 			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
-			__global agentData *data,
-			__global uint *data_dup,
+			__global uint *data,
 			__global rng_state *seeds)
 {
 	
 	/* Global id for this workitem */
-	uint gid = get_global_id(0);
+	size_t gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	agentData data_l = data[gid];
+	agentData data_l;
+	data_l.dual = vload2(gid, data);
 	
 	/* Get cell index where agent is */
 	uint cell_idx = PPG_CELL_IDX(data_l);
@@ -632,11 +633,13 @@ __kernel void actionAgent(
 		uint2 cai = cell_agents_idx[cell_idx];
 		if (cai.s0 < MAX_AGENTS) {
 			for (uint i = cai.s0; i <= cai.s1; i++) {
-				if (PPG_AG_IS_SHEEP(data[i])) {
+				agentData possibleSheep;
+				possibleSheep.dual = vload2(i, data);
+				if (PPG_AG_IS_SHEEP(possibleSheep)) {
 					/* If it is a sheep, try to eat it! */
-					if (atomic_or(&(data_dup[i * 2]), 0xFFFFFFFF) != 0xFFFFFFFF) {
+					if (atomic_or(&(data[i * 2]), 0xFFFFFFFF) != 0xFFFFFFFF) {
 						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-						data_dup[i * 2 + 1] = 0xFFFFFFFF;
+						data[i * 2 + 1] = 0xFFFFFFFF;
 						PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 						break;
 					}
@@ -648,7 +651,7 @@ __kernel void actionAgent(
 	
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	
-	if (PPG_AG_IS_ALIVE(data[gid])) {
+	if (data[gid * 2] != 0xFFFFFFFF) {
 		
 		/* Try reproducing this agent if energy > reproduce_threshold */
 		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
@@ -657,9 +660,9 @@ __kernel void actionAgent(
 			if (randomNextInt(seeds, 100) < reproduce_prob) {
 				
 				/* Agent will reproduce! */
-				uint pos_new = get_global_size(0) + gid;
+				size_t pos_new = get_global_size(0) + gid;
 				agentData data_new = PPG_AG_REPRODUCE(data_l);
-				data[pos_new] = data_new;
+				vstore2(data_new.dual, pos_new, data);
 				
 				/* Current agent's energy will be halved also */
 				PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
@@ -678,7 +681,7 @@ __kernel void actionAgent(
 		 * will probably not allow for any performance improvements. */
 		
 		/* My actions only affect my data (energy), so I will only put back data (energy)... */
-		data[gid] = data_l;
+		vstore2(data_l.dual, gid, data);
 		
 	}
 }
