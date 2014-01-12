@@ -122,9 +122,11 @@ typedef union agent_data {
 
 #define PPG_AG_REPRODUCE(agent) ((agentData) ((ushort4) ((agent).par.x/2, (agent).par.y, (agent).par.z, (agent).par.w)))
 
-#define PPG_AG_DEAD 0xFFFFFFFFFFFFFFFF
+#define PPG_AG_DEAD 0xFFFFFFFF
 
-#define PPG_AG_IS_ALIVE(agent) ((agent).all != PPG_AG_DEAD)
+#define PPG_AG_IS_ALIVE(agent) ((agent).dual.y != PPG_AG_DEAD)
+
+#define PPG_AG_DEAD_STATE ((agentData) 0xFFFFFFFFFFFFFFFF)
 
 #define PPG_CELL_IDX(agent) ((agent).par.z * GRID_X + (agent).par.w)
 
@@ -178,9 +180,8 @@ __kernel void initAgent(
 ) 
 {
 	/* Agent to be handled by this workitem. */
-	uint gid = get_global_id(0);
-	agentData new_agent;
-	new_agent.all = PPG_AG_DEAD;
+	size_t gid = get_global_id(0);
+	agentData new_agent = PPG_AG_DEAD_STATE;
 	
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
@@ -223,7 +224,7 @@ __kernel void grass(
 			__global uintx *agents_index)
 {
 	/* Grid position for this workitem */
-	uint gid = get_global_id(0);
+	size_t gid = get_global_id(0);
 
 	/* Check if this workitem will do anything */
 	uint half_index = PP_DIV_CEIL(CELL_NUM, VW_INT);
@@ -258,10 +259,10 @@ __kernel void reduceGrass1(
 			__global uintx *reduce_grass_global) {
 				
 	/* Global and local work-item IDs */
-	uint gid = get_global_id(0);
-	uint lid = get_local_id(0);
-	uint group_size = get_local_size(0);
-	uint global_size = get_global_size(0);
+	size_t gid = get_global_id(0);
+	size_t lid = get_local_id(0);
+	size_t group_size = get_local_size(0);
+	size_t global_size = get_global_size(0);
 	
 	/* Serial sum */
 	uintx sum = 0;
@@ -310,8 +311,8 @@ __kernel void reduceGrass1(
 			__global PPStatisticsOcl *stats) {
 				
 	/* Global and local work-item IDs */
-	uint lid = get_local_id(0);
-	uint group_size = get_local_size(0);
+	size_t lid = get_local_id(0);
+	size_t group_size = get_local_size(0);
 	
 	/* Load partial sum in local memory */
 	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
@@ -353,11 +354,11 @@ __kernel void reduceAgent1(
 			uint max_agents) {
 				
 	/* Global and local work-item IDs */
-	uint gid = get_global_id(0);
-	uint lid = get_local_id(0);
-	uint group_size = get_local_size(0);
-	uint global_size = get_global_size(0);
-	uint group_id = get_group_id(0);
+	size_t gid = get_global_id(0);
+	size_t lid = get_local_id(0);
+	size_t group_size = get_local_size(0);
+	size_t global_size = get_global_size(0);
+	size_t group_id = get_group_id(0);
 	
 	/* Serial sum */
 	ulongx sumSheep = 0;
@@ -371,7 +372,7 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			ulongx data_l = data[index];
-			ulongx is_alive = 0x1 & convert_ulongx(data_l != PPG_AG_DEAD);
+			ulongx is_alive = 0x1 & convert_ulongx((data_l & 0xFFFFFFFF00000000) != 0xFFFFFFFF00000000);
 			sumSheep += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
 			sumWolves += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == WOLF_ID);
 		}
@@ -417,8 +418,8 @@ __kernel void reduceAgent1(
 			uint num_slots) {
 				
 	/* Global and local work-item IDs */
-	uint lid = get_local_id(0);
-	uint group_size = get_local_size(0);
+	size_t lid = get_local_id(0);
+	size_t group_size = get_local_size(0);
 	
 	/* Load partial sum in local memory */
 	if (lid < num_slots) {
@@ -472,7 +473,7 @@ __kernel void moveAgent(
 	};
 	
 	/* Global id for this work-item */
-	uint gid = get_global_id(0);
+	size_t gid = get_global_id(0);
 
 	/* Load agent state locally. */
 	agentData data_l = data[gid];
@@ -525,7 +526,7 @@ __kernel void moveAgent(
 		/* Check if energy is zero... */
 		if (PPG_AG_ENERGY_GET(data_l) == 0)
 			/* If so, "kill" agent... */
-			data_l.all = PPG_AG_DEAD;
+			data_l = PPG_AG_DEAD_STATE;
 		else
 			/* Otherwise update agent location. */
 			PPG_AG_XY_SET(data_l, xy_l.x, xy_l.y);
@@ -611,47 +612,49 @@ __kernel void actionAgent(
 				
 	/* Perform specific agent actions */
 	
-	if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
-		
-		/* Set reproduction threshold and probability */
-		reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
-		reproduce_prob = SHEEP_REPRODUCE_PROB;
-
-		/* If there is grass, eat it (and I can be the only one to do so)! */
-		if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
-			/* If grass is alive, sheep eats it and gains energy */
-			PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
-		}
-		
-	} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case (not if he's dead)
+	if (PPG_AG_IS_ALIVE(data_l)) {
+		if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
 			
-		/* Set reproduction threshold and probability */
-		reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
-		reproduce_prob = WOLVES_REPRODUCE_PROB;
+			/* Set reproduction threshold and probability */
+			reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
+			reproduce_prob = SHEEP_REPRODUCE_PROB;
 
-		/* Cycle through agents in this cell */
-		uint2 cai = cell_agents_idx[cell_idx];
-		if (cai.s0 < MAX_AGENTS) {
-			for (uint i = cai.s0; i <= cai.s1; i++) {
-				agentData possibleSheep;
-				possibleSheep.dual = vload2(i, data);
-				if (PPG_AG_IS_SHEEP(possibleSheep)) {
-					/* If it is a sheep, try to eat it! */
-					if (atomic_or(&(data[i * 2]), 0xFFFFFFFF) != 0xFFFFFFFF) {
-						/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-						data[i * 2 + 1] = 0xFFFFFFFF;
-						PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
-						break;
+			/* If there is grass, eat it (and I can be the only one to do so)! */
+			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
+				/* If grass is alive, sheep eats it and gains energy */
+				PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
+			}
+			
+		} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case
+				
+			/* Set reproduction threshold and probability */
+			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
+			reproduce_prob = WOLVES_REPRODUCE_PROB;
+
+			/* Cycle through agents in this cell */
+			uint2 cai = cell_agents_idx[cell_idx];
+			if (cai.s0 < MAX_AGENTS) {
+				for (uint i = cai.s0; i <= cai.s1; i++) {
+					agentData possibleSheep;
+					possibleSheep.dual = vload2(i, data);
+					if (PPG_AG_IS_SHEEP(possibleSheep)) {
+						/* If it is a sheep, try to eat it! */
+						if (atomic_or(&(data[i * 2]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+							//data[i * 2 + 1] = 0xFFFFFFFF;
+							//vstore2((uint2) (-1,-1), i, data);
+							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
+							break;
+						}
 					}
 				}
 			}
 		}
-
 	}
 	
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	
-	if (data[gid * 2] != 0xFFFFFFFF) {
+	if (data[gid * 2] != PPG_AG_DEAD) {
 		
 		/* Try reproducing this agent if energy > reproduce_threshold */
 		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
@@ -682,6 +685,6 @@ __kernel void actionAgent(
 		
 		/* My actions only affect my data (energy), so I will only put back data (energy)... */
 		vstore2(data_l.dual, gid, data);
-		
+		//data[gid * 2 + 1] = data_l.dual.x;
 	}
 }
