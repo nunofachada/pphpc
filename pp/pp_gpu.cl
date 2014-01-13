@@ -80,7 +80,7 @@
 /* Long vector width pre-defines */
 #if VW_LONG == 1
 	#define VW_LONG_SUM(x) (x)
-	#define convert_ulong(x) convert_ulong(x)
+	#define convert_ulongx(x) convert_ulong(x)
 	typedef ulong ulongx;
 #elif VW_LONG == 2
 	#define VW_LONG_SUM(x) (x.s0 + x.s1)
@@ -199,11 +199,7 @@ __kernel void initAgent(
 			PPG_AG_TYPE_SET(new_agent, WOLF_ID);
 			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
-		//data[gid] = new_agent;
-	} //else if (gid < MAX_AGENTS) {
-		/* This workitem will initialize a dead agent with no type. */
-		//data[gid] = (agentData) PPG_AG_DEAD;
-	//}
+	}
 	data[gid] = new_agent;
 
 	

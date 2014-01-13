@@ -1477,7 +1477,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
 	
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.int_vw * sizeof(cl_uint); /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.long_vw * sizeof(cl_ulong); /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
