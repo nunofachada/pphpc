@@ -1697,10 +1697,10 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
-	g_string_append_printf(compilerOpts, "-D VW_CHAR=%d ", args_vw.char_vw);
-	g_string_append_printf(compilerOpts, "-D VW_INT=%d ", args_vw.int_vw);
-	g_string_append_printf(compilerOpts, "-D VW_LONG=%d ", args_vw.long_vw);
-	g_string_append_printf(compilerOpts, "-D VW_CHAR2INT_MUL=%d ", args_vw.char_vw / args_vw.int_vw);
+	g_string_append_printf(compilerOpts, "-D VW_GRASS=%d ", args_vw.grass_vw);
+	g_string_append_printf(compilerOpts, "-D VW_GRASSREDUCE=%d ", args_vw.grassreduce_vw);
+	g_string_append_printf(compilerOpts, "-D VW_AGENTREDUCE=%d ", args_vw.agentreduce_vw);
+	g_string_append_printf(compilerOpts, "-D AGENT_WIDTH_BYTES ", args.agent_width_bytes);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D MAX_LWS=%d ", (unsigned int) lws.max_lws);
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ", args.max_agents);

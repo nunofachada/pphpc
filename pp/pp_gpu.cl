@@ -4,12 +4,14 @@
  * 
  * The kernels in this file expect the following preprocessor defines:
  * 
- * * VW_INT - Vector size used for integers 
- * * VW_CHAR - Vector size used for chars 
+ * * VW_GRASS - Vector size used in grass kernel (vector of uints)
+ * * VW_REDUCEGRASS - Vector size used in reduce grass kernels (vector of uints)
+ * * VW_REDUCEAGENTS - Vector size used in reduce agents kernels (vector of ulongs or uints)
  * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
  * * MAX_LWS - Maximum local work size used in simulation.
  * * CELL_NUM - Number of cells in simulation
  * * MAX_AGENTS - Maximum allowed agents in the simulation
+ * * AGENT_WIDTH_BYTES - Specifies the size in memory of each agent (4 or 8 bytes)
  * 
  * * INIT_SHEEP - Initial number of sheep.
  * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
@@ -31,73 +33,80 @@
 #define SHEEP_ID 0x1
 #define WOLF_ID 0x2
 
-/* Char vector width pre-defines */
-#if VW_CHAR == 1
-	#define VW_CHAR_SUM(x) (x)
-	#define convert_ucharx(x) convert_uchar(x)
-	typedef uchar ucharx;
-#elif VW_CHAR == 2
-	#define VW_CHAR_SUM(x) (x.s0 + x.s1)
-	#define convert_ucharx(x) convert_uchar2(x)
-	typedef uchar2 ucharx;
-#elif VW_CHAR == 4
-	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
-	#define convert_ucharx(x) convert_uchar4(x)
-	typedef uchar4 ucharx;
-#elif VW_CHAR == 8
-	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
-	#define convert_ucharx(x) convert_uchar8(x)
-	typedef uchar8 ucharx;
-#elif VW_CHAR == 16
-	#define VW_CHAR_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
-	#define convert_ucharx(x) convert_uchar16(x)
-	typedef uchar16 ucharx;
+/* Define macros for grass kernel depending on chosen vector width. */
+#if VW_GRASS == 1
+	#define VW_GRASS_SUM(x) (x)
+	#define convert_grass_uintx(x) convert_uint(x)
+	typedef uint grass_uintx;
+#elif VW_GRASS == 2
+	#define VW_GRASS_SUM(x) (x.s0 + x.s1)
+	#define convert_grass_uintx(x) convert_uint2(x)
+	typedef uint2 grass_uintx;
+#elif VW_GRASS == 4
+	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_grass_uintx(x) convert_uint4(x)
+	typedef uint4 grass_uintx;
+#elif VW_GRASS == 8
+	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_grass_uintx(x) convert_uint8(x)
+	typedef uint8 grass_uintx;
+#elif VW_GRASS == 16
+	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+	#define convert_grass_uintx(x) convert_uint16(x)
+	typedef uint16 grass_uintx;
 #endif
 
-/* Integer vector width pre-defines */
-#if VW_INT == 1
-	#define VW_INT_SUM(x) (x)
-	#define convert_uintx(x) convert_uint(x)
-	typedef uint uintx;
-#elif VW_INT == 2
-	#define VW_INT_SUM(x) (x.s0 + x.s1)
-	#define convert_uintx(x) convert_uint2(x)
-	typedef uint2 uintx;
-#elif VW_INT == 4
-	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
-	#define convert_uintx(x) convert_uint4(x)
-	typedef uint4 uintx;
-#elif VW_INT == 8
-	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
-	#define convert_uintx(x) convert_uint8(x)
-	typedef uint8 uintx;
-#elif VW_INT == 16
-	#define VW_INT_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
-	#define convert_uintx(x) convert_uint16(x)
-	typedef uint16 uintx;
+/* Define macros for grass reduction kernels depending on chosen vector width. */
+#if VW_GRASSREDUCE == 1
+	#define VW_GRASSREDUCE_SUM(x) (x)
+	#define convert_grassreduce_uintx(x) convert_uint(x)
+	typedef uint grassreduce_uintx;
+#elif VW_GRASSREDUCE == 2
+	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1)
+	#define convert_grassreduce_uintx(x) convert_uint2(x)
+	typedef uint2 grassreduce_uintx;
+#elif VW_GRASSREDUCE == 4
+	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_grassreduce_uintx(x) convert_uint4(x)
+	typedef uint4 grassreduce_uintx;
+#elif VW_GRASSREDUCE == 8
+	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_grassreduce_uintx(x) convert_uint8(x)
+	typedef uint8 grassreduce_uintx;
+#elif VW_GRASSREDUCE == 16
+	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+	#define convert_grassreduce_uintx(x) convert_uint16(x)
+	typedef uint16 grassreduce_uintx;
 #endif
 
-/* Long vector width pre-defines */
-#if VW_LONG == 1
-	#define VW_LONG_SUM(x) (x)
-	#define convert_ulongx(x) convert_ulong(x)
-	typedef ulong ulongx;
-#elif VW_LONG == 2
-	#define VW_LONG_SUM(x) (x.s0 + x.s1)
-	#define convert_ulongx(x) convert_ulong2(x)
-	typedef ulong2 ulongx;
-#elif VW_LONG == 4
-	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
-	#define convert_ulongx(x) convert_ulong4(x)
-	typedef ulong4 ulongx;
-#elif VW_LONG == 8
-	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
-	#define convert_ulongx(x) convert_ulong8(x)
-	typedef ulong8 ulongx;
-#elif VW_LONG == 16
-	#define VW_LONG_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
-	#define convert_ulongx(x) convert_ulong16(x)
-	typedef ulong16 ulongx;
+/* Define type for agents depending on respective compiler option. */
+typedef ulong uagr; 
+typedef ulong2 uagr2; 
+typedef ulong4 uagr4; 
+typedef ulong8 uagr8; 
+typedef ulong16 uagr16; 
+
+/* Define macros for agent reduction kernels depending on chosen vector width. */
+#if VW_AGENTREDUCE == 1
+	#define VW_AGENTREDUCE_SUM(x) (x)
+	#define convert_agentreduce_uagr(x) convert_uagr(x)
+	typedef uagr agentreduce_uagr;
+#elif VW_AGENTREDUCE == 2
+	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1)
+	#define convert_agentreduce_uagr(x) convert_uagr2(x)
+	typedef uagr2 agentreduce_uagr;
+#elif VW_AGENTREDUCE == 4
+	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_agentreduce_uagr(x) convert_uagr4(x)
+	typedef uagr4 agentreduce_uagr;
+#elif VW_AGENTREDUCE == 8
+	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_agentreduce_uagr(x) convert_uagr8(x)
+	typedef uagr8 agentreduce_uagr;
+#elif VW_AGENTREDUCE == 16
+	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+	#define convert_agentreduce_uagr(x) convert_uagr16(x)
+	typedef uagr16 agentreduce_uagr;
 #endif
 
 typedef union agent_data {
@@ -187,7 +196,6 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		//agentData new_agent;
 		PPG_AG_XY_SET(new_agent, randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) { 
@@ -217,27 +225,27 @@ __kernel void initAgent(
  * @param grass_timer
  * */
 __kernel void grass(
-			__global uintx *grass,
-			__global uintx *agents_index)
+			__global grass_uintx *grass,
+			__global grass_uintx *agents_index)
 {
 	/* Grid position for this workitem */
 	size_t gid = get_global_id(0);
 
 	/* Check if this workitem will do anything */
-	uint half_index = PP_DIV_CEIL(CELL_NUM, VW_INT);
+	uint half_index = PP_DIV_CEIL(CELL_NUM, VW_GRASS);
 	if (gid < half_index) {
 		
 		/* Get grass counter from global memory. */
-		uintx grass_l = grass[gid];
+		grass_uintx grass_l = grass[gid];
 		
 		/* Decrement counter if grass is dead. This might also decrement
 		 * counters of padding cells (which are initialized to UINT_MAX) 
 		 * if vw_int > 1. */
-		grass[gid] = select((uintx) 0, grass_l - 1, grass_l > 0);
+		grass[gid] = select((grass_uintx) 0, grass_l - 1, grass_l > 0);
 		
 		/* Reset cell start and finish. */
-		agents_index[gid] = (uintx) MAX_AGENTS;
-		agents_index[half_index + gid] = (uintx) MAX_AGENTS;
+		agents_index[gid] = (grass_uintx) MAX_AGENTS;
+		agents_index[half_index + gid] = (grass_uintx) MAX_AGENTS;
 		/* @ALTERNATIVE
 		 * We have experimented with one vstore here, but it's slower. */
 	}
@@ -251,9 +259,9 @@ __kernel void grass(
  * @param reduce_grass_global
  * */
 __kernel void reduceGrass1(
-			__global uintx *grass,
-			__local uintx *partial_sums,
-			__global uintx *reduce_grass_global) {
+			__global grassreduce_uintx *grass,
+			__local grassreduce_uintx *partial_sums,
+			__global grassreduce_uintx *reduce_grass_global) {
 				
 	/* Global and local work-item IDs */
 	size_t gid = get_global_id(0);
@@ -262,15 +270,15 @@ __kernel void reduceGrass1(
 	size_t global_size = get_global_size(0);
 	
 	/* Serial sum */
-	uintx sum = 0;
+	grassreduce_uintx sum = 0;
 	
 	/* Serial count */
-	uint cellVectorCount = PP_DIV_CEIL(CELL_NUM, VW_INT);
+	uint cellVectorCount = PP_DIV_CEIL(CELL_NUM, VW_GRASSREDUCE);
 	uint serialCount = PP_DIV_CEIL(cellVectorCount, global_size);
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += 0x1 & convert_uintx(!grass[index]);
+			sum += 0x1 & convert_grassreduce_uintx(!grass[index]);
 		}
 	}
 	
@@ -303,8 +311,8 @@ __kernel void reduceGrass1(
  * @param stats
  * */
  __kernel void reduceGrass2(
-			__global uintx *reduce_grass_global,
-			__local uintx *partial_sums,
+			__global grassreduce_uintx *reduce_grass_global,
+			__local grassreduce_uintx *partial_sums,
 			__global PPStatisticsOcl *stats) {
 				
 	/* Global and local work-item IDs */
@@ -330,7 +338,7 @@ __kernel void reduceGrass1(
 	
 	/* Put in global memory */
 	if (lid == 0) {
-		stats[0].grass = VW_INT_SUM(partial_sums[0]);
+		stats[0].grass = VW_GRASSREDUCE_SUM(partial_sums[0]);
 	}
 		
 }
@@ -345,9 +353,9 @@ __kernel void reduceGrass1(
  * @param max_agents = (stats[0].sheep + stats[0].wolves) * 2 //set in host
  * */
 __kernel void reduceAgent1(
-			__global ulongx *data,
-			__local ulongx *partial_sums,
-			__global ulongx *reduce_agent_global,
+			__global agentreduce_uagr *data,
+			__local agentreduce_uagr *partial_sums,
+			__global agentreduce_uagr *reduce_agent_global,
 			uint max_agents) {
 				
 	/* Global and local work-item IDs */
@@ -358,20 +366,20 @@ __kernel void reduceAgent1(
 	size_t group_id = get_group_id(0);
 	
 	/* Serial sum */
-	ulongx sumSheep = 0;
-	ulongx sumWolves = 0;
+	agentreduce_uagr sumSheep = 0;
+	agentreduce_uagr sumWolves = 0;
 	
 	/* Serial count */
-	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_LONG);
+	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_AGENTREDUCE);
 	uint serialCount = PP_DIV_CEIL(agentVectorCount, global_size);
 	
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
-			ulongx data_l = data[index];
-			ulongx is_alive = 0x1 & convert_ulongx((data_l & 0xFFFFFFFF00000000) != 0xFFFFFFFF00000000);
-			sumSheep += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
-			sumWolves += is_alive & convert_ulongx(((data_l >> 16) & 0xFFFF) == WOLF_ID);
+			agentreduce_uagr data_l = data[index];
+			agentreduce_uagr is_alive = 0x1 & convert_agentreduce_uagr((data_l & 0xFFFFFFFF00000000) != 0xFFFFFFFF00000000);
+			sumSheep += is_alive & convert_agentreduce_uagr(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
+			sumWolves += is_alive & convert_agentreduce_uagr(((data_l >> 16) & 0xFFFF) == WOLF_ID);
 		}
 	}
 
@@ -409,8 +417,8 @@ __kernel void reduceAgent1(
  * @param num_slots Number of workgroups in step 1.
  * */
  __kernel void reduceAgent2(
-			__global ulongx *reduce_agent_global,
-			__local ulongx *partial_sums,
+			__global agentreduce_uagr *reduce_agent_global,
+			__local agentreduce_uagr *partial_sums,
 			__global PPStatisticsOcl *stats,
 			uint num_slots) {
 				
@@ -441,8 +449,8 @@ __kernel void reduceAgent1(
 	
 	/* Put in global memory */
 	if (lid == 0) {
-		stats[0].sheep = (uint) VW_LONG_SUM(partial_sums[0]);
-		stats[0].wolves = (uint) VW_LONG_SUM(partial_sums[group_size]);
+		stats[0].sheep = (uint) VW_AGENTREDUCE_SUM(partial_sums[0]);
+		stats[0].wolves = (uint) VW_AGENTREDUCE_SUM(partial_sums[group_size]);
 	}
 		
 }
