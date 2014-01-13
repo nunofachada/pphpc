@@ -126,7 +126,7 @@ typedef union agent_data {
 
 #define PPG_AG_IS_ALIVE(agent) ((agent).dual.y != PPG_AG_DEAD)
 
-#define PPG_AG_DEAD_STATE ((agentData) 0xFFFFFFFFFFFFFFFF)
+#define PPG_AG_SET_DEAD(agent) ((agent).all = 0xFFFFFFFFFFFFFFFF)
 
 #define PPG_CELL_IDX(agent) ((agent).par.z * GRID_X + (agent).par.w)
 
@@ -181,7 +181,8 @@ __kernel void initAgent(
 {
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
-	agentData new_agent = PPG_AG_DEAD_STATE;
+	agentData new_agent;
+	PPG_AG_SET_DEAD(new_agent);
 	
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
@@ -526,7 +527,7 @@ __kernel void moveAgent(
 		/* Check if energy is zero... */
 		if (PPG_AG_ENERGY_GET(data_l) == 0)
 			/* If so, "kill" agent... */
-			data_l = PPG_AG_DEAD_STATE;
+			PPG_AG_SET_DEAD(data_l);
 		else
 			/* Otherwise update agent location. */
 			PPG_AG_XY_SET(data_l, xy_l.x, xy_l.y);
