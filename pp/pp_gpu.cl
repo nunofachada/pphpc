@@ -639,10 +639,8 @@ __kernel void actionAgent(
 					possibleSheep.dual = vload2(i, data);
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(data[i * 2]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+						if (atomic_or(&(data[i * 2 + 1]), PPG_AG_DEAD) != PPG_AG_DEAD) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
-							//data[i * 2 + 1] = 0xFFFFFFFF;
-							//vstore2((uint2) (-1,-1), i, data);
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
 						}
@@ -652,39 +650,34 @@ __kernel void actionAgent(
 		}
 	}
 	
-	barrier(CLK_GLOBAL_MEM_FENCE);
-	
-	if (data[gid * 2] != PPG_AG_DEAD) {
+	/* Try reproducing this agent if energy > reproduce_threshold */
+	if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
 		
-		/* Try reproducing this agent if energy > reproduce_threshold */
-		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
-			
-			/* Throw dice to see if agent reproduces */
-			if (randomNextInt(seeds, 100) < reproduce_prob) {
+		/* Throw dice to see if agent reproduces */
+		if (randomNextInt(seeds, 100) < reproduce_prob) {
 				
-				/* Agent will reproduce! */
-				size_t pos_new = get_global_size(0) + gid;
-				agentData data_new = PPG_AG_REPRODUCE(data_l);
-				vstore2(data_new.dual, pos_new, data);
+			/* Agent will reproduce! */
+			size_t pos_new = get_global_size(0) + gid;
+			agentData data_new = PPG_AG_REPRODUCE(data_l);
+			vstore2(data_new.dual, pos_new, data);
 				
-				/* Current agent's energy will be halved also */
-				PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
+			/* Current agent's energy will be halved also */
+			PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
 				
-			}
 		}
-		
-		/* @ALTERNATIVE for agent reproduction:
-		 * 1 - Create new agents in workgroup local memory using a local 
-		 * atomic counter to determine new agent index. 
-		 * 2 - In the end of the workitem put a workgroup local mem 
-		 * barrier, then push new agents in a coalesced fashion to 
-		 * global memory using a global atomic counter to determine 
-		 * the index of the first agent in the group. 
-		 * - Problems: the additional complexity and the use of atomics
-		 * will probably not allow for any performance improvements. */
-		
-		/* My actions only affect my data (energy), so I will only put back data (energy)... */
-		vstore2(data_l.dual, gid, data);
-		//data[gid * 2 + 1] = data_l.dual.x;
 	}
+
+	/* @ALTERNATIVE for agent reproduction:
+	 * 1 - Create new agents in workgroup local memory using a local 
+	 * atomic counter to determine new agent index. 
+	 * 2 - In the end of the workitem put a workgroup local mem 
+	 * barrier, then push new agents in a coalesced fashion to 
+	 * global memory using a global atomic counter to determine 
+	 * the index of the first agent in the group. 
+	 * - Problems: the additional complexity and the use of atomics
+	 * will probably not allow for any performance improvements. */
+		
+	/* My actions only affect my data (energy), so I will only put back data (energy)... */
+	data[gid * 2] = data_l.dual.x;
+	
 }
