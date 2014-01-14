@@ -17,6 +17,9 @@
  * */
 #define PPG_DEFAULT_MAX_AGENTS 16777216
 
+/** Default agent size in bits. */
+#define PPG_DEFAULT_AGENT_SIZE 64
+
 /**
  * @brief A minimal number of possibly existing agents is required in
  * order to determine minimum global worksizes of kernels. 
@@ -38,6 +41,7 @@ typedef struct pp_g_args {
 	gchar* compiler_opts; /**< Compiler options. */
 	cl_int dev_idx;       /**< Index of device to use. */
 	guint32 rng_seed;     /**< Rng seed. */
+	guint32 agent_size;   /**< Agent size in bits (32 or 64). */
 	cl_uint max_agents;   /**< Maximum number of agents. */
 } PPGArgs;
 
@@ -69,11 +73,9 @@ typedef struct pp_g_args_lws {
  * @brief Vector width command-line arguments.
  * */
 typedef struct pp_g_args_vw {
-	cl_uint char_vw;  /**< Width of char vector operations. */
-	cl_uint short_vw; /**< Width of short vector operations. */
-	cl_uint int_vw;   /**< Width of int vector operations. */
-	cl_uint float_vw; /**< Width of float vector operations. */
-	cl_uint long_vw;  /**< Width of long vector operations. */
+	cl_uint grass;        /**< Width of grass kernel vector operations. */
+	cl_uint reduce_grass; /**< Width of reduce grass kernels vector operations. */
+	cl_uint reduce_agent; /**< Width of reduce agents kernels vector operations. */
 } PPGArgsVW;
 
 /** 
@@ -231,7 +233,7 @@ cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParamete
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
 /** @brief Parse command-line options. */
-void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
+cl_int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
 
 /** @brief Free command line parsing related objects. */
 void ppg_args_free(GOptionContext* context);

@@ -24,9 +24,9 @@ static PPRngInfo rng_info = {NULL, NULL, 0};
 
 /** Main command line arguments and respective default values. */
 #ifdef CLPROFILER
-static PPGArgs args = {NULL, NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+static PPGArgs args = {NULL, NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_AGENT_SIZE, PPG_DEFAULT_MAX_AGENTS};
 #else
-static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_MAX_AGENTS};
+static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED, PPG_DEFAULT_AGENT_SIZE, PPG_DEFAULT_MAX_AGENTS};
 #endif
 
 /** Algorithm selection arguments. */
@@ -36,7 +36,7 @@ static PPGArgsAlg args_alg = {NULL, NULL};
 static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 /** Vector widths command line arguments. */
-static PPGArgsVW args_vw = {0, 0, 0, 0, 0};
+static PPGArgsVW args_vw = {0, 0, 0};
 
 /** Main command line options. */
 static GOptionEntry entries[] = {
@@ -47,8 +47,9 @@ static GOptionEntry entries[] = {
 #endif
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts, "Extra OpenCL compiler options",                                                             "OPTS"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
-	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
+	{"rng-seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
+	{"agent-size",      'a', 0, G_OPTION_ARG_INT,      &args.agent_size,    "Agent size, 32 or 64 bits (default is " STR(PPG_DEFAULT_AGENT_SIZE) ")",                    "BITS"},
+	{"max-agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,        NULL,                                                                                        NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
@@ -75,13 +76,11 @@ static GOptionEntry entries_lws[] = {
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
-/** Vector widths. */
+/** Kernel vector widths. */
 static GOptionEntry entries_vw[] = {
-	{"vw-char",  0, 0, G_OPTION_ARG_INT, &args_vw.char_vw,  "Vector width for char types",  "WIDTH"},
-	{"vw-short", 0, 0, G_OPTION_ARG_INT, &args_vw.short_vw, "Vector width for short types", "WIDTH"},
-	{"vw-int",   0, 0, G_OPTION_ARG_INT, &args_vw.int_vw,   "Vector width for int types",   "WIDTH"},
-	{"vw-float", 0, 0, G_OPTION_ARG_INT, &args_vw.float_vw, "Vector width for float types", "WIDTH"},
-	{"vw-long",  0, 0, G_OPTION_ARG_INT, &args_vw.long_vw,  "Vector width for long types",  "WIDTH"},
+	{"vw-grass",        0, 0, G_OPTION_ARG_INT, &args_vw.grass,        "Vector (of uints) width for grass kernel, default is 0 (auto-detect)",                                       "WIDTH"},
+	{"vw-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_vw.reduce_grass, "Vector (of uints) width for grass reduce kernel, default is 0 (auto-detect)",                                "WIDTH"},
+	{"vw-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_vw.reduce_agent, "Vector (of uint/ulongs, depends on --agent-size) width for agent reduce kernel, default is 0 (auto-detect)", "WIDTH"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -128,18 +127,9 @@ int main(int argc, char **argv) {
 	/* Error management object. */
 	GError *err = NULL;
 
-	/* Parse arguments. */
-	ppg_args_parse(argc, argv, &context, &err);
-	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
-
-	/* Validate arguments. */
-	if (!args_alg.rng) args_alg.rng = g_strdup(PP_DEFAULT_RNG);
-	PP_ALG_GET(rng_info, rng_infos, args_alg.rng);
-	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
-	
-	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_DEFAULT_SORT);
-	PP_ALG_GET(sort_info, sort_infos, args_alg.sort);
-	gef_if_error_create_goto(err, PP_ERROR, !sort_info.tag, PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
+	/* Parse and validate arguments. */
+	status = ppg_args_parse(argc, argv, &context, &err);
+	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* Create RNG with specified seed. */
 	rng = g_rand_new_with_seed(args.rng_seed);
@@ -476,7 +466,7 @@ cl_int ppg_simulate(PPParameters params, CLUZone* zone,
 		gws_reduce_agent1 = MIN( 
 			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
 			PP_GWS_MULT(
-				PP_DIV_CEIL(max_agents_iter, args_vw.long_vw),
+				PP_DIV_CEIL(max_agents_iter, args_vw.reduce_agent),
 				lws.reduce_agent1
 			)
 		);
@@ -972,6 +962,9 @@ finish:
  * */
 cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
 	
+	/* Device preferred int and long vector widths. */
+	cl_uint int_vw, long_vw;
+	
 	/* Get the maximum workgroup size. */
 	cl_int status = clGetDeviceInfo(
 		device, 
@@ -994,41 +987,45 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 		lws->deflt = lws->max_lws;
 	}
 
-	/* Get the char vector width, if not specified by user. */
-	if (args_vw.char_vw == 0) {
-		status = clGetDeviceInfo(
-			device, 
-			CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 
-			sizeof(cl_uint), 
-			&args_vw.char_vw, 
-			NULL
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR). (OpenCL error %d)", status);	
-	}
+	/* Get the device preferred int vector width. */
+	status = clGetDeviceInfo(
+		device, 
+		CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, 
+		sizeof(cl_uint), 
+		&int_vw, 
+		NULL
+	);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT). (OpenCL error %d)", status);	
 
-	/* Get the int vector width, if not specified by user. */
-	if (args_vw.int_vw == 0) {
-		status = clGetDeviceInfo(
-			device, 
-			CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT, 
-			sizeof(cl_uint), 
-			&args_vw.int_vw, 
-			NULL
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT). (OpenCL error %d)", status);	
+	/* Get the long vector width. */
+	status = clGetDeviceInfo(
+		device, 
+		CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, 
+		sizeof(cl_uint), 
+		&long_vw, 
+		NULL
+	);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG). (OpenCL error %d)", status);
+	
+	/* Determine effective grass kernel vector width. */
+	if (args_vw.grass == 0)
+		args_vw.grass = int_vw;
+		
+	/* Determine effective reduce grass kernels vector width. */
+	if (args_vw.reduce_grass == 0)
+		args_vw.reduce_grass = int_vw;
+		
+	/* Determine effective reduce agents kernel vector width. */
+	if (args_vw.reduce_agent == 0) {
+		if (args.agent_size == 32)
+			args_vw.reduce_agent = int_vw;
+		else if (args.agent_size == 64)
+			args_vw.reduce_agent = long_vw;
+		else 
+			g_assert_not_reached();
 	}
-
-	/* Get the long vector width, if not specified by user. */
-	if (args_vw.long_vw == 0) {
-		status = clGetDeviceInfo(
-			device, 
-			CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, 
-			sizeof(cl_uint), 
-			&args_vw.long_vw, 
-			NULL
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG). (OpenCL error %d)", status);	
-	}
+	
+	
 
 	/* Init cell worksizes. */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->deflt;
@@ -1040,7 +1037,7 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 
 	/* Grass growth worksizes. */
 	lws->grass = args_lws.grass ? args_lws.grass : lws->deflt;
-	gws->grass = PP_GWS_MULT(paramsSim.grid_xy / args_vw.int_vw, lws->grass);
+	gws->grass = PP_GWS_MULT(paramsSim.grid_xy / args_vw.grass, lws->grass);
 	
 	/* Grass reduce worksizes, must be power of 2 for reduction to work. */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->deflt;
@@ -1061,7 +1058,7 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	gws->reduce_grass1 = MIN(
 		lws->reduce_grass1 * lws->reduce_grass1, /* lws * number_of_workgroups */
 		PP_GWS_MULT(
-			PP_DIV_CEIL(paramsSim.grid_xy, args_vw.int_vw),
+			PP_DIV_CEIL(paramsSim.grid_xy, args_vw.reduce_grass),
 			lws->reduce_grass1
 		)
 	);
@@ -1465,25 +1462,25 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
 	/* Environment cells */
-	dataSizes->cells_grass = pp_next_multiple(params.grid_xy, args_vw.int_vw) * sizeof(cl_uint);
+	dataSizes->cells_grass = pp_next_multiple(params.grid_xy, args_vw.grass) * sizeof(cl_uint);
 	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_uint2);
 	
 	/* Agents. */
 	dataSizes->agents_data = args.max_agents * sizeof(cl_ulong);
 	
 	/* Grass reduction. */
-	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.int_vw * sizeof(cl_uint);
-	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
-	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.int_vw * sizeof(cl_uint);
+	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.reduce_grass * sizeof(cl_uint);
+	dataSizes->reduce_grass_global = gws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
+	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 	
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.long_vw * sizeof(cl_ulong); /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.reduce_agent * (args.agent_size == 64 ? sizeof(cl_ulong) : sizeof(cl_uint)); /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
 	/* Rng seeds */
 	dataSizes->rng_seeds = MAX(params.grid_xy, PPG_DEFAULT_MAX_AGENTS) * rng_info.bytes;
-	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
+	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong); /// @todo should this not be ulong or uint depending on what rng algorithm we're using?
 
 }
 
@@ -1697,10 +1694,9 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
 	gchar* compilerOptsStr;
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
-	g_string_append_printf(compilerOpts, "-D VW_GRASS=%d ", args_vw.grass_vw);
-	g_string_append_printf(compilerOpts, "-D VW_GRASSREDUCE=%d ", args_vw.grassreduce_vw);
-	g_string_append_printf(compilerOpts, "-D VW_AGENTREDUCE=%d ", args_vw.agentreduce_vw);
-	g_string_append_printf(compilerOpts, "-D AGENT_WIDTH_BYTES ", args.agent_width_bytes);
+	g_string_append_printf(compilerOpts, "-D VW_GRASS=%d ", args_vw.grass);
+	g_string_append_printf(compilerOpts, "-D VW_GRASSREDUCE=%d ", args_vw.reduce_grass);
+	g_string_append_printf(compilerOpts, "-D VW_AGENTREDUCE=%d ", args_vw.reduce_agent);
 	g_string_append_printf(compilerOpts, "-D REDUCE_GRASS_NUM_WORKGROUPS=%d ", (unsigned int) (gws.reduce_grass1 / lws.reduce_grass1));
 	g_string_append_printf(compilerOpts, "-D MAX_LWS=%d ", (unsigned int) lws.max_lws);
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ", args.max_agents);
@@ -1717,6 +1713,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D GRID_X=%d ", params.grid_x);
 	g_string_append_printf(compilerOpts, "-D GRID_Y=%d ", params.grid_y);
 	g_string_append_printf(compilerOpts, "-D ITERS=%d ", params.iters);
+	g_string_append_printf(compilerOpts, "-D %s ", args.agent_size == 64 ? "PPG_AG_64" : "PPG_AG_32");
 	g_string_append_printf(compilerOpts, "-D %s ", rng_info.compiler_const);
 	g_string_append_printf(compilerOpts, "-D %s ", sort_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
@@ -1732,9 +1729,14 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
  * @param argv Command line arguments.
  * @param context Context object for command line argument parsing.
  * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
  * */
-void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
+cl_int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
 	
+	/* Status variable. */
+	cl_int status;
+
 	/* Create context and add main entries. */
 	*context = g_option_context_new (" - " PPG_DESCRIPTION);
 	g_option_context_add_main_entries(*context, entries, NULL);
@@ -1749,8 +1751,8 @@ void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 		"Show options which define the kernel local work sizes", 
 		NULL, NULL);
 	GOptionGroup *group_vw = g_option_group_new("vw", 
-		"Vector widths for numerical types:", 
-		"Show options which define vector widths for different numerical types", 
+		"Vector widths for kernels:", 
+		"Show options which define vector widths for different kernels", 
 		NULL, NULL);
 
 	/* Add entries to separate option groups. */
@@ -1765,6 +1767,42 @@ void ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 	
 	/* Parse all options. */
 	g_option_context_parse(*context, &argc, &argv, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	
+	/* ** Validate arguments. ** */
+	
+	/* Validate random number generator. */
+	if (!args_alg.rng) args_alg.rng = g_strdup(PP_DEFAULT_RNG);
+	PP_ALG_GET(rng_info, rng_infos, args_alg.rng);
+	gef_if_error_create_goto(*err, PP_ERROR, !rng_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
+	
+	/* Validate sorting algorithm. */
+	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_DEFAULT_SORT);
+	PP_ALG_GET(sort_info, sort_infos, args_alg.sort);
+	gef_if_error_create_goto(*err, PP_ERROR, !sort_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
+	
+	/* Validate agent size. */
+	gef_if_error_create_goto(*err, PP_ERROR, (args.agent_size != 32) && (args.agent_size != 64), status = PP_INVALID_ARGS, error_handler, "The -a (--agent-size) parameter must be either 32 or 64.");
+	
+	/* Validate vector sizes. */
+	gef_if_error_create_goto(*err, PP_ERROR, (ones32(args_vw.grass) > 1) || (args_vw.grass > 16), status = PP_INVALID_ARGS, error_handler, "The -vw-grass parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+	gef_if_error_create_goto(*err, PP_ERROR, (ones32(args_vw.reduce_grass) > 1) || (args_vw.reduce_grass > 16), status = PP_INVALID_ARGS, error_handler, "The -vw-reduce-grass parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+	gef_if_error_create_goto(*err, PP_ERROR, (ones32(args_vw.reduce_agent) > 1) || (args_vw.reduce_agent > 16), status = PP_INVALID_ARGS, error_handler, "The -vw-reduce-agent parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+
+	/* If we got here, everything is OK. */
+	g_assert (err == NULL || *err == NULL);
+	status = PP_SUCCESS;
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(err == NULL || *err != NULL);
+	
+finish:
+	
+	/* Return. */
+	return status;
+	
 }
 
 /**
