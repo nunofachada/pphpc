@@ -997,7 +997,7 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get device info (CL_DEVICE_PREFERRED_VECTOR_WIDTH_INT). (OpenCL error %d)", status);	
 
-	/* Get the long vector width. */
+	/* Get the device preferred long vector width. */
 	status = clGetDeviceInfo(
 		device, 
 		CL_DEVICE_PREFERRED_VECTOR_WIDTH_LONG, 
@@ -1025,8 +1025,6 @@ cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlo
 			g_assert_not_reached();
 	}
 	
-	
-
 	/* Init cell worksizes. */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->deflt;
 	gws->init_cell = PP_GWS_MULT(paramsSim.grid_xy, lws->init_cell);

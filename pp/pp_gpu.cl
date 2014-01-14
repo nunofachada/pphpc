@@ -81,27 +81,32 @@
 
 /* Define type for agents depending on respective compiler option. */
 #ifdef PPG_AG_64
-	typedef ulong uagr; 
-	typedef ulong2 uagr2; 
-	typedef ulong4 uagr4; 
-	typedef ulong8 uagr8; 
-	typedef ulong16 uagr16;
 	#define convert_uagr(x) convert_ulong(x)
 	#define convert_uagr2(x) convert_ulong2(x)
 	#define convert_uagr4(x) convert_ulong4(x)
 	#define convert_uagr8(x) convert_ulong8(x)
 	#define convert_uagr16(x) convert_ulong16(x)
+	typedef ulong uagr; 
+	typedef ulong2 uagr2; 
+	typedef ulong4 uagr4; 
+	typedef ulong8 uagr8; 
+	typedef ulong16 uagr16;
+	typedef union agent_data {
+		ulong all;
+		uint2 dual;
+		ushort4 par;
+	} agentData;
 #elif defined PPG_AG_32
-	typedef uint uagr; 
-	typedef uint2 uagr2; 
-	typedef uint4 uagr4; 
-	typedef uint8 uagr8; 
-	typedef uint6 uagr16; 
 	#define convert_uagr(x) convert_uint(x)
 	#define convert_uagr2(x) convert_uint2(x)
 	#define convert_uagr4(x) convert_uint4(x)
 	#define convert_uagr8(x) convert_uint8(x)
 	#define convert_uagr16(x) convert_uint16(x)
+	typedef uint uagr; 
+	typedef uint2 uagr2; 
+	typedef uint4 uagr4; 
+	typedef uint8 uagr8; 
+	typedef uint6 uagr16; 
 #endif
 
 /* Define macros for agent reduction kernels depending on chosen vector width. */
@@ -126,12 +131,6 @@
 	#define convert_agentreduce_uagr(x) convert_uagr16(x)
 	typedef uagr16 agentreduce_uagr;
 #endif
-
-typedef union agent_data {
-	ulong all;
-	uint2 dual;
-	ushort4 par;
-} agentData;
 
 #define PPG_AG_ENERGY_GET(agent) ((agent).par.x)
 #define PPG_AG_ENERGY_SET(agent, energy) ((agent).par.x = (energy))
