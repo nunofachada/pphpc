@@ -164,7 +164,11 @@
 
 #define PPG_AG_STORE(agent, pos, data) \
 	vstore2(PPG_AG_TO_VEC(agent), pos, data);
-	
+
+#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xFFFFFFFF)
+
+#define PPG_AG_LOAD_HI(pos, data) data[pos * 2 + PPG_AG_HI_IDX]
+
 /**
  * @brief Initialize grid cells. 
  * 
@@ -665,7 +669,7 @@ __kernel void actionAgent(
 					PPG_AG_LOAD(possibleSheep, i, data);
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(data[i * 2 + PPG_AG_HI_IDX]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+						if (atomic_or(&(PPG_AG_LOAD_HI(i, data)), PPG_AG_DEAD) != PPG_AG_DEAD) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
@@ -704,6 +708,6 @@ __kernel void actionAgent(
 	 * will probably not allow for any performance improvements. */
 		
 	/* My actions only affect my data (energy), so I will only put back data (energy)... */
-	data[gid * 2 + PPG_AG_LO_IDX] = (uint) (data_l & 0xFFFFFFFF);
+	PPG_AG_STORE_LO(data_l, gid, data);
 	
 }
