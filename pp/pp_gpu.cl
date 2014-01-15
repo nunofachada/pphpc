@@ -91,11 +91,6 @@
 	typedef ulong4 uagr4; 
 	typedef ulong8 uagr8; 
 	typedef ulong16 uagr16;
-	typedef union agent_data {
-		ulong all;
-		uint2 dual;
-		ushort4 par;
-	} agentData;
 #elif defined PPG_AG_32
 	#define convert_uagr(x) convert_uint(x)
 	#define convert_uagr2(x) convert_uint2(x)
@@ -132,29 +127,29 @@
 	typedef uagr16 agentreduce_uagr;
 #endif
 
-#define PPG_AG_ENERGY_GET(agent) ((agent).all & 0xFFFF)
-#define PPG_AG_ENERGY_SET(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
-#define PPG_AG_ENERGY_ADD(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | (((agent).all + energy) & 0xFFFF)
-#define PPG_AG_ENERGY_SUB(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | (((agent).all - energy) & 0xFFFF)
+#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
+#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
+#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) + energy) & 0xFFFF)
+#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) - energy) & 0xFFFF)
 
-#define PPG_AG_TYPE_GET(agent) (((agent).all >> 16) & 0xFFFF)
-#define PPG_AG_TYPE_SET(agent, type) (agent).all = ((agent).all & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
+#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xFFFF)
+#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
 
 #define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
 #define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
 
-#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent).all >> 48), (ushort) (((agent).all >> 32) & 0xFFFF))
-#define PPG_AG_XY_SET(agent, x, y) (agent).all =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent).all & 0xFFFFFFFF)
+#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
+#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
 
-#define PPG_AG_REPRODUCE(agent) (agentData) ((ulong) ((agent).all & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
+#define PPG_AG_REPRODUCE(agent) (ulong) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
 
 #define PPG_AG_DEAD 0xFFFFFFFF
 
-#define PPG_AG_IS_ALIVE(agent) (((agent).all >> 32) != PPG_AG_DEAD)
+#define PPG_AG_IS_ALIVE(agent) (((agent) >> 32) != PPG_AG_DEAD)
 
-#define PPG_AG_SET_DEAD(agent) (agent).all = 0xFFFFFFFFFFFFFFFF
+#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFFFFFFFFFF
 
-#define PPG_CELL_IDX(agent) ((((agent).all >> 32) & 0xFFFF) * GRID_X + ((agent).all >> 48))
+#define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
 
 /**
  * @brief Initialize grid cells. 
@@ -201,13 +196,13 @@ __kernel void initCell(
  * @param seeds
  * */
 __kernel void initAgent(
-			__global agentData *data,
+			__global ulong *data,
 			__global rng_state *seeds
 ) 
 {
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
-	agentData new_agent;
+	ulong new_agent;
 	PPG_AG_SET_DEAD(new_agent);
 	
 	/* Determine what this workitem will do. */
@@ -482,7 +477,7 @@ __kernel void reduceAgent1(
  * @param seeds
  */
 __kernel void moveAgent(
-			__global agentData *data,
+			__global ulong *data,
 			__global rng_state *seeds)
 {
 	
@@ -498,7 +493,7 @@ __kernel void moveAgent(
 	size_t gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	agentData data_l = data[gid];
+	ulong data_l = data[gid];
 
 	/* Only perform if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -573,14 +568,14 @@ __kernel void moveAgent(
  * @param cell_agents_idx The agents index in cell array.
  * */
 __kernel void findCellIdx(
-			__global agentData *data,
+			__global ulong *data,
 			__global uint *cell_agents_idx) 
 {
 	
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
 	
-	agentData data_l = data[gid];
+	ulong data_l = data[gid];
 	
 	/* Only perform this if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -623,8 +618,12 @@ __kernel void actionAgent(
 	size_t gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	agentData data_l;
-	data_l.dual = vload2(gid, data);
+	uint2 data_l_vec = vload2(gid, data);
+#ifdef __ENDIAN_LITTLE__
+	ulong data_l = upsample(data_l_vec.y, data_l_vec.x); 
+#elif
+	ulong data_l = upsample(data_l_vec.x, data_l_vec.y); 
+#endif	
 	
 	/* Get cell index where agent is */
 	uint cell_idx = PPG_CELL_IDX(data_l);
@@ -657,11 +656,19 @@ __kernel void actionAgent(
 			uint2 cai = cell_agents_idx[cell_idx];
 			if (cai.s0 < MAX_AGENTS) {
 				for (uint i = cai.s0; i <= cai.s1; i++) {
-					agentData possibleSheep;
-					possibleSheep.dual = vload2(i, data);
+					uint2 possibleSheep_vec = vload2(i, data);
+#ifdef __ENDIAN_LITTLE__
+					ulong possibleSheep = upsample(possibleSheep_vec.y, possibleSheep_vec.x); 
+#elif
+					ulong possibleSheep = upsample(possibleSheep_vec.x, possibleSheep_vec.y); 
+#endif					
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
+#ifdef __ENDIAN_LITTLE__
 						if (atomic_or(&(data[i * 2 + 1]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+#elif
+						if (atomic_or(&(data[i * 2]), PPG_AG_DEAD) != PPG_AG_DEAD) {
+#endif
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
@@ -680,8 +687,12 @@ __kernel void actionAgent(
 				
 			/* Agent will reproduce! */
 			size_t pos_new = get_global_size(0) + gid;
-			agentData data_new = PPG_AG_REPRODUCE(data_l);
-			vstore2(data_new.dual, pos_new, data);
+			ulong data_new = PPG_AG_REPRODUCE(data_l);
+#if __ENDIAN_LITTLE__			
+			vstore2((uint2) ((uint) (data_new & 0xFFFFFFFF), (uint) (data_new >> 32)), pos_new, data);
+#elif
+			vstore2((uint2) ((uint) (data_new >> 32), (uint) (data_new & 0xFFFFFFFF)), pos_new, data);
+#endif
 				
 			/* Current agent's energy will be halved also */
 			PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
@@ -700,6 +711,10 @@ __kernel void actionAgent(
 	 * will probably not allow for any performance improvements. */
 		
 	/* My actions only affect my data (energy), so I will only put back data (energy)... */
-	data[gid * 2] = data_l.dual.x;
+#if __ENDIAN_LITTLE__			
+	data[gid * 2] = (uint) (data_l & 0xFFFFFFFF);
+#elif
+	data[gid * 2 + 1] = (uint) (data_l & 0xFFFFFFFF);
+#endif
 	
 }
