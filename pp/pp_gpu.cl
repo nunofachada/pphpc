@@ -132,29 +132,29 @@
 	typedef uagr16 agentreduce_uagr;
 #endif
 
-#define PPG_AG_ENERGY_GET(agent) ((agent).par.x)
-#define PPG_AG_ENERGY_SET(agent, energy) ((agent).par.x = (energy))
-#define PPG_AG_ENERGY_ADD(agent, energy) ((agent).par.x += (energy))
-#define PPG_AG_ENERGY_SUB(agent, energy) ((agent).par.x -= (energy))
+#define PPG_AG_ENERGY_GET(agent) ((agent).all & 0xFFFF)
+#define PPG_AG_ENERGY_SET(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
+#define PPG_AG_ENERGY_ADD(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | (((agent).all + energy) & 0xFFFF)
+#define PPG_AG_ENERGY_SUB(agent, energy) (agent).all = ((agent).all & 0xFFFFFFFFFFFF0000) | (((agent).all - energy) & 0xFFFF)
 
-#define PPG_AG_TYPE_GET(agent) ((agent).par.y)
-#define PPG_AG_TYPE_SET(agent, type) ((agent).par.y = (type))
+#define PPG_AG_TYPE_GET(agent) (((agent).all >> 16) & 0xFFFF)
+#define PPG_AG_TYPE_SET(agent, type) (agent).all = ((agent).all & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
 
-#define PPG_AG_IS_SHEEP(agent) ((agent).par.y == SHEEP_ID)
-#define PPG_AG_IS_WOLF(agent) ((agent).par.y == WOLF_ID)
+#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
+#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
 
-#define PPG_AG_XY_GET(agent) ((agent).par.wz)
-#define PPG_AG_XY_SET(agent, x, y) ((agent).par.wz = (ushort2) (x, y))
+#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent).all >> 48), (ushort) (((agent).all >> 32) & 0xFFFF))
+#define PPG_AG_XY_SET(agent, x, y) (agent).all =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent).all & 0xFFFFFFFF)
 
-#define PPG_AG_REPRODUCE(agent) ((agentData) ((ushort4) ((agent).par.x/2, (agent).par.y, (agent).par.z, (agent).par.w)))
+#define PPG_AG_REPRODUCE(agent) (agentData) ((ulong) ((agent).all & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
 
 #define PPG_AG_DEAD 0xFFFFFFFF
 
-#define PPG_AG_IS_ALIVE(agent) ((agent).dual.y != PPG_AG_DEAD)
+#define PPG_AG_IS_ALIVE(agent) (((agent).all >> 32) != PPG_AG_DEAD)
 
-#define PPG_AG_SET_DEAD(agent) ((agent).all = 0xFFFFFFFFFFFFFFFF)
+#define PPG_AG_SET_DEAD(agent) (agent).all = 0xFFFFFFFFFFFFFFFF
 
-#define PPG_CELL_IDX(agent) ((agent).par.z * GRID_X + (agent).par.w)
+#define PPG_CELL_IDX(agent) ((((agent).all >> 32) & 0xFFFF) * GRID_X + ((agent).all >> 48))
 
 /**
  * @brief Initialize grid cells. 
