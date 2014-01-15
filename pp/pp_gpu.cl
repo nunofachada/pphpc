@@ -136,7 +136,7 @@
 #define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
 #define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
 
-#define PPG_AG_REPRODUCE(agent) (ulong) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
+#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
 
 #define PPG_AG_DEAD 0xFFFFFFFF
 
@@ -146,6 +146,25 @@
 
 #define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
 
+#ifdef __ENDIAN_LITTLE__
+	#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).y, (vec).x)
+	#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) & 0xFFFFFFFF), (uint) ((agent) >> 32))
+	#define PPG_AG_HI_IDX 1 // X + Y
+	#define PPG_AG_LO_IDX 0 // Type + Energy
+#else
+	#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).x, (vec).y)
+	#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) >> 32), (uint) ((agent) & 0xFFFFFFFF))
+	#define PPG_AG_HI_IDX 0 // X + Y
+	#define PPG_AG_LO_IDX 1 // Type + Energy
+#endif
+
+#define PPG_AG_LOAD(agent, pos, data) \
+	uint2 ag_vec = vload2(pos, data); \
+	PPG_AG_FROM_VEC(agent, ag_vec);
+
+#define PPG_AG_STORE(agent, pos, data) \
+	vstore2(PPG_AG_TO_VEC(agent), pos, data);
+	
 /**
  * @brief Initialize grid cells. 
  * 
@@ -387,7 +406,6 @@ __kernel void reduceAgent1(
 		}
 	}
 
-	
 	/* Put serial sum in local memory */
 	partial_sums[lid] = sumSheep;
 	partial_sums[group_size + lid] = sumWolves;
@@ -473,14 +491,6 @@ __kernel void moveAgent(
 			__global rng_state *seeds)
 {
 	
-	ushort2 xy_op[5] = {
-		(ushort2) (0, 0), 
-		(ushort2) (1, 0),
-		(ushort2) (-1, 0),
-		(ushort2) (0, 1),
-		(ushort2) (0, -1)
-	};
-	
 	/* Global id for this work-item */
 	size_t gid = get_global_id(0);
 
@@ -498,6 +508,13 @@ __kernel void moveAgent(
 		
 		/* @ALTERNATIVE (instead of the if's below):
 		 * 
+		 * ushort2 xy_op[5] = {
+		 *	(ushort2) (0, 0), 
+		 *	(ushort2) (1, 0),
+		 *	(ushort2) (-1, 0),
+		 *	(ushort2) (0, 1),
+		 *	(ushort2) (0, -1)
+		 * };
 		 * xy_l = xy_l + xy_op[direction];
 		 * xy_l = select(xy_l, (short2) (0, 0), xy_l == ((short2) (GRID_X, GRID_Y)));
 		 * xy_l = select(xy_l, (short2) (GRID_X-1, GRID_Y-1), xy_l == ((short2) (-1, -1))); 
@@ -610,12 +627,8 @@ __kernel void actionAgent(
 	size_t gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	uint2 data_l_vec = vload2(gid, data);
-#ifdef __ENDIAN_LITTLE__
-	uagr data_l = upsample(data_l_vec.y, data_l_vec.x); 
-#elif
-	uagr data_l = upsample(data_l_vec.x, data_l_vec.y); 
-#endif	
+	uagr data_l;
+	PPG_AG_LOAD(data_l, gid, data);
 	
 	/* Get cell index where agent is */
 	uint cell_idx = PPG_CELL_IDX(data_l);
@@ -648,19 +661,11 @@ __kernel void actionAgent(
 			uint2 cai = cell_agents_idx[cell_idx];
 			if (cai.s0 < MAX_AGENTS) {
 				for (uint i = cai.s0; i <= cai.s1; i++) {
-					uint2 possibleSheep_vec = vload2(i, data);
-#ifdef __ENDIAN_LITTLE__
-					uagr possibleSheep = upsample(possibleSheep_vec.y, possibleSheep_vec.x); 
-#elif
-					uagr possibleSheep = upsample(possibleSheep_vec.x, possibleSheep_vec.y); 
-#endif					
+					uagr possibleSheep;
+					PPG_AG_LOAD(possibleSheep, i, data);
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
-#ifdef __ENDIAN_LITTLE__
-						if (atomic_or(&(data[i * 2 + 1]), PPG_AG_DEAD) != PPG_AG_DEAD) {
-#elif
-						if (atomic_or(&(data[i * 2]), PPG_AG_DEAD) != PPG_AG_DEAD) {
-#endif
+						if (atomic_or(&(data[i * 2 + PPG_AG_HI_IDX]), PPG_AG_DEAD) != PPG_AG_DEAD) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
@@ -680,11 +685,7 @@ __kernel void actionAgent(
 			/* Agent will reproduce! */
 			size_t pos_new = get_global_size(0) + gid;
 			uagr data_new = PPG_AG_REPRODUCE(data_l);
-#if __ENDIAN_LITTLE__			
-			vstore2((uint2) ((uint) (data_new & 0xFFFFFFFF), (uint) (data_new >> 32)), pos_new, data);
-#elif
-			vstore2((uint2) ((uint) (data_new >> 32), (uint) (data_new & 0xFFFFFFFF)), pos_new, data);
-#endif
+			PPG_AG_STORE(data_new, pos_new, data);
 				
 			/* Current agent's energy will be halved also */
 			PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
@@ -703,10 +704,6 @@ __kernel void actionAgent(
 	 * will probably not allow for any performance improvements. */
 		
 	/* My actions only affect my data (energy), so I will only put back data (energy)... */
-#if __ENDIAN_LITTLE__			
-	data[gid * 2] = (uint) (data_l & 0xFFFFFFFF);
-#elif
-	data[gid * 2 + 1] = (uint) (data_l & 0xFFFFFFFF);
-#endif
+	data[gid * 2 + PPG_AG_LO_IDX] = (uint) (data_l & 0xFFFFFFFF);
 	
 }
