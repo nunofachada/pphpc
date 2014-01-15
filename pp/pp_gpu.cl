@@ -59,18 +59,23 @@
 /* Define macros for grass reduction kernels depending on chosen vector width. */
 #if VW_GRASSREDUCE == 1
 	#define VW_GRASSREDUCE_SUM(x) (x)
+	#define convert_grassreduce_uintx(x) convert_uint(x)
 	typedef uint grassreduce_uintx;
 #elif VW_GRASSREDUCE == 2
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1)
+	#define convert_grassreduce_uintx(x) convert_uint2(x)
 	typedef uint2 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 4
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
+	#define convert_grassreduce_uintx(x) convert_uint4(x)
 	typedef uint4 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 8
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+	#define convert_grassreduce_uintx(x) convert_uint8(x)
 	typedef uint8 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 16
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+	#define convert_grassreduce_uintx(x) convert_uint16(x)
 	typedef uint16 grassreduce_uintx;
 #endif
 
@@ -305,7 +310,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += 0x1 & (!grass[index]);
+			sum += 0x1 & convert_grassreduce_uintx(!grass[index]);
 		}
 	}
 	
