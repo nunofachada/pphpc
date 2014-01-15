@@ -196,13 +196,13 @@ __kernel void initCell(
  * @param seeds
  * */
 __kernel void initAgent(
-			__global ulong *data,
+			__global uagr *data,
 			__global rng_state *seeds
 ) 
 {
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
-	ulong new_agent;
+	uagr new_agent;
 	PPG_AG_SET_DEAD(new_agent);
 	
 	/* Determine what this workitem will do. */
@@ -389,9 +389,9 @@ __kernel void reduceAgent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			agentreduce_uagr data_l = data[index];
-			agentreduce_uagr is_alive = 0x1 & convert_agentreduce_uagr((data_l & 0xFFFFFFFF00000000) != 0xFFFFFFFF00000000);
-			sumSheep += is_alive & convert_agentreduce_uagr(((data_l >> 16) & 0xFFFF) == SHEEP_ID); 
-			sumWolves += is_alive & convert_agentreduce_uagr(((data_l >> 16) & 0xFFFF) == WOLF_ID);
+			agentreduce_uagr is_alive = 0x1 & convert_agentreduce_uagr(PPG_AG_IS_ALIVE(data_l));
+			sumSheep += is_alive & convert_agentreduce_uagr(PPG_AG_IS_SHEEP(data_l)); 
+			sumWolves += is_alive & convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
 		}
 	}
 
@@ -477,7 +477,7 @@ __kernel void reduceAgent1(
  * @param seeds
  */
 __kernel void moveAgent(
-			__global ulong *data,
+			__global uagr *data,
 			__global rng_state *seeds)
 {
 	
@@ -493,7 +493,7 @@ __kernel void moveAgent(
 	size_t gid = get_global_id(0);
 
 	/* Load agent state locally. */
-	ulong data_l = data[gid];
+	uagr data_l = data[gid];
 
 	/* Only perform if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -568,14 +568,14 @@ __kernel void moveAgent(
  * @param cell_agents_idx The agents index in cell array.
  * */
 __kernel void findCellIdx(
-			__global ulong *data,
+			__global uagr *data,
 			__global uint *cell_agents_idx) 
 {
 	
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
 	
-	ulong data_l = data[gid];
+	uagr data_l = data[gid];
 	
 	/* Only perform this if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
@@ -620,9 +620,9 @@ __kernel void actionAgent(
 	/* Get agent for this workitem */
 	uint2 data_l_vec = vload2(gid, data);
 #ifdef __ENDIAN_LITTLE__
-	ulong data_l = upsample(data_l_vec.y, data_l_vec.x); 
+	uagr data_l = upsample(data_l_vec.y, data_l_vec.x); 
 #elif
-	ulong data_l = upsample(data_l_vec.x, data_l_vec.y); 
+	uagr data_l = upsample(data_l_vec.x, data_l_vec.y); 
 #endif	
 	
 	/* Get cell index where agent is */
@@ -658,9 +658,9 @@ __kernel void actionAgent(
 				for (uint i = cai.s0; i <= cai.s1; i++) {
 					uint2 possibleSheep_vec = vload2(i, data);
 #ifdef __ENDIAN_LITTLE__
-					ulong possibleSheep = upsample(possibleSheep_vec.y, possibleSheep_vec.x); 
+					uagr possibleSheep = upsample(possibleSheep_vec.y, possibleSheep_vec.x); 
 #elif
-					ulong possibleSheep = upsample(possibleSheep_vec.x, possibleSheep_vec.y); 
+					uagr possibleSheep = upsample(possibleSheep_vec.x, possibleSheep_vec.y); 
 #endif					
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
@@ -687,7 +687,7 @@ __kernel void actionAgent(
 				
 			/* Agent will reproduce! */
 			size_t pos_new = get_global_size(0) + gid;
-			ulong data_new = PPG_AG_REPRODUCE(data_l);
+			uagr data_new = PPG_AG_REPRODUCE(data_l);
 #if __ENDIAN_LITTLE__			
 			vstore2((uint2) ((uint) (data_new & 0xFFFFFFFF), (uint) (data_new >> 32)), pos_new, data);
 #elif
