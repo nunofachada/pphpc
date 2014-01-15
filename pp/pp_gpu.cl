@@ -36,46 +36,41 @@
 /* Define macros for grass kernel depending on chosen vector width. */
 #if VW_GRASS == 1
 	#define VW_GRASS_SUM(x) (x)
-	#define convert_grass_uintx(x) convert_uint(x)
 	typedef uint grass_uintx;
+	typedef ulong grass_ulongx;
 #elif VW_GRASS == 2
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1)
-	#define convert_grass_uintx(x) convert_uint2(x)
 	typedef uint2 grass_uintx;
+	typedef ulong2 grass_ulongx;
 #elif VW_GRASS == 4
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
-	#define convert_grass_uintx(x) convert_uint4(x)
 	typedef uint4 grass_uintx;
+	typedef ulong4 grass_ulongx;
 #elif VW_GRASS == 8
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
-	#define convert_grass_uintx(x) convert_uint8(x)
 	typedef uint8 grass_uintx;
+	typedef ulong8 grass_ulongx;
 #elif VW_GRASS == 16
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
-	#define convert_grass_uintx(x) convert_uint16(x)
 	typedef uint16 grass_uintx;
+	typedef ulong16 grass_ulongx;
 #endif
 
 /* Define macros for grass reduction kernels depending on chosen vector width. */
 #if VW_GRASSREDUCE == 1
 	#define VW_GRASSREDUCE_SUM(x) (x)
-	#define convert_grassreduce_uintx(x) convert_uint(x)
 	typedef uint grassreduce_uintx;
 #elif VW_GRASSREDUCE == 2
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1)
-	#define convert_grassreduce_uintx(x) convert_uint2(x)
 	typedef uint2 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 4
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
-	#define convert_grassreduce_uintx(x) convert_uint4(x)
 	typedef uint4 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 8
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
-	#define convert_grassreduce_uintx(x) convert_uint8(x)
 	typedef uint8 grassreduce_uintx;
 #elif VW_GRASSREDUCE == 16
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
-	#define convert_grassreduce_uintx(x) convert_uint16(x)
 	typedef uint16 grassreduce_uintx;
 #endif
 
@@ -101,7 +96,7 @@
 	typedef uint2 uagr2; 
 	typedef uint4 uagr4; 
 	typedef uint8 uagr8; 
-	typedef uint6 uagr16; 
+	typedef uint16 uagr16; 
 #endif
 
 /* Define macros for agent reduction kernels depending on chosen vector width. */
@@ -238,7 +233,7 @@ __kernel void initAgent(
  * */
 __kernel void grass(
 			__global grass_uintx *grass,
-			__global grass_uintx *agents_index)
+			__global grass_ulongx *agents_index)
 {
 	/* Grid position for this workitem */
 	size_t gid = get_global_id(0);
@@ -256,10 +251,7 @@ __kernel void grass(
 		grass[gid] = select((grass_uintx) 0, grass_l - 1, grass_l > 0);
 		
 		/* Reset cell start and finish. */
-		agents_index[gid] = (grass_uintx) MAX_AGENTS;
-		agents_index[half_index + gid] = (grass_uintx) MAX_AGENTS;
-		/* @ALTERNATIVE
-		 * We have experimented with one vstore here, but it's slower. */
+		agents_index[gid] = (grass_ulongx) upsample((grass_uintx) MAX_AGENTS, (grass_uintx) MAX_AGENTS);
 	}
 }
 
@@ -290,7 +282,7 @@ __kernel void reduceGrass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += 0x1 & convert_grassreduce_uintx(!grass[index]);
+			sum += 0x1 & (!grass[index]);
 		}
 	}
 	
