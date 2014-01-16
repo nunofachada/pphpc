@@ -84,6 +84,9 @@ static GOptionEntry entries_vw[] = {
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
+/** Agent size in bytes. */
+static size_t agent_size_bytes;
+
 /* OpenCL kernel files */
 const char* kernelFiles[] = {"pp/pp_gpu.cl"};
 
@@ -179,7 +182,7 @@ int main(int argc, char **argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Print information about simulation. */
-	ppg_info_print(zone, krnls, gws, lws, dataSizes, compilerOpts, &err);
+	ppg_info_print(gws, lws, dataSizes, compilerOpts);
 
 	/* Start basic timming / profiling. */
 	profcl_profile_start(profile);
@@ -1118,26 +1121,9 @@ finish:
  * @param dataSizes Size of data buffers.
  * @param compilerOpts Final OpenCL compiler options.
  * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
- * terminates successfully, or an error code otherwise.
  * */
-cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts, GError **err) {
+void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts) {
 
-	/* Status variable */
-	cl_int status;
-	
-	/* Private memory sizes. */
-	cl_ulong pm_init_cells, 
-		pm_init_agents,
-		pm_grass, 
-		pm_reduce_grass1, 
-		pm_reduce_grass2,
-		pm_reduce_agent1,
-		pm_reduce_agent2,
-		pm_move_agent,
-		pm_find_cell_idx,
-		pm_action_agent;
-	
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
 		dataSizes.cells_grass + 
@@ -1147,65 +1133,40 @@ cl_int ppg_info_print(CLUZone *zone, PPGKernels krnls, PPGGlobalWorkSizes gws, P
 		dataSizes.reduce_agent_global +
 		dataSizes.rng_seeds;
 		
-	/* Determine private memory required by kernel workitems. */
-	status = clGetKernelWorkGroupInfo (krnls.init_cell, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_init_cells, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get init cell kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.init_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_init_agents, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get init cell kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.grass, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_grass, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get grass kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.reduce_grass1, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_grass1, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass1 kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.reduce_grass2, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_grass2, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_grass2 kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.reduce_agent1, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_agent1, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_agent1 kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.reduce_agent2, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_reduce_agent2, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get reduce_agent2 kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.move_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_move_agent, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get move_agent kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.find_cell_idx, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_find_cell_idx, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get find_cell_idx kernel info (private memory). (OpenCL error %d)", status);	
-	status = clGetKernelWorkGroupInfo (krnls.action_agent, zone->device_info.device_id, CL_KERNEL_PRIVATE_MEM_SIZE, sizeof(cl_ulong), &pm_action_agent, NULL);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Get action_agent kernel info (private memory). (OpenCL error %d)", status);	
-
 	/* Print info. @todo Make ints unsigned or change %d to something nice for size_t */
 	printf("\n   =========================== Simulation Info =============================\n\n");
 	printf("     Required global memory    : %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
 	printf("     Compiler options          : %s\n", compilerOpts);
 	printf("     Kernel work sizes and local memory requirements:\n");
-	printf("       ----------------------------------------------------------------------\n");
-	printf("       | Kernel           | GWS      | LWS   | Local memory    | Priv. mem. |\n");
-	printf("       ----------------------------------------------------------------------\n");
-	printf("       | init_cell        | %8d | %5d |              0b | %9ub |\n", (int) gws.init_cell, (int) lws.init_cell, (unsigned int) pm_init_cells);
-	printf("       | init_agent       | %8d | %5d |              0b | %9ub |\n", (int) gws.init_agent, (int) lws.init_agent, (unsigned int) pm_init_agents);
-	printf("       | grass            | %8d | %5d |              0b | %9ub |\n", (int) gws.grass, (int) lws.grass, (unsigned int) pm_grass);
-	printf("       | reduce_grass1    | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass1, (int) lws.reduce_grass1, (int) dataSizes.reduce_grass_local1, (int) dataSizes.reduce_grass_local1 / 1024, (unsigned int) pm_reduce_grass1);
-	printf("       | reduce_grass2    | %8d | %5d | %6db = %3dKb | %9ub |\n", (int) gws.reduce_grass2, (int) lws.reduce_grass2, (int) dataSizes.reduce_grass_local2, (int) dataSizes.reduce_grass_local2 / 1024, (unsigned int) pm_reduce_grass2);
-	printf("       | reduce_agent1    |     Var. | %5d | %6db = %3dKb | %9ub |\n", (int) lws.reduce_agent1, (int) dataSizes.reduce_agent_local1, (int) dataSizes.reduce_agent_local1 / 1024, (unsigned int) pm_reduce_agent1);
-	printf("       | reduce_agent2    |     Var. |  Var. | %6db = %3dKb | %9ub |\n", (int) dataSizes.reduce_agent_local2, (int) dataSizes.reduce_agent_local2 / 1024, (unsigned int) pm_reduce_agent2);
-	printf("       | move_agent       |     Var. | %5d |              0b | %9ub |\n", (int) lws.move_agent, (unsigned int) pm_move_agent);
+	printf("       -------------------------------------------------------------------\n");
+	printf("       | Kernel           | GWS      | LWS   | Local memory | VW x bytes |\n");
+	printf("       |                  |          |       | (bytes)      |            |\n");
+	printf("       -------------------------------------------------------------------\n");
+	printf("       | init_cell        | %8zu | %5zu |            0 |          0 |\n", 
+		gws.init_cell, lws.init_cell);
+	printf("       | init_agent       | %8zu | %5zu |            0 |          0 |\n", 
+		gws.init_agent, lws.init_agent);
+	printf("       | grass            | %8zu | %5zu |            0 |     %2d x %zu |\n", 
+		gws.grass, lws.grass, args_vw.grass, sizeof(cl_uint));
+	printf("       | reduce_grass1    | %8zu | %5zu | %12zu |     %2d x %zu |\n", 
+		gws.reduce_grass1, lws.reduce_grass1, dataSizes.reduce_grass_local1, args_vw.reduce_grass, sizeof(cl_uint));
+	printf("       | reduce_grass2    | %8zu | %5zu | %12zu |     %2d x %zu |\n", 
+		gws.reduce_grass2, lws.reduce_grass2, dataSizes.reduce_grass_local2, args_vw.reduce_grass, sizeof(cl_uint));
+	printf("       | reduce_agent1    |     Var. | %5zu | %12zu |     %2d x %zu |\n", 
+		lws.reduce_agent1, dataSizes.reduce_agent_local1, args_vw.reduce_agent, agent_size_bytes);
+	printf("       | reduce_agent2    |     Var. |  Var. | %12zu |     %2d x %zu |\n", 
+		dataSizes.reduce_agent_local2, args_vw.reduce_agent, agent_size_bytes);
+	printf("       | move_agent       |     Var. | %5zu |            0 |          0 |\n", 
+		lws.move_agent);
 	/// @todo The sorting information should come from a specific function for each sorting approach
-	printf("       | sort_agent       |     Var. | %5d |              0b |         0b |\n", (int) lws.sort_agent); 
-	printf("       | find_cell_idx    |     Var. | %5d |              0b | %9ub |\n", (int) lws.find_cell_idx, (unsigned int) pm_find_cell_idx);
-	printf("       | action_agent     |     Var. | %5d |              0b | %9ub |\n", (int) lws.action_agent, (unsigned int) pm_action_agent);
-	printf("       ----------------------------------------------------------------------\n");
+	printf("       | sort_agent       |     Var. | %5zu |            0 |          0 |\n", 
+		lws.sort_agent); 
+	printf("       | find_cell_idx    |     Var. | %5zu |            0 |          0 |\n", 
+		lws.find_cell_idx);
+	printf("       | action_agent     |     Var. | %5zu |            0 |          0 |\n", 
+		lws.action_agent);
+	printf("       -------------------------------------------------------------------\n");
 
-	/* If we got here, everything is OK. */
-	goto finish;
-	
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
-	
-finish:
-	
-	/* Return. */
-	return status;
-	
-	
 }
 
 /** 
@@ -1458,9 +1419,6 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
  * */
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
-	/* Size of each agent. */
-	size_t agent_size = args.agent_size == 64 ? sizeof(cl_ulong) : sizeof(cl_uint);
-
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 	
@@ -1469,7 +1427,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_uint2);
 	
 	/* Agents. */
-	dataSizes->agents_data = args.max_agents * agent_size;
+	dataSizes->agents_data = args.max_agents * agent_size_bytes;
 	
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.reduce_grass * sizeof(cl_uint);
@@ -1477,7 +1435,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 	
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.reduce_agent * agent_size; /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.reduce_agent * agent_size_bytes; /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
@@ -1786,6 +1744,7 @@ cl_int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError**
 	
 	/* Validate agent size. */
 	gef_if_error_create_goto(*err, PP_ERROR, (args.agent_size != 32) && (args.agent_size != 64), status = PP_INVALID_ARGS, error_handler, "The -a (--agent-size) parameter must be either 32 or 64.");
+	agent_size_bytes = args.agent_size == 64 ? sizeof(cl_ulong) : sizeof(cl_uint);
 	
 	/* Validate vector sizes. */
 	gef_if_error_create_goto(*err, PP_ERROR, (ones32(args_vw.grass) > 1) || (args_vw.grass > 16), status = PP_INVALID_ARGS, error_handler, "The -vw-grass parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");

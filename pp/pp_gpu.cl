@@ -304,6 +304,9 @@ __kernel void grass(
 		
 		/* Reset cell start and finish. */
 		agents_index[gid] = (grass_ulongx) upsample((grass_uintx) MAX_AGENTS, (grass_uintx) MAX_AGENTS);
+		/// @todo The above is a long vectorization, and kernels should have a specific length vectorization
+		/// before we had two int memory writes, which were in accordance to int vectorization
+		/// Although like this is faster for small vector sizes, maybe we should separate the "reset cell start and finish" in another kernel?
 	}
 }
 
