@@ -1458,6 +1458,8 @@ void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters par
  * */
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
+	/* Size of each agent. */
+	size_t agent_size = args.agent_size == 64 ? sizeof(cl_ulong) : sizeof(cl_uint);
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -1467,7 +1469,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->cells_agents_index = params.grid_xy * sizeof(cl_uint2);
 	
 	/* Agents. */
-	dataSizes->agents_data = args.max_agents * sizeof(cl_ulong);
+	dataSizes->agents_data = args.max_agents * agent_size;
 	
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local1 = lws.reduce_grass1 * args_vw.reduce_grass * sizeof(cl_uint);
@@ -1475,7 +1477,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWo
 	dataSizes->reduce_grass_local2 = lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 	
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.reduce_agent * (args.agent_size == 64 ? sizeof(cl_ulong) : sizeof(cl_uint)); /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1 * args_vw.reduce_agent * agent_size; /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
