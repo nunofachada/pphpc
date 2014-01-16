@@ -30,8 +30,8 @@
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 
-#define SHEEP_ID 0x1
-#define WOLF_ID 0x2
+#define SHEEP_ID 0x0
+#define WOLF_ID 0x1
 
 /* Define macros for grass kernel depending on chosen vector width. */
 #if VW_GRASS == 1
@@ -81,22 +81,113 @@
 
 /* Define type for agents depending on respective compiler option. */
 #ifdef PPG_AG_64
+
+	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
+	#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
+	#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) + energy) & 0xFFFF)
+	#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) - energy) & 0xFFFF)
+
+	#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xFFFF)
+	#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
+
+	#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
+	#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
+
+	#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
+	#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
+
+	#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
+
+	#define PPG_AG_DEAD 0xFFFFFFFF
+
+	#define PPG_AG_IS_ALIVE(agent) (((agent) >> 32) != PPG_AG_DEAD)
+
+	#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFFFFFFFFFF
+
+	#define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
+
+	#ifdef __ENDIAN_LITTLE__
+		#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).y, (vec).x)
+		#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) & 0xFFFFFFFF), (uint) ((agent) >> 32))
+		#define PPG_AG_HI_IDX 1 // X + Y
+		#define PPG_AG_LO_IDX 0 // Type + Energy
+	#else
+		#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).x, (vec).y)
+		#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) >> 32), (uint) ((agent) & 0xFFFFFFFF))
+		#define PPG_AG_HI_IDX 0 // X + Y
+		#define PPG_AG_LO_IDX 1 // Type + Energy
+	#endif
+
+	//~ #define PPG_AG_LOAD(agent, pos, data) \
+		//~ uint2 ag_vec = vload2(pos, data); \
+		//~ PPG_AG_FROM_VEC(agent, ag_vec);
+//~ 
+	//~ #define PPG_AG_STORE(agent, pos, data) \
+		//~ vstore2(PPG_AG_TO_VEC(agent), pos, data);
+
+	#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xFFFFFFFF)
+
+	//~ #define PPG_AG_LOAD_HI(pos, data) data[pos * 2 + PPG_AG_HI_IDX]
+	
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(PPG_AG_LOAD_HI(pos, data_half)), PPG_AG_DEAD) != PPG_AG_DEAD)
+	
 	#define convert_uagr(x) convert_ulong(x)
 	#define convert_uagr2(x) convert_ulong2(x)
 	#define convert_uagr4(x) convert_ulong4(x)
 	#define convert_uagr8(x) convert_ulong8(x)
 	#define convert_uagr16(x) convert_ulong16(x)
+	
+	typedef uint uagr_half;
 	typedef ulong uagr; 
 	typedef ulong2 uagr2; 
 	typedef ulong4 uagr4; 
 	typedef ulong8 uagr8; 
 	typedef ulong16 uagr16;
+	
 #elif defined PPG_AG_32
+
+	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0x7FF)
+	#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFF800) | ((energy) & 0x7FF)
+	#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFF800) | (((agent) + energy) & 0x7FF)
+	#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFF800) | (((agent) - energy) & 0x7FF)
+
+	#define PPG_AG_TYPE_GET(agent) (((agent) >> 11) & 0x1)
+	#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFF7FF) | (((type) & 0x1) << 11)
+
+	#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
+	#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
+
+	#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 22), (ushort) (((agent) >> 12) & 0x3FF))
+	#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((uint) x) << 22) | ((((uint) y) & 0x3FF) << 12) | ((agent) & 0xFFF)
+
+	#define PPG_AG_REPRODUCE(agent) ((uint) ((agent) & 0xFFFFF800) | (PPG_AG_ENERGY_GET(agent) / 2))
+
+	#define PPG_AG_DEAD 0xFFFF
+
+	#define PPG_AG_IS_ALIVE(agent) (((agent) >> 16) != PPG_AG_DEAD)
+
+	#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFF
+
+	#define PPG_CELL_IDX(agent) ((((agent) >> 12) & 0x3FF) * GRID_X + ((agent) >> 22))
+
+	//~ #define PPG_AG_LOAD(agent, pos, data) (agent) = (data)[pos]
+//~ 
+	//~ #define PPG_AG_STORE(agent, pos, data) (data)[pos] = (agent)
+
+	#define PPG_AG_STORE_LO(agent, pos, data) data[pos] = agent
+	//atomic_or(&(data[pos]), (agent) & 0xFFF)
+
+	//~ #define PPG_AG_LOAD_HI(pos, data) (data)[pos]
+	
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(data[pos]), PPG_AG_DEAD) != PPG_AG_DEAD)
+	
 	#define convert_uagr(x) convert_uint(x)
 	#define convert_uagr2(x) convert_uint2(x)
 	#define convert_uagr4(x) convert_uint4(x)
 	#define convert_uagr8(x) convert_uint8(x)
 	#define convert_uagr16(x) convert_uint16(x)
+
+	typedef ushort uagr_half;
 	typedef uint uagr; 
 	typedef uint2 uagr2; 
 	typedef uint4 uagr4; 
@@ -127,52 +218,7 @@
 	typedef uagr16 agentreduce_uagr;
 #endif
 
-#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
-#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
-#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) + energy) & 0xFFFF)
-#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) - energy) & 0xFFFF)
 
-#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xFFFF)
-#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
-
-#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
-#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
-
-#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
-#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
-
-#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
-
-#define PPG_AG_DEAD 0xFFFFFFFF
-
-#define PPG_AG_IS_ALIVE(agent) (((agent) >> 32) != PPG_AG_DEAD)
-
-#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFFFFFFFFFF
-
-#define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
-
-#ifdef __ENDIAN_LITTLE__
-	#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).y, (vec).x)
-	#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) & 0xFFFFFFFF), (uint) ((agent) >> 32))
-	#define PPG_AG_HI_IDX 1 // X + Y
-	#define PPG_AG_LO_IDX 0 // Type + Energy
-#else
-	#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).x, (vec).y)
-	#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) >> 32), (uint) ((agent) & 0xFFFFFFFF))
-	#define PPG_AG_HI_IDX 0 // X + Y
-	#define PPG_AG_LO_IDX 1 // Type + Energy
-#endif
-
-#define PPG_AG_LOAD(agent, pos, data) \
-	uint2 ag_vec = vload2(pos, data); \
-	PPG_AG_FROM_VEC(agent, ag_vec);
-
-#define PPG_AG_STORE(agent, pos, data) \
-	vstore2(PPG_AG_TO_VEC(agent), pos, data);
-
-#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xFFFFFFFF)
-
-#define PPG_AG_LOAD_HI(pos, data) data[pos * 2 + PPG_AG_HI_IDX]
 
 /**
  * @brief Initialize grid cells. 
@@ -628,7 +674,8 @@ __kernel void findCellIdx(
 __kernel void actionAgent(
 			__global uint *grass, 
 			__global uint2 *cell_agents_idx,
-			__global uint *data,
+			__global uagr *data,
+			__global uagr_half *data_half,
 			__global rng_state *seeds)
 {
 	
@@ -636,8 +683,7 @@ __kernel void actionAgent(
 	size_t gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	uagr data_l;
-	PPG_AG_LOAD(data_l, gid, data);
+	uagr data_l = uagr[gid];
 	
 	/* Get cell index where agent is */
 	uint cell_idx = PPG_CELL_IDX(data_l);
@@ -670,11 +716,10 @@ __kernel void actionAgent(
 			uint2 cai = cell_agents_idx[cell_idx];
 			if (cai.s0 < MAX_AGENTS) {
 				for (uint i = cai.s0; i <= cai.s1; i++) {
-					uagr possibleSheep;
-					PPG_AG_LOAD(possibleSheep, i, data);
+					uagr possibleSheep = data[i];
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
-						if (atomic_or(&(PPG_AG_LOAD_HI(i, data)), PPG_AG_DEAD) != PPG_AG_DEAD) {
+						if (PPG_ATOMIC_TRY_KILL(i, data, data_half)) {
 							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
@@ -694,7 +739,7 @@ __kernel void actionAgent(
 			/* Agent will reproduce! */
 			size_t pos_new = get_global_size(0) + gid;
 			uagr data_new = PPG_AG_REPRODUCE(data_l);
-			PPG_AG_STORE(data_new, pos_new, data);
+			data[pos_new] = data_new;
 				
 			/* Current agent's energy will be halved also */
 			PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
