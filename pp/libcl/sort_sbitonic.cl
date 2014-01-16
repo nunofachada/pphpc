@@ -15,7 +15,7 @@
  * @param step
  */
 __kernel void sbitonicSort(
-			__global ulong *data,
+			__global uagr *data,
 			const uint stage,
 			const uint step)
 {
@@ -28,8 +28,8 @@ __kernel void sbitonicSort(
 	uint index2 = index1 + pair_stride;
 	
 	/* Get hashes from global memory. */
-	ulong data1 = data[index1];
-	ulong data2 = data[index2];
+	uagr data1 = data[index1];
+	uagr data2 = data[index2];
 	
 	/* Determine if ascending or descending */
 	bool desc = (bool) (0x1 & (gid >> stage - 1));

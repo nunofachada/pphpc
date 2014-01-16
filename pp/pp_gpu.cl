@@ -27,11 +27,16 @@
  * * ITERS - Number of iterations. 
  * */
 
-#include "pp_common.cl"
-#include "libcl/sort.cl"
-
 #define SHEEP_ID 0x0
 #define WOLF_ID 0x1
+
+#ifdef __ENDIAN_LITTLE__
+	#define PPG_AG_HI_IDX 1 // X + Y
+	#define PPG_AG_LO_IDX 0 // Type + Energy
+#else
+	#define PPG_AG_HI_IDX 0 // X + Y
+	#define PPG_AG_LO_IDX 1 // Type + Energy
+#endif
 
 /* Define macros for grass kernel depending on chosen vector width. */
 #if VW_GRASS == 1
@@ -106,30 +111,9 @@
 
 	#define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
 
-	#ifdef __ENDIAN_LITTLE__
-		#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).y, (vec).x)
-		#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) & 0xFFFFFFFF), (uint) ((agent) >> 32))
-		#define PPG_AG_HI_IDX 1 // X + Y
-		#define PPG_AG_LO_IDX 0 // Type + Energy
-	#else
-		#define PPG_AG_FROM_VEC(agent, vec) (agent) = upsample((vec).x, (vec).y)
-		#define PPG_AG_TO_VEC(agent) (uint2) ((uint) ((agent) >> 32), (uint) ((agent) & 0xFFFFFFFF))
-		#define PPG_AG_HI_IDX 0 // X + Y
-		#define PPG_AG_LO_IDX 1 // Type + Energy
-	#endif
-
-	//~ #define PPG_AG_LOAD(agent, pos, data) \
-		//~ uint2 ag_vec = vload2(pos, data); \
-		//~ PPG_AG_FROM_VEC(agent, ag_vec);
-//~ 
-	//~ #define PPG_AG_STORE(agent, pos, data) \
-		//~ vstore2(PPG_AG_TO_VEC(agent), pos, data);
-
 	#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xFFFFFFFF)
 
-	//~ #define PPG_AG_LOAD_HI(pos, data) data[pos * 2 + PPG_AG_HI_IDX]
-	
-	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(PPG_AG_LOAD_HI(pos, data_half)), PPG_AG_DEAD) != PPG_AG_DEAD)
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(data_half[pos * 2 + PPG_AG_HI_IDX]), PPG_AG_DEAD) != PPG_AG_DEAD)
 	
 	#define convert_uagr(x) convert_ulong(x)
 	#define convert_uagr2(x) convert_ulong2(x)
@@ -170,16 +154,9 @@
 
 	#define PPG_CELL_IDX(agent) ((((agent) >> 12) & 0x3FF) * GRID_X + ((agent) >> 22))
 
-	//~ #define PPG_AG_LOAD(agent, pos, data) (agent) = (data)[pos]
-//~ 
-	//~ #define PPG_AG_STORE(agent, pos, data) (data)[pos] = (agent)
+	#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (ushort) (agent & 0xFFFF)
 
-	#define PPG_AG_STORE_LO(agent, pos, data) data[pos] = agent
-	//atomic_or(&(data[pos]), (agent) & 0xFFF)
-
-	//~ #define PPG_AG_LOAD_HI(pos, data) (data)[pos]
-	
-	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(data[pos]), PPG_AG_DEAD) != PPG_AG_DEAD)
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) PPG_AG_IS_ALIVE(atomic_or(&(data[pos]), 0xFFFFFFFF))
 	
 	#define convert_uagr(x) convert_uint(x)
 	#define convert_uagr2(x) convert_uint2(x)
@@ -218,7 +195,8 @@
 	typedef uagr16 agentreduce_uagr;
 #endif
 
-
+#include "pp_common.cl"
+#include "libcl/sort.cl"
 
 /**
  * @brief Initialize grid cells. 
@@ -683,7 +661,7 @@ __kernel void actionAgent(
 	size_t gid = get_global_id(0);
 	
 	/* Get agent for this workitem */
-	uagr data_l = uagr[gid];
+	uagr data_l = data[gid];
 	
 	/* Get cell index where agent is */
 	uint cell_idx = PPG_CELL_IDX(data_l);
@@ -758,6 +736,6 @@ __kernel void actionAgent(
 	 * will probably not allow for any performance improvements. */
 		
 	/* My actions only affect my data (energy), so I will only put back data (energy)... */
-	PPG_AG_STORE_LO(data_l, gid, data);
+	PPG_AG_STORE_LO(data_l, gid, data_half);
 	
 }
