@@ -33,7 +33,7 @@ static gboolean host_mt = FALSE;
 static GOptionEntry entries[] = {
 	{"rng",          'r', 0, G_OPTION_ARG_STRING,   &rng,           "Random number generator: " PP_RNGS,                                           "RNG"},
 	{"output-file",  'o', 0, G_OPTION_ARG_FILENAME, &output,        "Output file w/o extension (default is " RNGT_OUTPUT ")",                      "FILENAME"},
-	{"output-type",  't', 0, G_OPTION_ARG_STRING,   &output_type,   "Output type: tsv or dieharder (default is" RNGT_OUTPUT_TYPE ")",              "TYPE"},
+	{"output-type",  't', 0, G_OPTION_ARG_STRING,   &output_type,   "Output type: tsv or dieharder (default is " RNGT_OUTPUT_TYPE ")",              "TYPE"},
 	{"globalsize",   'g', 0, G_OPTION_ARG_INT,      &gws,           "Global work size (default is " STR(RNGT_GWS) ")",                             "SIZE"},
 	{"localsize",    'l', 0, G_OPTION_ARG_INT,      &lws,           "Local work size (default is " STR(RNGT_LWS) ")",                              "SIZE"},
 	{"runs",         'n', 0, G_OPTION_ARG_INT,      &runs,          "Number of random numbers per workitem (default is " STR(RNGT_RUNS) ")",       "SIZE"},
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 {
 
 	/* Status var aux */
-	int status = PP_SUCCESS;
+	int status, ocl_status;
 	
 	/* Context object for command line argument parsing. */
 	GOptionContext *context = NULL;
@@ -103,9 +103,9 @@ int main(int argc, char **argv)
 	if (output_type == NULL) output_type = g_strdup(RNGT_OUTPUT_TYPE);
 	if (rng == NULL) rng = g_strdup(PP_DEFAULT_RNG);
 	PP_ALG_GET(rng_info, rng_infos, rng);
-	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
-	gef_if_error_create_goto(err, PP_ERROR, g_strcmp0(output_type, "tsv") && g_strcmp0(output_type, "dieharder"), PP_INVALID_ARGS, error_handler, "Unknown output type '%s'.", output_type);
-	gef_if_error_create_goto(err, PP_ERROR, (bits > 32) || (bits < 1), PP_INVALID_ARGS, error_handler, "Number of bits must be between 1 and 32.");
+	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", rng);
+	gef_if_error_create_goto(err, PP_ERROR, g_strcmp0(output_type, "tsv") && g_strcmp0(output_type, "dieharder"), status = PP_INVALID_ARGS, error_handler, "Unknown output type '%s'.", output_type);
+	gef_if_error_create_goto(err, PP_ERROR, (bits > 32) || (bits < 1), status = PP_INVALID_ARGS, error_handler, "Number of bits must be between 1 and 32.");
 	
 	/* Get the required CL zone. */
 	zone = clu_zone_new(CL_DEVICE_TYPE_ALL, 1, 0, clu_menu_device_selector, (dev_idx != -1 ? &dev_idx : NULL), &err);
@@ -113,12 +113,12 @@ int main(int argc, char **argv)
 	
 	/* Build program. */
 	compilerOpts = g_strconcat(PP_KERNEL_INCLUDES, "-D ", rng_info.compiler_const, maxint ? " -D RNGT_MAXINT" : "", NULL);
-	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
+	clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Create test kernel. */
-	test_rng = clCreateKernel(zone->program, "testRng", &status);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel test_rng (OpenCL error %d)", status);
+	test_rng = clCreateKernel(zone->program, "testRng", &ocl_status);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel test_rng (OpenCL error %d)", ocl_status);
 	
 	/* Create host buffer */
 	result_host = (cl_uint**) malloc(sizeof(cl_uint*) * runs);
@@ -128,21 +128,21 @@ int main(int argc, char **argv)
 	
 	/* Create device buffer */
 	seeds_count = gws * rng_info.bytes / sizeof(cl_ulong);
-	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, seeds_count * sizeof(cl_ulong), NULL, &status);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 1 (OpenCL error %d)", status);
+	seeds_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, seeds_count * sizeof(cl_ulong), NULL, &ocl_status);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create device buffer 1 (OpenCL error %d)", ocl_status);
 	
-	result_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_int), NULL, &status);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create device buffer 2 (OpenCL error %d)", status);
+	result_dev = clCreateBuffer(zone->context, CL_MEM_READ_WRITE, gws * sizeof(cl_int), NULL, &ocl_status);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create device buffer 2 (OpenCL error %d)", ocl_status);
 
 	/*  Set test kernel arguments. */
-	status = clSetKernelArg(test_rng, 0, sizeof(cl_mem), (void*) &seeds_dev);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 test (OpenCL error %d)", status);
+	ocl_status = clSetKernelArg(test_rng, 0, sizeof(cl_mem), (void*) &seeds_dev);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 test (OpenCL error %d)", ocl_status);
 	
-	status = clSetKernelArg(test_rng, 1, sizeof(cl_mem), (void*) &result_dev);
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 test (OpenCL error %d)", status);
+	ocl_status = clSetKernelArg(test_rng, 1, sizeof(cl_mem), (void*) &result_dev);
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 test (OpenCL error %d)", ocl_status);
 	
-	status = clSetKernelArg(test_rng, 2, sizeof(cl_uint), (void*) (maxint ? &maxint : &bits));
-	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 test (OpenCL error %d)", status);
+	ocl_status = clSetKernelArg(test_rng, 2, sizeof(cl_uint), (void*) (maxint ? &maxint : &bits));
+	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 2 test (OpenCL error %d)", ocl_status);
 	
 
 	/* Print options. */
@@ -167,17 +167,17 @@ int main(int argc, char **argv)
 		/* *** Device initalization of seeds, GID-based. *** */
 		
 		/* Create init kernel. */
-		init_rng = clCreateKernel(zone->program, "initRng", &status);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel init_rng (OpenCL error %d)", status);
+		init_rng = clCreateKernel(zone->program, "initRng", &ocl_status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel init_rng (OpenCL error %d)", ocl_status);
 		
 		/* Set init kernel args. */
-		status = clSetKernelArg(init_rng, 0, sizeof(cl_ulong), (void*) &rng_seed);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 init (OpenCL error %d)", status);
-		status = clSetKernelArg(init_rng, 1, sizeof(cl_mem), (void*) &seeds_dev);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 init (OpenCL error %d)", status);
+		ocl_status = clSetKernelArg(init_rng, 0, sizeof(cl_ulong), (void*) &rng_seed);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 init (OpenCL error %d)", ocl_status);
+		ocl_status = clSetKernelArg(init_rng, 1, sizeof(cl_mem), (void*) &seeds_dev);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 init (OpenCL error %d)", ocl_status);
 		
 		/* Run init kernel. */
-		status = clEnqueueNDRangeKernel(
+		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			init_rng, 
 			1, 
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 			NULL, 
 			NULL
 		);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel init (OpenCL error %d)", status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel init (OpenCL error %d)", ocl_status);
 		
 
 	} else {
@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 		}
 		
 		/* Copy seeds to host. */
-		status = clEnqueueWriteBuffer(
+		ocl_status = clEnqueueWriteBuffer(
 			zone->queues[0], 
 			seeds_dev, 
 			CL_FALSE, 
@@ -217,16 +217,14 @@ int main(int argc, char **argv)
 			NULL, 
 			NULL
 		);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Write device buffer: seeds (OpenCL error %d)", status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Write device buffer: seeds (OpenCL error %d)", ocl_status);
 		
 	}
 	
-
-
 	/* Test! */
 	for (unsigned int i = 0; i < runs; i++) {
 		/* Run kernel. */
-		status = clEnqueueNDRangeKernel(
+		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			test_rng, 
 			1, 
@@ -237,9 +235,9 @@ int main(int argc, char **argv)
 			NULL, 
 			NULL
 		);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Kernel exec iter %d (OpenCL error %d)", i, status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec iter %d (OpenCL error %d)", i, ocl_status);
 		/* Read data. */
-		status = clEnqueueReadBuffer(
+		ocl_status = clEnqueueReadBuffer(
 			zone->queues[0], 
 			result_dev, 
 			CL_TRUE, 
@@ -250,7 +248,7 @@ int main(int argc, char **argv)
 			NULL, 
 			NULL
 		);
-		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Read back results, iteration %d (OpenCL error %d)", i, status);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Read back results, iteration %d (OpenCL error %d)", i, ocl_status);
 	}
 
 	/* Stop timming. */
@@ -301,12 +299,17 @@ int main(int argc, char **argv)
 
 	printf("     Done...\n");
 
-	/* If we get here, no need for error checking, jump to cleanup. */
+	/* If we get here, everything went Ok. */
+	status = PP_SUCCESS;
+	g_assert(err == NULL);
 	goto cleanup;
 	
 error_handler:
 	/* Handle error. */
-	pp_error_handle(err, status);
+	g_assert(err != NULL);
+	g_assert(status != PP_SUCCESS);
+	fprintf(stderr, "Error: %s\n", err->message);
+	g_error_free(err);	
 
 cleanup:
 
@@ -347,7 +350,7 @@ cleanup:
 	if (seeds_host) free(seeds_host);
 	
 	/* Bye bye. */
-	return 0;
+	return status;
 	
 }
 

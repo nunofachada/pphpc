@@ -151,22 +151,6 @@ cleanup:
 } 
 
 /**
- * @brief Show proper error messages.
- * 
- * @param err GLib error structure.
- * @param status Error code.
- * */
-void pp_error_handle(GError* err, int status) {
-	g_assert(err != NULL);
-	fprintf(stderr, "\n--------------------- Error ---------------------\n");
-	fprintf(stderr, "Error code (domain): %d (%s)\nError message: %s\n", err->code, g_quark_to_string(err->domain), err->message);
-	fprintf(stderr, "Exit status: %d\n", status);
-	fprintf(stderr, "-------------------------------------------------\n");
-	g_error_free(err);
-}
-
-
-/**
  * @brief Callback function which will be called when non-option 
  * command line arguments are given. The function will throw an error
  * and fail. It's an implementation of GLib's `(*GOptionArgFunc)` 

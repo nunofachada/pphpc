@@ -520,12 +520,17 @@ int main(int argc, char ** argv)
 	/* Print profiling info. */ 
 	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, NULL);
 
-	/* If we get here, no need for error checking, jump to cleanup. */
+	/* If we get here, everything went Ok. */
+	status = PP_SUCCESS;
+	g_assert(err == NULL);
 	goto cleanup;
 	
 error_handler:
 	/* Handle error. */
-	pp_error_handle(err, status);
+	g_assert(err != NULL);
+	g_assert(status != PP_SUCCESS);
+	fprintf(stderr, "Error: %s\n", err->message);
+	g_error_free(err);	
 
 cleanup:
 	
@@ -630,7 +635,7 @@ cleanup:
 	if (grassMatrixHost) free(grassMatrixHost);
 	if (rngSeedsHost) free(rngSeedsHost);
 
-	return 0;
+	return status;
 	
 }
 

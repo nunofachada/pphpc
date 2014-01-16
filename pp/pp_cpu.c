@@ -162,12 +162,17 @@ int main(int argc, char ** argv) {
 	status = ppc_profiling_analyze(profile, &evts, params, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
-	/* If we get here, no need for error checking, jump to cleanup. */
+	/* If we get here, everything went Ok. */
+	status = PP_SUCCESS;
+	g_assert(err == NULL);
 	goto cleanup;
 	
 error_handler:
 	/* Handle error. */
-	pp_error_handle(err, status);
+	g_assert(err != NULL);
+	g_assert(status != PP_SUCCESS);
+	fprintf(stderr, "Error: %s\n", err->message);
+	g_error_free(err);	
 
 cleanup:
 

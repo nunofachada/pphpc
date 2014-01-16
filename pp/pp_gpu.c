@@ -202,12 +202,20 @@ int main(int argc, char **argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
 	/* If we get here, no need for error checking, jump to cleanup. */
+	status = PP_SUCCESS;
+	g_assert(err == NULL);
 	goto cleanup;
 	
 error_handler:
 	/* Handle error. */
-	/** @todo In some error cases, such as when RNG is unknown, status is 0. Fix this. */
-	pp_error_handle(err, status);
+	g_assert(err != NULL);
+	g_assert(status != PP_SUCCESS);
+	fprintf(stderr, "Error: %s\n", err->message);
+#ifdef PPG_DEBUG
+	fprintf(stderr, "Error code (domain): %d (%s)\n", err->code, g_quark_to_string(err->domain));
+	fprintf(stderr, "Exit status: %d\n", status);
+#endif
+	g_error_free(err);	
 
 cleanup:
 
@@ -239,7 +247,7 @@ cleanup:
 	if (rng) g_rand_free(rng);
 	
 	/* Bye bye. */
-	return 0;
+	return status;
 	
 }
 

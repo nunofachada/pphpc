@@ -175,9 +175,6 @@ extern PPRngInfo rng_infos[];
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, char * filename, GError** err);
 
-/** @brief Show proper error messages. */
-void pp_error_handle(GError* err, int status);
-
 /** @brief Callback function which will be called when non-option 
  *  command line arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
