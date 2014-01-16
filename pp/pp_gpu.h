@@ -185,7 +185,7 @@ typedef struct pp_g_buffers_device {
 } PPGBuffersDevice;
 
 /** @brief Compute worksizes depending on the device type and number of available compute units. */
-cl_int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
+int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err);
 
 /** @brief Print information about simulation. */
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts);
@@ -197,7 +197,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 
 /** @brief Create OpenCL kernels. */
-cl_int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
+int ppg_kernels_create(cl_program program, PPGKernels* krnls, GError** err);
 
 /** @brief Free OpenCL kernels. */
 void ppg_kernels_free(PPGKernels* krnls);
@@ -209,7 +209,7 @@ void ppg_hostbuffers_create(PPGBuffersHost* buffersHost, PPGDataSizes dataSizes,
 void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
 
 /** @brief Initialize device buffers. */
-cl_int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes dataSizes, GError** err);
+int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice, PPGDataSizes dataSizes, GError** err);
 
 /** @brief Free device buffers. */
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
@@ -221,19 +221,19 @@ void ppg_events_create(PPParameters params, PPGEvents* evts);
 void ppg_events_free(PPParameters params, PPGEvents* evts);
 
 /** @brief Set fixed kernel arguments. */
-cl_int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, GError** err);
+int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, GError** err);
 
 /** @brief Perform Predator-Prey simulation. */
-cl_int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
+int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
 
 /** @brief Perform profiling analysis. */
-cl_int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
+int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
 
 /** @brief Save simulation statistics. */
 void ppg_results_save(char* filename, PPStatistics* statsArray, PPParameters params);
 
 /** @brief Parse command-line options. */
-cl_int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
+int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** err);
 
 /** @brief Free command line parsing related objects. */
 void ppg_args_free(GOptionContext* context);
