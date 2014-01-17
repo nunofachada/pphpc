@@ -4,14 +4,17 @@
  * 
  * The kernels in this file expect the following preprocessor defines:
  * 
- * * VW_GRASS - Vector size used in grass kernel (vector of uints)
+ * * VW_GRASS - Vector size used in grass kernel (vector of uints).
  * * VW_REDUCEGRASS - Vector size used in reduce grass kernels (vector of uints)
  * * VW_REDUCEAGENTS - Vector size used in reduce agents kernels (vector of ulongs or uints)
  * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
  * * MAX_LWS - Maximum local work size used in simulation.
- * * CELL_NUM - Number of cells in simulation
- * * MAX_AGENTS - Maximum allowed agents in the simulation
- * * AGENT_WIDTH_BYTES - Specifies the size in memory of each agent (4 or 8 bytes)
+ * * CELL_NUM - Number of cells in simulation.
+ * * MAX_AGENTS - Maximum allowed agents in the simulation.
+ *  
+ * * PPG_AG_xx - Specifies the size in memory of each agent (32 or 64 bits).
+ * * PPG_RNG_xxx - Specifies the random number generation algorithm to use.
+ * * PPG_SORT_xxx - Specifies the sorting algorithm to use.
  * 
  * * INIT_SHEEP - Initial number of sheep.
  * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
@@ -27,18 +30,24 @@
  * * ITERS - Number of iterations. 
  * */
 
+/** Sheep identifier. */
 #define SHEEP_ID 0x0
+
+/** Wolf identifier. */
 #define WOLF_ID 0x1
 
+/** Constants which depend on device endianess. When the agent structure
+ * is accessed in half, these will point to the correct location in
+ * global memory. */
 #ifdef __ENDIAN_LITTLE__
-	#define PPG_AG_HI_IDX 1 // X + Y
-	#define PPG_AG_LO_IDX 0 // Type + Energy
+	#define PPG_AG_HI_IDX 1 /**< Logical "high" position (MSBs). */
+	#define PPG_AG_LO_IDX 0 /**< Logical "low" position (LSBs). */
 #else
-	#define PPG_AG_HI_IDX 0 // X + Y
-	#define PPG_AG_LO_IDX 1 // Type + Energy
+	#define PPG_AG_HI_IDX 0 /**< Logical "high" position (MSBs). */
+	#define PPG_AG_LO_IDX 1 /**< Logical "low" position (LSBs). */
 #endif
 
-/* Define macros for grass kernel depending on chosen vector width. */
+/** Macros and type definitions for grass kernel which depend on chosen vector width. */
 #if VW_GRASS == 1
 	#define VW_GRASS_SUM(x) (x)
 	typedef uint grass_uintx;
@@ -61,7 +70,7 @@
 	typedef ulong16 grass_ulongx;
 #endif
 
-/* Define macros for grass reduction kernels depending on chosen vector width. */
+/** Macros and type definitions for grass reduction kernels which depend on chosen vector width. */
 #if VW_GRASSREDUCE == 1
 	#define VW_GRASSREDUCE_SUM(x) (x)
 	#define convert_grassreduce_uintx(x) convert_uint(x)
@@ -84,7 +93,7 @@
 	typedef uint16 grassreduce_uintx;
 #endif
 
-/* Define type for agents depending on respective compiler option. */
+/** Macros and type definitions for agents, which depend on agent size (number of bits). */
 #ifdef PPG_AG_64
 
 	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
@@ -172,7 +181,7 @@
 	typedef uint16 uagr16; 
 #endif
 
-/* Define macros for agent reduction kernels depending on chosen vector width. */
+/** Macros and type definitions for agent reduction kernels which depend on chosen vector width. */
 #if VW_AGENTREDUCE == 1
 	#define VW_AGENTREDUCE_SUM(x) (x)
 	#define convert_agentreduce_uagr(x) convert_uagr(x)
@@ -201,8 +210,7 @@
 /**
  * @brief Initialize grid cells. 
  * 
- * @param grass_alive "Is grass alive?" array.
- * @param grass_timer Grass regrowth timer array.
+ * @param grass Grass counters (0 means grass is alive).
  * @param seeds RNG seeds.
  * */
 __kernel void initCell(
@@ -235,12 +243,8 @@ __kernel void initCell(
 /**
  * @brief Initialize agents.
  * 
- * @param xy
- * @param alive
- * @param energy
- * @param type
- * @param hashes
- * @param seeds
+ * @param data The agent data array.
+ * @param seeds RNG seeds.
  * */
 __kernel void initAgent(
 			__global uagr *data,
@@ -267,21 +271,17 @@ __kernel void initAgent(
 			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
 	}
+	/* Store new agent in global memory. */
 	data[gid] = new_agent;
 
-	
-	/* @ALTERNATIVE
-	 * In commit 00ea5434a83d7aa134a7ecba413e2f2341086630 there is a
-	 * streamlined, theoretically faster version of this kernel, with
-	 * less divergence and so on, but it is actually slower. */
 }
 
 
 /**
- * @brief Grass kernel.
+ * @brief Grass kernel. Grows grass and resets agent indexes in cell.
  * 
- * @param grass_alive
- * @param grass_timer
+ * @param grass Grass counters (0 means grass is alive).
+ * @param agents_index Agent start and end indexes in cell.
  * */
 __kernel void grass(
 			__global grass_uintx *grass,
@@ -313,9 +313,9 @@ __kernel void grass(
 /**
  * @brief Grass reduction kernel, part 1.
  * 
- * @param grass_alive
- * @param partial_sums
- * @param reduce_grass_global
+ * @param grass Grass counters (0 means grass is alive).
+ * @param partial_sums Workgroup level (shared memory) grass counts.
+ * @param reduce_grass_global Global level grass counts.
  * */
 __kernel void reduceGrass1(
 			__global grassreduce_uintx *grass,
@@ -365,9 +365,9 @@ __kernel void reduceGrass1(
 /**
  * @brief Grass reduction kernel, part 2.
  * 
- * @param reduce_grass_global
- * @param partial_sums
- * @param stats
+ * @param reduce_grass_global Global level grass counts.
+ * @param partial_sums Workgroup level (shared memory) grass counts.
+ * @param stats Final grass count.
  * */
  __kernel void reduceGrass2(
 			__global grassreduce_uintx *reduce_grass_global,
@@ -405,11 +405,10 @@ __kernel void reduceGrass1(
 /**
  * @brief Agent reduction kernel, part 1.
  * 
- * @param alive
- * @param type 
- * @param partial_sums
- * @param reduce_agent_global
- * @param max_agents = (stats[0].sheep + stats[0].wolves) * 2 //set in host
+ * @param data The agent data array.
+ * @param partial_sums Workgroup level (shared memory) agent counts.
+ * @param reduce_agent_global Global level agent counts.
+ * @param max_agents Maximum agents for current interation.
  * */
 __kernel void reduceAgent1(
 			__global agentreduce_uagr *data,
@@ -469,9 +468,9 @@ __kernel void reduceAgent1(
 /**
  * @brief Agent reduction kernel, part 2.
  * 
- * @param reduce_agent_global
- * @param partial_sums
- * @param stats
+ * @param reduce_agent_global Global level agent counts.
+ * @param partial_sums Workgroup level (shared memory) agent counts.
+ * @param stats Final agents count.
  * @param num_slots Number of workgroups in step 1.
  * */
  __kernel void reduceAgent2(
@@ -516,11 +515,8 @@ __kernel void reduceAgent1(
 /**
  * @brief Agent movement kernel.
  * 
- * @param xy_g
- * @param alive_g
- * @param energy_g
- * @param hashes
- * @param seeds
+ * @param data The agent data array.
+ * @param seeds RNG seeds.
  */
 __kernel void moveAgent(
 			__global uagr *data,
@@ -648,9 +644,17 @@ __kernel void findCellIdx(
 }
 
 /**
- * @brief Agents action kernel
+ * @brief Agents action kernel.
  * 
- * @param matrix
+ * Wolves try to eat sheep.
+ * Sheep try to eat grass.
+ * Both types of agent try to reproduce.
+ * 
+ * @param grass Grass counters (0 means grass is alive).
+ * @param cell_agents_idx Agent start and end indexes in cell.
+ * @param data The agent data array.
+ * @param data_half The agent data array, allows direct access to upper or lower half of the agent data.
+ * @param seeds RNG seeds.
  */
 __kernel void actionAgent(
 			__global uint *grass, 

@@ -21,11 +21,11 @@
 /**
  * @brief Generic sort function definition.
  * 
- * @param queues
- * @param krnls
- * @param evts
- * @param lws_max
- * @param err
+ * @param queues Available command queues.
+ * @param krnls Kernels required for sorting.
+ * @param evts Associated events.
+ * @param lws_max Maximum local worksize.
+ * @param err GError error reporting object.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */

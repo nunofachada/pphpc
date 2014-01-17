@@ -11,11 +11,11 @@ unsigned int sbitonic_evt_idx;
 /**
  * @brief A simple bitonic sort kernel.
  * 
- * @param queues
- * @param krnls
- * @param evts
- * @param lws_max
- * @param err
+ * @param queues Available command queues.
+ * @param krnls Kernels required for simple bitonic sort.
+ * @param evts Associated events.
+ * @param lws_max Maximum local worksize.
+ * @param err GError error reporting object.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
