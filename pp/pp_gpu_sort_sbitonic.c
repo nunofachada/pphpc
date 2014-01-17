@@ -9,17 +9,9 @@
 unsigned int sbitonic_evt_idx;
 
 /**
- * @brief A simple bitonic sort kernel.
+ * @brief Sort agents using the simple bitonic sort.
  * 
- * @param queues Available command queues.
- * @param krnls Kernels required for simple bitonic sort.
- * @param evts Associated events.
- * @param lws_max Maximum local worksize.
- * @param max_agents Max. agents for current iteration.
- * @param iter Current iteration.
- * @param err GError error reporting object.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
- * terminates successfully, or an error code otherwise.
+ * @see ppg_sort_sort()
  */
 int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event **evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err) {
 	
@@ -28,7 +20,7 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 #endif
 
 	/* Aux. var. */
-	int status;
+	int status, ocl_status;
 		
 	/* Global worksize. */
 	size_t gws = nlpo2(max_agents) / 2;
@@ -49,13 +41,13 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 		cl_uint step = currentStage;
 		for (cl_uint currentStep = step; currentStep > 0; currentStep--) {
 			
-			status = clSetKernelArg(krnls[0], 1, sizeof(cl_uint), (void *) &currentStage);
-			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 1 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
+			ocl_status = clSetKernelArg(krnls[0], 1, sizeof(cl_uint), (void *) &currentStage);
+			gef_if_error_create_goto(*err, PP_ERROR, ocl_status != CL_SUCCESS, status = PP_LIBRARY_ERROR, error_handler, "arg 1 of sort kernel, iter %d. OpenCL error %d: %s", iter, ocl_status, clerror_get(ocl_status));
 			
-			status = clSetKernelArg(krnls[0], 2, sizeof(cl_uint), (void *) &currentStep);
-			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "arg 2 of sort kernel, iter %d  (OpenCL error %d)", iter, status);
+			ocl_status = clSetKernelArg(krnls[0], 2, sizeof(cl_uint), (void *) &currentStep);
+			gef_if_error_create_goto(*err, PP_ERROR, ocl_status != CL_SUCCESS, status = PP_LIBRARY_ERROR, error_handler, "arg 2 of sort kernel, iter %d. OpenCL error %d: %s", iter, ocl_status, clerror_get(ocl_status));
 			
-			status = clEnqueueNDRangeKernel(
+			ocl_status = clEnqueueNDRangeKernel(
 				queues[0], 
 				krnls[0], 
 				1, 
@@ -70,7 +62,7 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 				NULL
 #endif
 			);
-			gef_if_error_create_goto(*err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "Executing simple bitonic sort kernel, iter %d  (OpenCL error %d)", iter, status);
+			gef_if_error_create_goto(*err, PP_ERROR, ocl_status != CL_SUCCESS, status = PP_LIBRARY_ERROR, error_handler, "Executing simple bitonic sort kernel, iter %d. OpenCL error %d: %s", iter, ocl_status, clerror_get(ocl_status));
 			
 #ifdef CLPROFILER
 			sbitonic_evt_idx++;
@@ -80,13 +72,12 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 	
 	/* If we got here, everything is OK. */
 	status = PP_SUCCESS;
+	g_assert(*err == NULL);
 	goto finish;
 	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
 	
 finish:
 	
@@ -94,28 +85,32 @@ finish:
 	return status;	
 }
 
+/** 
+ * @brief Create kernels for the simple bitonic sort. 
+ * 
+ * @see ppg_sort_kernels_create()
+ * */
 int ppg_sort_sbitonic_kernels_create(cl_kernel **krnls, cl_program program, GError **err) {
 	
 	/* Aux. var. */
-	int status;
+	int status, ocl_status;
 	
 	/* Allocate memory for single kernel required for simple bitonic sort. */
 	*krnls = (cl_kernel*) calloc(1, sizeof(cl_kernel));
-	gef_if_error_create_goto(*err, PP_ERROR, *krnls == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort kernel.");	
+	gef_if_error_create_goto(*err, PP_ERROR, *krnls == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort kernel.");	
 	
 	/* Create kernel. */
-	*krnls[0] = clCreateKernel(program, "sbitonicSort", &status);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Create kernel: sbitonicSort (OpenCL error %d)", status);
+	*krnls[0] = clCreateKernel(program, "sbitonicSort", &ocl_status);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: sbitonicSort. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* If we got here, everything is OK. */
 	status = PP_SUCCESS;
+	g_assert(*err == NULL);
 	goto finish;
 	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
 	
 finish:
 	
@@ -124,24 +119,28 @@ finish:
 
 }
 
+/** 
+ * @brief Set kernels arguments for the simple bitonic sort. 
+ * 
+ * @see ppg_sort_kernelargs_set()
+ * */
 int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err) {
 	
 	/* Aux. var. */
-	int status;
+	int status, ocl_status;
 	
 	/* Set kernel arguments. */
-	status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of sbitonic_sort(OpenCL error %d)", status);
+	ocl_status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of sbitonic_sort. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* If we got here, everything is OK. */
 	status = PP_SUCCESS;
+	g_assert(*err == NULL);
 	goto finish;
 	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
 	
 finish:
 	
@@ -150,6 +149,11 @@ finish:
 	
 }
 
+/** 
+ * @brief Free the simple bitonic sort kernels. 
+ * 
+ * @see ppg_sort_kernels_free()
+ * */
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls) {
 	if (*krnls) {
 		clReleaseKernel(*krnls[0]);
@@ -157,10 +161,15 @@ void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls) {
 	}
 }
 
+/** 
+ * @brief Create events for the simple bitonic sort kernels. 
+ * 
+ * @see ppg_sort_events_create()
+ * */
 int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError **err) {
 
 	/* Aux. var. */
-	int status = PP_SUCCESS;
+	int status;
 	
 	/* Required number of events, worst case usage scenario. */
 	/// @todo Check the logic of this
@@ -171,27 +180,32 @@ int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError
 	
 	/* Only one type of event required for the simple bitonic sort kernel. */
 	*evts = (cl_event**) calloc(1, sizeof(cl_event*));
-	gef_if_error_create_goto(*err, PP_ERROR, *evts == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (1).");	
+	gef_if_error_create_goto(*err, PP_ERROR, *evts == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (1).");	
 	
 	/* Allocate memory for all occurrences of the event (i.e. executions of the simple bitonic sort kernel). */
 	(*evts)[0] = (cl_event*) calloc(num_evts, sizeof(cl_event));
-	gef_if_error_create_goto(*err, PP_ERROR, (*evts)[0] == NULL, PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (2).");	
+	gef_if_error_create_goto(*err, PP_ERROR, (*evts)[0] == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort events (2).");	
 	
 	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	status = PP_SUCCESS;
 	goto finish;
 	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
-	
+
 finish:
 	
 	/* Return. */
 	return status;	
 }
 
+/** 
+ * @brief Free the simple bitonic sort events. 
+ * 
+ * @see ppg_sort_events_free()
+ * */
 void ppg_sort_sbitonic_events_free(cl_event ***evts) {
 	if (evts) {
 		if (*evts) {
@@ -208,9 +222,14 @@ void ppg_sort_sbitonic_events_free(cl_event ***evts) {
 	}
 }
 
+/** 
+ * @brief Add bitonic sort events to the profiler object. 
+ * 
+ * @see ppg_sort_events_profile()
+ * */
 int ppg_sort_sbitonic_events_profile(cl_event **evts, ProfCLProfile *profile, GError **err) {
 	
-	int status = PP_SUCCESS;
+	int status;
 
 	for (unsigned int i = 0; i < sbitonic_evt_idx; i++) {
 		profcl_profile_add(profile, "SBitonic Sort", evts[0][i], err);
@@ -218,13 +237,13 @@ int ppg_sort_sbitonic_events_profile(cl_event **evts, ProfCLProfile *profile, GE
 	}
 
 	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	status = PP_SUCCESS;
 	goto finish;
 	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
 	
 finish:
 	

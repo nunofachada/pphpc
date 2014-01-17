@@ -6,9 +6,9 @@
 /**
  * @brief A simple bitonic sort kernel.
  * 
- * @param data
- * @param stage
- * @param step
+ * @param data Array of agent data.
+ * @param stage Current bitonic sort step.
+ * @param step Current bitonic sort stage.
  */
 __kernel void sbitonicSort(
 			__global uagr *data,
