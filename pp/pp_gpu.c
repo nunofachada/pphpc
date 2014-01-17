@@ -1175,13 +1175,10 @@ finish:
 /**
  * @brief Print information about simulation.
  * 
- * @param zone CL zone.
- * @param krnls Simulation kernels.
  * @param gws Kernel global work sizes.
  * @param lws Kernel local work sizes.
  * @param dataSizes Size of data buffers.
  * @param compilerOpts Final OpenCL compiler options.
- * @param err GLib error object for error reporting.
  * */
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts) {
 
@@ -1327,7 +1324,6 @@ void ppg_kernels_free(PPGKernels* krnls) {
  * 
  * @param krnls OpenCL kernels.
  * @param buffersDevice Device data buffers.
- * @param lws Kernel local work sizes.
  * @param dataSizes Size of data buffers.
  * @param err GLib error object for error reporting.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 

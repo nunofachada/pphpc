@@ -15,6 +15,8 @@ unsigned int sbitonic_evt_idx;
  * @param krnls Kernels required for simple bitonic sort.
  * @param evts Associated events.
  * @param lws_max Maximum local worksize.
+ * @param max_agents Max. agents for current iteration.
+ * @param iter Current iteration.
  * @param err GError error reporting object.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.

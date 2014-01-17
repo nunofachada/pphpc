@@ -20,8 +20,8 @@
  * 
  * Both val and div are assumed to be positive integers.
  * 
- * @param value Minimum value.
- * @param divisor The return value must be a multiple of the divisor.
+ * @param val Minimum value.
+ * @param div The return value must be a multiple of the divisor.
  * */
 #define PP_NEXT_MULTIPLE(val, div) ((val) + (div) - (val) % (div))
 

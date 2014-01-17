@@ -6,11 +6,7 @@
 /**
  * @brief A simple bitonic sort kernel.
  * 
- * @param xy
- * @param alive
- * @param energy
- * @param type
- * @param hashes
+ * @param data
  * @param stage
  * @param step
  */

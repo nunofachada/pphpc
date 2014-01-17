@@ -69,7 +69,7 @@
  * 
  * @param info The requested information about an algorithm.
  * @param info_v The information vector containing info about algorithms.
- * @param tag Tag identifying the requested algorithm.
+ * @param arg_tag Tag identifying the requested algorithm.
  * */
 #define PP_ALG_GET(info, info_v, arg_tag) \
 	for (int i___priv = 0; info_v[i___priv].tag; i___priv++) { \
