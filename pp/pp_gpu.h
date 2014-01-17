@@ -226,6 +226,9 @@ int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGData
 /** @brief Perform Predator-Prey simulation. */
 int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);
 
+/** @brief Dump simulation data for current iteration. */
+int ppg_dump(int iter, int dump_type, CLUZone* zone, FILE* fp_agent_dump, FILE* fp_cell_dump, size_t gws_action_agent, size_t gws_move_agent, PPParameters params, PPGDataSizes dataSizes, PPGBuffersDevice buffersDevice, void *agents_data, cl_uint2 *cells_agents_index, cl_uint *cells_grass, GError** err);
+
 /** @brief Perform profiling analysis. */
 int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters params, GError** err);
 
