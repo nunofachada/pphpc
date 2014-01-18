@@ -17,7 +17,6 @@
 #include <time.h>
 #include <math.h>
 #include <glib.h>
-#include <argp.h>
 #include <limits.h>
 #include "clutils.h"
 #include "gerrorf.h"

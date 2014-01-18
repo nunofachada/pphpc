@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Create events data structure. */
-	ppg_events_create(params, &evts);
+	ppg_events_create(params, &evts, &err);
 
 	/*  Set fixed kernel arguments. */
 	status = ppg_kernelargs_set(krnls, buffersDevice, dataSizes, &err);
@@ -1611,23 +1611,73 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
  * @param params Simulation parameters.
  * @param evts Structure to hold OpenCL events (to be modified by
  * function).
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
+ * terminates successfully, or an error code otherwise.
  * 
  * */
-void ppg_events_create(PPParameters params, PPGEvents* evts) {
+int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
+	
+	/* Aux. status var. */
+	int status;
 
 #ifdef CLPROFILER
+
+	/* Create events for grass kernel. */
 	evts->grass = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->grass == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for grass kernel events.");	
+
+	/* Create events for reduce_grass1 kernel. */
 	evts->reduce_grass1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_grass1 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_grass1 kernel events.");	
+
+	/* Create events for reduce_agent1 kernel. */
 	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent1 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent1 kernel events.");	
+
+	/* Create events for move_agent kernel. */
 	evts->move_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->move_agent == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for move_agent kernel events.");	
+
+	/* Create events for reduce_agent2kernel. */
 	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	sort_info.events_create(&evts->sort_agent, params.iters, NULL); // @todo Verify possible error from this function (pass err instead of NULL)
+	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent2 kernel events.");	
+
+	/* Create events for sort kernels. */
+	sort_info.events_create(&evts->sort_agent, params.iters, err);
+	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
+
+	/* Create events for find_cell_idx kernel. */
 	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->find_cell_idx == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for find_cell_idx kernel events.");	
+
 #endif
 
+	/* Create events for read stats. */
 	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->read_stats == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for read_stats events.");	
+
+	/* Create events for reduce_grass2 kernel. */
 	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_grass2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_grass2 kernel events.");	
+
+	/* Create events for action_agent kernel. */
 	evts->action_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	gef_if_error_create_goto(*err, PP_ERROR, evts->action_agent == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for action_agent kernel events.");	
+
+	/* If we got here, everything is OK. */
+	status = PP_SUCCESS;
+	g_assert(*err == NULL);
+	goto finish;
+	
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+	
+finish:
+	
+	/* Return. */
+	return status;
 }
 
 /**
