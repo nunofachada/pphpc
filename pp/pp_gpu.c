@@ -186,10 +186,10 @@ int main(int argc, char **argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Create events data structure. */
-	ppg_events_create(params, &evts, &err);
+	ppg_events_create(params, &evts, lws, &err);
 
 	/*  Set fixed kernel arguments. */
-	status = ppg_kernelargs_set(krnls, buffersDevice, dataSizes, &err);
+	status = ppg_kernelargs_set(krnls, buffersDevice, dataSizes, lws, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Print information about simulation. */
@@ -1325,12 +1325,13 @@ void ppg_kernels_free(PPGKernels* krnls) {
  * @param krnls OpenCL kernels.
  * @param buffersDevice Device data buffers.
  * @param dataSizes Size of data buffers.
+ * @param lws Local work sizes.
  * @param err GLib error object for error reporting.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise. 
  * 
  * */
-int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, GError** err) {
+int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, PPGLocalWorkSizes lws, GError** err) {
 
 	/* Aux. variable. */
 	int status, ocl_status;
@@ -1405,7 +1406,7 @@ int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGData
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of move_agent: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
 	
 	/* Agent sorting kernel. */
-	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, err);
+	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, lws.sort_agent, agent_size_bytes, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 	
 	/* Find cell agent index kernel. */

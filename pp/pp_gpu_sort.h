@@ -48,10 +48,12 @@ typedef int (*ppg_sort_kernels_create)(cl_kernel **krnls, cl_program program, GE
  * @param krnls Sort kernels.
  * @param buffersDevice Device buffers (agents, cells, etc.).
  * @param err GError error reporting object.
+ * @param lws Local work size.
+ * @param agent_len Agent length, 4 or 8 bytes.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_kernelargs_set)(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err);
+typedef int (*ppg_sort_kernelargs_set)(cl_kernel **krnls, PPGBuffersDevice buffersDevice, size_t lws, size_t agent_len, GError **err);
 
 /**
  * @brief Free sort kernels.

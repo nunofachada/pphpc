@@ -221,7 +221,7 @@ int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lw
 void ppg_events_free(PPParameters params, PPGEvents* evts);
 
 /** @brief Set fixed kernel arguments. */
-int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, GError** err);
+int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes, PPGLocalWorkSizes lws, GError** err);
 
 /** @brief Perform Predator-Prey simulation. */
 int ppg_simulate(PPParameters params, CLUZone* zone, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGKernels krnls, PPGEvents* evts, PPGDataSizes dataSizes, PPGBuffersHost buffersHost, PPGBuffersDevice buffersDevice, GError** err);

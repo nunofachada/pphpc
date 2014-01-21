@@ -15,7 +15,7 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 int ppg_sort_sbitonic_kernels_create(cl_kernel **krnls, cl_program program, GError **err);
 
 /** @brief Set kernels arguments for the simple bitonic sort. */
-int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err);
+int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, size_t lws, size_t agent_len, GError **err);
 
 /** @brief Free the simple bitonic sort kernels. */
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls);

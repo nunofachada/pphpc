@@ -124,10 +124,14 @@ finish:
  * 
  * @see ppg_sort_kernelargs_set()
  * */
-int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err) {
+int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, size_t lws, size_t agent_len, GError **err) {
 	
 	/* Aux. var. */
 	int status, ocl_status;
+	
+	/* LWS and agent_len not used here. */
+	lws = lws;
+	agent_len = agent_len;
 	
 	/* Set kernel arguments. */
 	ocl_status = clSetKernelArg(*krnls[0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
@@ -170,6 +174,9 @@ int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, size_t
 
 	/* Aux. var. */
 	int status;
+	
+	/* LWS not used for simple bitonic sort. */
+	lws_max = lws_max;
 	
 	/* Required number of events, worst case usage scenario. The instruction 
 	 * below sums all numbers from 0 to x, where is is the log2 (tzc) of

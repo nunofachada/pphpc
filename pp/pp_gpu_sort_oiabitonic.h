@@ -15,13 +15,13 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 int ppg_sort_oiabitonic_kernels_create(cl_kernel **krnls, cl_program program, GError **err);
 
 /** @brief Set kernels arguments for the OIA bitonic sort. */
-int ppg_sort_oiabitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, GError **err);
+int ppg_sort_oiabitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffersDevice, size_t lws, size_t agent_len, GError **err);
 
 /** @brief Free the OIA bitonic sort kernels. */
 void ppg_sort_oiabitonic_kernels_free(cl_kernel **krnls);
 
 /** @brief Create events for the OIA bitonic sort kernels. */
-int ppg_sort_oiabitonic_events_create(cl_event ***evts, unsigned int iters, size_t max_agents, GError **err);
+int ppg_sort_oiabitonic_events_create(cl_event ***evts, unsigned int iters, size_t max_agents, size_t lws_max, GError **err);
 
 /** @brief Free the OIA bitonic sort events. */
 void ppg_sort_oiabitonic_events_free(cl_event ***evts);
