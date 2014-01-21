@@ -6,7 +6,7 @@
 #include "pp_gpu_sort_sbitonic.h"
 
 /** Event index for simple bitonic sort kernel. */
-unsigned int sbitonic_evt_idx;
+static unsigned int sbitonic_evt_idx;
 
 /**
  * @brief Sort agents using the simple bitonic sort.
@@ -31,8 +31,8 @@ int ppg_sort_sbitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_event 
 	/* Number of bitonic sort stages. */
 	cl_uint totalStages = (cl_uint) tzc(gws * 2);
 
-	/* Make sure GWS is a multiple of LWS. */
-	/// @todo Check the logic of this
+	/* Adjust LWS so that its equal or smaller than GWS, making sure that
+	 * GWS is still a multiple of it. */
 	while (gws % lws != 0)
 		lws = lws / 2;
 		
@@ -156,7 +156,7 @@ finish:
  * */
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls) {
 	if (*krnls) {
-		clReleaseKernel(*krnls[0]);
+		if (*krnls[0]) clReleaseKernel(*krnls[0]);
 		free(*krnls);
 	}
 }
@@ -166,14 +166,15 @@ void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls) {
  * 
  * @see ppg_sort_events_create()
  * */
-int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError **err) {
+int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, size_t max_agents, size_t lws_max, GError **err) {
 
 	/* Aux. var. */
 	int status;
 	
-	/* Required number of events, worst case usage scenario. */
-	/// @todo Check the logic of this
-	int num_evts = iters * sum(tzc(nlpo2(PPG_DEFAULT_MAX_AGENTS))); 
+	/* Required number of events, worst case usage scenario. The instruction 
+	 * below sums all numbers from 0 to x, where is is the log2 (tzc) of
+	 * the next larger power of 2 of the maximum possible agents. */
+	int num_evts = iters * sum(tzc(nlpo2(max_agents))); 
 	
 	/* Set simple bitonic sort event index to zero (global var) */
 	sbitonic_evt_idx = 0;

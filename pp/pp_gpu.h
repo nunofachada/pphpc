@@ -215,7 +215,7 @@ int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
 
 /** @brief Create data structure to hold OpenCL events. */
-int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err);
+int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lws, GError **err);
 
 /** @brief Free data structure which holds OpenCL events. */
 void ppg_events_free(PPParameters params, PPGEvents* evts);

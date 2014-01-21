@@ -1611,12 +1611,13 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
  * @param params Simulation parameters.
  * @param evts Structure to hold OpenCL events (to be modified by
  * function).
+ * @param lws Kernel local work sizes.
  * @param err GLib error object for error reporting.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  * 
  * */
-int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
+int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lws, GError **err) {
 	
 	/* Aux. status var. */
 	int status;
@@ -1644,7 +1645,7 @@ int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent2 kernel events.");	
 
 	/* Create events for sort kernels. */
-	sort_info.events_create(&evts->sort_agent, params.iters, err);
+	sort_info.events_create(&evts->sort_agent, params.iters, args.max_agents, lws.sort_agent, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 
 	/* Create events for find_cell_idx kernel. */

@@ -21,7 +21,7 @@ int ppg_sort_sbitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffers
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls);
 
 /** @brief Create events for the simple bitonic sort kernels. */
-int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, GError **err);
+int ppg_sort_sbitonic_events_create(cl_event ***evts, unsigned int iters, size_t max_agents, size_t lws_max, GError **err);
 
 /** @brief Free the simple bitonic sort events. */
 void ppg_sort_sbitonic_events_free(cl_event ***evts);

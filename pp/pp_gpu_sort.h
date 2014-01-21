@@ -66,10 +66,12 @@ typedef void (*ppg_sort_kernels_free)(cl_kernel **krnls);
  * @param evts Sort events.
  * @param iters Number of iterations.
  * @param err GError error reporting object.
+ * @param max_agents Maximum number of agents for this simulation.
+ * @param lws_max Maximum local worksize for sort kernels.
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, GError **err);
+typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, size_t max_agents, size_t lws_max, GError **err);
 
 /**
  * @brief Free sort events.
