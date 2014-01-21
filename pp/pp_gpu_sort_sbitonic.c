@@ -100,7 +100,7 @@ int ppg_sort_sbitonic_kernels_create(cl_kernel **krnls, cl_program program, GErr
 	gef_if_error_create_goto(*err, PP_ERROR, *krnls == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for simple bitonic sort kernel.");	
 	
 	/* Create kernel. */
-	*krnls[0] = clCreateKernel(program, "sbitonicSort", &ocl_status);
+	(*krnls)[0] = clCreateKernel(program, "sbitonicSort", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: sbitonicSort. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* If we got here, everything is OK. */
@@ -160,7 +160,7 @@ finish:
  * */
 void ppg_sort_sbitonic_kernels_free(cl_kernel **krnls) {
 	if (*krnls) {
-		if (*krnls[0]) clReleaseKernel(*krnls[0]);
+		if ((*krnls)[0]) clReleaseKernel((*krnls)[0]);
 		free(*krnls);
 	}
 }

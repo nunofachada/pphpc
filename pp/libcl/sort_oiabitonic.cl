@@ -3,14 +3,14 @@
 
 /* Sort elements within a vector */
 #define VECTOR_SORT(input, dir) \
-	comp = input < shuffle(input, mask2) ^ dir; \
+	comp = (input < shuffle(input, mask2)) ^ dir; \
 	input = shuffle(input, as_uint4(comp * 2 + add2)); \
-	comp = input < shuffle(input, mask1) ^ dir; \
+	comp = (input < shuffle(input, mask1)) ^ dir; \
 	input = shuffle(input, as_uint4(comp + add1)); \
 
 #define VECTOR_SWAP(input1, input2, dir) \
 	temp = input1; \
-	comp = (input1 < input2 ^ dir) * 4 + add3; \
+	comp = ((input1 < input2) ^ dir) * 4 + add3; \
 	input1 = shuffle2(input1, input2, as_uint4(comp)); \
 	input2 = shuffle2(input2, temp, as_uint4(comp)); \
 
@@ -56,7 +56,7 @@ __kernel void bsort_init(__global uagr4 *g_data, __local uagr4 *l_data) {
 	add3 = (int4)(4, 5, 6, 7);
 	dir = get_local_id(0) % 2 * -1;
 	temp = input1;
-	comp = (input1 < input2 ^ dir) * 4 + add3;
+	comp = ((input1 < input2) ^ dir) * 4 + add3;
 	input1 = shuffle2(input1, input2, as_uint4(comp));
 	input2 = shuffle2(input2, temp, as_uint4(comp));
 
@@ -80,7 +80,7 @@ __kernel void bsort_init(__global uagr4 *g_data, __local uagr4 *l_data) {
 		id = get_local_id(0) * 2;
 		input1 = l_data[id]; input2 = l_data[id+1];
 		temp = input1;
-		comp = (input1 < input2 ^ dir) * 4 + add3;
+		comp = ((input1 < input2) ^ dir) * 4 + add3;
 		input1 = shuffle2(input1, input2, as_uint4(comp));
 		input2 = shuffle2(input2, temp, as_uint4(comp));
 		VECTOR_SORT(input1, dir);
@@ -102,7 +102,7 @@ __kernel void bsort_init(__global uagr4 *g_data, __local uagr4 *l_data) {
 	id = get_local_id(0) * 2;
 	input1 = l_data[id]; input2 = l_data[id+1];
 	temp = input1;
-	comp = (input1 < input2 ^ dir) * 4 + add3;
+	comp = ((input1 < input2) ^ dir) * 4 + add3;
 	input1 = shuffle2(input1, input2, as_uint4(comp));
 	input2 = shuffle2(input2, temp, as_uint4(comp));
 	VECTOR_SORT(input1, dir);
@@ -136,7 +136,7 @@ __kernel void bsort_stage_0(__global uagr4 *g_data, __local uagr4 *l_data,
 	/* Perform initial swap */
 	input1 = g_data[global_start];
 	input2 = g_data[global_start + get_local_size(0)];
-	comp = (input1 < input2 ^ dir) * 4 + add3;
+	comp = ((input1 < input2) ^ dir) * 4 + add3;
 	l_data[id] = shuffle2(input1, input2, as_uint4(comp));
 	l_data[id + get_local_size(0)] = shuffle2(input2, input1, as_uint4(comp));
 
@@ -152,7 +152,7 @@ __kernel void bsort_stage_0(__global uagr4 *g_data, __local uagr4 *l_data,
 	id = get_local_id(0) * 2;
 	input1 = l_data[id]; input2 = l_data[id+1];
 	temp = input1;
-	comp = (input1 < input2 ^ dir) * 4 + add3;
+	comp = ((input1 < input2) ^ dir) * 4 + add3;
 	input1 = shuffle2(input1, input2, as_uint4(comp));
 	input2 = shuffle2(input2, temp, as_uint4(comp));
 	VECTOR_SORT(input1, dir);
@@ -183,7 +183,7 @@ __kernel void bsort_stage_n(__global uagr4 *g_data, __local uagr4 *l_data,
 	/* Perform swap */
 	input1 = g_data[global_start];
 	input2 = g_data[global_start + global_offset];
-	comp = (input1 < input2 ^ dir) * 4 + add;
+	comp = ((input1 < input2) ^ dir) * 4 + add;
 	g_data[global_start] = shuffle2(input1, input2, as_uint4(comp));
 	g_data[global_start + global_offset] = shuffle2(input2, input1, as_uint4(comp));
 }
@@ -205,7 +205,7 @@ __kernel void bsort_merge(__global uagr4 *g_data, __local uagr4 *l_data, uint st
 	/* Perform swap */
 	input1 = g_data[global_start];
 	input2 = g_data[global_start + global_offset];
-	comp = (input1 < input2 ^ dir) * 4 + add;
+	comp = ((input1 < input2) ^ DIRECTION) * 4 + add;
 	g_data[global_start] = shuffle2(input1, input2, as_uint4(comp));
 	g_data[global_start + global_offset] = shuffle2(input2, input1, as_uint4(comp));
 }
@@ -232,7 +232,7 @@ __kernel void bsort_merge_last(__global uagr4 *g_data, __local uagr4 *l_data) {
 	/* Perform initial swap */
 	input1 = g_data[global_start];
 	input2 = g_data[global_start + get_local_size(0)];
-	comp = (input1 < input2 ^ DIRECTION) * 4 + add3;
+	comp = ((input1 < input2) ^ DIRECTION) * 4 + add3;
 	l_data[id] = shuffle2(input1, input2, as_uint4(comp));
 	l_data[id + get_local_size(0)] = shuffle2(input2, input1, as_uint4(comp));
 
@@ -248,7 +248,7 @@ __kernel void bsort_merge_last(__global uagr4 *g_data, __local uagr4 *l_data) {
 	id = get_local_id(0) * 2;
 	input1 = l_data[id]; input2 = l_data[id+1];
 	temp = input1;
-	comp = (input1 < input2 ^ DIRECTION) * 4 + add3;
+	comp = ((input1 < input2) ^ DIRECTION) * 4 + add3;
 	input1 = shuffle2(input1, input2, as_uint4(comp));
 	input2 = shuffle2(input2, temp, as_uint4(comp));
 	VECTOR_SORT(input1, DIRECTION);

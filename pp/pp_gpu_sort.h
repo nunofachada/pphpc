@@ -11,7 +11,7 @@
 /**
  * @brief Available sorting algorithms.
  * */
-#define PPG_SORT_ALGS "s-bitonic (default)"
+#define PPG_SORT_ALGS "s-bitonic (default), oia-bitonic"
 
 /**
  * @brief Default sorting algorithm.

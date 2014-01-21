@@ -202,19 +202,19 @@ int ppg_sort_oiabitonic_kernels_create(cl_kernel **krnls, cl_program program, GE
 	gef_if_error_create_goto(*err, PP_ERROR, *krnls == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for OIA bitonic sort kernel.");	
 	
 	/* Create kernels. */
-	*krnls[PPG_SORT_OIA_KINIT] = clCreateKernel(program, "bsort_init", &ocl_status);
+	(*krnls)[PPG_SORT_OIA_KINIT] = clCreateKernel(program, "bsort_init", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: bsort_init. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	*krnls[PPG_SORT_OIA_KSTAGE0] = clCreateKernel(program, "bsort_stage_0", &ocl_status);
+	(*krnls)[PPG_SORT_OIA_KSTAGE0] = clCreateKernel(program, "bsort_stage_0", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: bsort_stage_0. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	*krnls[PPG_SORT_OIA_KSTAGEN] = clCreateKernel(program, "bsort_stage_n", &ocl_status);
+	(*krnls)[PPG_SORT_OIA_KSTAGEN] = clCreateKernel(program, "bsort_stage_n", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: bsort_stage_n. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	*krnls[PPG_SORT_OIA_KMERGE] = clCreateKernel(program, "bsort_merge", &ocl_status);
+	(*krnls)[PPG_SORT_OIA_KMERGE] = clCreateKernel(program, "bsort_merge", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: bsort_merge. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	*krnls[PPG_SORT_OIA_KMERGELAST] = clCreateKernel(program, "bsort_merge_last", &ocl_status);
+	(*krnls)[PPG_SORT_OIA_KMERGELAST] = clCreateKernel(program, "bsort_merge_last", &ocl_status);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Create kernel: bsort_merge_last. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* If we got here, everything is OK. */
@@ -244,38 +244,38 @@ int ppg_sort_oiabitonic_kernelargs_set(cl_kernel **krnls, PPGBuffersDevice buffe
 	int status, ocl_status;
 	
 	/* Set bsort_init arguments. */
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KINIT], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KINIT], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of bsort_init. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KINIT], 1, 8 * lws * agent_len, NULL);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KINIT], 1, 8 * lws * agent_len, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of bsort_init. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* Set bsort_stage_0 arguments. */
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KSTAGE0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KSTAGE0], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of bsort_stage_0. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KSTAGE0], 1, 8 * lws * agent_len, NULL);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KSTAGE0], 1, 8 * lws * agent_len, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of bsort_stage_0. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* Set bsort_stage_n arguments. */
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KSTAGEN], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KSTAGEN], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of bsort_stage_n. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KSTAGEN], 1, 8 * lws * agent_len, NULL);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KSTAGEN], 1, 8 * lws * agent_len, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of bsort_stage_n. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* Set bsort_merge arguments. */
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KMERGE], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KMERGE], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of bsort_merge. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KMERGE], 1, 8 * lws * agent_len, NULL);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KMERGE], 1, 8 * lws * agent_len, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of bsort_merge. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* Set bsort_merge_last arguments. */
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KMERGELAST], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KMERGELAST], 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 0 of bsort_merge_last. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
-	ocl_status = clSetKernelArg(*krnls[PPG_SORT_OIA_KMERGELAST], 1, 8 * lws * agent_len, NULL);
+	ocl_status = clSetKernelArg((*krnls)[PPG_SORT_OIA_KMERGELAST], 1, 8 * lws * agent_len, NULL);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of bsort_merge_last. OpenCL error %d: %s", ocl_status, clerror_get(ocl_status));
 
 	/* If we got here, everything is OK. */
@@ -302,7 +302,7 @@ finish:
 void ppg_sort_oiabitonic_kernels_free(cl_kernel **krnls) {
 	if (*krnls) {
 		for (int i = 0; i < PPG_SORT_OIA_NUMKRNLS; i++) {
-			if (*krnls[i]) clReleaseKernel(*krnls[i]);
+			if ((*krnls)[i]) clReleaseKernel((*krnls)[i]);
 		}
 		free(*krnls);
 	}
@@ -345,20 +345,27 @@ int ppg_sort_oiabitonic_events_create(cl_event ***evts, unsigned int iters, size
 	/* Set OIA bitonic sort event indexes to zero (global var) */
 	for (int i = 0; i < PPG_SORT_OIA_NUMKRNLS; i++)
 		evt_idx[i] = 0;
-	
+
+#else
+	/* Avoid compiler warnings. */
+	evts = evts;
+	iters = iters;
+	max_agents = max_agents;
+	lws_max = lws_max;
 #endif
 	
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
 	status = PP_SUCCESS;
 	goto finish;
-	
+
+#ifdef CLPROFILER	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
-
+#endif	
 finish:
-	
+
 	/* Return. */
 	return status;	
 }
@@ -385,6 +392,9 @@ void ppg_sort_oiabitonic_events_free(cl_event ***evts) {
 			}
 		}
 	}
+#else
+	/* Avoid compiler warnings. */
+	evts = evts;
 #endif
 }
 
@@ -396,6 +406,9 @@ void ppg_sort_oiabitonic_events_free(cl_event ***evts) {
 int ppg_sort_oiabitonic_events_profile(cl_event **evts, ProfCLProfile *profile, GError **err) {
 	
 	int status;
+
+#ifdef CLPROFILER
+
 	unsigned int i;
 
 	for (i = 0; i < evt_idx[PPG_SORT_OIA_KINIT]; i++) {
@@ -422,15 +435,21 @@ int ppg_sort_oiabitonic_events_profile(cl_event **evts, ProfCLProfile *profile, 
 		profcl_profile_add(profile, "bsort_merge_last", evts[PPG_SORT_OIA_KMERGELAST][i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
-
+#else
+	/* Avoid compiler warnings. */
+	evts = evts;
+	profile = profile;
+#endif
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
 	status = PP_SUCCESS;
 	goto finish;
-	
+
+#ifdef CLPROFILER	
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
+#endif
 	
 finish:
 	
