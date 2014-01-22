@@ -55,7 +55,7 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 		0, 
 		NULL, 
 #ifdef CLPROFILER
-		&evts[PPG_SORT_OIA_KINIT][evt_idx[PPG_SORT_OIA_KINIT]]
+		&(evts[PPG_SORT_OIA_KINIT][evt_idx[PPG_SORT_OIA_KINIT]])
 #else
 		NULL
 #endif
@@ -91,7 +91,7 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 				0, 
 				NULL, 
 #ifdef CLPROFILER
-				&evts[PPG_SORT_OIA_KSTAGEN][evt_idx[PPG_SORT_OIA_KSTAGEN]]
+				&(evts[PPG_SORT_OIA_KSTAGEN][evt_idx[PPG_SORT_OIA_KSTAGEN]])
 #else
 				NULL
 #endif
@@ -113,7 +113,7 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 			0, 
 			NULL, 
 #ifdef CLPROFILER
-			&evts[PPG_SORT_OIA_KSTAGEN][evt_idx[PPG_SORT_OIA_KSTAGE0]]
+			&(evts[PPG_SORT_OIA_KSTAGE0][evt_idx[PPG_SORT_OIA_KSTAGE0]])
 #else
 			NULL
 #endif
@@ -140,7 +140,7 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 			0, 
 			NULL, 
 #ifdef CLPROFILER
-			&evts[PPG_SORT_OIA_KMERGE][evt_idx[PPG_SORT_OIA_KMERGE]]
+			&(evts[PPG_SORT_OIA_KMERGE][evt_idx[PPG_SORT_OIA_KMERGE]])
 #else
 			NULL
 #endif
@@ -161,7 +161,7 @@ int ppg_sort_oiabitonic_sort(cl_command_queue *queues, cl_kernel *krnls, cl_even
 		0, 
 		NULL, 
 #ifdef CLPROFILER
-		&evts[PPG_SORT_OIA_KMERGELAST][evt_idx[PPG_SORT_OIA_KMERGELAST]]
+		&(evts[PPG_SORT_OIA_KMERGELAST][evt_idx[PPG_SORT_OIA_KMERGELAST]])
 #else
 		NULL
 #endif
@@ -377,20 +377,18 @@ finish:
  * */
 void ppg_sort_oiabitonic_events_free(cl_event ***evts) {
 #ifdef CLPROFILER
-	if (evts) {
-		if (*evts) {
-			for (int k = 0; k < PPG_SORT_OIA_NUMKRNLS; k++) {
-				if ((*evts)[k]) {
-					for (unsigned int i = 0; i < evt_idx[k]; i++) {
-						if ((*evts)[k][i]) {
-							clReleaseEvent((*evts)[k][i]);
-						}
+	if (*evts) {
+		for (int k = 0; k < PPG_SORT_OIA_NUMKRNLS; k++) {
+			if ((*evts)[k]) {
+				for (unsigned int i = 0; i < evt_idx[k]; i++) {
+					if (((*evts)[k])[i]) {
+						clReleaseEvent(((*evts)[k])[i]);
 					}
-					free((*evts)[k]);
 				}
-				free(*evts);
+				free((*evts)[k]);
 			}
 		}
+		free(*evts);
 	}
 #else
 	/* Avoid compiler warnings. */
