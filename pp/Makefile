@@ -27,7 +27,7 @@ TESTSDIR = tests
 .PHONY: all clean mkdirs profiling
 
 # Targets and rules
-all: mkdirs pp_gpu_legacy pp_cpu pp_gpu rng_test
+all: mkdirs pp_gpu_legacy pp_cpu pp_gpu rng_test sort_test
 
 profiling: CLMACROS += -DCLPROFILER
 profiling: all
@@ -45,6 +45,12 @@ rng_test: rng_test.o pp_common.o
 	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
 
 rng_test.o: rng_test.c
+	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
+
+sort_test: sort_test.o pp_gpu_sort.o pp_gpu_sort_sbitonic.o pp_gpu_sort_oiabitonic.o pp_common.o bitstuff.o
+	$(CC) $(CFLAGS) $(CLMACROS) $(CLLIBDIR) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LFLAGS)
+
+sort_test.o: sort_test.c
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
 pp_gpu_legacy.o: pp_gpu_legacy.c pp_gpu_legacy.h
