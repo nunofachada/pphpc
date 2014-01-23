@@ -65,9 +65,6 @@ pp_gpu_sort.o: pp_gpu_sort.c pp_gpu_sort.h
 pp_gpu_sort_sbitonic.o: pp_gpu_sort_sbitonic.c pp_gpu_sort_sbitonic.h
 	$(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 	
-#~ pp_gpu_sort_oiabitonic.o: pp_gpu_sort_oiabitonic.c pp_gpu_sort_oiabitonic.h
-	#~ $(CC) $(CFLAGS) $(CFLAGS_GLIB) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
-
 pp_cpu.o: pp_cpu.c pp_cpu.h
 	$(CC) $(CFLAGS) $(CLMACROS) -c $< $(CLINCLUDES) $(UTILSINCLUDES) -o $(OBJDIR)/$@
 
