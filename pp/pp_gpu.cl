@@ -204,6 +204,8 @@
 	typedef uagr16 agentreduce_uagr;
 #endif
 
+#define SORT_ELEM_TYPE uagr
+
 #include "pp_common.cl"
 #include "libcl/sort.cl"
 

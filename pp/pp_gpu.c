@@ -620,7 +620,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			evts->sort_agent, 
 			lws.sort_agent,
 			max_agents_iter,
-			iter,
+			PP_PROFILE,
 			err
 		);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
@@ -1406,7 +1406,7 @@ int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGData
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of move_agent: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
 	
 	/* Agent sorting kernel. */
-	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice, lws.sort_agent, agent_size_bytes, err);
+	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice.agents_data, lws.sort_agent, agent_size_bytes, err);
 	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
 	
 	/* Find cell agent index kernel. */

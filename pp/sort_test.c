@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	if (algorithm == NULL) algorithm = g_strdup(PPG_DEFAULT_SORT);
 	PP_ALG_GET(sort_info, sort_infos, algorithm);
 	gef_if_error_create_goto(err, PP_ERROR, !sort_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", algorithm);
-	gef_if_error_create_goto(err, PP_ERROR, (ones32(bits) != 1) || (bits > 64) || (bits < 4), status = PP_INVALID_ARGS, error_handler, "Number of bits must be 4, 8, 16, 32 or 64.");
+	gef_if_error_create_goto(err, PP_ERROR, (ones32(bits) != 1) || (bits > 64) || (bits < 8), status = PP_INVALID_ARGS, error_handler, "Number of bits must be 8, 16, 32 or 64.");
 
 	/* Determine size in bytes of each element to sort. */
 	bytes = bits / 8;
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 	compilerOpts = g_strconcat(
 		PP_KERNEL_INCLUDES, 
 		" -D ", sort_info.compiler_const, 
-		" -D ", "uagr=uint",
+		" -D ", "SORT_ELEM_TYPE=", bits == 8 ? "uchar" : (bits == 16 ? "ushort" : (bits == 32 ? "uint" : "ulong")),
 		NULL);
 	clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
@@ -118,21 +118,24 @@ int main(int argc, char **argv)
 	timer = g_timer_new();
 
 	/* Perform test. */
-	for (unsigned int N = 1; N < 22; N++) {
+	for (unsigned int N = 1; N < 25; N++) {
 		
-		unsigned int num_elems = 1 << (N - 1);
+		unsigned int num_elems = 1 << N;
 		gboolean sorted_ok;
 		
 		/* Create host buffers */
 		host_data = (gchar*) realloc(host_data, bytes * num_elems);
 		gef_if_error_create_goto(err, PP_ERROR, host_data == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for host data.");
 		
+		//printf("\t\tGeneration N=%d:\n",N);
 		/* Initialize host buffer. */
 		for (unsigned int i = 0;  i < num_elems; i++) {
 			/* Get a random 64-bit value by default... */
 			gulong value = (gulong) (g_rand_double(rng_host) * G_MAXULONG);
 			/* But just use the specified bits. */
 			memcpy(host_data + bytes*i, &value, bytes);
+			
+			//printf("\t\t\t%u: %lx (in memory is %x)\n", i, value & 0xFFFFFFFF, ((unsigned int*) host_data)[i]);
 		}
 		
 		/* Create device buffer. */
@@ -153,6 +156,10 @@ int main(int argc, char **argv)
 		);
 		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Error writing data to device: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
 		
+		/* Set kernel parameters. */
+		status = sort_info.kernelargs_set(&krnls, dev_data, lws, num_elems * bytes, &err);
+		gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler); /// @todo Is this a library error?
+		
 		/* Start timming. */
 		g_timer_start(timer);
 		
@@ -163,11 +170,15 @@ int main(int argc, char **argv)
 			NULL, 
 			lws,
 			num_elems,
-			0, // This would be the current iteration...
+			FALSE,
 			&err
 		);
 		gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
+		/* Wait for the kernel to terminate... */
+		ocl_status = clFinish(zone->queues[0]);
+		gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Waiting for kernel to terminate, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+		
 		/* Stop timming. */
 		g_timer_stop(timer);
 		
@@ -188,23 +199,28 @@ int main(int argc, char **argv)
 		/* Release device buffer. */
 		clReleaseMemObject(dev_data);
 		
+		//printf("\t\tComparison N=%d:\n", N);
 		/* Check if sorting was well performed. */
 		sorted_ok = TRUE;
+		gulong value1 = 0, value2 = 0;
 		for (unsigned int i = 0;  i < num_elems - 1; i++) {
 			/* Compare value two by two... */
-			gulong value1 = 0, value2 = 0;
+			value1 = 0; value2 = 0;
 			/* Get values. */
 			memcpy(&value1, host_data + bytes*i, bytes);
-			memcpy(&value1, host_data + bytes*(i + 1), bytes);
+			memcpy(&value2, host_data + bytes*(i + 1), bytes);
 			/* Compare. */
 			if (value1 > value2) {
 				sorted_ok = FALSE;
-				break;
+				//break;
 			}
+			//printf("\t\t\t%u: %lx\n", i, value1);
+			
 		}
+		//printf("\t\t\t%u: %lx\n", num_elems - 1, value2);
 		
 		/* Print info. */
-		printf("       - 2^%d %d-bit elements: %fMkeys/s %s\n", N, bits, N / g_timer_elapsed(timer, NULL), sorted_ok ? "" : "(sort did not work)");
+		printf("       - 2^%d %d-bit elements: %fMkeys/s %s\n", N, bits, 1e-6 * num_elems / g_timer_elapsed(timer, NULL), sorted_ok ? "" : "(sort did not work)");
 		
 	}
 

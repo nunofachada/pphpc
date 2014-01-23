@@ -58,8 +58,10 @@
  * CLPROFILER constant. */
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
+	#define PP_PROFILE TRUE
 #else
 	#define QUEUE_PROPERTIES 0
+	#define PP_PROFILE FALSE
 #endif
 
 /**

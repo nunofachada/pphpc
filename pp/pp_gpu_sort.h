@@ -11,7 +11,7 @@
 /**
  * @brief Available sorting algorithms.
  * */
-#define PPG_SORT_ALGS "s-bitonic (default), oia-bitonic"
+#define PPG_SORT_ALGS "s-bitonic (default)"
 
 /**
  * @brief Default sorting algorithm.
@@ -29,7 +29,7 @@
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_sort)(cl_command_queue *queues, cl_kernel *krnls, cl_event **evts, size_t lws_max, unsigned int max_agents, unsigned int iter, GError **err);
+typedef int (*ppg_sort_sort)(cl_command_queue *queues, cl_kernel *krnls, cl_event **evts, size_t lws_max, unsigned int numel, gboolean profile, GError **err);
 
 /**
  * @brief Create sort kernels.
@@ -53,7 +53,7 @@ typedef int (*ppg_sort_kernels_create)(cl_kernel **krnls, cl_program program, GE
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_kernelargs_set)(cl_kernel **krnls, PPGBuffersDevice buffersDevice, size_t lws, size_t agent_len, GError **err);
+typedef int (*ppg_sort_kernelargs_set)(cl_kernel **krnls, cl_mem data, size_t lws, size_t agent_len, GError **err);
 
 /**
  * @brief Free sort kernels.
@@ -73,7 +73,7 @@ typedef void (*ppg_sort_kernels_free)(cl_kernel **krnls);
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function 
  * terminates successfully, or an error code otherwise.
  */
-typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, size_t max_agents, size_t lws_max, GError **err);
+typedef int (*ppg_sort_events_create)(cl_event ***evts, unsigned int iters, size_t numel, size_t lws_max, GError **err);
 
 /**
  * @brief Free sort events.
