@@ -4,7 +4,6 @@
  */
 
 #include "pp_gpu.h"
-#include "pp_gpu_sort.h"
 
 //~ /**
  //~ * If the constant bellow is set, then the simulation is executed in 
@@ -28,10 +27,10 @@
 //~ #define PPG_DUMP 0x11
 
 /** Information about the requested sorting algorithm. */
-static PPGSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+static CloSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
-static PPRngInfo rng_info = {NULL, NULL, 0};
+static CloRngInfo rng_info = {NULL, NULL, 0};
 
 /** Main command line arguments and respective default values. */
 #ifdef CLPROFILER
@@ -67,8 +66,8 @@ static GOptionEntry entries[] = {
 
 /** Algorithm selection options. */
 static GOptionEntry entries_alg[] = {
-	{"a-rng",  0, 0, G_OPTION_ARG_STRING, &args_alg.rng,  "Random number generator: " PP_RNGS,       "ALGORITHM"},
-	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort, "Sorting:                 " PPG_SORT_ALGS, "ALGORITHM"},
+	{"a-rng",  0, 0, G_OPTION_ARG_STRING, &args_alg.rng,  "Random number generator: " CLO_RNGS,       "ALGORITHM"},
+	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort, "Sorting: " CLO_SORT_ALGS,                  "ALGORITHM"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
@@ -99,7 +98,7 @@ static GOptionEntry entries_vw[] = {
 static size_t agent_size_bytes;
 
 /* OpenCL kernel files */
-const char* kernelFiles[] = {"pp/pp_gpu.cl"};
+static char* kernelFiles[] = {"pp_gpu.cl"};
 
 /**
  * @brief Main program.
@@ -1406,8 +1405,8 @@ int ppg_kernelargs_set(PPGKernels krnls, PPGBuffersDevice buffersDevice, PPGData
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 1 of move_agent: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
 	
 	/* Agent sorting kernel. */
-	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice.agents_data, lws.sort_agent, agent_size_bytes, err);
-	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
+	status = sort_info.kernelargs_set(&krnls.sort_agent, buffersDevice.agents_data, lws.sort_agent, agent_size_bytes, CLO_SORT_ASC, err);
+	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	
 	/* Find cell agent index kernel. */
 	ocl_status = clSetKernelArg(krnls.find_cell_idx, 0, sizeof(cl_mem), (void*) &buffersDevice.agents_data);
@@ -1845,13 +1844,13 @@ int ppg_args_parse(int argc, char* argv[], GOptionContext** context, GError** er
 	/* ** Validate arguments. ** */
 	
 	/* Validate random number generator. */
-	if (!args_alg.rng) args_alg.rng = g_strdup(PP_DEFAULT_RNG);
-	PP_ALG_GET(rng_info, rng_infos, args_alg.rng);
+	if (!args_alg.rng) args_alg.rng = g_strdup(CLO_DEFAULT_RNG);
+	CLO_ALG_GET(rng_info, rng_infos, args_alg.rng);
 	gef_if_error_create_goto(*err, PP_ERROR, !rng_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args_alg.rng);
 	
 	/* Validate sorting algorithm. */
-	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_DEFAULT_SORT);
-	PP_ALG_GET(sort_info, sort_infos, args_alg.sort);
+	if (!args_alg.sort) args_alg.sort = g_strdup(CLO_DEFAULT_SORT);
+	CLO_ALG_GET(sort_info, sort_infos, args_alg.sort);
 	gef_if_error_create_goto(*err, PP_ERROR, !sort_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown sorting algorithm '%s'.", args_alg.sort);
 	
 	/* Validate agent size. */

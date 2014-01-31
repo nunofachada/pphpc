@@ -7,15 +7,6 @@
 
 #define PP_ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 
-/** @brief Information about the random number generation algorithms. */
-PPRngInfo rng_infos[] = {
-	{"lcg", "PP_RNG_LCG", 8}, 
-	{"xorshift", "PP_RNG_XORSHIFT", 8},
-	{"xorshift128", "PP_RNG_XORSHIFT128", 16},
-	{"mwc64x", "PP_RNG_MWC64X", 8},
-	{NULL, NULL, 0}
-};
-
 /**
  * @brief Load simulation parameters.
  * 

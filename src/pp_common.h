@@ -22,6 +22,7 @@
 #include "gerrorf.h"
 #include "bitstuff.h"
 #include "clprofiler.h"
+#include "clo_rng.h"
 
 /** Sheep ID. */
 #define SHEEP_ID 0
@@ -42,14 +43,8 @@
 /** Default RNG seed. */
 #define PP_DEFAULT_SEED 0
 
-/** Default random number generator. */
-#define PP_DEFAULT_RNG "lcg"
-
-/** Available random number generators. */
-#define PP_RNGS "lcg (default), xorshift, xorshift128 or mwc64x"
-
 /** Kernel includes (to be added to OpenCL compiler options). */
-#define PP_KERNEL_INCLUDES "-I pp "
+#define PP_KERNEL_INCLUDES "-I cl "
 
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
@@ -63,22 +58,6 @@
 	#define QUEUE_PROPERTIES 0
 	#define PP_PROFILE FALSE
 #endif
-
-/**
- * @brief Obtains information about an algorithm by finding where this
- * information is located within a vector.
- * 
- * @param info The requested information about an algorithm.
- * @param info_v The information vector containing info about algorithms.
- * @param arg_tag Tag identifying the requested algorithm.
- * */
-#define PP_ALG_GET(info, info_v, arg_tag) \
-	for (int i___priv = 0; info_v[i___priv].tag; i___priv++) { \
-		if (g_strcmp0(info_v[i___priv].tag, arg_tag) == 0) { \
-			info = info_v[i___priv]; \
-			break; \
-		} \
-	} \
 
 /**
  * @brief Performs integer division returning the ceiling instead of
@@ -98,16 +77,6 @@
  * @param lws Local worksize. 
  * */
 #define PP_GWS_MULT(gws, lws) (lws * PP_DIV_CEIL(gws, lws))
-
-/**
- * @brief Information about a RNG.
- * */	
-typedef struct pp_rng_info {
-	char* tag;            /**< Tag identifying the RNG. */
-	char* compiler_const; /**< RNG OpenCL compiler constant. */
-	size_t bytes;         /**< Bytes required per RNG seed. */
-} PPRngInfo;
-
 
 /**
  * @brief Pointer to compare function to pass to pp_in_array() function.
@@ -171,7 +140,7 @@ typedef struct pp_agent_params {
 } PPAgentParams;
 
 /** @brief Information about the random number generation algorithms. */
-extern PPRngInfo rng_infos[];
+extern CloRngInfo rng_infos[];
 
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, char * filename, GError** err);

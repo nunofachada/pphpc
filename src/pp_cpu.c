@@ -28,17 +28,17 @@ static GOptionEntry entries[] = {
 	{"localsize",       'l', 0, G_OPTION_ARG_INT,      &args.lws,           "Local work size (default is selected by OpenCL runtime)",                                   "SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,       "Device index (if not given and more than one device is available, chose device from menu)", "INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,      "Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",                    "SEED"},
-	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " PP_RNGS,                                                         "RNG"},
+	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,         "Random number generator: " CLO_RNGS "(default is " CLO_DEFAULT_RNG ")",                     "RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,    "Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",                     "SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,       NULL,                                                                                         NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }	
 };
 
 /** OpenCL kernel files. */
-static const char* kernelFiles[] = {"pp/pp_cpu.cl"};
+static char* kernelFiles[] = {"pp_cpu.cl"};
 
 /** Information about the requested random number generation algorithm. */
-static PPRngInfo rng_info = {NULL, NULL, 0};
+static CloRngInfo rng_info = {NULL, NULL, 0};
 
 /**
  * @brief Main program.
@@ -84,8 +84,8 @@ int main(int argc, char ** argv) {
 	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 	
 	/* Validate arguments. */
-	if (!args.rngen) args.rngen = g_strdup(PP_DEFAULT_RNG);
-	PP_ALG_GET(rng_info, rng_infos, args.rngen);
+	if (!args.rngen) args.rngen = g_strdup(CLO_DEFAULT_RNG);
+	CLO_ALG_GET(rng_info, rng_infos, args.rngen);
 	gef_if_error_create_goto(err, PP_ERROR, !rng_info.tag, status = PP_INVALID_ARGS, error_handler, "Unknown random number generator '%s'.", args.rngen);
 	
 	/* Create RNG with specified seed. */
