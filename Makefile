@@ -6,16 +6,10 @@ export CLMACROS =
 export CLLIBDIR = -L$(AMDAPPSDKROOT)/lib/x86_64 
 export CLINCLUDES = -I$(AMDAPPSDKROOT)/include
 
-CF4OCL_DIR := cf4ocl
-CLOPS_DIR := cl-ops
+export CF4OCL_DIR := $(abspath ${CURDIR}/cf4ocl)
+export CLOPS_DIR := $(abspath ${CURDIR}/cl-ops)
 
 SUBDIRS = src $(CLOPS_DIR) $(CF4OCL_DIR)
-
-# Export utils include directory
-export CF4OCL_INCDIR := ${CURDIR}/$(CF4OCL_DIR)/src/lib
-export CLOPS_RNG_INCDIR := ${CURDIR}/$(CLOPS_DIR)/src/rng
-export CLOPS_SORT_INCDIR := ${CURDIR}/$(CLOPS_DIR)/src/sort
-export CLOPS_COMMON_INCDIR := ${CURDIR}/$(CLOPS_DIR)/src/common
 
 # Phony targets
 .PHONY: all $(SUBDIRS) clean mkdirs getutils
