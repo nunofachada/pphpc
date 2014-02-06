@@ -1,6 +1,7 @@
 # Define required directories
 export OBJDIR := ${CURDIR}/obj
 export BUILDDIR := ${CURDIR}/bin
+export CLDIR := $(BUILDDIR)/cl
 
 export CLMACROS = 
 export CLLIBDIR = -L$(AMDAPPSDKROOT)/lib/x86_64 

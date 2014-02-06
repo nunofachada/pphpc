@@ -3,14 +3,22 @@ ifndef OBJDIR
 OBJDIR := ../obj
 $(warning OBJDIR is not defined, assuming default $(OBJDIR))
 endif
+
 ifndef BUILDDIR
 BUILDDIR := ../bin
 $(warning BUILDDIR is not defined, assuming default $(BUILDDIR))
 endif
+
+ifndef CLDIR
+CLDIR := $(BUILDDIR)/cl
+$(warning CLDIR is not defined, assuming default $(CLDIR))
+endif
+
 ifndef CF4OCL_DIR
 CF4OCL_DIR := ../cf4ocl
 $(warning CF4OCL_DIR is not defined, assuming default $(CF4OCL_DIR))
 endif
+
 ifndef CLOPS_DIR
 CLOPS_DIR := ../cl-ops
 $(warning CLOPS_DIR is not defined, assuming default $(CLOPS_DIR))
@@ -42,45 +50,56 @@ CFLAGS = -Wall -Wextra -ggdb3 -std=c99 `pkg-config --cflags glib-2.0` -I$(CF4OCL
 LDFLAGS = $(CLLIBDIR)
 LDLIBS = -lOpenCL -lm `pkg-config --libs glib-2.0`
 
-# Library objects required for build
-UTILOBJS = $(OBJDIR)/clutils.o $(OBJDIR)/clprofiler.o $(OBJDIR)/clerrors.o $(OBJDIR)/clo_common.o $(OBJDIR)/clo_rng.o $(OBJDIR)/clo_sort.o $(OBJDIR)/clo_sort_sbitonic.o
+# Predator-Prey implementations
+PP_IMPL := pp_gpu pp_cpu pp_gpu_legacy
+
+# Binaries associated with the implementations
+BINS := $(addprefix $(BUILDDIR)/, $(PP_IMPL))
+
+# Objects associated with the implementations
+OBJS := $(addprefix $(OBJDIR)/, $(foreach var,$(PP_IMPL),$(var).o) bitstuff.o pp_common.o)
+
+# Library objects
+LIB_OBJS := $(addprefix $(OBJDIR)/,clutils.o clprofiler.o clerrors.o clo_common.o clo_rng.o clo_sort.o clo_sort_sbitonic.o)
 
 # Phony targets
-.PHONY: all clean mkdirs profiling
+.PHONY : all clean $(PP_IMPL) profiling
 
 # Targets and rules
-all: mkdirs pp_gpu_legacy pp_cpu pp_gpu
+all: $(PP_IMPL)
 
 profiling: CFLAGS += -DCLPROFILER
 profiling: all
 
-pp_gpu_legacy: pp_gpu_legacy.o pp_common.o bitstuff.o
-	$(CC) $(CFLAGS) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LDFLAGS) $(LDLIBS)
-	
-pp_gpu: pp_gpu.o pp_common.o bitstuff.o
-	$(CC) $(CFLAGS) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LDFLAGS) $(LDLIBS)
+$(PP_IMPL) : % : $(BUILDDIR)/%
 
-pp_cpu: pp_cpu.o pp_common.o bitstuff.o
-	$(CC) $(CFLAGS) -o $(BUILDDIR)/$@ $(patsubst %,$(OBJDIR)/%,$^) $(UTILOBJS) $(LDFLAGS) $(LDLIBS)
+$(OBJDIR)/%.o : %.c %.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-pp_gpu_legacy.o: pp_gpu_legacy.c pp_gpu_legacy.h
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
+$(BINS) : $(LIB_OBJS)
+$(BINS) : $(BUILDDIR)/% : $(OBJDIR)/%.o $(OBJDIR)/bitstuff.o $(OBJDIR)/pp_common.o | $(CLDIR)/%.cl $(CLDIR)/pp_common.cl
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-pp_gpu.o: pp_gpu.c pp_gpu.h
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
-	
-pp_cpu.o: pp_cpu.c pp_cpu.h
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
+$(CLDIR)/%.cl : %.cl | $(CLDIR)
+	cp $< $@
 
-pp_common.o: pp_common.c pp_common.h
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@
-	
-bitstuff.o: bitstuff.c bitstuff.h
-	$(CC) $(CFLAGS) -c $< -o $(OBJDIR)/$@	
+$(OBJS) : | $(OBJDIR)
 
-mkdirs:
-	mkdir -p $(BUILDDIR)
+$(BINS) : | $(BUILDDIR)
+
+$(OBJDIR) :
 	mkdir -p $(OBJDIR)
 	
-clean:
+$(BUILDDIR) :
+	mkdir -p $(BUILDDIR)
+	
+$(CLDIR) :
+	mkdir -p $(CLDIR)	
+	
+$(LIB_OBJS):
+	$(MAKE) -C $(CF4OCL_DIR)	
+	$(MAKE) -C $(CLOPS_DIR)	
+
+clean :
 	rm -rf $(OBJDIR) $(BUILDDIR)
+

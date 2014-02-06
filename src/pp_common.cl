@@ -3,7 +3,7 @@
  * @brief Common OpenCL kernels and data structures for PredPrey simulation.
  */
 
-#include "libcl/rng.cl"
+#include "clo_rng.cl"
 
 /**
  * @brief Performs integer division returning the ceiling instead of

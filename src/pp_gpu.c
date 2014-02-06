@@ -98,7 +98,7 @@ static GOptionEntry entries_vw[] = {
 static size_t agent_size_bytes;
 
 /* OpenCL kernel files */
-static char* kernelFiles[] = {"pp_gpu.cl"};
+static char* kernelFiles[] = {"cl/pp_gpu.cl"};
 
 /**
  * @brief Main program.

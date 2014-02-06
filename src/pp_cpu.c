@@ -35,7 +35,7 @@ static GOptionEntry entries[] = {
 };
 
 /** OpenCL kernel files. */
-static char* kernelFiles[] = {"pp_cpu.cl"};
+static char* kernelFiles[] = {"cl/pp_cpu.cl"};
 
 /** Information about the requested random number generation algorithm. */
 static CloRngInfo rng_info = {NULL, NULL, 0};

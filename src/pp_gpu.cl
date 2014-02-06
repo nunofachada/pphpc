@@ -207,7 +207,7 @@
 #define SORT_ELEM_TYPE uagr
 
 #include "pp_common.cl"
-#include "libcl/sort.cl"
+#include "clo_sort.cl"
 
 /**
  * @brief Initialize grid cells. 
