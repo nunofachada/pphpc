@@ -35,7 +35,7 @@ static GOptionEntry entries[] = {
 };
 
 /** OpenCL kernel files. */
-static char* kernelFiles[] = {"cl/pp_cpu.cl"};
+static char* kernelFile = "pp_cpu.cl";
 
 /** Information about the requested random number generation algorithm. */
 static CloRngInfo rng_info = {NULL, NULL, 0};
@@ -66,6 +66,7 @@ int main(int argc, char ** argv) {
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
+	gchar* kernelPath = NULL;
 
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
@@ -99,11 +100,14 @@ int main(int argc, char ** argv) {
 	zone = clu_zone_new(CL_DEVICE_TYPE_CPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, (args.dev_idx != -1 ? &args.dev_idx : NULL), &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 	
+	/* Get full kernel path. */
+	kernelPath = clo_kernelpath_get(kernelFile, argv[0]);
+	
 	/* Build compiler options. */
-	compilerOpts = ppc_compiler_opts_build(args.compiler_opts);
+	compilerOpts = ppc_compiler_opts_build(args.compiler_opts, kernelPath);
 	
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
+	status = clu_program_create(zone, &kernelPath, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Get simulation parameters */
@@ -193,6 +197,12 @@ cleanup:
 	/* Release program, command queues and context */
 	if (zone != NULL) clu_zone_free(zone);
 	
+	/* Free kernel path. */
+	if (kernelPath) g_free(kernelPath);
+	
+	/* Free compiler options. */
+	if (compilerOpts) g_free(compilerOpts);
+	
 	/* Free profile data structure */
 	if (profile != NULL) profcl_profile_free(profile);
 	
@@ -276,15 +286,19 @@ finish:
  * @brief Create compiler options string. 
  * 
  * @param cliOpts Compiler options passed through the command-line.
+ * @param kernelPath Full kernel path.
  * @return Final compiler options to be passed to OpenCL compiler.
  * */
-gchar* ppc_compiler_opts_build(gchar* cliOpts) {
+gchar* ppc_compiler_opts_build(gchar* cliOpts, gchar* kernelPath) {
 	gchar *compilerOptsStr;
+	gchar *path = g_path_get_dirname(kernelPath);
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
+	g_string_append_printf(compilerOpts, "-I %s ", path);
 	g_string_append_printf(compilerOpts, "-D %s ", rng_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
 	g_string_free(compilerOpts, FALSE);
+	g_free(path);
 	return compilerOptsStr;
 }
 

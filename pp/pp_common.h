@@ -18,11 +18,9 @@
 #include <math.h>
 #include <glib.h>
 #include <limits.h>
-#include "clutils.h"
-#include "gerrorf.h"
+#include <cf4ocl.h>
+#include <cl_ops.h>
 #include "bitstuff.h"
-#include "clprofiler.h"
-#include "clo_rng.h"
 
 /** Sheep ID. */
 #define SHEEP_ID 0
@@ -44,7 +42,7 @@
 #define PP_DEFAULT_SEED 0
 
 /** Kernel includes (to be added to OpenCL compiler options). */
-#define PP_KERNEL_INCLUDES "-I cl "
+#define PP_KERNEL_INCLUDES ""
 
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()

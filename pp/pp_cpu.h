@@ -193,6 +193,6 @@ void ppc_args_parse(int argc, char* argv[], GOptionContext** context, GError** e
 void ppc_args_free(GOptionContext* context);
 
 /** @brief Create compiler options string. */
-gchar* ppc_compiler_opts_build(gchar* cliOpts);
+gchar* ppc_compiler_opts_build(gchar* cliOpts, gchar* kernelPath);
 
 #endif
