@@ -22,7 +22,7 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 // OpenCL kernel files
-static char* kernelFiles[] = {"cl/pp_gpu_legacy.cl"};
+static char* kernelFile = "pp_gpu_legacy.cl";
 
 // Global work sizes
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
@@ -94,20 +94,37 @@ int main(int argc, char ** argv)
 	
 	/* Random number generator */
 	GRand* rng = g_rand_new();
+	
+	/* Compiler options. */
+	gchar* compilerOpts = NULL;
+	GString* compilerOptsBuilder = NULL;
+	
+	/* Full kernel path. */
+	gchar* kernelPath = NULL;
+	gchar* path = NULL;
 
 	// Profiling / Timmings
 	ProfCLProfile* profile = profcl_profile_new();
-	
-	// Avoid compiler warnings
-	argc = argc;
-	argv = argv;
 
 	/* Get the required CL zone. */
 	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
+	/* Get full kernel path. */
+	kernelPath = clo_kernelpath_get(kernelFile, argv[0]);
+
+	/* Build the compiler options. */
+	path = g_path_get_dirname(kernelPath);
+	compilerOptsBuilder = g_string_new(PP_KERNEL_INCLUDES);
+	g_string_append(compilerOptsBuilder, " -D CLO_RNG_LCG ");
+	g_string_append_printf(compilerOptsBuilder, "-I %s ", path);
+	for (int i = 1; i < argc; i++) {
+		g_string_append(compilerOptsBuilder, argv[i]);
+	}
+	compilerOpts = compilerOptsBuilder->str;
+	printf("\n**** %s *****\n", compilerOpts);
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 1, "-D PP_RNG_LCG -I cl", &err);
+	status = clu_program_create(zone, &kernelPath, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	// 2. Get simulation parameters
@@ -634,7 +651,14 @@ cleanup:
 	if (agentArrayHost) free(agentArrayHost);
 	if (grassMatrixHost) free(grassMatrixHost);
 	if (rngSeedsHost) free(rngSeedsHost);
+	
+	// Free strings
+	if (compilerOpts) g_free(compilerOpts);
+	if (kernelPath) g_free(kernelPath);
+	if (path) g_free(path);
+	if (compilerOptsBuilder) g_string_free(compilerOptsBuilder, FALSE);
 
+	// Bye
 	return status;
 	
 }

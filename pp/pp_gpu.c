@@ -98,7 +98,7 @@ static GOptionEntry entries_vw[] = {
 static size_t agent_size_bytes;
 
 /* OpenCL kernel files */
-static char* kernelFiles[] = {"cl/pp_gpu.cl"};
+static char* kernelFile = "pp_gpu.cl";
 
 /**
  * @brief Main program.
@@ -127,6 +127,7 @@ int main(int argc, char **argv) {
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
+	gchar* kernelPath = NULL;
 	
 	/* OpenCL zone: platform, device, context, queues, etc. */
 	CLUZone* zone = NULL;
@@ -163,11 +164,14 @@ int main(int argc, char **argv) {
 	status = ppg_worksizes_compute(params, zone->device_info.device_id, &gws, &lws, &err);
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 
+	/* Get full kernel path. */
+	kernelPath = clo_kernelpath_get(kernelFile, argv[0]);
+	
 	/* Compiler options. */
-	compilerOpts = ppg_compiler_opts_build(gws, lws, params, args.compiler_opts);
+	compilerOpts = ppg_compiler_opts_build(gws, lws, params, kernelPath, args.compiler_opts);
 
 	/* Build program. */
-	status = clu_program_create(zone, kernelFiles, 1, compilerOpts, &err);
+	status = clu_program_create(zone, &kernelPath, 1, compilerOpts, &err);
 	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
 	/* Create kernels. */
@@ -251,7 +255,10 @@ cleanup:
 	
 	/* Free compiler options. */
 	if (compilerOpts) g_free(compilerOpts);
-
+	
+	/* Free kernel path. */
+	if (kernelPath) g_free(kernelPath);
+	
 	/* Free RNG */
 	if (rng) g_rand_free(rng);
 	
@@ -1763,9 +1770,13 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
  * @param cliOpts Compiler options specified through the command-line.
  * @return The final OpenCL compiler options string.
  */
-gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* kernelPath, gchar* cliOpts) {
+
 	gchar* compilerOptsStr;
+	gchar *path = g_path_get_dirname(kernelPath);
+
 	GString* compilerOpts = g_string_new(PP_KERNEL_INCLUDES);
+	g_string_append_printf(compilerOpts, "-I %s ", path);
 	g_string_append_printf(compilerOpts, "-D VW_GRASS=%d ", args_vw.grass);
 	g_string_append_printf(compilerOpts, "-D VW_GRASSREDUCE=%d ", args_vw.reduce_grass);
 	g_string_append_printf(compilerOpts, "-D VW_AGENTREDUCE=%d ", args_vw.reduce_agent);
@@ -1790,7 +1801,10 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PP
 	g_string_append_printf(compilerOpts, "-D %s ", sort_info.compiler_const);
 	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
 	compilerOptsStr = compilerOpts->str;
+
 	g_string_free(compilerOpts, FALSE);
+	g_free(path);
+
 	return compilerOptsStr;
 }
 

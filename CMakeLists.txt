@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 2.8)
 project(pphpc-opencl)
 
+# Is profiling on or off?
+option(PROFILING "Perform kernel profiling" ON)
+
+if (PROFILING)
+	add_definitions(-DCLPROFILER)
+endif()
+         
 # Compiler options for GCC
 if(CMAKE_COMPILER_IS_GNUCC)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -std=c99 ")

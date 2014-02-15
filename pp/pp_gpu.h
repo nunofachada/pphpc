@@ -191,7 +191,7 @@ int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobal
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes dataSizes, gchar* compilerOpts);
 
 /** @brief Build OpenCL compiler options string. */
-gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts);
+gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPParameters params, gchar* kernelPath, gchar* cliOpts);
 
 /** @brief Determine sizes of data buffers. */
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
