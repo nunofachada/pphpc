@@ -27,7 +27,7 @@
 //~ #define PPG_DUMP 0x11
 
 /** Information about the requested sorting algorithm. */
-static CloSortInfo sort_info = {NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+static CloSortInfo sort_info = {NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
 static CloRngInfo rng_info = {NULL, NULL, 0};
@@ -1203,31 +1203,35 @@ void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes 
 	printf("     Compiler options          : %s\n", compilerOpts);
 	printf("     Kernel work sizes and local memory requirements:\n");
 	printf("       -------------------------------------------------------------------\n");
-	printf("       | Kernel           | GWS      | LWS   | Local memory | VW x bytes |\n");
-	printf("       |                  |          |       | (bytes)      |            |\n");
+	printf("       | Kernel             | GWS      | LWS   | Local mem. | VW x bytes |\n");
+	printf("       |                    |          |       | (bytes)    |            |\n");
 	printf("       -------------------------------------------------------------------\n");
-	printf("       | init_cell        | %8zu | %5zu |            0 |          0 |\n", 
+	printf("       | init_cell          | %8zu | %5zu |          0 |          0 |\n", 
 		gws.init_cell, lws.init_cell);
-	printf("       | init_agent       | %8zu | %5zu |            0 |          0 |\n", 
+	printf("       | init_agent         | %8zu | %5zu |          0 |          0 |\n", 
 		gws.init_agent, lws.init_agent);
-	printf("       | grass            | %8zu | %5zu |            0 |     %2d x %zu |\n", 
+	printf("       | grass              | %8zu | %5zu |          0 |     %2d x %zu |\n", 
 		gws.grass, lws.grass, args_vw.grass, sizeof(cl_uint));
-	printf("       | reduce_grass1    | %8zu | %5zu | %12zu |     %2d x %zu |\n", 
+	printf("       | reduce_grass1      | %8zu | %5zu | %10zu |     %2d x %zu |\n", 
 		gws.reduce_grass1, lws.reduce_grass1, dataSizes.reduce_grass_local1, args_vw.reduce_grass, sizeof(cl_uint));
-	printf("       | reduce_grass2    | %8zu | %5zu | %12zu |     %2d x %zu |\n", 
+	printf("       | reduce_grass2      | %8zu | %5zu | %10zu |     %2d x %zu |\n", 
 		gws.reduce_grass2, lws.reduce_grass2, dataSizes.reduce_grass_local2, args_vw.reduce_grass, sizeof(cl_uint));
-	printf("       | reduce_agent1    |     Var. | %5zu | %12zu |     %2d x %zu |\n", 
+	printf("       | reduce_agent1      |     Var. | %5zu | %10zu |     %2d x %zu |\n", 
 		lws.reduce_agent1, dataSizes.reduce_agent_local1, args_vw.reduce_agent, agent_size_bytes);
-	printf("       | reduce_agent2    |     Var. |  Var. | %12zu |     %2d x %zu |\n", 
+	printf("       | reduce_agent2      |     Var. |  Var. | %10zu |     %2d x %zu |\n", 
 		dataSizes.reduce_agent_local2, args_vw.reduce_agent, agent_size_bytes);
-	printf("       | move_agent       |     Var. | %5zu |            0 |          0 |\n", 
+	printf("       | move_agent         |     Var. | %5zu |          0 |          0 |\n", 
 		lws.move_agent);
-	/// @todo The sorting information should come from a specific function for each sorting approach
-	printf("       | sort_agent       |     Var. | %5zu |            0 |          0 |\n", 
-		lws.sort_agent); 
-	printf("       | find_cell_idx    |     Var. | %5zu |            0 |          0 |\n", 
+
+	for (unsigned int i = 0; i < sort_info.num_kernels; i++) {
+		const char* kernel_name = sort_info.kernelname_get(i);
+		printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n", 
+			kernel_name, lws.sort_agent, sort_info.localmem_usage(kernel_name, lws.sort_agent, agent_size_bytes, args.max_agents)); 
+	}
+
+	printf("       | find_cell_idx      |     Var. | %5zu |          0 |          0 |\n", 
 		lws.find_cell_idx);
-	printf("       | action_agent     |     Var. | %5zu |            0 |          0 |\n", 
+	printf("       | action_agent       |     Var. | %5zu |          0 |          0 |\n", 
 		lws.action_agent);
 	printf("       -------------------------------------------------------------------\n");
 
