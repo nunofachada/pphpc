@@ -308,7 +308,11 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		gws_action_agent;
 	
 	/* Current iteration. */
-	cl_uint iter = 0; 
+	cl_uint iter = 0;
+	
+	/* Parse sort algorithm specific options, if any. */
+	gchar* sort_options = g_strrstr(args_alg.sort, ".");
+	if (sort_options != NULL) sort_options = sort_options + 1; /* Remove prefix dot. */
 	
 	/* Map stats to host. */
 	stats_pinned = (cl_uint*) clEnqueueMapBuffer(
@@ -623,9 +627,10 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		sort_info.sort(
 			&zone->queues[1], 
 			krnls.sort_agent, 
-			evts->sort_agent, 
 			lws.sort_agent,
 			max_agents_iter,
+			sort_options,
+			evts->sort_agent, 
 			PP_PROFILE,
 			err
 		);
@@ -1226,7 +1231,8 @@ void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws, PPGDataSizes 
 	for (unsigned int i = 0; i < sort_info.num_kernels; i++) {
 		const char* kernel_name = sort_info.kernelname_get(i);
 		printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n", 
-			kernel_name, lws.sort_agent, sort_info.localmem_usage(kernel_name, lws.sort_agent, agent_size_bytes, args.max_agents)); 
+			kernel_name, lws.sort_agent, 
+			sort_info.localmem_usage(kernel_name, lws.sort_agent, agent_size_bytes, args.max_agents)); 
 	}
 
 	printf("       | find_cell_idx      |     Var. | %5zu |          0 |          0 |\n", 
