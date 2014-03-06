@@ -140,7 +140,7 @@ typedef struct pp_g_events {
 	cl_event *reduce_agent1; /**< Reduce agent kernel 1 execution. */
 	cl_event *reduce_agent2; /**< Reduce agent kernel 2 execution. */
 	cl_event *move_agent;    /**< Move agent kernel execution. */
-	cl_event **sort_agent;   /**< Sort agent kernel executions. */
+	GArray* sort_agent;      /**< Sort agent kernel executions. */
 	cl_event *find_cell_idx; /**< Find cell agent index. */
 	cl_event *action_agent;  /**< Agent actions kernel execution. */
 } PPGEvents;
@@ -215,7 +215,7 @@ int ppg_devicebuffers_create(cl_context context, PPGBuffersDevice* buffersDevice
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
 
 /** @brief Create data structure to hold OpenCL events. */
-int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lws, GError **err);
+int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err);
 
 /** @brief Free data structure which holds OpenCL events. */
 void ppg_events_free(PPParameters params, PPGEvents* evts);

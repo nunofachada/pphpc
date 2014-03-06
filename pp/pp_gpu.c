@@ -27,7 +27,7 @@
 //~ #define PPG_DUMP 0x11
 
 /** Information about the requested sorting algorithm. */
-static CloSortInfo sort_info = {NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+static CloSortInfo sort_info = {NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL};
 
 /** Information about the requested random number generation algorithm. */
 static CloRngInfo rng_info = {NULL, NULL, 0};
@@ -189,7 +189,7 @@ int main(int argc, char **argv) {
 	gef_if_error_goto(err, GEF_USE_STATUS, status, error_handler);
 	
 	/* Create events data structure. */
-	ppg_events_create(params, &evts, lws, &err);
+	ppg_events_create(params, &evts, &err);
 
 	/*  Set fixed kernel arguments. */
 	status = ppg_kernelargs_set(krnls, buffersDevice, dataSizes, lws, &err);
@@ -978,10 +978,12 @@ int ppg_profiling_analyze(ProfCLProfile* profile, PPGEvents* evts, PPParameters 
 		profcl_profile_add(profile, "Agent action", evts->action_agent[i], err);
 		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
 	}
-	sort_info.events_profile(evts->sort_agent, profile, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-
+	for (guint i = 0; i < (evts->sort_agent)->len; i++) {
+		ProfCLEvName ev_name;
+		ev_name = g_array_index(evts->sort_agent, ProfCLEvName, i);
+		profcl_profile_add(profile, ev_name.eventName, ev_name.event, err);
+	}
+	
 	/* Analyse event data. */
 	profcl_profile_aggregate(profile, err);
 	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
@@ -1634,7 +1636,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
  * terminates successfully, or an error code otherwise.
  * 
  * */
-int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lws, GError **err) {
+int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
 	
 	/* Aux. status var. */
 	int status;
@@ -1662,8 +1664,7 @@ int ppg_events_create(PPParameters params, PPGEvents* evts, PPGLocalWorkSizes lw
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent2 kernel events.");	
 
 	/* Create events for sort kernels. */
-	sort_info.events_create(&evts->sort_agent, params.iters, args.max_agents, lws.sort_agent, err);
-	gef_if_error_goto(*err, GEF_USE_GERROR, status, error_handler);
+	evts->sort_agent = g_array_sized_new(FALSE, FALSE, sizeof(ProfCLEvName), params.iters);
 
 	/* Create events for find_cell_idx kernel. */
 	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
@@ -1755,8 +1756,14 @@ void ppg_events_free(PPParameters params, PPGEvents* evts) {
 		}
 		free(evts->move_agent);
 	}
-	if (evts->sort_agent)
-		sort_info.events_free(&evts->sort_agent);
+	if (evts->sort_agent) {
+		for (guint i = 0; i < (evts->sort_agent)->len; i++) {
+			ProfCLEvName ev_name;
+			ev_name = g_array_index(evts->sort_agent, ProfCLEvName, i);
+			clReleaseEvent(ev_name.event);
+		}
+		g_array_free(evts->sort_agent, TRUE);
+	}
 	if (evts->find_cell_idx) {
 		for (guint i = 0; i < params.iters; i++) {
 			if (evts->find_cell_idx[i]) clReleaseEvent(evts->find_cell_idx[i]);
