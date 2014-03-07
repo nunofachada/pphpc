@@ -1670,9 +1670,6 @@ int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
 	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->find_cell_idx == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for find_cell_idx kernel events.");	
 
-#else
-	/* Avoid compiler warning. */
-	lws = lws;
 #endif
 
 	/* Create events for read stats. */
