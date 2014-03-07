@@ -412,7 +412,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 	cl_uint2 *cells_agents_index = (cl_uint2*) malloc(dataSizes.cells_agents_index);
 	cl_uint *cells_grass = (cl_uint*) malloc(dataSizes.cells_grass);
 	
-	ppg_dump(-1, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump, 0, 0, params, dataSizes, buffersDevice, agents_data, cells_agents_index, cells_grass, err);
+	ppg_dump(-1, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump, 0, 0, 0, 0, params, dataSizes, buffersDevice, agents_data, cells_agents_index, cells_grass, err);
 	
 #endif
 
@@ -723,11 +723,11 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 
 		/* Agent actions may, in the worst case, double the number of agents. */
-		max_agents_iter = max_agents_iter * 2;
+		max_agents_iter = MAX(max_agents_iter, lws.action_agent) * 2;
 
 
 #ifdef PPG_DUMP
-		ppg_dump(iter, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump, gws_action_agent, gws_move_agent, params, dataSizes, buffersDevice, agents_data, cells_agents_index, cells_grass, err);
+		ppg_dump(iter, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump, max_agents_iter, gws_reduce_agent1, gws_action_agent, gws_move_agent, params, dataSizes, buffersDevice, agents_data, cells_agents_index, cells_grass, err);
 #endif
 		
 	}
@@ -813,8 +813,8 @@ finish:
  * terminates successfully, or an error code otherwise.
  * */
 int ppg_dump(int iter, int dump_type, CLUZone* zone, 
-	FILE* fp_agent_dump, FILE* fp_cell_dump, 
-	size_t gws_action_agent, size_t gws_move_agent, 
+	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
+	size_t gws_reduce_agent1, size_t gws_action_agent, size_t gws_move_agent, 
 	PPParameters params, PPGDataSizes dataSizes, PPGBuffersDevice buffersDevice, 
 	void *agents_data, cl_uint2 *cells_agents_index, cl_uint *cells_grass, 
 	GError** err) {
@@ -831,7 +831,7 @@ int ppg_dump(int iter, int dump_type, CLUZone* zone,
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Cells dump, read grass, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
 
 	/* Export agent info. */
-	fprintf(fp_agent_dump, "\nIteration %d, gws_action_ag=%zu, gws_mov_ag=%zu\n", iter, gws_action_agent, gws_move_agent);
+	fprintf(fp_agent_dump, "\nIteration %d, max_agents_iter=%d, gws_reduce_agent1=%zu, gws_action_ag=%zu, gws_mov_ag=%zu\n", iter, max_agents_iter, gws_reduce_agent1, gws_action_agent, gws_move_agent);
 	blank_line = FALSE;
 	if (agent_size_bytes == 8) {
 		for (unsigned int k = 0; k < args.max_agents; k++) {
