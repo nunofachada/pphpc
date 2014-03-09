@@ -235,6 +235,9 @@ cleanup:
 	/* Free args context and associated cli args parsing buffers. */
 	ppg_args_free(context);
 
+	/* Free events */
+	ppg_events_free(params, &evts); 
+	
 	/* Release OpenCL kernels */
 	ppg_kernels_free(&krnls);
 	
@@ -246,9 +249,6 @@ cleanup:
 
 	/* Free host resources */
 	ppg_hostbuffers_free(&buffersHost);
-	
-	/* Free events */
-	ppg_events_free(params, &evts); 
 	
 	/* Free profile data structure */
 	if (profile) profcl_profile_free(profile);
@@ -294,7 +294,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 	int status, ocl_status;
 	
 	/* Stats. */
-	cl_uint *stats_pinned;
+	PPStatistics *stats_pinned;
 	
 	/* The maximum agents there can be in the next iteration. */
 	cl_uint max_agents_iter = MAX(params.init_sheep + params.init_wolves, PPG_MIN_AGENTS);
@@ -315,7 +315,8 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 	if (sort_options != NULL) sort_options = sort_options + 1; /* Remove prefix dot. */
 	
 	/* Map stats to host. */
-	stats_pinned = (cl_uint*) clEnqueueMapBuffer(
+	g_debug("Mapping stats to host...");
+	stats_pinned = (PPStatistics*) clEnqueueMapBuffer(
 		zone->queues[1],
 		buffersDevice.stats,
 		CL_FALSE,
@@ -340,6 +341,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 
 		
 	/* Load RNG seeds into device buffers. */
+	g_debug("Loading RNG seeds into device buffers...");
 	ocl_status = clEnqueueWriteBuffer(
 		zone->queues[0], 
 		buffersDevice.rng_seeds, 
@@ -349,7 +351,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		buffersHost.rng_seeds, 
 		0, 
 		NULL, 
-		&evts->write_rng
+		&(evts->write_rng)
 	);
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Write device buffer: rng_seeds: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
 	
@@ -359,17 +361,18 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 	
 	/* Init. cells */
+	g_debug("Initializing cells...");
 	ocl_status =clEnqueueNDRangeKernel(
 		zone->queues[0], 
 		krnls.init_cell, 
 		1, 
 		NULL, 
-		&gws.init_cell, 
-		&lws.init_cell, 
+		&(gws.init_cell),
+		&(lws.init_cell), 
 		0, 
 		NULL, 
 #ifdef CLPROFILER
-		&evts->init_cell
+		&(evts->init_cell)
 #else
 		NULL
 #endif
@@ -382,17 +385,18 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 
 	/* Init. agents */
+	g_debug("Initializing agents...");
 	ocl_status = clEnqueueNDRangeKernel(
 		zone->queues[1], 
 		krnls.init_agent, 
 		1, 
 		NULL, 
-		&gws.init_agent, 
-		&lws.init_agent, 
+		&(gws.init_agent), 
+		&(lws.init_agent), 
 		0, 
 		NULL, 
 #ifdef CLPROFILER
-		&evts->init_agent
+		&(evts->init_agent)
 #else
 		NULL
 #endif
@@ -427,6 +431,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/* Step 4.1: Perform grass reduction, part I. */
+		g_debug("Iteration %d: Performing grass reduction, part I...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.reduce_grass1, 
@@ -475,6 +480,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Set kernel args: arg 3 of reduce_agent2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
 
 		/* Run agent reduction kernel 1. */
+		g_debug("Iteration %d: Performing agent reduction, part I...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[1], 
 			krnls.reduce_agent1, 
@@ -498,6 +504,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 		
 		/* Step 4.3: Perform grass reduction, part II. */
+		g_debug("Iteration %d: Performing grass reduction, part II...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.reduce_grass2, 
@@ -517,6 +524,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 
 		/* Step 4.4: Perform agents reduction, part II. */
+		g_debug("Iteration %d: Performing agent reduction, part II...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[1], 
 			krnls.reduce_agent2, 
@@ -540,6 +548,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 #endif
 
 		/* Step 4.5: Get statistics. */
+		g_debug("Iteration %d: Getting statistics...", iter);
 		ocl_status = clEnqueueReadBuffer(
 			zone->queues[1], 
 			buffersDevice.stats, 
@@ -567,6 +576,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 		
 		/* Grass kernel: grow grass, set number of prey to zero */
+		g_debug("Iteration %d: Running grass kernel...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[0], 
 			krnls.grass, 1, 
@@ -598,6 +608,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			lws.move_agent
 		);
 		
+		g_debug("Iteration %d: Move agents...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[1], 
 			krnls.move_agent, 
@@ -624,6 +635,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ********* Step 3.1: Agent sort ********** */
 		/* ***************************************** */
 
+		g_debug("Iteration %d: Sorting agents...", iter);
 		sort_info.sort(
 			&zone->queues[1], 
 			krnls.sort_agent, 
@@ -667,6 +679,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			lws.find_cell_idx
 		);
 
+		g_debug("Iteration %d: Find cell agent indexes...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[1],
 			krnls.find_cell_idx,
@@ -702,6 +715,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* Check if there is enough memory for all possible new agents. */
 		gef_if_error_create_goto(*err, PP_ERROR, gws_action_agent * 2 > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Not enough memory for existing and possible new agents. Current iteration: %d. Total possible agents: %d. Agents limit: %d", iter, (int) gws_action_agent * 2, (int) args.max_agents);
 
+		g_debug("Iteration %d: Performing agent actions...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
 			zone->queues[1],
 			krnls.action_agent,
@@ -1620,6 +1634,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 	if (buffersDevice->cells_grass) clReleaseMemObject(buffersDevice->cells_grass);
 	if (buffersDevice->cells_agents_index) clReleaseMemObject(buffersDevice->cells_agents_index);
 	if (buffersDevice->agents_data) clReleaseMemObject(buffersDevice->agents_data);
+	if (buffersDevice->reduce_agent_global) clReleaseMemObject(buffersDevice->reduce_agent_global);
 	if (buffersDevice->reduce_grass_global) clReleaseMemObject(buffersDevice->reduce_grass_global);
 	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
 }

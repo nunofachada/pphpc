@@ -8,6 +8,9 @@ if (PROFILING)
 	add_definitions(-DCLPROFILER)
 endif()
          
+# Set log domain  
+add_definitions(-DG_LOG_DOMAIN=\"${PROJECT_NAME}\")
+         
 # Compiler options for GCC
 if(CMAKE_COMPILER_IS_GNUCC)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -std=c99 ")
