@@ -433,16 +433,16 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* Step 4.1: Perform grass reduction, part I. */
 		g_debug("Iteration %d: Performing grass reduction, part I...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[0], 
+			(zone->queues)[0], 
 			krnls.reduce_grass1, 
 			1, 
 			NULL, 
-			&gws.reduce_grass1, 
-			&lws.reduce_grass1, 
+			&(gws.reduce_grass1), 
+			&(lws.reduce_grass1), 
 			iter > 0 ? 1 : 0,
-			iter > 0 ? &evts->action_agent[iter - 1] : NULL,
+			iter > 0 ? &((evts->action_agent)[iter - 1]) : NULL,
 #ifdef CLPROFILER
-			&evts->reduce_grass1[iter]
+			&((evts->reduce_grass1)[iter])
 #else
 			NULL
 #endif
@@ -491,7 +491,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			0, 
 			NULL,
 #ifdef CLPROFILER
-			&evts->reduce_agent1[iter]
+			&(evts->reduce_agent1[iter])
 #else
 			NULL
 #endif
@@ -506,15 +506,15 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* Step 4.3: Perform grass reduction, part II. */
 		g_debug("Iteration %d: Performing grass reduction, part II...", iter);
 		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[0], 
+			(zone->queues)[0], 
 			krnls.reduce_grass2, 
 			1, 
 			NULL, 
 			&gws.reduce_grass2, 
 			&lws.reduce_grass2, 
 			iter > 0 ? 1 : 0,  
-			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
-			&evts->reduce_grass2[iter]
+			iter > 0 ? &(evts->read_stats[iter - 1]) : NULL,
+			&(evts->reduce_grass2[iter])
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
 		
@@ -533,9 +533,9 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			&ws_reduce_agent2, 
 			&ws_reduce_agent2, 
 			iter > 0 ? 1 : 0,  
-			iter > 0 ? &evts->read_stats[iter - 1] : NULL,
+			iter > 0 ? &(evts->read_stats[iter - 1]) : NULL,
 #ifdef CLPROFILER		
-			&evts->reduce_agent2[iter]
+			&(evts->reduce_agent2[iter])
 #else
 			NULL
 #endif
@@ -557,8 +557,8 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			sizeof(PPStatistics), 
 			stats_pinned, 
 			1, 
-			&evts->reduce_grass2[iter],  /* Only need to wait for reduce_grass2 because reduce_agent2 is in same queue. */
-			&evts->read_stats[iter]
+			&(evts->reduce_grass2[iter]),  /* Only need to wait for reduce_grass2 because reduce_agent2 is in same queue. */
+			&(evts->read_stats[iter])
 		);
 		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
 
@@ -586,7 +586,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			0, 
 			NULL, 
 #ifdef CLPROFILER
-			&evts->grass[iter]
+			&(evts->grass[iter])
 #else
 			NULL
 #endif
@@ -619,7 +619,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 			0, 
 			NULL, 
 #ifdef CLPROFILER
-			&evts->move_agent[iter]
+			&(evts->move_agent[iter])
 #else
 			NULL
 #endif
@@ -1659,44 +1659,44 @@ int ppg_events_create(PPParameters params, PPGEvents* evts, GError **err) {
 #ifdef CLPROFILER
 
 	/* Create events for grass kernel. */
-	evts->grass = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->grass = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->grass == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for grass kernel events.");	
 
 	/* Create events for reduce_grass1 kernel. */
-	evts->reduce_grass1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_grass1 = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_grass1 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_grass1 kernel events.");	
 
 	/* Create events for reduce_agent1 kernel. */
-	evts->reduce_agent1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_agent1 = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent1 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent1 kernel events.");	
 
 	/* Create events for move_agent kernel. */
-	evts->move_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->move_agent = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->move_agent == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for move_agent kernel events.");	
 
 	/* Create events for reduce_agent2kernel. */
-	evts->reduce_agent2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_agent2 = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_agent2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_agent2 kernel events.");	
 
 	/* Create events for sort kernels. */
 	evts->sort_agent = g_array_sized_new(FALSE, FALSE, sizeof(ProfCLEvName), params.iters);
 
 	/* Create events for find_cell_idx kernel. */
-	evts->find_cell_idx = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->find_cell_idx = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->find_cell_idx == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for find_cell_idx kernel events.");	
 
 #endif
 
 	/* Create events for read stats. */
-	evts->read_stats = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->read_stats = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->read_stats == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for read_stats events.");	
 
 	/* Create events for reduce_grass2 kernel. */
-	evts->reduce_grass2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->reduce_grass2 = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->reduce_grass2 == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for reduce_grass2 kernel events.");	
 
 	/* Create events for action_agent kernel. */
-	evts->action_agent = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	evts->action_agent = (cl_event*) calloc(params.iters + 1, sizeof(cl_event));
 	gef_if_error_create_goto(*err, PP_ERROR, evts->action_agent == NULL, status = PP_ALLOC_MEM_FAIL, error_handler, "Unable to allocate memory for action_agent kernel events.");	
 
 	/* If we got here, everything is OK. */
