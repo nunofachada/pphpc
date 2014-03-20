@@ -58,25 +58,6 @@
 #endif
 
 /**
- * @brief Performs integer division returning the ceiling instead of
- * the floor if it is not an exact division.
- * 
- * @param a Integer numerator.
- * @param b Integer denominator.
- * */
-#define PP_DIV_CEIL(a, b) ((a + b - 1) / b)
-
-/** 
- * @brief Calculates an adjusted global worksize equal or larger than 
- * the given global worksize and is a multiple of the given local 
- * worksize. 
- * 
- * @param gws Minimum global worksize.
- * @param lws Local worksize. 
- * */
-#define PP_GWS_MULT(gws, lws) (lws * PP_DIV_CEIL(gws, lws))
-
-/**
  * @brief Pointer to compare function to pass to pp_in_array() function.
  * 
  * @param elem1 First element to compare.

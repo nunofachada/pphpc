@@ -462,8 +462,8 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		 * formulas bellow. */
 		gws_reduce_agent1 = MIN( 
 			lws.reduce_agent1 * lws.reduce_agent1, /* lws * number_of_workgroups */
-			PP_GWS_MULT(
-				PP_DIV_CEIL(max_agents_iter, args_vw.reduce_agent),
+			CLO_GWS_MULT(
+				CLO_DIV_CEIL(max_agents_iter, args_vw.reduce_agent),
 				lws.reduce_agent1
 			)
 		);
@@ -603,7 +603,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/* Determine agent movement global worksize. */
-		gws_move_agent = PP_GWS_MULT(
+		gws_move_agent = CLO_GWS_MULT(
 			max_agents_iter,
 			lws.move_agent
 		);
@@ -675,7 +675,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/* Determine kernel global worksize. */
-		gws_find_cell_idx = PP_GWS_MULT(
+		gws_find_cell_idx = CLO_GWS_MULT(
 			max_agents_iter,
 			lws.find_cell_idx
 		);
@@ -708,7 +708,7 @@ int ppg_simulate(PPParameters params, CLUZone* zone,
 		/* ***************************************** */
 
 		/* Determine agent actions kernel global worksize. */
-		gws_action_agent = PP_GWS_MULT(
+		gws_action_agent = CLO_GWS_MULT(
 			max_agents_iter,
 			lws.action_agent
 		);
@@ -1119,15 +1119,15 @@ int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobal
 	
 	/* Init cell worksizes. */
 	lws->init_cell = args_lws.init_cell ? args_lws.init_cell : lws->deflt;
-	gws->init_cell = PP_GWS_MULT(paramsSim.grid_xy, lws->init_cell);
+	gws->init_cell = CLO_GWS_MULT(paramsSim.grid_xy, lws->init_cell);
 	
 	/* Init agent worksizes. */
 	lws->init_agent = args_lws.init_agent ? args_lws.init_agent : lws->deflt;
-	gws->init_agent = PP_GWS_MULT(args.max_agents, lws->init_agent);
+	gws->init_agent = CLO_GWS_MULT(args.max_agents, lws->init_agent);
 
 	/* Grass growth worksizes. */
 	lws->grass = args_lws.grass ? args_lws.grass : lws->deflt;
-	gws->grass = PP_GWS_MULT(paramsSim.grid_xy / args_vw.grass, lws->grass);
+	gws->grass = CLO_GWS_MULT(paramsSim.grid_xy / args_vw.grass, lws->grass);
 	
 	/* Grass reduce worksizes, must be power of 2 for reduction to work. */
 	lws->reduce_grass1 = args_lws.reduce_grass ?  args_lws.reduce_grass : lws->deflt;
@@ -1147,8 +1147,8 @@ int ppg_worksizes_compute(PPParameters paramsSim, cl_device_id device, PPGGlobal
 	 * */
 	gws->reduce_grass1 = MIN(
 		lws->reduce_grass1 * lws->reduce_grass1, /* lws * number_of_workgroups */
-		PP_GWS_MULT(
-			PP_DIV_CEIL(paramsSim.grid_xy, args_vw.reduce_grass),
+		CLO_GWS_MULT(
+			CLO_DIV_CEIL(paramsSim.grid_xy, args_vw.reduce_grass),
 			lws->reduce_grass1
 		)
 	);
