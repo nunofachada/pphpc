@@ -1,4 +1,4 @@
-/** 
+/**
  * @file
  * @brief PredPrey OpenCL GPU w/ sorting implementation.
  */
@@ -7,7 +7,7 @@
 
 #define MAX_AGENTS 1048576
 
-#define CELL_SPACE 4 // 0-Grass state, 1-number of agents in cell, 2-pointer to first agent in cell, 3-unused
+#define CELL_SPACE 4 /* 0-Grass state, 1-number of agents in cell, 2-pointer to first agent in cell, 3-unused */
 #define CELL_GRASS_OFFSET 0
 #define CELL_NUMAGENTS_OFFSET 1
 #define CELL_AGINDEX_OFFSET 2
@@ -21,126 +21,154 @@
 
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
-// OpenCL kernel files
-static char* kernelFile = "pp_gpu_legacy.cl";
+/* Global work sizes */
+size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws,
+	agentcount2_gws, grasscount1_gws,
+	grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
 
-// Global work sizes
-size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws, agentcount2_gws, grasscount1_gws, grasscount2_gws[MAX_GRASS_COUNT_LOOPS];
-
-// Local work sizes
-size_t agentsort_lws, agent_lws, grass_lws[2], agentcount1_lws, agentcount2_lws, grasscount1_lws, grasscount2_lws;
+/* Local work sizes */
+size_t agentsort_lws, agent_lws, grass_lws[2], agentcount1_lws,
+	agentcount2_lws, grasscount1_lws, grasscount2_lws;
 int effectiveNextGrassToCount[MAX_GRASS_COUNT_LOOPS];
 int numGrassCount2Loops;
 
-// Kernels
-cl_kernel grass_kernel = NULL, 
-	agentmov_kernel = NULL, 
-	agentupdate_kernel = NULL, 
-	sort_kernel = NULL, 
-	agentaction_kernel = NULL, 
-	countagents1_kernel = NULL, 
-	countagents2_kernel = NULL, 
-	countgrass1_kernel = NULL, 
-	countgrass2_kernel = NULL;
+/* Kernels */
+CCLKernel* grass_kernel = NULL;
+CCLKernel* agentmov_kernel = NULL;
+CCLKernel* agentupdate_kernel = NULL;
+CCLKernel* sort_kernel = NULL;
+CCLKernel* agentaction_kernel = NULL;
+CCLKernel* countagents1_kernel = NULL;
+CCLKernel* countagents2_kernel = NULL;
+CCLKernel* countgrass1_kernel = NULL;
+CCLKernel* countgrass2_kernel = NULL;
 
-// Main stuff
-int main(int argc, char ** argv)
-{
-	
-	// Status var aux
+/* Main stuff */
+int main(int argc, char ** argv) {
+
+	/* Status var aux */
 	int status;
-	
-	// Error management
+
+	/* Error management */
 	GError *err = NULL;
-	
-	// Host memory buffers
-	PPStatistics * statsArrayHost = NULL;
-	cl_uint * numAgentsHost = NULL;
-	PPGSAgent * agentArrayHost = NULL;
-	cl_uint * grassMatrixHost = NULL;
-	cl_ulong * rngSeedsHost = NULL;
-	
-	// Device memory buffers
-	cl_mem statsArrayDevice = NULL,
-		agentArrayDevice = NULL,
-		grassMatrixDevice = NULL,
-		iterDevice = NULL,
-		numAgentsDevice = NULL,
-		grassCountDevice = NULL,
-		agentsCountDevice = NULL,
-		agentParamsDevice = NULL,
-		rngSeedsDevice = NULL;
-		
-	// Parameters
+
+	/* Host memory buffers */
+	PPStatistics* statsArrayHost = NULL;
+	cl_uint* numAgentsHost = NULL;
+	PPGSAgent* agentArrayHost = NULL;
+	cl_uint* grassMatrixHost = NULL;
+	cl_ulong* rngSeedsHost = NULL;
+
+	/* Device memory buffers */
+	CCLBuffer* statsArrayDevice = NULL;
+	CCLBuffer* agentArrayDevice = NULL;
+	CCLBuffer* grassMatrixDevice = NULL;
+	CCLBuffer* iterDevice = NULL;
+	CCLBuffer* numAgentsDevice = NULL;
+	CCLBuffer* grassCountDevice = NULL;
+	CCLBuffer* agentsCountDevice = NULL;
+	CCLBuffer* agentParamsDevice = NULL;
+	CCLBuffer* rngSeedsDevice = NULL;
+
+	/* Other OpenCL wrappers. */
+	CCLContext* ctx = NULL;
+	CCLDevice* dev = NULL;
+	CCLQueue* cq = NULL;
+	CCLProgram* prg = NULL;
+
+	/* cl_ops RNG. */
+	CloRng* rng_clo = NULL;
+
+	/* Parameters */
 	PPParameters params;
-		
-	// OpenCL events
-	cl_event *agentaction_move_event = NULL,
-		*grass_event = NULL,
-		*agentaction_event = NULL,
-		*agentsort_event = NULL,
-		*agentcount1_event = NULL,
-		*agentcount2_event = NULL,
-		*agentupdate_event = NULL,
-		*grasscount1_event = NULL,
-		*grasscount2_event = NULL,
-		*readNumAgents_event = NULL,
-		map_numagents_event = NULL,
-		unmap_numagents_event = NULL;
-	
-	
-	/* CL Zone */
-	CLUZone* zone = NULL;
-	
+
+	/* Events */
+	CCLEvent** agentaction_move_event = NULL;
+	CCLEvent** grass_event = NULL;
+	CCLEvent** agentaction_event = NULL;
+	CCLEvent** agentsort_event = NULL;
+	CCLEvent** agentcount1_event = NULL;
+	CCLEvent** agentcount2_event = NULL;
+	CCLEvent** agentupdate_event = NULL;
+	CCLEvent** grasscount1_event = NULL;
+	CCLEvent** grasscount2_event = NULL;
+	CCLEvent** readNumAgents_event = NULL;
+	CCLEvent* map_numagents_event = NULL;
+	CCLEvent* unmap_numagents_event = NULL;
+
+	/* Complete OCL program source code. */
+	gchar* src = NULL;
+
+	/* Device selection filters. */
+	CCLDevSelFilters filters = NULL;
+
 	/* Random number generator */
 	GRand* rng = g_rand_new();
-	
+
 	/* Compiler options. */
 	gchar* compilerOpts = NULL;
 	GString* compilerOptsBuilder = NULL;
-	
-	/* Full kernel path. */
-	gchar* kernelPath = NULL;
-	gchar* path = NULL;
 
-	// Profiling / Timmings
-	ProfCLProfile* profile = profcl_profile_new();
+	/* Profiling / Timmings */
+	CCLProf* prof = ccl_prof_new();
 
-	/* Get the required CL zone. */
-	zone = clu_zone_new(CL_DEVICE_TYPE_GPU, 1, QUEUE_PROPERTIES, clu_menu_device_selector, NULL, &err);
-	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
+	/* Specify device filters and create context from them. */
+	ccl_devsel_add_indep_filter(
+		&filters, ccl_devsel_indep_type_gpu, NULL);
+	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu, NULL);
 
-	/* Get full kernel path. */
-	kernelPath = clo_kernelpath_get(kernelFile, argv[0]);
+	ctx = ccl_context_new_from_filters(&filters, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Get chosen device. */
+	dev = ccl_context_get_device(ctx, 0, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create command queue. */
+	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create RNG object. */
+	rng_clo = clo_rng_new("lcg", CLO_RNG_SEED_HOST_MT, NULL, MAX_AGENTS,
+		0, NULL, ctx, cq, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Get RNG seeds device buffer. */
+	rngSeedsDevice = clo_rng_get_device_seeds(rng_clo);
+
+	/* Get RNG kernels source. */
+	src = g_strconcat(
+		clo_rng_get_source(rng_clo), PP_GPU_LEGACY_SRC, NULL);
 
 	/* Build the compiler options. */
-	path = g_path_get_dirname(kernelPath);
-	compilerOptsBuilder = g_string_new(PP_KERNEL_INCLUDES);
-	g_string_append(compilerOptsBuilder, " -D CLO_RNG_LCG ");
-	g_string_append_printf(compilerOptsBuilder, "-I %s ", path);
+	compilerOptsBuilder = g_string_new("");
 	for (int i = 1; i < argc; i++) {
 		g_string_append(compilerOptsBuilder, argv[i]);
 	}
 	compilerOpts = compilerOptsBuilder->str;
 	printf("\n**** %s *****\n", compilerOpts);
-	/* Build program. */
-	status = clu_program_create(zone, &kernelPath, 1, compilerOpts, &err);
-	gef_if_error_goto(err, PP_LIBRARY_ERROR, status, error_handler);
 
-	// 2. Get simulation parameters
-	status = pp_load_params(&params, PP_DEFAULT_PARAMS_FILE, &err);
-	gef_if_error_goto(err, GEF_USE_GERROR, status, error_handler);
+	/* Create and build program. */
+	prg = ccl_program_new_from_source(ctx, src, &err);
+	ccl_if_err_goto(err, error_handler);
 
-	// 3. Compute work sizes for different kernels and print them to screen
-	computeWorkSizes(params);	
+	ccl_program_build(prg, compilerOpts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* 2. Get simulation parameters */
+	pp_load_params(&params, PP_DEFAULT_PARAMS_FILE, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* 3. Compute work sizes for different kernels and print them to
+	 * screen. */
+	computeWorkSizes(params);
 	printFixedWorkSizes();
 
-	// 4. obtain kernels entry points.
-	status = getKernelEntryPoints(zone->program, &err);
-	gef_if_error_goto(err, GEF_USE_GERROR, status, error_handler);
+	/* 4. obtain kernels entry points. */
+	getKernelEntryPoints(zone->program, &err);
+	ccl_if_err_goto(err, error_handler);
 
-	printf("-------- Simulation start --------\n");		
-	
+	printf("-------- Simulation start --------\n");
 
 	// 5. Create and initialize host buffers
 	// Statistics
@@ -153,7 +181,7 @@ int main(int argc, char ** argv)
 	numAgentsHost = (cl_uint*) malloc(sizeof(cl_uint));
 	(*numAgentsHost) = params.init_sheep + params.init_wolves;
 	// Current iteration
-	cl_uint iter = 0; 
+	cl_uint iter = 0;
 	// Agent array
 	size_t agentsSizeInBytes = MAX_AGENTS * sizeof(PPGSAgent);
 	agentArrayHost = (PPGSAgent *) malloc(agentsSizeInBytes);
@@ -350,7 +378,7 @@ int main(int argc, char ** argv)
 	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "Set arg 4 of countgrass2 kernel");
 
 	//printf("sort: %d\t agc2: %d\t gc2: %d\n", params.iters * sum(tzc(nlpo2(MAX_AGENTS))), params.iters * (MAX_AGENTS/4) / agentcount2_lws, params.iters * numGrassCount2Loops);
-	
+
 	// Map readNumAgents
 	numAgentsHost = (cl_uint*) clEnqueueMapBuffer(
 		zone->queues[0],
@@ -363,19 +391,19 @@ int main(int argc, char ** argv)
 		NULL,
 		&map_numagents_event,
 		&status
-	);	
+	);
 	gef_if_error_create_goto(err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Map numAgentsHost (OpenCL error %d)", status);
-	
+
 
 	// 8. Run the show
-	agentaction_move_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
-	grass_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
-	agentaction_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
+	agentaction_move_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	grass_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	agentaction_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	agentsort_event = (cl_event*) calloc(params.iters * sum(tzc(nlpo2(MAX_AGENTS))), sizeof(cl_event)); //Worse case usage scenario
-	agentcount1_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
+	agentcount1_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	agentcount2_event = (cl_event*) calloc((MAX_AGENTS/4) / agentcount2_lws * params.iters, sizeof(cl_event)); // Optimistic usage to save memory => may break
-	agentupdate_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
-	grasscount1_event = (cl_event*) calloc(params.iters, sizeof(cl_event)); 
+	agentupdate_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
+	grasscount1_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	grasscount2_event = (cl_event*) calloc(params.iters * numGrassCount2Loops, sizeof(cl_event)); // Exact usage scenario
 	readNumAgents_event = (cl_event*) calloc(params.iters, sizeof(cl_event));
 	cl_uint agentsort_event_index = 0, agentcount2_event_index = 0, grasscount2_event_index = 0;
@@ -496,12 +524,12 @@ int main(int argc, char ** argv)
 	clFinish(zone->queues[0]);
 
 	// Finish profiling
-	profcl_profile_stop(profile);  
+	profcl_profile_stop(profile);
 
 	// Get statistics
 	status = clEnqueueReadBuffer(zone->queues[0], statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
 	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "statsArray read");
-	
+
 	// 9. Output results to file
 	FILE * fp1 = fopen("stats.txt","w");
 	for (unsigned int i = 0; i <= params.iters; i++)
@@ -509,7 +537,7 @@ int main(int argc, char ** argv)
 	fclose(fp1);
 
 	/* Analyze events */
-#ifdef CLPROFILER 
+#ifdef CLPROFILER
 	for (unsigned int i = 0; i < params.iters; i++) {
 		profcl_profile_add(profile, "agentaction_move", agentaction_move_event[i], NULL);
 		profcl_profile_add(profile, "grass", grass_event[i], NULL);
@@ -531,73 +559,73 @@ int main(int argc, char ** argv)
 	profcl_profile_add(profile, "map_numAgents", map_numagents_event, NULL);
 	profcl_profile_add(profile, "unmap_numAgents", unmap_numagents_event, NULL);
 	profcl_profile_aggregate(profile, NULL);
-	profcl_profile_overmat(profile, NULL);	
+	profcl_profile_overmat(profile, NULL);
 #endif
 
-	/* Print profiling info. */ 
+	/* Print profiling info. */
 	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, NULL);
 
 	/* If we get here, everything went Ok. */
 	status = PP_SUCCESS;
 	g_assert(err == NULL);
 	goto cleanup;
-	
+
 error_handler:
 	/* Handle error. */
 	g_assert(err != NULL);
 	g_assert(status != PP_SUCCESS);
 	fprintf(stderr, "Error: %s\n", err->message);
-	g_error_free(err);	
+	g_error_free(err);
 
 cleanup:
-	
+
 	/* 11. Free stuff! */
 	if (profile)
 		profcl_profile_free(profile);
-		
-		
+
+
 	/* Release events */
 	if (agentaction_move_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (agentaction_move_event[i])
-				clReleaseEvent(agentaction_move_event[i]);	
+				clReleaseEvent(agentaction_move_event[i]);
 		free(agentaction_move_event);
 	}
-	
+
 	if (grass_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (grass_event[i])
-				clReleaseEvent(grass_event[i]);	
+				clReleaseEvent(grass_event[i]);
 		free(grass_event);
 	}
 	if (agentupdate_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (agentupdate_event[i])
-				clReleaseEvent(agentupdate_event[i]);	
+				clReleaseEvent(agentupdate_event[i]);
 		free(agentupdate_event);
 	}
 	if (agentaction_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (agentaction_event[i])
-				clReleaseEvent(agentaction_event[i]);	
+				clReleaseEvent(agentaction_event[i]);
 		free(agentaction_event);
 	}
 	if (agentcount1_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (agentcount1_event[i])
-				clReleaseEvent(agentcount1_event[i]);	
+				clReleaseEvent(agentcount1_event[i]);
 		free(agentcount1_event);
 	}
 	if (grasscount1_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (grasscount1_event[i])
-				clReleaseEvent(grasscount1_event[i]);	
+				clReleaseEvent(grasscount1_event[i]);
 		free(grasscount1_event);
 	}
 	if (readNumAgents_event) {
 		for (unsigned int i = 0; i < params.iters; i++)
 			if (readNumAgents_event[i])
-				clReleaseEvent(readNumAgents_event[i]);	
+				clReleaseEvent(readNumAgents_event[i]);
 		free(readNumAgents_event);
 	}
 	if (agentsort_event) {
@@ -628,7 +656,7 @@ cleanup:
 	if (agentaction_kernel) clReleaseKernel(agentaction_kernel);
 	if (countagents1_kernel) clReleaseKernel(countagents1_kernel);
 	if (countagents2_kernel) clReleaseKernel(countagents2_kernel);
-	if (countgrass1_kernel) clReleaseKernel(countgrass1_kernel); 
+	if (countgrass1_kernel) clReleaseKernel(countgrass1_kernel);
 	if (countgrass2_kernel) clReleaseKernel(countgrass2_kernel);
 
 	// Free OpenCL memory objects
@@ -651,7 +679,7 @@ cleanup:
 	if (agentArrayHost) free(agentArrayHost);
 	if (grassMatrixHost) free(grassMatrixHost);
 	if (rngSeedsHost) free(rngSeedsHost);
-	
+
 	// Free strings
 	if (compilerOpts) g_free(compilerOpts);
 	if (kernelPath) g_free(kernelPath);
@@ -660,7 +688,7 @@ cleanup:
 
 	// Bye
 	return status;
-	
+
 }
 
 
@@ -707,49 +735,49 @@ void printFixedWorkSizes() {
 
 // Get kernel entry points
 cl_int getKernelEntryPoints(cl_program program, GError** err) {
-	
+
 	/* Aux. var. */
 	cl_int status;
-	
-	/* Create kernels. */ 
+
+	/* Create kernels. */
 	grass_kernel = clCreateKernel( program, "Grass", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating Grass kernel");
-	
+
 	agentmov_kernel = clCreateKernel( program, "RandomWalk", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating RandomWalk kernel");
-	
+
 	agentupdate_kernel = clCreateKernel( program, "AgentsUpdateGrid", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating AgentsUpdateGrid kernel");
-	
+
 	sort_kernel = clCreateKernel( program, "BitonicSort", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating BitonicSort kernel");
-	
+
 	agentaction_kernel = clCreateKernel( program, "AgentAction", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating AgentAction kernel");
-	
+
 	countagents1_kernel = clCreateKernel( program, "CountAgents1", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountAgents1 kernel");
-	
+
 	countagents2_kernel = clCreateKernel( program, "CountAgents2", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountAgents2 kernel");
-	
+
 	countgrass1_kernel = clCreateKernel( program, "CountGrass1", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountGrass1 kernel");
-	
+
 	countgrass2_kernel = clCreateKernel( program, "CountGrass2", &status );
 	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountGrass2 kernel");
-	
+
 	/* If we got here, everything is OK. */
 	goto finish;
-	
+
 error_handler:
 	/* If we got here there was an error, verify that it is so. */
 	g_assert(*err != NULL);
 	/* Set status to error code. */
 	status = (*err)->code;
-	
+
 finish:
-	
+
 	/* Return. */
 	return status;
 }

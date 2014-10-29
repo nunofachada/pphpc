@@ -1,5 +1,6 @@
 # Predator-Prey implementations
-set(PP_IMPLS pp_cpu pp_gpu pp_gpu_legacy)
+set(PP_IMPLS pp_gpu_legacy)
+#pp_cpu pp_gpu
 
 # Common sources
 set(PP_COMMON pp_common.c)
@@ -35,3 +36,10 @@ string(REGEX REPLACE "(..)" "\\\\x\\1" PP_GPU_LEGACY_SRC
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pp_gpu_legacy.in.h
 	${CMAKE_BINARY_DIR}/${PROJECT_NAME}/pp_gpu_legacy.h @ONLY)
 
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/pp_common.cl
+	PP_COMMON_SRC_RAW HEX)
+string(REGEX REPLACE "(..)" "\\\\x\\1" PP_COMMON_SRC
+	${PP_COMMON_SRC_RAW})
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pp_common.in.h
+	${CMAKE_BINARY_DIR}/${PROJECT_NAME}/pp_common.h @ONLY)

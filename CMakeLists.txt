@@ -11,7 +11,7 @@ add_definitions(-DG_LOG_DOMAIN=\"${PROJECT_NAME}\")
 option(PROFILING "Perform kernel profiling" ON)
 
 if (PROFILING)
-	add_definitions(-DPPHPC_PROFILE)
+	add_definitions(-DPP_PROFILE_OPT)
 endif()
 
 # #################### #

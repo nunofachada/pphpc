@@ -35,19 +35,16 @@
 /** Default RNG seed. */
 #define PP_DEFAULT_SEED 0
 
-/** Kernel includes (to be added to OpenCL compiler options). */
-#define PP_KERNEL_INCLUDES ""
-
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
 
 /** Perform direct OpenCL profiling if the C compiler has defined a
  * CLPROFILER constant. */
-#ifdef CLPROFILER
-	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
+#ifdef PP_PROFILE_OPT
+	#define PP_QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
 	#define PP_PROFILE TRUE
 #else
-	#define QUEUE_PROPERTIES 0
+	#define PP_QUEUE_PROPERTIES 0
 	#define PP_PROFILE FALSE
 #endif
 
@@ -111,9 +108,6 @@ typedef struct pp_agent_params {
 	cl_uint reproduce_threshold; /**< Energy required for agent to reproduce. */
 	cl_uint reproduce_prob;      /**< Probability (between 1 and 100) of agent reproduction. */
 } PPAgentParams;
-
-/** @brief Information about the random number generation algorithms. */
-extern CloRngInfo rng_infos[];
 
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, char * filename, GError** err);

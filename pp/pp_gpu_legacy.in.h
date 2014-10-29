@@ -5,7 +5,7 @@
  */
 
 #ifndef _PP_GPU_LEGACY_H_
-#define _PP_GPU_LEGACY_H
+#define _PP_GPU_LEGACY_H_
 
 #include "pp_common.h"
 
