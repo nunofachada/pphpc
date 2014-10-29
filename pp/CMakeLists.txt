@@ -2,12 +2,14 @@
 set(PP_IMPLS pp_cpu pp_gpu pp_gpu_legacy)
 
 # Common sources
-set(PP_COMMON pp_common.c bitstuff.c)
+set(PP_COMMON pp_common.c)
 
 # Add executables
 foreach(PP_IMPL ${PP_IMPLS})
 	add_executable(${PP_IMPL} ${PP_IMPL}.c ${PP_COMMON})
-	target_link_libraries(${PP_IMPL} ${OPENCL_LIBRARIES} ${GLIB_LIBRARIES} ${GLIB_LDFLAGS} ${CF4OCL_LIBRARIES} ${CLOPS_LIBRARIES} m)
+	target_link_libraries(${PP_IMPL} ${OPENCL_LIBRARIES}
+		${GLIB_LIBRARIES} ${GLIB_LDFLAGS} ${CF4OCL2_LIBRARIES}
+		${CL_OPS_LIBRARIES} m)
 endforeach()
 
 # Copy OpenCL kernels to a location where they can be invoked by the
