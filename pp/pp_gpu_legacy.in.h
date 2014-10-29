@@ -1,12 +1,16 @@
-/** 
+/**
  * @file
- * @brief PredPrey OpenCL GPU w/ sorting data structures and function headers.
+ * @brief PredPrey OpenCL GPU w/ sorting data structures and function
+ * headers.
  */
 
-#ifndef PREDPREYGPULEGACY_H
-#define PREDPREYGPULEGACY_H
+#ifndef _PP_GPU_LEGACY_H_
+#define _PP_GPU_LEGACY_H
 
 #include "pp_common.h"
+
+/** GPU legacy kernel source. */
+#define PP_GPU_LEGACY_SRC "@PP_GPU_LEGACY_SRC@"
 
 typedef struct pp_gs_agent {
 	cl_uint x;

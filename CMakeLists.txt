@@ -88,16 +88,7 @@ endif()
 # Library include directories
 include_directories(${GLIB_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS}
 	${CF4OCL2_INCLUDE_DIRS} ${CL_OPS_INCLUDE_DIRS}
-	${CMAKE_SOURCE_DIR}/pp)
-
-# ###################### #
-# DEFINE INSTALL FOLDERS #
-# ###################### #
-set(INSTALL_SUBDIR_DOCS_HTML share/doc/${PROJECT_NAME}/html)
-set(INSTALL_SUBDIR_DOCS_PDF share/doc/${PROJECT_NAME})
-set(INSTALL_SUBDIR_INCLUDE include)
-set(INSTALL_SUBDIR_BIN bin)
-set(INSTALL_SUBDIR_LIB lib)
+	${CMAKE_SOURCE_DIR}/pp ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
 
 # ########################### #
 # BUILD DOCUMENTATION SECTION #
@@ -120,9 +111,6 @@ if(DOXYGEN_FOUND AND DOXYGEN_DOT_FOUND AND LATEX_COMPILER)
 	else()
 		unset(DOC_GENERATE_PDF CACHE)
 	endif()
-	if(UNIX)
-		option(DOC_GENERATE_MAN "Generate man pages?" OFF)
-	endif()
 
 	# Set doxygen document generation options
 	if (DOC_GENERATE_HTML)
@@ -134,28 +122,6 @@ if(DOXYGEN_FOUND AND DOXYGEN_DOT_FOUND AND LATEX_COMPILER)
 		set(DOX_GENERATE_LATEX "YES")
 	else()
 		set(DOX_GENERATE_LATEX "NO")
-	endif()
-	if (DOC_GENERATE_MAN)
-		set(DOX_GENERATE_MAN "YES")
-	else()
-		set(DOX_GENERATE_MAN "NO")
-	endif()
-
-	# Document install options
-	if (DOC_GENERATE_HTML)
-		option(DOC_INSTALL_HTML "Install HTML documentation?" OFF)
-	else()
-		unset(DOC_INSTALL_HTML CACHE)
-	endif()
-	if (DOC_GENERATE_PDF)
-		option(DOC_INSTALL_PDF "Install Latex documentation?" OFF)
-	else()
-		unset(DOC_INSTALL_PDF CACHE)
-	endif()
-	if (DOC_GENERATE_MAN)
-		option(DOC_INSTALL_MAN "Install man pages?" OFF)
-	else()
-		unset(DOC_INSTALL_MAN CACHE)
 	endif()
 
 	# If git is found, set document file version filter to last
@@ -170,7 +136,7 @@ if(DOXYGEN_FOUND AND DOXYGEN_DOT_FOUND AND LATEX_COMPILER)
 		${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 
 	# Add a build docs target
-	if (DOC_GENERATE_HTML OR DOC_GENERATE_LATEX OR DOC_GENERATE_MAN)
+	if (DOC_GENERATE_HTML OR DOC_GENERATE_LATEX)
 		add_custom_target(doc
 			${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
@@ -188,30 +154,6 @@ if(DOXYGEN_FOUND AND DOXYGEN_DOT_FOUND AND LATEX_COMPILER)
 			COMMAND ${CMAKE_COMMAND} -E make_directory ../pdf
 			COMMAND ${CMAKE_COMMAND} -E copy refman.pdf ../pdf
 			WORKING_DIRECTORY ${DOCS_DIRECTORY}/latex)
-	endif()
-
-	# Post-process man pages created by Doxygen
-	if(DOC_GENERATE_MAN)
-		add_custom_command(TARGET doc POST_BUILD
-			COMMAND ${CMAKE_SOURCE_DIR}/auxbuild/buildman.sh
-			WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${DOCS_DIRECTORY}/man/)
-	endif()
-
-	# Add documentation installation target (if the docs have been built)
-	if (DOC_INSTALL_HTML)
-		install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${DOCS_DIRECTORY}/html/
-			DESTINATION ${INSTALL_SUBDIR_DOCS_HTML} OPTIONAL)
-	endif()
-
-	if (DOC_INSTALL_PDF)
-		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${DOCS_DIRECTORY}/latex/refman.pdf
-			DESTINATION ${INSTALL_SUBDIR_DOCS_PDF} OPTIONAL)
-	endif()
-
-	if (DOC_INSTALL_MAN)
-		install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${DOCS_DIRECTORY}/man/
-			DESTINATION ${INSTALL_SUBDIR_DOCS_MAN} OPTIONAL
-			FILES_MATCHING REGEX "(ccl|CCL).*gz")
 	endif()
 
 else()
@@ -233,7 +175,7 @@ endif()
 # ############### #
 
 # Add source folder
-#~ add_subdirectory(pp)
+add_subdirectory(pp)
 
 
 

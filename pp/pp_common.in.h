@@ -1,15 +1,11 @@
-/** 
+/**
  * @file
  * @brief Common data structures and function headers for PredPrey simulation.
  */
 
-#ifndef PREDPREYCOMMON_H
-#define PREDPREYCOMMON_H
+#ifndef _PP_COMMON_H_
+#define _PP_COMMON_H_
 
-#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
-#define __NO_STD_STRING
-
-#include <CL/cl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,19 +14,17 @@
 #include <math.h>
 #include <glib.h>
 #include <limits.h>
-#include <cf4ocl.h>
+#include <cf4ocl2.h>
 #include <cl_ops.h>
-#include "bitstuff.h"
+
+/** Common kernel source. */
+#define PP_COMMON_SRC "@PP_COMMON_SRC@"
 
 /** Sheep ID. */
 #define SHEEP_ID 0
 
 /** Wolf ID. */
 #define WOLF_ID 1
-
-/** Helper macros to convert int to string at compile time. */
-#define STR_HELPER(x) #x
-#define STR(x) STR_HELPER(x)
 
 /** Default parameters file. */
 #define PP_DEFAULT_PARAMS_FILE "config.txt"
@@ -47,7 +41,7 @@
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
 
-/** Perform direct OpenCL profiling if the C compiler has defined a 
+/** Perform direct OpenCL profiling if the C compiler has defined a
  * CLPROFILER constant. */
 #ifdef CLPROFILER
 	#define QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
@@ -59,7 +53,7 @@
 
 /**
  * @brief Pointer to compare function to pass to pp_in_array() function.
- * 
+ *
  * @param elem1 First element to compare.
  * @param elem2 Second element to compare.
  * @return 0 if elements are equal, another value otherwise.
@@ -68,7 +62,7 @@ typedef int (*cmpfunc)(void *elem1, void *elem2);
 
 /**
  * @brief Program error codes.
- * */ 
+ * */
 enum pp_error_codes {
 	PP_SUCCESS = 0,                     /**< Successfull operation. */
 	PP_UNKNOWN_ARGS = -1,               /**< Unknown arguments. */
@@ -81,7 +75,7 @@ enum pp_error_codes {
 	PP_OUT_OF_RESOURCES = -8            /**< Program state above limits. */
 };
 
-/** 
+/**
  * @brief Simulation statistics.
  */
 typedef struct pp_statistics {
@@ -90,7 +84,7 @@ typedef struct pp_statistics {
 	cl_uint grass;   /**< Quantity of grass. */
 } PPStatistics;
 
-/** 
+/**
  * @brief Simulation parameters.
  */
 typedef struct pp_parameters {
@@ -109,7 +103,7 @@ typedef struct pp_parameters {
 	unsigned int iters;   /**< Number of iterations. */
 } PPParameters;
 
-/** 
+/**
  * @brief Generic agent parameters.
  */
 typedef struct pp_agent_params {
@@ -124,7 +118,7 @@ extern CloRngInfo rng_infos[];
 /** @brief Load predator-prey simulation parameters. */
 int pp_load_params(PPParameters* parameters, char * filename, GError** err);
 
-/** @brief Callback function which will be called when non-option 
+/** @brief Callback function which will be called when non-option
  *  command line arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
 

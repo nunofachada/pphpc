@@ -1,21 +1,24 @@
-/** 
+/**
  * @file
  * @brief PredPrey OpenCL CPU data structures and function headers.
  */
- 
-#ifndef PREDPREYCPU_H
-#define PREDPREYCPU_H
+
+#ifndef _PP_CPU_H_
+#define _PP_CPU_H_
 
 #include "pp_common.h"
 
-/** 
- * @brief Constant which indicates no further agents are in a cell. 
+/** CPU kernel source. */
+#define PP_CPU_SRC "@PP_CPU_SRC@"
+
+/**
+ * @brief Constant which indicates no further agents are in a cell.
  * */
 #define NULL_AGENT_POINTER UINT_MAX
 
 
-/** 
- * @brief Parsed command-line arguments. 
+/**
+ * @brief Parsed command-line arguments.
  * */
 typedef struct pp_c_args {
 	gchar* params;        /**< Parameters file. */
@@ -42,7 +45,7 @@ typedef struct pp_c_agent {
 
 /**
  * @brief Simulation parameters for OpenCL kernels.
- * @todo Maybe this can be constant passed as compiler options? 
+ * @todo Maybe this can be constant passed as compiler options?
  * */
 typedef struct pp_c_sim_params {
 	cl_uint size_x;				/**< Width (number of cells) of environment.*/
@@ -63,7 +66,7 @@ typedef struct pp_c_cell {
 	cl_uint agent_pointer;	/**< Pointer to first agent in cell. */
 } PPCCell;
 
-/** 
+/**
  * @brief Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
 typedef struct pp_c_work_sizes {
@@ -74,7 +77,7 @@ typedef struct pp_c_work_sizes {
 	size_t max_agents;			/**< Maximum number of agentes. */
 } PPCWorkSizes;
 
-/** 
+/**
 * @brief OpenCL kernels.
 * */
 typedef struct pp_c_kernels {
@@ -82,7 +85,7 @@ typedef struct pp_c_kernels {
 	cl_kernel step2; /**< Step 2 kernel: agent actions, get stats. */
 } PPCKernels;
 
-/** 
+/**
 * @brief OpenCL events.
 * */
 typedef struct pp_c_events {
@@ -102,7 +105,7 @@ typedef struct pp_c_events {
 	cl_event unmap_stats_end;   /**< Unmap stats (end of simulation). */
 } PPCEvents;
 
-/** 
+/**
 * @brief Size of data structures.
 * */
 typedef struct pp_c_data_sizes {
@@ -168,8 +171,8 @@ int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCK
 
 /** @brief Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
-	
-/** @brief Free host resources. */ 
+
+/** @brief Free host resources. */
 void ppc_hostbuffers_free(PPCBuffersHost* buffersHost);
 
 #ifdef CLPROFILER

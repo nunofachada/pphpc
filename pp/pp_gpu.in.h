@@ -1,17 +1,20 @@
-/** 
+/**
  * @file
  * @brief PredPrey OpenCL GPU data structures and function headers.
  * */
 
-#ifndef PREDPREYGPU_H
-#define PREDPREYGPU_H
+#ifndef _PP_GPU_H_
+#define _PP_GPU_H_
 
 #include "pp_common.h"
 
+/** GPU kernel source. */
+#define PP_GPU_SRC "@PP_GPU_SRC@"
+
 /** The default maximum number of agents: 16777216. Each agent requires
  * 12 bytes, thus by default 192Mb of memory will be allocated for the
- * agents buffer. 
- * 
+ * agents buffer.
+ *
  * The agent state is composed of x,y coordinates (2 + 2 bytes), alive
  * flag (1 byte), energy (2 bytes), type (1 byte) and hash (4 bytes).
  * */
@@ -22,20 +25,20 @@
 
 /**
  * @brief A minimal number of possibly existing agents is required in
- * order to determine minimum global worksizes of kernels. 
+ * order to determine minimum global worksizes of kernels.
  * */
 #define PPG_MIN_AGENTS 2
 
 /** A description of the program. */
 #define PPG_DESCRIPTION "OpenCL predator-prey simulation for the GPU"
 
-/** 
- * @brief Main command-line arguments. 
+/**
+ * @brief Main command-line arguments.
  * */
 typedef struct pp_g_args {
 	gchar* params;        /**< Parameters file. */
 	gchar* stats;         /**< Stats output file. */
-#ifdef CLPROFILER	
+#ifdef CLPROFILER
 	gchar* prof_info;     /**< Profiling info. */
 #endif
 	gchar* compiler_opts; /**< Compiler options. */
@@ -45,8 +48,8 @@ typedef struct pp_g_args {
 	cl_uint max_agents;   /**< Maximum number of agents. */
 } PPGArgs;
 
-/** 
- * @brief Algorithm selection arguments. 
+/**
+ * @brief Algorithm selection arguments.
  * */
 typedef struct pp_g_args_alg {
 	gchar* rng;  /**< Random number generator. */
@@ -78,7 +81,7 @@ typedef struct pp_g_args_vw {
 	cl_uint reduce_agent; /**< Width of reduce agents kernels vector operations. */
 } PPGArgsVW;
 
-/** 
+/**
  * @brief Global work sizes for all the kernels.
  * */
 typedef struct pp_g_global_work_sizes {
@@ -89,7 +92,7 @@ typedef struct pp_g_global_work_sizes {
 	size_t reduce_grass2; /**< Reduce grass 2 kernel global worksize. */
 } PPGGlobalWorkSizes;
 
-/** 
+/**
  * @brief Local work sizes for all the kernels.
  * */
 typedef struct pp_g_local_work_sizes {
@@ -124,7 +127,7 @@ typedef struct pp_g_kernels {
 	cl_kernel action_agent;  /**< Agent actions kernel. */
 } PPGKernels;
 
-/** 
+/**
 * @brief OpenCL events.
 * */
 typedef struct pp_g_events {
@@ -145,7 +148,7 @@ typedef struct pp_g_events {
 	cl_event *action_agent;  /**< Agent actions kernel execution. */
 } PPGEvents;
 
-/** 
+/**
 * @brief Size of data structures.
 * */
 typedef struct pp_g_data_sizes {

@@ -12,13 +12,26 @@ foreach(PP_IMPL ${PP_IMPLS})
 		${CL_OPS_LIBRARIES} m)
 endforeach()
 
-# Copy OpenCL kernels to a location where they can be invoked by the
-# sort test executable without installation
-file(GLOB CL_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cl)
-foreach(CL_FILE ${CL_FILES})
-	add_custom_command(TARGET pp_cpu POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		${CL_FILE}
-		${CMAKE_CURRENT_BINARY_DIR}
-	)
-endforeach()
+# Put OpenCL kernels in header
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/pp_cpu.cl
+	PP_CPU_SRC_RAW HEX)
+string(REGEX REPLACE "(..)" "\\\\x\\1" PP_CPU_SRC ${PP_CPU_SRC_RAW})
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pp_cpu.in.h
+	${CMAKE_BINARY_DIR}/${PROJECT_NAME}/pp_cpu.h @ONLY)
+
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/pp_gpu.cl
+	PP_GPU_SRC_RAW HEX)
+string(REGEX REPLACE "(..)" "\\\\x\\1" PP_GPU_SRC ${PP_GPU_SRC_RAW})
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pp_gpu.in.h
+	${CMAKE_BINARY_DIR}/${PROJECT_NAME}/pp_gpu.h @ONLY)
+
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/pp_gpu_legacy.cl
+	PP_GPU_LEGACY_SRC_RAW HEX)
+string(REGEX REPLACE "(..)" "\\\\x\\1" PP_GPU_LEGACY_SRC
+	${PP_GPU_LEGACY_SRC_RAW})
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pp_gpu_legacy.in.h
+	${CMAKE_BINARY_DIR}/${PROJECT_NAME}/pp_gpu_legacy.h @ONLY)
+
