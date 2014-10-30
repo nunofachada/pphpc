@@ -548,13 +548,20 @@ int main(int argc, char ** argv) {
 			statsArrayHost[i].wolves, statsArrayHost[i].grass);
 	fclose(fp1);
 
+#ifdef PP_PROFILE_OPT
 	/* Analyze events */
 	ccl_prof_add_queue(prof, "Queue 1", cq);
 	ccl_prof_calc(prof, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	/* Print profiling info. */
+	/* Print profiling summary. */
 	ccl_prof_print_summary(prof);
+#else
+
+	/* Print ellapsed time. */
+	printf("Ellapsed time: %.4es\n", ccl_prof_time_elapsed(prof));
+
+#endif
 
 	/* If we get here, everything went Ok. */
 	g_assert(err == NULL);
@@ -571,7 +578,12 @@ error_handler:
 cleanup:
 
 	/* 11. Free stuff! */
+
+	/* Free profiler object. */
 	if (prof) ccl_prof_destroy(prof);
+
+	/* Free RNG object. */
+	if (rng_clo) clo_rng_destroy(rng_clo);
 
 	/* Free OpenCL memory object wrappers */
 	if (statsArrayDevice) ccl_buffer_destroy(statsArrayDevice);
