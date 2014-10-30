@@ -82,7 +82,8 @@ int main(int argc, char ** argv) {
 	/* Parameters */
 	PPParameters params;
 
-	/* Events */
+	/* Event wait list and events */
+	CCLEventWaitList ewl = NULL;
 	CCLEvent* agentaction_move_event = NULL;
 	CCLEvent* grass_event = NULL;
 	CCLEvent* agentaction_event = NULL;
@@ -95,6 +96,8 @@ int main(int argc, char ** argv) {
 	CCLEvent* readNumAgents_event = NULL;
 	CCLEvent* map_numagents_event = NULL;
 	CCLEvent* unmap_numagents_event = NULL;
+	CCLEvent* barrier_event = NULL;
+	CCLEvent* readStats_event = NULL;
 
 	/* Complete OCL program source code. */
 	gchar* src = NULL;
@@ -137,8 +140,8 @@ int main(int argc, char ** argv) {
 	rngSeedsDevice = clo_rng_get_device_seeds(rng_clo);
 
 	/* Get RNG kernels source. */
-	src = g_strconcat(
-		clo_rng_get_source(rng_clo), PP_GPU_LEGACY_SRC, NULL);
+	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
+		PP_GPU_LEGACY_SRC, NULL);
 
 	/* Build the compiler options. */
 	compilerOptsBuilder = g_string_new("");
@@ -165,7 +168,7 @@ int main(int argc, char ** argv) {
 	printFixedWorkSizes();
 
 	/* 4. obtain kernels entry points. */
-	getKernelEntryPoints(zone->program, &err);
+	getKernelEntryPoints(prg, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	printf("-------- Simulation start --------\n");
@@ -319,7 +322,8 @@ int main(int argc, char ** argv) {
 
 	/* Agent grid update kernel */
 	ccl_kernel_set_args(agentupdate_kernel, agentArrayDevice,
-		grassMatrixDevice, ccl_arg_priv(sim_params, PPGSSimParams));
+		grassMatrixDevice, ccl_arg_priv(sim_params, PPGSSimParams),
+		NULL);
 
 	/* Grass kernel */
 	ccl_kernel_set_args(grass_kernel, grassMatrixDevice,
@@ -350,24 +354,25 @@ int main(int argc, char ** argv) {
 
 	/* Output debug info. */
 	g_debug("sort: %d\t agc2: %d\t gc2: %d\n",
-		params.iters * sum(tzc(nlpo2(MAX_AGENTS))),
+		params.iters * clo_sum(clo_tzc(clo_nlpo2(MAX_AGENTS))),
 		params.iters * (MAX_AGENTS/4) / agentcount2_lws,
 		params.iters * numGrassCount2Loops);
 
+	/* Start profiling. */
+	ccl_prof_start(prof);
+
 	/* Map readNumAgents */
-	numAgentsHost = (cl_uint*) ccl_buffer_enqueue_map (numAgentsDevice,
+	numAgentsHost = (cl_uint*) ccl_buffer_enqueue_map(numAgentsDevice,
 		cq, CL_FALSE, CL_MAP_READ, 0, sizeof(cl_uint), NULL,
 		&map_numagents_event, &err);
 	ccl_if_err_goto(err, error_handler);
+	ccl_event_set_name(map_numagents_event, "Map readNumAgents");
 
 	/* 8. Run the show */
 
 	/* Guarantee all memory transfers are performed */
 	ccl_queue_finish(cq, &err);
 	ccl_if_err_goto(err, error_handler);
-
-	/* Start profiling. */
-	ccl_prof_start(prof);
 
 	/* Perform simulation iterations. */
 	for (iter = 1; iter <= params.iters; iter++) {
@@ -382,29 +387,31 @@ int main(int argc, char ** argv) {
 		agent_gws = LWS_GPU_PREF * ceil(((float) maxOccupiedSpace) / LWS_GPU_PREF);
 		agentcount1_gws = LWS_GPU_MAX * ceil(((float) maxOccupiedSpace) / LWS_GPU_MAX);
 		cl_uint effectiveNextAgentsToCount = agentcount1_gws / agentcount1_lws;
-		cl_uint iterbase = iter - 1;
 
 		/* Agent movement */
 		agentaction_move_event = ccl_kernel_enqueue_ndrange(
 			agentmov_kernel, cq, 1, NULL, &agent_gws, &agent_lws, NULL,
 			&err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(agentaction_move_event, "K: Agent move");
 
 		/* Grass growth and agent number reset */
-		grass_event = ccl_kernel_enqueue_ndrange(grass_kernel, 2, NULL,
-			grass_gws, grass_lws, NULL, &err);
+		grass_event = ccl_kernel_enqueue_ndrange(grass_kernel, cq, 2,
+			NULL, grass_gws, grass_lws, NULL, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(grass_event, "K: Grass");
 
 		/* Sort agent array */
-		agentsort_gws = nlpo2(maxOccupiedSpace) / 2;
+		agentsort_gws = clo_nlpo2(maxOccupiedSpace) / 2;
 		agentsort_lws = LWS_GPU_PREF;
 		while (agentsort_gws % agentsort_lws != 0)
 			agentsort_lws = agentsort_lws / 2;
-		cl_uint totalStages = (cl_uint) tzc(agentsort_gws * 2);
+		cl_uint totalStages = (cl_uint) clo_tzc(agentsort_gws * 2);
 
 		ccl_event_wait_list_add(&ewl, agentaction_move_event, NULL);
-		ccl_enqueue_barrier(cq, &ewl, &err);
+		barrier_event = ccl_enqueue_barrier(cq, &ewl, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(barrier_event, "Barrier Move-Sort");
 
 		for (unsigned int currentStage = 1; currentStage <= totalStages; currentStage++) {
 
@@ -422,6 +429,7 @@ int main(int argc, char ** argv) {
 						ccl_arg_priv(currentStep, cl_uint), NULL);
 
 				ccl_if_err_goto(err, error_handler);
+				ccl_event_set_name(agentsort_event, "K: sort");
 			}
 
 		}
@@ -431,6 +439,7 @@ int main(int argc, char ** argv) {
 			agentupdate_kernel, cq, 1, NULL, &agent_gws, &agent_lws,
 			NULL, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(agentupdate_event, "K: Agent update");
 
 		/* Agent actions */
 		ccl_event_wait_list_add(&ewl, agentupdate_event, NULL);
@@ -438,6 +447,7 @@ int main(int argc, char ** argv) {
 			agentaction_kernel, cq, 1, NULL, &agent_gws, &agent_lws,
 			&ewl, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(agentaction_event, "K: Agent actions");
 
 		/* Gather statistics */
 
@@ -447,6 +457,7 @@ int main(int argc, char ** argv) {
 			countagents1_kernel, cq, 1, NULL, &agentcount1_gws,
 			&agentcount1_lws, &ewl, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(agentcount1_event, "K: agentcount1");
 
 		/* Count grass, part 1 */
 		ccl_event_wait_list_add(&ewl, agentaction_event, NULL);
@@ -454,6 +465,7 @@ int main(int argc, char ** argv) {
 			countgrass1_kernel, cq, 1, NULL,  &grasscount1_gws,
 			&grasscount1_lws, &ewl, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(grasscount1_event, "K: grasscount1");
 
 		/* Count agents, part 2 */
 		do {
@@ -466,13 +478,15 @@ int main(int argc, char ** argv) {
 			ccl_event_wait_list_add(&ewl, agentcount1_event, NULL);
 			agentcount2_event = ccl_kernel_enqueue_ndrange(
 				countagents2_kernel, cq, 1, NULL, &agentcount2_gws,
-				&agentcount2_lws, 1, &ewl, &err);
+				&agentcount2_lws, &ewl, &err);
 			ccl_if_err_goto(err, error_handler);
+			ccl_event_set_name(agentcount2_event, "K: agentcount2");
 
 			effectiveNextAgentsToCount = agentcount2_gws / agentcount2_lws;
 
-			ccl_enqueue_barrier(cq, NULL, &err);
+			barrier_event = ccl_enqueue_barrier(cq, NULL, &err);
 			ccl_if_err_goto(err, error_handler);
+			ccl_event_set_name(barrier_event, "Barrier agentcount2");
 
 		} while (effectiveNextAgentsToCount > 1);
 
@@ -480,6 +494,7 @@ int main(int argc, char ** argv) {
 		readNumAgents_event = ccl_buffer_enqueue_read(numAgentsDevice,
 			cq, CL_FALSE, 0, sizeof(cl_uint), numAgentsHost, NULL, &err);
 		ccl_if_err_goto(err, error_handler);
+		ccl_event_set_name(readNumAgents_event, "Read number of agents");
 
 		/* Count grass, part 2 */
 		for (int i = 0; i < numGrassCount2Loops; i++) {
@@ -492,9 +507,11 @@ int main(int argc, char ** argv) {
 				countgrass2_kernel, cq, 1, NULL, &grasscount2_gws[i],
 				&grasscount2_lws, &ewl, &err);
 			ccl_if_err_goto(err, error_handler);
+			ccl_event_set_name(grasscount2_event, "K: grasscount2");
 
-			ccl_enqueue_barrier(cq, NULL, &err);
+			barrier_event = ccl_enqueue_barrier(cq, NULL, &err);
 			ccl_if_err_goto(err, error_handler);
+			ccl_event_set_name(barrier_event, "Barrier grasscount2");
 
 		}
 
@@ -509,266 +526,186 @@ int main(int argc, char ** argv) {
 	unmap_numagents_event = ccl_memobj_enqueue_unmap(
 		(CCLMemObj*) numAgentsDevice, cq, numAgentsHost, NULL, &err);
 	ccl_if_err_goto(err, error_handler);
+	ccl_event_set_name(unmap_numagents_event, "Unmap numagents");
 
 	/* Guarantee all kernels have really terminated... */
 	ccl_queue_finish(cq, &err);
 	ccl_if_err_goto(err, error_handler);
 
+	/* Get statistics */
+	readStats_event = ccl_buffer_enqueue_read(statsArrayDevice, cq,
+		CL_TRUE, 0, statsSizeInBytes, statsArrayHost, NULL, &err);
+	ccl_if_err_goto(err, error_handler);
+	ccl_event_set_name(readStats_event, "Read stats");
+
 	/* Stop profiling */
 	ccl_prof_stop(prof);
 
-	/* Get statistics */
-	status = clEnqueueReadBuffer(zone->queues[0], statsArrayDevice, CL_TRUE, 0, statsSizeInBytes, statsArrayHost, 0, NULL, NULL);
-	gef_if_error_create_goto(err, PP_ERROR, status != CL_SUCCESS, PP_LIBRARY_ERROR, error_handler, "statsArray read");
-
-	// 9. Output results to file
-	FILE * fp1 = fopen("stats.txt","w");
+	/* 9. Output results to file */
+	FILE * fp1 = fopen("stats.txt", "w");
 	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep, statsArrayHost[i].wolves, statsArrayHost[i].grass );
+		fprintf(fp1, "%d\t%d\t%d\n", statsArrayHost[i].sheep,
+			statsArrayHost[i].wolves, statsArrayHost[i].grass);
 	fclose(fp1);
 
 	/* Analyze events */
-#ifdef CLPROFILER
-	for (unsigned int i = 0; i < params.iters; i++) {
-		profcl_profile_add(profile, "agentaction_move", agentaction_move_event[i], NULL);
-		profcl_profile_add(profile, "grass", grass_event[i], NULL);
-		profcl_profile_add(profile, "agentupdate", agentupdate_event[i], NULL);
-		profcl_profile_add(profile, "agentaction", agentaction_event[i], NULL);
-		profcl_profile_add(profile, "agentcount1", agentcount1_event[i], NULL);
-		profcl_profile_add(profile, "grasscount1", grasscount1_event[i], NULL);
-		profcl_profile_add(profile, "readNumAgents", readNumAgents_event[i], NULL);
-	}
-	for (unsigned int i = 0; i < agentsort_event_index; i++) {
-		profcl_profile_add(profile, "agentsort", agentsort_event[i], NULL);
-	}
-	for (unsigned int i = 0; i < grasscount2_event_index; i++) {
-		profcl_profile_add(profile, "grasscount2", grasscount2_event[i], NULL);
-	}
-	for (unsigned int i = 0; i < agentcount2_event_index; i++) {
-		profcl_profile_add(profile, "agentcount2", agentcount2_event[i], NULL);
-	}
-	profcl_profile_add(profile, "map_numAgents", map_numagents_event, NULL);
-	profcl_profile_add(profile, "unmap_numAgents", unmap_numagents_event, NULL);
-	profcl_profile_aggregate(profile, NULL);
-	profcl_profile_overmat(profile, NULL);
-#endif
+	ccl_prof_add_queue(prof, "Queue 1", cq);
+	ccl_prof_calc(prof, &err);
+	ccl_if_err_goto(err, error_handler);
 
 	/* Print profiling info. */
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, NULL);
+	ccl_prof_print_summary(prof);
 
 	/* If we get here, everything went Ok. */
-	status = PP_SUCCESS;
 	g_assert(err == NULL);
+	status = PP_SUCCESS;
 	goto cleanup;
 
 error_handler:
 	/* Handle error. */
 	g_assert(err != NULL);
-	g_assert(status != PP_SUCCESS);
 	fprintf(stderr, "Error: %s\n", err->message);
+	status = err->code;
 	g_error_free(err);
 
 cleanup:
 
 	/* 11. Free stuff! */
-	if (profile)
-		profcl_profile_free(profile);
+	if (prof) ccl_prof_destroy(prof);
 
+	/* Free OpenCL memory object wrappers */
+	if (statsArrayDevice) ccl_buffer_destroy(statsArrayDevice);
+	if (agentArrayDevice) ccl_buffer_destroy(agentArrayDevice);
+	if (grassMatrixDevice) ccl_buffer_destroy(grassMatrixDevice);
+	if (iterDevice) ccl_buffer_destroy(iterDevice);
+	if (numAgentsDevice) ccl_buffer_destroy(numAgentsDevice);
+	if (grassCountDevice) ccl_buffer_destroy(grassCountDevice);
+	if (agentsCountDevice) ccl_buffer_destroy(agentsCountDevice );
+	if (agentParamsDevice) ccl_buffer_destroy(agentParamsDevice);
+	if (rngSeedsDevice) ccl_buffer_destroy(rngSeedsDevice);
 
-	/* Release events */
-	if (agentaction_move_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (agentaction_move_event[i])
-				clReleaseEvent(agentaction_move_event[i]);
-		free(agentaction_move_event);
-	}
+	/* Free remaining OpenCL wrappers. */
+	if (prg) ccl_program_destroy(prg);
+	if (cq) ccl_queue_destroy(cq);
+	if (ctx) ccl_context_destroy(ctx);
 
-	if (grass_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (grass_event[i])
-				clReleaseEvent(grass_event[i]);
-		free(grass_event);
-	}
-	if (agentupdate_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (agentupdate_event[i])
-				clReleaseEvent(agentupdate_event[i]);
-		free(agentupdate_event);
-	}
-	if (agentaction_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (agentaction_event[i])
-				clReleaseEvent(agentaction_event[i]);
-		free(agentaction_event);
-	}
-	if (agentcount1_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (agentcount1_event[i])
-				clReleaseEvent(agentcount1_event[i]);
-		free(agentcount1_event);
-	}
-	if (grasscount1_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (grasscount1_event[i])
-				clReleaseEvent(grasscount1_event[i]);
-		free(grasscount1_event);
-	}
-	if (readNumAgents_event) {
-		for (unsigned int i = 0; i < params.iters; i++)
-			if (readNumAgents_event[i])
-				clReleaseEvent(readNumAgents_event[i]);
-		free(readNumAgents_event);
-	}
-	if (agentsort_event) {
-		for (unsigned int i = 0; i < params.iters * sum(tzc(nlpo2(MAX_AGENTS))); i++) {
-			clReleaseEvent(agentsort_event[i]);
-		}
-		free(agentsort_event);
-	}
-	if (grasscount2_event) {
-		for (unsigned int i = 0; i < params.iters * numGrassCount2Loops; i++) {
-			clReleaseEvent(grasscount2_event[i]);
-		}
-		free(grasscount2_event);
-	}
-	if (agentcount2_event) {
-		for (unsigned int i = 0; i < (MAX_AGENTS/4) / agentcount2_lws * params.iters; i++) {
-			clReleaseEvent(agentcount2_event[i]);
-		}
-		free(agentcount2_event);
-	}
-
-
-	// Free OpenCL kernels
-	if (grass_kernel) clReleaseKernel(grass_kernel);
-	if (agentmov_kernel) clReleaseKernel(agentmov_kernel);
-	if (agentupdate_kernel) clReleaseKernel(agentupdate_kernel);
-	if (sort_kernel) clReleaseKernel(sort_kernel);
-	if (agentaction_kernel) clReleaseKernel(agentaction_kernel);
-	if (countagents1_kernel) clReleaseKernel(countagents1_kernel);
-	if (countagents2_kernel) clReleaseKernel(countagents2_kernel);
-	if (countgrass1_kernel) clReleaseKernel(countgrass1_kernel);
-	if (countgrass2_kernel) clReleaseKernel(countgrass2_kernel);
-
-	// Free OpenCL memory objects
-	if (statsArrayDevice) clReleaseMemObject(statsArrayDevice);
-	if (agentArrayDevice) clReleaseMemObject(agentArrayDevice);
-	if (grassMatrixDevice) clReleaseMemObject(grassMatrixDevice);
-	if (iterDevice) clReleaseMemObject(iterDevice);
-	if (numAgentsDevice) clReleaseMemObject(numAgentsDevice);
-	if (grassCountDevice) clReleaseMemObject(grassCountDevice);
-	if (agentsCountDevice) clReleaseMemObject(agentsCountDevice );
-	if (agentParamsDevice) clReleaseMemObject(agentParamsDevice);
-	if (rngSeedsDevice) clReleaseMemObject(rngSeedsDevice);
-
-	// Free OpenCL zone
-	clu_zone_free(zone);
-
-	// Free host resources
+	/* Free host resources */
 	if (statsArrayHost) free(statsArrayHost);
 	if (numAgentsHost) free(numAgentsHost);
 	if (agentArrayHost) free(agentArrayHost);
 	if (grassMatrixHost) free(grassMatrixHost);
 	if (rngSeedsHost) free(rngSeedsHost);
 
-	// Free strings
+	/* Free strings */
 	if (compilerOpts) g_free(compilerOpts);
-	if (kernelPath) g_free(kernelPath);
-	if (path) g_free(path);
 	if (compilerOptsBuilder) g_string_free(compilerOptsBuilder, FALSE);
 
-	// Bye
+	/* Bye */
 	return status;
 
 }
 
 
-// Compute worksizes depending on the device type and number of available compute units
+/**
+ * Compute worksizes depending on the device type and number of
+ * available compute units.
+ * */
 void computeWorkSizes(PPParameters params) {
-	// grass growth worksizes
+
+	/* grass growth worksizes */
 	grass_lws[0] = LWS_GPU_PREF_2D_X;
 	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
 	grass_lws[1] = LWS_GPU_PREF_2D_Y;
 	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
-	// fixed local agent kernel worksizes
+
+	/* fixed local agent kernel worksizes */
 	agent_lws = LWS_GPU_PREF;
 	agentcount1_lws = LWS_GPU_MAX;
 	agentcount2_lws = LWS_GPU_MAX;
-	// grass count worksizes
+
+	/* grass count worksizes */
 	grasscount1_lws = LWS_GPU_MAX;
 	grasscount1_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
 	grasscount2_lws = LWS_GPU_MAX;
 	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
 	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
-	// Determine number of loops of secondary count required to perform complete reduction
+
+	/* Determine number of loops of secondary count required to perform complete reduction */
 	numGrassCount2Loops = 1;
 	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
-		effectiveNextGrassToCount[numGrassCount2Loops] = grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
-		grasscount2_gws[numGrassCount2Loops] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
+		effectiveNextGrassToCount[numGrassCount2Loops] =
+			grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
+		grasscount2_gws[numGrassCount2Loops] =
+			LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
 		numGrassCount2Loops++;
 	}
 }
 
-// Print worksizes
+/**
+ * Print worksizes
+ * */
 void printFixedWorkSizes() {
 	printf("Fixed kernel sizes:\n");
-	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0], (int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
+	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0],
+		(int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
 	printf("agent_lws=%d\n", (int) agent_lws);
 	printf("agentcount1_lws=%d\n", (int) agentcount1_lws);
 	printf("agentcount2_lws=%d\n", (int) agentcount2_lws);
-	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n", (int) grasscount1_gws, (int) grasscount1_lws);
+	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n",
+		(int) grasscount1_gws, (int) grasscount1_lws);
 	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
 	for (int i = 0; i < numGrassCount2Loops; i++) {
-		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n", i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
+		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n",
+			i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
 	}
 	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
 }
 
-// Get kernel entry points
-cl_int getKernelEntryPoints(cl_program program, GError** err) {
+/* Get kernel entry points */
+void getKernelEntryPoints(CCLProgram* prg, GError** err) {
 
-	/* Aux. var. */
-	cl_int status;
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
 
-	/* Create kernels. */
-	grass_kernel = clCreateKernel( program, "Grass", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating Grass kernel");
+	/* Get kernels. */
+	grass_kernel = ccl_program_get_kernel(prg, "Grass", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	agentmov_kernel = clCreateKernel( program, "RandomWalk", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating RandomWalk kernel");
+	agentmov_kernel = ccl_program_get_kernel(prg, "RandomWalk", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	agentupdate_kernel = clCreateKernel( program, "AgentsUpdateGrid", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating AgentsUpdateGrid kernel");
+	agentupdate_kernel = ccl_program_get_kernel(prg, "AgentsUpdateGrid", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	sort_kernel = clCreateKernel( program, "BitonicSort", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating BitonicSort kernel");
+	sort_kernel = ccl_program_get_kernel(prg, "BitonicSort", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	agentaction_kernel = clCreateKernel( program, "AgentAction", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating AgentAction kernel");
+	agentaction_kernel = ccl_program_get_kernel(prg, "AgentAction", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	countagents1_kernel = clCreateKernel( program, "CountAgents1", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountAgents1 kernel");
+	countagents1_kernel = ccl_program_get_kernel(prg, "CountAgents1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	countagents2_kernel = clCreateKernel( program, "CountAgents2", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountAgents2 kernel");
+	countagents2_kernel = ccl_program_get_kernel(prg, "CountAgents2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	countgrass1_kernel = clCreateKernel( program, "CountGrass1", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountGrass1 kernel");
+	countgrass1_kernel = ccl_program_get_kernel(prg, "CountGrass1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	countgrass2_kernel = clCreateKernel( program, "CountGrass2", &status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != status, PP_LIBRARY_ERROR, error_handler, "Creating CountGrass2 kernel");
+	countgrass2_kernel = ccl_program_get_kernel(prg, "CountGrass2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
+	g_assert(err == NULL || *err == NULL);
 	goto finish;
 
 error_handler:
+
 	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-	/* Set status to error code. */
-	status = (*err)->code;
+	g_assert(err == NULL || *err != NULL);
 
 finish:
 
 	/* Return. */
-	return status;
+	return;
 }

@@ -1,25 +1,23 @@
-/** 
+/**
  * @file
  * @brief Common OpenCL kernels and data structures for PredPrey simulation.
  */
 
-#include "clo_rng.cl"
-
 /**
  * @brief Performs integer division returning the ceiling instead of
  * the floor if it is not an exact division.
- * 
+ *
  * @param a Integer numerator.
  * @param b Integer denominator.
  * */
 #define PP_DIV_CEIL(a, b) ((a + b - 1) / b)
 
 /**
- * @brief Determines the next multiple of a given divisor which is equal 
+ * @brief Determines the next multiple of a given divisor which is equal
  * or larger than a given value.
- * 
+ *
  * Both val and div are assumed to be positive integers.
- * 
+ *
  * @param val Minimum value.
  * @param div The return value must be a multiple of the divisor.
  * */
@@ -32,7 +30,7 @@ typedef struct pp_statistics_ocl {
 	uint grass;
 } PPStatisticsOcl;
 
-/** @todo This is only required for pp_cpu, but if we pass sim 
+/** @todo This is only required for pp_cpu, but if we pass sim
  * as compiler params we can remove this altogheter. */
 typedef struct pp_agent_params_ocl {
 	uint gain_from_food;

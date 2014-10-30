@@ -31,6 +31,6 @@ typedef struct pp_gs_sim_params {
 
 void computeWorkSizes(PPParameters params);
 void printFixedWorkSizes();
-cl_int getKernelEntryPoints(cl_program program, GError** err);
+void getKernelEntryPoints(CCLProgram* prg, GError** err);
 
 #endif
