@@ -177,7 +177,8 @@ int main(int argc, char* argv[]) {
 	/* Get RNG seeds device buffer. */
 	rngSeedsDevice = clo_rng_get_device_seeds(rng_clo);
 
-	/* Get RNG kernels source. */
+	/* Concatenate complete source: RNG kernels source + common source
+	 * + GPU legacy source. */
 	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
 		PP_GPU_LEGACY_SRC, NULL);
 
@@ -623,6 +624,9 @@ cleanup:
 	/* Free RNG object. */
 	if (rng_clo) clo_rng_destroy(rng_clo);
 
+	/* Free complete program source. */
+	if (src) g_free(src);
+
 	/* Free OpenCL memory object wrappers */
 	if (statsArrayDevice) ccl_buffer_destroy(statsArrayDevice);
 	if (agentArrayDevice) ccl_buffer_destroy(agentArrayDevice);
@@ -757,13 +761,13 @@ void getKernelsFromProgram(CCLProgram* prg, GError** err) {
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
-	g_assert(err == NULL || *err == NULL);
+	g_assert(*err == NULL);
 	goto finish;
 
 error_handler:
 
 	/* If we got here there was an error, verify that it is so. */
-	g_assert(err == NULL || *err != NULL);
+	g_assert(*err != NULL);
 
 finish:
 
