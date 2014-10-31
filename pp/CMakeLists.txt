@@ -1,6 +1,6 @@
 # Predator-Prey implementations
-set(PP_IMPLS pp_gpu_legacy)
-#pp_cpu pp_gpu
+set(PP_IMPLS pp_gpu_legacy pp_cpu)
+# pp_gpu
 
 # Common sources
 set(PP_COMMON pp_common.c)

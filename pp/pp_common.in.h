@@ -21,6 +21,9 @@
 /** Common kernel source. */
 #define PP_COMMON_SRC "@PP_COMMON_SRC@"
 
+/** Default RNG. */
+#define PP_RNG_DEFAULT "lcg"
+
 /** Sheep ID. */
 #define SHEEP_ID 0
 

@@ -41,13 +41,13 @@ static GOptionEntry entries[] = {
 		"Device index (if not given and more than one device is available, chose device from menu)",
 		"INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
-		"Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",
+		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
 		"SEED"},
 	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,
-		"Random number generator: " CLO_RNGS "(default is " CLO_DEFAULT_RNG ")",
+		"Random number generator: " CLO_RNG_IMPLS "(default is " PP_RNG_DEFAULT ")",
 		"RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
-		"Maximum number of agents (default is " STR(PPC_DEFAULT_MAX_AGENTS) ")",
+		"Maximum number of agents (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS) ")",
 		"SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,
 		NULL, NULL},
@@ -74,20 +74,22 @@ int main(int argc, char ** argv) {
 	PPCWorkSizes workSizes;
 	PPCDataSizes dataSizes;
 	PPCBuffersHost buffersHost =
-		{NULL, NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
+		{NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
 	PPCBuffersDevice buffersDevice =
 		{NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	gchar* compilerOpts = NULL;
 
 	/* OpenCL object wrappers. */
 	CCLContext* ctx = NULL;
-	CCLDevice* ctx = NULL;
-	CCLQueue* ctx = NULL;
-	CCLProgram* ctx = NULL;
+	CCLDevice* dev = NULL;
+	CCLQueue* cq = NULL;
+	CCLProgram* prg = NULL;
 
 	/* Complete OCL program source code. */
 	gchar* src = NULL;
+
+	/* Device selection filters. */
+	CCLDevSelFilters filters = NULL;
 
 	/* Profiler. */
 	CCLProf* prof = NULL;
@@ -100,9 +102,8 @@ int main(int argc, char ** argv) {
 
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
-	gef_if_error_goto(err, PP_UNKNOWN_ARGS, status, error_handler);
 	ccl_if_err_goto(err, error_handler);
-	if (!args.rngen) args.rngen = g_strdup(CLO_DEFAULT_RNG);
+	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
 
 	/* Select device and create context. */
 	ccl_devsel_add_indep_filter(
@@ -134,7 +135,7 @@ int main(int argc, char ** argv) {
 	prg = ccl_program_new_from_source(ctx, src, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	ccl_program_build(prg, arg.compiler_opts, &err);
+	ccl_program_build(prg, args.compiler_opts, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Profiling / Timmings. */
@@ -164,21 +165,21 @@ int main(int argc, char ** argv) {
 	ccl_prof_start(prof);
 
 	/* Initialize and map host/device buffers */
-	ppc_buffers_init(ctx, dev, cq, workSizes, &buffersHost,
-		&buffersDevice, dataSizes, &evts, params, rng_clo, &err);
+	ppc_buffers_init(ctx, cq, workSizes, &buffersHost, &buffersDevice,
+		dataSizes, params, rng_clo, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/*  Set fixed kernel arguments. */
-	ppc_kernelargs_set(&krnls, &buffersDevice, &err);
+	ppc_kernelargs_set(prg, &buffersDevice, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Simulation!! */
-	ppc_simulate(workSizes, params, ctx, cq, prg, &err);
+	ppc_simulate(workSizes, params, cq, prg, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Get statistics. */
-	status = ppc_stats_save(args.stats, &buffersHost, &buffersDevice,
-		dataSizes, &evts, params, &err);
+	ppc_stats_save(args.stats, cq, &buffersHost,
+		&buffersDevice, dataSizes, params, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
@@ -284,7 +285,7 @@ void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 		 * will be the largest power of 2 bellow or equal to the
 		 * maximum. */
 		 /** @todo Should not be nlpo but in increments of LWS. */
-		unsigned int maxgws = nlpo2(workSizes->max_gws);
+		unsigned int maxgws = clo_nlpo2(workSizes->max_gws);
 		if (maxgws > workSizes->max_gws)
 			workSizes->gws = maxgws / 2;
 		else
@@ -333,7 +334,7 @@ finish:
  * reporting is to be ignored.
  * */
 void ppc_simulation_info_print(CCLDevice* dev, PPCWorkSizes workSizes,
-	PPCArgs args, gchar* compilerOpts, GError** err) {
+	PPCArgs args, GError** err) {
 
 	/* Error reporting object. */
 	GError* err_internal = NULL;
@@ -364,7 +365,7 @@ void ppc_simulation_info_print(CCLDevice* dev, PPCWorkSizes workSizes,
 	printf("     Random seed                : %u\n", args.rng_seed);
 	/* ...Compiler options (out of table) */
 	printf("     Compiler options           : ");
-	if (compilerOpts != NULL) printf("%s\n", compilerOpts);
+	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
 	else printf("none\n");
 	/* ...Finish table. */
 
@@ -428,10 +429,6 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
 	/* Agents. */
 	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
 
-	/* Rng seeds */
-	dataSizes->rng_seeds = ws.gws * rng_info.bytes;
-	dataSizes->rng_seeds_count = dataSizes->rng_seeds / sizeof(cl_ulong);
-
 	/* Agent parameters */
 	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
 
@@ -443,27 +440,31 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
 /**
  * Initialize and map host/device buffers.
  *
- * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
- * @param ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
- * @param buffersHost Host buffers.
- * @param buffersDevice Device buffers.
- * @param dataSizes Sizes of simulation data structures.
- * @param evts OpenCL events, to be used if profiling is on.
- * @param params Simulation parameters.
- * @param rng_clo CL_Ops RNG object.
+ * @param[in] ctx Context wrapper.
+ * @param[in] cq Command-queue wrapper.
+ * @param[in] ws Work sizes for kernels step1 and step2, and other
+ * work/memory sizes related to the simulation.
+ * @param[out] buffersHost Host buffers.
+ * @param[out] buffersDevice Device buffers.
+ * @param[in] dataSizes Sizes of simulation data structures.
+ * @param[in] params Simulation parameters.
+ * @param[in] rng_clo CL_Ops RNG object.
  * @param[out] err Return location for a GError, or `NULL` if error
  * reporting is to be ignored.
  * */
-void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
-	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
-	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
-	PPParameters params, CloRng* rng_clo, GError** err) {
+void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq, PPCWorkSizes ws,
+	PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice,
+	PPCDataSizes dataSizes, PPParameters params, CloRng* rng_clo,
+	GError** err) {
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
 
 	/* Event wrapper. */
 	CCLEvent* evt = NULL;
+
+	/* Initialize RNG. */
+	GRand* rng = g_rand_new_with_seed(args.rng_seed);
 
 	/* ************************* */
 	/* Initialize device buffers */
@@ -481,15 +482,12 @@ void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
 		NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
+	/* Get RNG seeds from the CL_Ops RNG. */
+	buffersDevice->rng_seeds = clo_rng_get_device_seeds(rng_clo);
+
 	/* Agent array */
 	buffersDevice->agents = ccl_buffer_new(ctx,
 		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents,
-		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	/* Random number generator array of seeds */
-	buffersDevice->rng_seeds = ccl_buffer_new(ctx,
-		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds,
 		NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
@@ -621,83 +619,260 @@ void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Unmap: matrix");
 
-	/* Initialize RNG seeds */
-	buffersHost->rng_seeds = (cl_ulong*) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->rng_seeds,
-		CL_TRUE,
-		CL_MAP_WRITE,
-		0,
-		dataSizes.rng_seeds,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_rng_seeds,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	for (unsigned int i = 0; i < dataSizes.rng_seeds_count; i++) {
-		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
-	}
-
-	/* Unmap RNG seeds buffer from device */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->rng_seeds,
-		buffersHost->rng_seeds,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_rng_seeds
-#else
-		NULL
-#endif
-	);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
 	/* Initialize agent parameters */
-	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->agent_params,
-		CL_TRUE,
-		CL_MAP_WRITE,
-		0,
-		dataSizes.agent_params,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_agent_params,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
+	buffersHost->agent_params =
+		(PPAgentParams *) ccl_buffer_enqueue_map(
+		buffersDevice->agent_params, cq, CL_TRUE, CL_MAP_WRITE, 0,
+		dataSizes.agent_params, NULL, &evt, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Map: params");
 
-	buffersHost->agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
-	buffersHost->agent_params[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
-	buffersHost->agent_params[SHEEP_ID].reproduce_prob = params.sheep_reproduce_prob;
-	buffersHost->agent_params[WOLF_ID].gain_from_food = params.wolves_gain_from_food;
-	buffersHost->agent_params[WOLF_ID].reproduce_threshold = params.wolves_reproduce_threshold;
-	buffersHost->agent_params[WOLF_ID].reproduce_prob = params.wolves_reproduce_prob;
+	buffersHost->agent_params[SHEEP_ID].gain_from_food =
+		params.sheep_gain_from_food;
+	buffersHost->agent_params[SHEEP_ID].reproduce_threshold =
+		params.sheep_reproduce_threshold;
+	buffersHost->agent_params[SHEEP_ID].reproduce_prob =
+		params.sheep_reproduce_prob;
+	buffersHost->agent_params[WOLF_ID].gain_from_food =
+		params.wolves_gain_from_food;
+	buffersHost->agent_params[WOLF_ID].reproduce_threshold =
+		params.wolves_reproduce_threshold;
+	buffersHost->agent_params[WOLF_ID].reproduce_prob =
+		params.wolves_reproduce_prob;
 
 	/* Unmap agent parameters buffer from device. */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->agent_params,
-		buffersHost->agent_params,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_agent_params
-#else
-		NULL
-#endif
-	);
+	evt = ccl_buffer_enqueue_unmap(buffersDevice->agent_params, cq,
+		buffersHost->agent_params, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: params");
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Release RNG. */
+	g_rand_free(rng);
+
+	/* Return. */
+	return;
+
+}
+
+/**
+ * Set fixed kernel arguments.
+ *
+ * @param[in] prg Program wrapper.
+ * @param[in] buffersDevice Device buffers.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
+ * */
+void ppc_kernelargs_set(CCLProgram* prg,
+	PPCBuffersDevice* buffersDevice, GError** err) {
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
+
+	/* Kernel wrappers. */
+	CCLKernel* step1_krnl = NULL;
+	CCLKernel* step2_krnl = NULL;
+
+	/* Get kernels. */
+	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Step1 kernel - Move agents, grow grass */
+	ccl_kernel_set_args(step1_krnl, buffersDevice->agents,
+		buffersDevice->matrix, buffersDevice->rng_seeds, ccl_arg_skip,
+		buffersDevice->sim_params, NULL);
+
+	/* Step2 kernel - Agent actions, get stats */
+	ccl_kernel_set_args(step1_krnl, buffersDevice->agents,
+		buffersDevice->matrix, buffersDevice->rng_seeds,
+		buffersDevice->stats, ccl_arg_skip, ccl_arg_skip,
+		buffersDevice->sim_params, &buffersDevice->agent_params, NULL);
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
+}
+
+/**
+ * Perform simulation!
+ *
+ * @param[in] workSizes Work sizes for kernels step1 and step2, and
+ * other work/memory sizes related to the simulation.
+ * @param[in] params Simulation parameters.
+ * @param[in] cq Command queue wrapper.
+ * @param[in] prg Program wrapper.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
+ * */
+void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
+	CCLQueue* cq, CCLProgram* prg, GError** err) {
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
+
+	/* Kernel wrappers. */
+	CCLKernel* step1_krnl = NULL;
+	CCLKernel* step2_krnl = NULL;
+
+	/* Event wrapper. */
+	CCLEvent* evt = NULL;
+
+	/* Current iteration. */
+	cl_uint iter;
+
+    /* If local work group size is not given or is 0, set it to NULL and
+     * let OpenCL decide. */
+	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
+
+	/* Get kernels. */
+	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Simulation loop! */
+	for (iter = 1; iter <= params.iters; iter++) {
+
+		/* Step 1:  Move agents, grow grass */
+		for (cl_uint t = 0; t < workSizes.rows_per_workitem; ++t) {
+
+			/* Set turn on step1_kernel */
+			ccl_kernel_set_arg(step1_krnl, 3, ccl_arg_priv(t, cl_uint));
+
+			/* Run kernel */
+			ccl_kernel_enqueue_ndrange(step1_krnl, cq, 1, NULL,
+				&workSizes.gws, local_size, NULL, &err_internal);
+			ccl_if_err_propagate_goto(err, err_internal, error_handler);
+			ccl_event_set_name(evt, "K: step1");
+
+		}
+
+		/* Step 2:  Agent actions, get stats */
+		ccl_kernel_set_arg(step2_krnl, 4, ccl_arg_priv(iter, cl_uint));
+
+		for (cl_uint t = 0; t < workSizes.rows_per_workitem; ++t ) {
+
+			/* Set turn on step2_kernel */
+			ccl_kernel_set_arg(step2_krnl, 5, ccl_arg_priv(t, cl_uint));
+
+			/* Run kernel */
+			ccl_kernel_enqueue_ndrange(step2_krnl, cq, 1, NULL,
+				&workSizes.gws, local_size, NULL, &err_internal);
+			ccl_if_err_propagate_goto(err, err_internal, error_handler);
+			ccl_event_set_name(evt, "K: step2");
+
+		}
+
+	}
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
+}
+
+/**
+ * Release OpenCL memory objects.
+ *
+ * @param[in] buffersDevice Device buffers.
+ * */
+void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
+	if (buffersDevice->stats)
+		ccl_buffer_destroy(buffersDevice->stats);
+	if (buffersDevice->agents)
+		ccl_buffer_destroy(buffersDevice->agents);
+	if (buffersDevice->matrix)
+		ccl_buffer_destroy(buffersDevice->matrix);
+	if (buffersDevice->rng_seeds)
+		ccl_buffer_destroy(buffersDevice->rng_seeds);
+	if (buffersDevice->sim_params)
+		ccl_buffer_destroy(buffersDevice->sim_params);
+}
+
+/**
+ * Save statistics.
+ *
+ * @param[in] filename File where to save simulation statistics.
+ * @param[in] cq Command queue wrapper.
+ * @param[in] buffersHost Host buffers.
+ * @param[in] buffersDevice Device buffers.
+ * @param[in] dataSizes Sizes of simulation data structures.
+ * @param[in] params Simulation parameters.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
+ * */
+void ppc_stats_save(char* filename, CCLQueue* cq,
+	PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice,
+	PPCDataSizes dataSizes, PPParameters params, GError** err) {
+
+	/* Stats file. */
+	FILE * fp;
+
+	/* Event wrapper. */
+	CCLEvent* evt = NULL;
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
+
+	/* Get definite file name. */
+	gchar* realFilename =
+		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
+
+	/* Map stats host buffer in order to get statistics */
+	buffersHost->stats = ccl_buffer_enqueue_map(
+		buffersDevice->stats, cq, CL_TRUE, CL_MAP_READ, 0,
+		dataSizes.stats, NULL, &evt, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Map: stats");
+
+	/* Output results to file */
+	fp = fopen(realFilename, "w");
+	ccl_if_err_create_goto(*err, PP_ERROR, fp == NULL,
+		PP_UNABLE_SAVE_STATS, error_handler,
+		"Unable to open file \"%s\"", realFilename);
+
+	for (cl_uint i = 0; i <= params.iters; ++i)
+		fprintf(fp, "%d\t%d\t%d\n", buffersHost->stats[i].sheep,
+			buffersHost->stats[i].wolves, buffersHost->stats[i].grass);
+
+	fclose(fp);
+
+	/* Unmap stats host buffer. */
+	ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
+		buffersHost->stats, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: stats");
+
+	/* Guarantee all activity has terminated... */
+	ccl_queue_finish(cq, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
@@ -712,431 +887,33 @@ finish:
 
 	/* Return. */
 	return;
-
 }
 
 /**
- * @brief Set fixed kernel arguments.
+ * Parse command-line options.
  *
- * @param krnls OpenCL simulation kernels.
- * @param buffersDevice Device buffers.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
- * yield an error.
+ * @param[in] argc Number of command line arguments.
+ * @param[in] argv Command line arguments.
+ * @param[in] context Context object for command line argument parsing.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
  * */
-int ppc_kernelargs_set(PPCKernels* krnls, PPCBuffersDevice* buffersDevice, GError** err) {
+void ppc_args_parse(int argc, char* argv[], GOptionContext** context,
+	GError** err) {
 
-	/* Aux. var. */
-	int status, ocl_status;
-
-	/* Step1 kernel - Move agents, grow grass */
-	ocl_status = clSetKernelArg(krnls->step1, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 0 of step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step1, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 1 of step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step1, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 2 of step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step1, 4, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 4 of step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	/* Step2 kernel - Agent actions, get stats */
-	ocl_status = clSetKernelArg(krnls->step2, 0, sizeof(cl_mem), (void *) &buffersDevice->agents);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 0 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step2, 1, sizeof(cl_mem), (void *) &buffersDevice->matrix);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 1 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step2, 2, sizeof(cl_mem), (void *) &buffersDevice->rng_seeds);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 2 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step2, 3, sizeof(cl_mem), (void *) &buffersDevice->stats);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 3 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step2, 6, sizeof(cl_mem), (void *) &buffersDevice->sim_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 6 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	ocl_status = clSetKernelArg(krnls->step2, 7, sizeof(cl_mem), (void *) &buffersDevice->agent_params);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 7 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	/* If we got here, everything is OK. */
-	status = PP_SUCCESS;
-	g_assert(*err == NULL);
-	goto finish;
-
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return status;
-}
-
-/**
- * @brief Perform simulation!
- *
- * @param workSizes Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
- * @param params Simulation parameters.
- * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
- * @param krnls OpenCL simulation kernels.
- * @param evts OpenCL events, to be used if profiling is on.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
- * yield an error.
- * */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params, CLUZone zone, PPCKernels krnls, PPCEvents* evts, GError** err) {
-
-	/* Avoid compiler warning (unused parameter) when profiling is off. */
-#ifndef CLPROFILER
-	evts = evts;
-#endif
-
-	/* Aux. vars. */
-	int status, ocl_status;
-
-	/* Current iteration. */
-	cl_uint iter;
-
-    /* If local work group size is not given or is 0, set it to NULL and let OpenCL decide. */
-	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
-
-	/* Simulation loop! */
-	for (iter = 1; iter <= params.iters; iter++) {
-
-		/* Step 1:  Move agents, grow grass */
-		for (cl_uint turn = 0; turn < workSizes.rows_per_workitem; turn++ ) {
-
-			/* Set turn on step1_kernel */
-			ocl_status = clSetKernelArg(krnls.step1, 3, sizeof(cl_uint), (void *) &turn);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 3 of step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-			/* Run kernel */
-			ocl_status = clEnqueueNDRangeKernel(
-				zone.queues[0],
-				krnls.step1,
-				1,
-				NULL,
-				&workSizes.gws,
-				local_size,
-				0,
-				NULL,
-#ifdef CLPROFILER
-				&evts->step1[iter - 1]
-#else
-				NULL
-#endif
-			);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "step1_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-		}
-
-		/* Step 2:  Agent actions, get stats */
-		ocl_status = clSetKernelArg(krnls.step2, 4, sizeof(cl_uint), (void *) &iter);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 4 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-		for (cl_uint turn = 0; turn < workSizes.rows_per_workitem; turn++ ) {
-
-			/* Set turn on step2_kernel */
-			ocl_status = clSetKernelArg(krnls.step2, 5, sizeof(cl_uint), (void *) &turn);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Arg 5 of step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-			/* Run kernel */
-			ocl_status = clEnqueueNDRangeKernel(
-				zone.queues[0],
-				krnls.step2,
-				1,
-				NULL,
-				&workSizes.gws,
-				local_size,
-				0,
-				NULL,
-#ifdef CLPROFILER
-				&evts->step2[iter - 1]
-#else
-				NULL
-#endif
-			);
-			gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "step2_kernel, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-		}
-
-	}
-
-	/* If we got here, everything is OK. */
-	g_assert(*err == NULL);
-	status = PP_SUCCESS;
-	goto finish;
-
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return status;
-}
-
-/**
- * @brief Release OpenCL memory objects.
- *
- * @param buffersDevice Device buffers.
- * */
-void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
-	if (buffersDevice->stats) clReleaseMemObject(buffersDevice->stats);
-	if (buffersDevice->agents) clReleaseMemObject(buffersDevice->agents);
-	if (buffersDevice->matrix) clReleaseMemObject(buffersDevice->matrix);
-	if (buffersDevice->rng_seeds) clReleaseMemObject(buffersDevice->rng_seeds);
-	if (buffersDevice->sim_params) clReleaseMemObject(buffersDevice->sim_params);
-}
-
-#ifdef CLPROFILER
-/**
- * @brief Create events data structure.
- *
- * @param params Simulation parameters.
- * @param evts OpenCL events, to be used if profiling is on.
- * */
-void ppc_events_create(PPParameters params, PPCEvents* evts) {
-
-	evts->step1 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-	evts->step2 = (cl_event*) calloc(params.iters, sizeof(cl_event));
-}
-
-/**
- * @brief Free events data structure.
- *
- * @param params Simulation parameters.
- * @param evts OpenCL events, to be used if profiling is on.
- * */
-void ppc_events_free(PPParameters params, PPCEvents* evts) {
-
-	if (evts->map_stats_start) clReleaseEvent(evts->map_stats_start);
-	if (evts->unmap_stats_start) clReleaseEvent(evts->unmap_stats_start);
-	if (evts->map_matrix) clReleaseEvent(evts->map_matrix);
-	if (evts->unmap_matrix) clReleaseEvent(evts->unmap_matrix);
-	if (evts->map_agents) clReleaseEvent(evts->map_agents);
-	if (evts->unmap_agents) clReleaseEvent(evts->unmap_agents);
-	if (evts->map_rng_seeds) clReleaseEvent(evts->map_rng_seeds);
-	if (evts->unmap_rng_seeds) clReleaseEvent(evts->unmap_rng_seeds);
-	if (evts->map_agent_params) clReleaseEvent(evts->map_agent_params);
-	if (evts->unmap_agent_params) clReleaseEvent(evts->unmap_agent_params);
-	if (evts->map_stats_end) clReleaseEvent(evts->map_stats_end);
-	if (evts->unmap_stats_end) clReleaseEvent(evts->unmap_stats_end);
-	if (evts->step1) {
-		for (guint i = 0; i < params.iters; i++) {
-			if (evts->step1[i]) clReleaseEvent(evts->step1[i]);
-		}
-		free(evts->step1);
-	}
-	if (evts->step2) {
-		for (guint i = 0; i < params.iters; i++) {
-			if (evts->step2[i]) clReleaseEvent(evts->step2[i]);
-		}
-		free(evts->step2);
-	}
-}
-#endif
-
-/**
- * @brief Analyze events, show profiling info.
- *
- * @param profile Profiling information object.
- * @param evts OpenCL events, to be used if profiling is on.
- * @param params Simulation parameters.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
- * yield an error.
- * */
-int ppc_profiling_analyze(ProfCLProfile* profile, PPCEvents* evts, PPParameters params, GError** err) {
-
-	/* Status var. */
-	int status;
-
-#ifdef CLPROFILER
-	/* Perfomed detailed analysis onfy if profiling flag is set. */
-
-	/* One time events. */
-	profcl_profile_add_composite(profile, "Map/unmap stats start", evts->map_stats_start, evts->unmap_stats_start, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add_composite(profile, "Map/unmap matrix", evts->map_matrix, evts->unmap_matrix, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add_composite(profile, "Map/unmap agents", evts->map_agents, evts->unmap_agents, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add_composite(profile, "Map/unmap rng_seeds", evts->map_rng_seeds, evts->unmap_rng_seeds, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add_composite(profile, "Map/unmap agent_params", evts->map_agent_params, evts->unmap_agent_params, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_add_composite(profile, "Map/unmap stats end", evts->map_stats_end, evts->unmap_stats_end, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	/* Simulation loop events. */
-	for (guint i = 0; i < params.iters; i++) {
-		profcl_profile_add(profile, "Step1", evts->step1[i], err);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-		profcl_profile_add(profile, "Step2", evts->step2[i], err);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-	}
-
-	/* Analyse event data. */
-	profcl_profile_aggregate(profile, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	profcl_profile_overmat(profile, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-#else
-	/* Avoid compiler warning (unused parameter) when profiling is off. */
-	evts = evts;
-	params = params;
-	err = err;
-#endif
-
-	/* Show profiling info. */
-	profcl_print_info(profile, PROFCL_AGGEVDATA_SORT_TIME, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
-
-	/* If we got here, everything is OK. */
-	status = PP_SUCCESS;
-	g_assert(*err == NULL);
-	goto finish;
-
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return status;
-
-}
-
-/**
- * @brief Get statistics.
- *
- * @param filename File where to save simulation output (statistics).
- * @param zone Required objects (context, queues, etc.) for an OpenCL execution session on a specific device.
- * @param buffersHost Host buffers.
- * @param buffersDevice Device buffers.
- * @param dataSizes Sizes of simulation data structures.
- * @param evts OpenCL events, to be used if profiling is on.
- * @param params Simulation parameters.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
- * yield an error.
- * */
-int ppc_stats_save(gchar* filename, CLUZone zone, PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GError** err) {
-
-	/* Avoid compiler warning (unused parameter) when profiling is off. */
-#ifndef CLPROFILER
-	evts = evts;
-#endif
-
-	/* Aux. vars. */
-	cl_int status, ocl_status;
-
-	/* Stats file. */
-	FILE * fp;
-
-	/* Get definite file name. */
-	gchar* realFilename = (filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
-
-	/* Map stats host buffer in order to get statistics */
-	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->stats,
-		CL_TRUE,
-		CL_MAP_READ,
-		0,
-		dataSizes.stats,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_stats_end,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost.stats, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	/* Output results to file */
-	fp = fopen(realFilename, "w");
-	gef_if_error_create_goto(*err, PP_ERROR, fp == NULL, PP_UNABLE_SAVE_STATS, error_handler, "Unable to open file \"%s\"", realFilename);
-
-	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp, "%d\t%d\t%d\n", buffersHost->stats[i].sheep, buffersHost->stats[i].wolves, buffersHost->stats[i].grass );
-	fclose(fp);
-
-	/* Unmap stats host buffer. */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->stats,
-		buffersHost->stats,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_stats_end
-#else
-		NULL
-#endif
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost.stats, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	/* Guarantee all activity has terminated... */
-	ocl_status = clFinish(zone.queues[0]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-
-	/* If we got here, everything is OK. */
-	status = PP_SUCCESS;
-	g_assert(*err == NULL);
-	goto finish;
-
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return status;
-}
-
-/**
- * @brief Parse command-line options.
- *
- * @param argc Number of command line arguments.
- * @param argv Command line arguments.
- * @param context Context object for command line argument parsing.
- * @param err GLib error object for error reporting.
- * */
-void ppc_args_parse(int argc, char* argv[], GOptionContext** context, GError** err) {
 	*context = g_option_context_new (" - " PPC_DESCRIPTION);
 	g_option_context_add_main_entries(*context, entries, NULL);
 	g_option_context_parse(*context, &argc, &argv, err);
+
 }
 
 /**
- * @brief Free command line parsing related objects.
+ * Free command line parsing related objects.
  *
- * @param context Context object for command line argument parsing.
+ * @param[in] context Context object for command line argument parsing.
  * */
 void ppc_args_free(GOptionContext* context) {
+
 	if (context) {
 		g_option_context_free(context);
 	}

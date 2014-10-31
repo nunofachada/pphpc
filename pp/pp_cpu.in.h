@@ -133,8 +133,6 @@ typedef struct pp_c_data_sizes {
 	size_t matrix;
 	/** Size of agents data structure. */
 	size_t agents;
-	/** Size of RNG seeds data structure. */
-	size_t rng_seeds;
 	/** Number of RNG seeds required for RNG. */
 	size_t rng_seeds_count;
 	/** Size of agent parameters data structure. */
@@ -155,8 +153,6 @@ typedef struct pp_c_buffers_host {
 	PPCCell* matrix;
 	/** Array of agents. */
 	PPCAgent *agents;
-	/** Array of RNG seeds. */
-	cl_ulong* rng_seeds;
 	/** Agent parameters. */
 	PPAgentParams* agent_params;
 	/** Simulation parameters. */
@@ -185,7 +181,7 @@ typedef struct pp_c_buffers_host {
 } PPCBuffersDevice;
 
 /* Determine effective worksizes to use in simulation. */
-int ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
+void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	cl_uint num_rows, GError **err);
 
 /* Print information about the simulation parameters. */
@@ -201,18 +197,18 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
 	PPCWorkSizes ws);
 
 /* Initialize and map host/device buffers. */
-void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
-	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
-	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
-	PPParameters params, CloRng* rng_clo, GError** err);
+void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq, PPCWorkSizes ws,
+	PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice,
+	PPCDataSizes dataSizes, PPParameters params, CloRng* rng_clo,
+	GError** err);
 
 /* Set fixed kernel arguments.  */
-int ppc_kernelargs_set(PPCKernels* krnls,
+void ppc_kernelargs_set(CCLProgram* prg,
 	PPCBuffersDevice* buffersDevice, GError** err);
 
 /* Perform simulation! */
-int ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
-	CCLContext* ctx, CCLQueue* cq, CCLProgram* prg, GError** err);
+void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
+	CCLQueue* cq, CCLProgram* prg, GError** err);
 
 /* Release OpenCL memory objects. */
 void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
@@ -221,9 +217,9 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice);
 void ppc_hostbuffers_free(PPCBuffersHost* buffersHost);
 
 /* Save statistics. */
-int ppc_stats_save(char* filename, PPCBuffersHost* buffersHost,
-	PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes,
-	PPParameters params, GError** err);
+void ppc_stats_save(char* filename, CCLQueue* cq,
+	PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice,
+	PPCDataSizes dataSizes, PPParameters params, GError** err);
 
 /* Parse command-line options. */
 void ppc_args_parse(int argc, char* argv[], GOptionContext** context,
