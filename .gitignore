@@ -3,13 +3,8 @@
 .nfs*
 *.[oa]
 *.tsv
-docs/
-bin/
-obj/
 stats*.txt
 config.txt
-cf4ocl
-cl-ops
 out_*
 example*
 build/
