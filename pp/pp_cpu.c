@@ -450,72 +450,71 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
  * @param dataSizes Sizes of simulation data structures.
  * @param evts OpenCL events, to be used if profiling is on.
  * @param params Simulation parameters.
- * @param rng Random number generator.
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if program terminates successfully,
- * or @link pp_error_codes::PP_LIBRARY_ERROR @endlink if OpenCL API instructions
- * yield an error.
+ * @param rng_clo CL_Ops RNG object.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
  * */
-int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes, PPCEvents* evts, PPParameters params, GRand* rng, GError** err) {
+void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
+	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
+	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
+	PPParameters params, CloRng* rng_clo, GError** err) {
 
-	/* Avoid compiler warning (unused parameter) when profiling is off. */
-#ifndef CLPROFILER
-	evts = evts;
-#endif
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
 
-	/* Aux. variable */
-	cl_int status, ocl_status;
+	/* Event wrapper. */
+	CCLEvent* evt = NULL;
 
 	/* ************************* */
 	/* Initialize device buffers */
 	/* ************************* */
 
 	/* Statistics */
-	buffersDevice->stats = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats, NULL, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->stats, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->stats = ccl_buffer_new(ctx,
+		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats,
+		NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Grass matrix */
-	buffersDevice->matrix = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix, NULL, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->matrix, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->matrix = ccl_buffer_new(ctx,
+		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix,
+		NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Agent array */
-	buffersDevice->agents = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents, NULL, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agents, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->agents = ccl_buffer_new(ctx,
+		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents,
+		NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Random number generator array of seeds */
-	buffersDevice->rng_seeds = clCreateBuffer(zone.context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds, NULL, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->rng_seeds, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->rng_seeds = ccl_buffer_new(ctx,
+		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.rng_seeds,
+		NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Agent parameters */
-	buffersDevice->agent_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR, dataSizes.agent_params, NULL, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->agent_params, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->agent_params = ccl_buffer_new(ctx,
+		CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR,
+		dataSizes.agent_params, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Simulation parameters */
-	buffersDevice->sim_params = clCreateBuffer(zone.context, CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params, &buffersHost->sim_params, &ocl_status );
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Creating buffersDevice->sim_params, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersDevice->sim_params = ccl_buffer_new(ctx,
+		CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params,
+		&buffersHost->sim_params, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* *********************************************************** */
 	/* Initialize host buffers, which are mapped to device buffers */
 	/* *********************************************************** */
 
 	/* Initialize statistics buffer */
-	buffersHost->stats = (PPStatistics*) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->stats,
-		CL_TRUE,
-		CL_MAP_WRITE,
-		0,
-		dataSizes.stats,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_stats_start,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost->stats, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersHost->stats = (PPStatistics*) ccl_buffer_enqueue_map(
+		buffersDevice->stats, cq, CL_TRUE, CL_MAP_WRITE, 0,
+		dataSizes.stats, NULL, &evt, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Map: stats");
 
 	buffersHost->stats[0].sheep = params.init_sheep;
 	buffersHost->stats[0].wolves = params.init_wolves;
@@ -527,23 +526,11 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	}
 
 	/* Initialize grass matrix */
-	buffersHost->matrix = (PPCCell *) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->matrix,
-		CL_TRUE,
-		CL_MAP_WRITE | CL_MAP_READ,
-		0,
-		dataSizes.matrix,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_matrix,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost->matrix, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersHost->matrix = (PPCCell*) ccl_buffer_enqueue_map(
+		buffersDevice->matrix, cq, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ,
+		0, dataSizes.matrix, NULL, &evt, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Map: matrix");
 
 	for(cl_uint i = 0; i < params.grid_x; i++) {
 		for (cl_uint j = 0; j < params.grid_y; j++) {
@@ -560,43 +547,23 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 				buffersHost->stats[0].grass++;
 
 			/* Initialize agent pointer. */
-			buffersHost->matrix[gridIndex].agent_pointer = NULL_AGENT_POINTER;
+			buffersHost->matrix[gridIndex].agent_pointer =
+				NULL_AGENT_POINTER;
 		}
 	}
 
 	/* Unmap stats buffer from device */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->stats,
-		buffersHost->stats,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_stats_start
-#else
-		NULL
-#endif
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->stats, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	evt = ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
+		buffersHost->stats, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: stats");
 
 	/* Initialize agent array */
-	buffersHost->agents = (PPCAgent *) clEnqueueMapBuffer(
-		zone.queues[0],
-		buffersDevice->agents,
-		CL_TRUE,
-		CL_MAP_WRITE,
-		0,
-		dataSizes.agents,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->map_agents,
-#else
-		NULL,
-#endif
-		&ocl_status
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agents, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	buffersHost->agents = (PPCAgent *) ccl_buffer_enqueue_map(
+		buffersDevice->agents, cq, CL_TRUE, CL_MAP_WRITE, 0,
+		dataSizes.agents, NULL, &evt, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Map: agents");
 
 	for(cl_uint i = 0; i < ws.max_agents; i++) 	{
 		/* Check if there are still agents to initialize. */
@@ -643,37 +610,19 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	}
 
 	/* Unmap agents buffer from device */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->agents,
-		buffersHost->agents,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_agents
-#else
-		NULL
-#endif
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agents, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	evt = ccl_buffer_enqueue_unmap(buffersDevice->agents, cq,
+		buffersHost->agents, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: agents");
 
 	/* Unmap matrix buffer from device */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone.queues[0],
-		buffersDevice->matrix,
-		buffersHost->matrix,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_matrix
-#else
-		NULL
-#endif
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->matrix, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	evt = ccl_buffer_enqueue_unmap(buffersDevice->matrix, cq,
+		buffersHost->matrix, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: matrix");
 
 	/* Initialize RNG seeds */
-	buffersHost->rng_seeds = (cl_ulong *) clEnqueueMapBuffer(
+	buffersHost->rng_seeds = (cl_ulong*) clEnqueueMapBuffer(
 		zone.queues[0],
 		buffersDevice->rng_seeds,
 		CL_TRUE,
@@ -689,7 +638,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&ocl_status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost->rng_seeds, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	for (unsigned int i = 0; i < dataSizes.rng_seeds_count; i++) {
 		buffersHost->rng_seeds[i] = (cl_ulong) (g_rand_double(rng) * CL_ULONG_MAX);
@@ -708,7 +657,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->rng_seeds, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Initialize agent parameters */
 	buffersHost->agent_params = (PPAgentParams *) clEnqueueMapBuffer(
@@ -727,7 +676,7 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 #endif
 		&ocl_status
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Map buffersHost->agent_params, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	buffersHost->agent_params[SHEEP_ID].gain_from_food = params.sheep_gain_from_food;
 	buffersHost->agent_params[SHEEP_ID].reproduce_threshold = params.sheep_reproduce_threshold;
@@ -749,10 +698,9 @@ int ppc_buffers_init(CLUZone zone, PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 		NULL
 #endif
 	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap buffersHost->agent_params, OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
-	status = PP_SUCCESS;
 	g_assert(*err == NULL);
 	goto finish;
 
@@ -763,7 +711,7 @@ error_handler:
 finish:
 
 	/* Return. */
-	return status;
+	return;
 
 }
 

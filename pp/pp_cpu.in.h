@@ -201,7 +201,7 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
 	PPCWorkSizes ws);
 
 /* Initialize and map host/device buffers. */
-int ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
+void ppc_buffers_init(CCLContext* ctx, CCLDevice* dev, CCLQueue* cq,
 	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
 	PPParameters params, CloRng* rng_clo, GError** err);
