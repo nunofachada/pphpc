@@ -1,7 +1,7 @@
 /**
  * @file
- * @brief PredPrey OpenCL GPU w/ sorting implementation.
- */
+ * Implementation of the legacy predator-prey OpenCL GPU simulation.
+ * */
 
 #include "pp_gpu_legacy.h"
 
@@ -20,6 +20,36 @@
 #define LWS_GPU_PREF_2D_Y 8
 
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
+
+/** Agent properties. */
+struct pp_gs_agent {
+	/** Horizontal position. */
+	cl_uint x;
+	/** Vertical position. */
+	cl_uint y;
+	/** Is agent alive? */
+	cl_uint alive;
+	/** Agent energy. */
+	cl_ushort energy;
+	/** Agent type. */
+	cl_ushort type;
+} __attribute__ ((aligned (16)));
+
+/** Simulation parameters. */
+struct pp_gs_sim_params {
+	/** Horizontal grid size. */
+	cl_uint size_x;
+	/** Vertical grid size. */
+	cl_uint size_y;
+	/** Number of cells in grid. */
+	cl_uint size_xy;
+	/** Maximum number of agents. */
+	cl_uint max_agents;
+	/** Grass restart time. */
+	cl_uint grass_restart;
+	/** Size of each cell grid. */
+	cl_uint grid_cell_space;
+};
 
 /* Global work sizes */
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws,
@@ -43,8 +73,16 @@ CCLKernel* countagents2_kernel = NULL;
 CCLKernel* countgrass1_kernel = NULL;
 CCLKernel* countgrass2_kernel = NULL;
 
-/* Main stuff */
-int main(int argc, char ** argv) {
+/**
+ * Main function of the legacy predator-prey OpenCL GPU simulation.
+ *
+ * @param[in] argc See `argv`.
+ * @param[in] argv All input parameters will be considered compiler
+ * options.
+ * @return ::PP_SUCCESS if simulation terminates properly, or another
+ * ::pp_error_codes error code otherwise.
+ * */
+int main(int argc, char* argv[]) {
 
 	/* Status var aux */
 	int status;
@@ -149,7 +187,7 @@ int main(int argc, char ** argv) {
 		g_string_append(compilerOptsBuilder, argv[i]);
 	}
 	compilerOpts = compilerOptsBuilder->str;
-	printf("\n**** %s *****\n", compilerOpts);
+	printf("\nCompiler options: \"%s\"\n", compilerOpts);
 
 	/* Create and build program. */
 	prg = ccl_program_new_from_source(ctx, src, &err);
@@ -168,7 +206,7 @@ int main(int argc, char ** argv) {
 	printFixedWorkSizes();
 
 	/* 4. obtain kernels entry points. */
-	getKernelEntryPoints(prg, &err);
+	getKernelsFromProgram(prg, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	printf("-------- Simulation start --------\n");
@@ -612,15 +650,20 @@ cleanup:
 	if (compilerOpts) g_free(compilerOpts);
 	if (compilerOptsBuilder) g_string_free(compilerOptsBuilder, FALSE);
 
+	/* Confirm that memory allocated by wrappers has been properly
+	 * freed. */
+	g_assert(ccl_wrapper_memcheck());
+
 	/* Bye */
 	return status;
 
 }
 
-
 /**
  * Compute worksizes depending on the device type and number of
  * available compute units.
+ *
+ * @param[in] params Simulation parameters.
  * */
 void computeWorkSizes(PPParameters params) {
 
@@ -654,7 +697,7 @@ void computeWorkSizes(PPParameters params) {
 }
 
 /**
- * Print worksizes
+ * Print worksizes.
  * */
 void printFixedWorkSizes() {
 	printf("Fixed kernel sizes:\n");
@@ -673,8 +716,14 @@ void printFixedWorkSizes() {
 	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
 }
 
-/* Get kernel entry points */
-void getKernelEntryPoints(CCLProgram* prg, GError** err) {
+/**
+ * Get kernel wrappers from program wrapper.
+ *
+ * @param[in] prg Program wrapper.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
+ * */
+void getKernelsFromProgram(CCLProgram* prg, GError** err) {
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;

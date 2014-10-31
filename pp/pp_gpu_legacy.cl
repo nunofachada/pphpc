@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief OpenCL GPU w/ sorting kernels and data structures for PredPrey simulation.
+ * OpenCL kernels for the legacy predator-prey OpenCL GPU simulation.
  */
 
 //#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
@@ -435,6 +435,3 @@ __kernel void AgentAction( __global PPGSAgent * agents,
 		agents[gid].energy = agent.energy;
 	}
 }
-
-
-

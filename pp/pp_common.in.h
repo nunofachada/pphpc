@@ -1,6 +1,7 @@
 /**
  * @file
- * @brief Common data structures and function headers for PredPrey simulation.
+ * Common data structures and function headers for predator-prey
+ * simulation.
  */
 
 #ifndef _PP_COMMON_H_
@@ -38,8 +39,7 @@
 /** Resolves to error category identifying string. Required by glib error reporting system. */
 #define PP_ERROR pp_error_quark()
 
-/** Perform direct OpenCL profiling if the C compiler has defined a
- * CLPROFILER constant. */
+/* Perform simulation profiling if PP_PROFILE_OPT symbol is defined. */
 #ifdef PP_PROFILE_OPT
 	#define PP_QUEUE_PROPERTIES CL_QUEUE_PROFILING_ENABLE
 	#define PP_PROFILE TRUE
@@ -49,79 +49,108 @@
 #endif
 
 /**
- * @brief Pointer to compare function to pass to pp_in_array() function.
+ * Pointer to compare function to pass to pp_in_array() function.
  *
- * @param elem1 First element to compare.
- * @param elem2 Second element to compare.
+ * @param[in] elem1 First element to compare.
+ * @param[in] elem2 Second element to compare.
  * @return 0 if elements are equal, another value otherwise.
  */
 typedef int (*cmpfunc)(void *elem1, void *elem2);
 
 /**
- * @brief Program error codes.
+ * Program error codes.
  * */
 enum pp_error_codes {
-	PP_SUCCESS = 0,                     /**< Successfull operation. */
-	PP_UNKNOWN_ARGS = -1,               /**< Unknown arguments. */
-	PP_INVALID_ARGS = -2,               /**< Arguments are known but invalid. */
-	PP_LIBRARY_ERROR = -3,              /**< Error in external library. */
-	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4, /**< Parameters file not found. */
-	PP_INVALID_PARAMS_FILE = -5,        /**< Invalid parameters file. */
-	PP_UNABLE_SAVE_STATS = -6,          /**< Unable to save stats. */
-	PP_ALLOC_MEM_FAIL = -7,             /**< Unable to allocate memory. */
-	PP_OUT_OF_RESOURCES = -8            /**< Program state above limits. */
+	/** Successfull operation. */
+	PP_SUCCESS = 0,
+	/** Unknown arguments. */
+	PP_UNKNOWN_ARGS = -1,
+	/** Arguments are known but invalid. */
+	PP_INVALID_ARGS = -2,
+	/** Error in external library. */
+	PP_LIBRARY_ERROR = -3,
+	/** Parameters file not found. */
+	PP_UNABLE_TO_OPEN_PARAMS_FILE = -4,
+	/** Invalid parameters file. */
+	PP_INVALID_PARAMS_FILE = -5,
+	/** Unable to save stats. */
+	PP_UNABLE_SAVE_STATS = -6,
+	/** Program state above limits. */
+	PP_OUT_OF_RESOURCES = -8
 };
 
 /**
- * @brief Simulation statistics.
+ * Simulation statistics.
  */
 typedef struct pp_statistics {
-	cl_uint sheep;   /**< Number of sheep. */
-	cl_uint wolves;  /**< Number of wolves. */
-	cl_uint grass;   /**< Quantity of grass. */
+	/** Number of sheep. */
+	cl_uint sheep;
+	/** Number of wolves. */
+	cl_uint wolves;
+	/** Quantity of grass. */
+	cl_uint grass;
 } PPStatistics;
 
 /**
- * @brief Simulation parameters.
+ * Simulation parameters.
  */
 typedef struct pp_parameters {
-	unsigned int init_sheep;                 /**< Initial number of sheep. */
-	unsigned int sheep_gain_from_food;       /**< Sheep energy gain when eating grass. */
-	unsigned int sheep_reproduce_threshold;  /**< Energy required for sheep to reproduce. */
-	unsigned int sheep_reproduce_prob;       /**< Probability (between 1 and 100) of sheep reproduction. */
-	unsigned int init_wolves;                /**< Initial number of wolves. */
-	unsigned int wolves_gain_from_food;      /**< Wolves energy gain when eating sheep. */
-	unsigned int wolves_reproduce_threshold; /**< Energy required for wolves to reproduce. */
-	unsigned int wolves_reproduce_prob;      /**< Probability (between 1 and 100) of wolves reproduction. */
-	unsigned int grass_restart;              /**< Number of iterations that the grass takes to regrow after being eaten by a sheep. */
-	unsigned int grid_x;  /**< Number of grid columns (horizontal size, width). */
-	unsigned int grid_y;  /**< Number of grid rows (vertical size, height). */
-	unsigned int grid_xy; /**< Number of grid cells. */
-	unsigned int iters;   /**< Number of iterations. */
+	/** Initial number of sheep. */
+	unsigned int init_sheep;
+	/** Sheep energy gain when eating grass. */
+	unsigned int sheep_gain_from_food;
+	/** Energy required for sheep to reproduce. */
+	unsigned int sheep_reproduce_threshold;
+	/** Probability (between 1 and 100) of sheep reproduction. */
+	unsigned int sheep_reproduce_prob;
+	/** Initial number of wolves. */
+	unsigned int init_wolves;
+	/** Wolves energy gain when eating sheep. */
+	unsigned int wolves_gain_from_food;
+	/** Energy required for wolves to reproduce. */
+	unsigned int wolves_reproduce_threshold;
+	/** Probability (between 1 and 100) of wolves reproduction. */
+	unsigned int wolves_reproduce_prob;
+	/** Number of iterations that the grass takes to regrow after being
+	 * eaten by a sheep. */
+	unsigned int grass_restart;
+	/** Number of grid columns (horizontal size, width). */
+	unsigned int grid_x;
+	/** Number of grid rows (vertical size, height). */
+	unsigned int grid_y;
+	/** Number of grid cells. */
+	unsigned int grid_xy;
+	/** Number of iterations. */
+	unsigned int iters;
 } PPParameters;
 
 /**
- * @brief Generic agent parameters.
+ * Generic agent parameters.
  */
 typedef struct pp_agent_params {
-	cl_uint gain_from_food;      /**< Agent energy gain when eating food. */
-	cl_uint reproduce_threshold; /**< Energy required for agent to reproduce. */
-	cl_uint reproduce_prob;      /**< Probability (between 1 and 100) of agent reproduction. */
+	/** Agent energy gain when eating food. */
+	cl_uint gain_from_food;
+	/** Energy required for agent to reproduce. */
+	cl_uint reproduce_threshold;
+	/** Probability (between 1 and 100) of agent reproduction. */
+	cl_uint reproduce_prob;
 } PPAgentParams;
 
-/** @brief Load predator-prey simulation parameters. */
-int pp_load_params(PPParameters* parameters, char * filename, GError** err);
+/* Load predator-prey simulation parameters. */
+cl_bool pp_load_params(PPParameters* parameters, char* filename,
+	GError** err);
 
-/** @brief Callback function which will be called when non-option
- *  command line arguments are given. */
-gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err);
+/* Callback function which will be called when non-option command line
+ * arguments are given. */
+gboolean pp_args_fail(const gchar *option_name, const gchar* value,
+	gpointer data, GError **err);
 
-/** @brief Returns the next multiple of a given divisor which is equal or
+/* Returns the next multiple of a given divisor which is equal or
  * larger than a given value. */
-unsigned int pp_next_multiple(unsigned int value, unsigned int divisor);
+cl_int pp_next_multiple(cl_uint value, cl_uint divisor);
 
-/** @brief Resolves to error category identifying string, in this case
- *  an error related to the predator-prey simulation. */
+/* Resolves to error category identifying string, in this case
+ * an error related to the predator-prey simulation. */
 GQuark pp_error_quark(void);
 
 #endif

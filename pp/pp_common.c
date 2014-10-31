@@ -1,6 +1,6 @@
 /**
  * @file
- * @brief Implementations of common functions for PredPrey simulation.
+ * Implementation of common functions for predator-prey simulation.
  */
 
 #include "pp_common.h"
@@ -8,23 +8,26 @@
 #define PP_ERROR_MSG_REPEAT "Repeated parameters in parameters file"
 
 /**
- * @brief Load simulation parameters.
+ * Load simulation parameters.
  *
- * @param parameters Parameters structure to be populated.
- * @param filename File containing simulation parameters (or `NULL`
+ * @param[in] parameters Parameters structure to be populated.
+ * @param[in] filename File containing simulation parameters (or `NULL`
  * if default file is to be used).
- * @param err Error structure, to be populated if an error occurs.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
  * @return `CL_TRUE` if function terminates successfully, or `CL_FALSE`
  * otherwise.
  * */
-int pp_load_params(PPParameters* parameters, char* filename, GError** err) {
+cl_bool pp_load_params(PPParameters* parameters, char* filename,
+	GError** err) {
 
 	char param[100];
 	unsigned int value;
 	unsigned int check = 0;
 	FILE * fp;
-	int status = PP_SUCCESS;
-	char* paramsFile = (filename != NULL) ? filename : PP_DEFAULT_PARAMS_FILE;
+	cl_bool status;
+	char* paramsFile = (filename != NULL)
+		? filename : PP_DEFAULT_PARAMS_FILE;
 
 	fp = fopen(paramsFile, "r");
 	ccl_if_err_create_goto(*err, PP_ERROR, fp == NULL,
@@ -149,7 +152,8 @@ int pp_load_params(PPParameters* parameters, char* filename, GError** err) {
 	if (check != 0x0fff) {
 		ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
 			PP_INVALID_PARAMS_FILE, error_handler,
-			"Insufficient parameters in parameters file (check=%x)", check);
+			"Insufficient parameters in parameters file (check=%x)",
+			check);
 	}
 
 	/* Set extra utility parameter. */
@@ -176,37 +180,42 @@ finish:
 }
 
 /**
- * @brief Callback function which will be called when non-option
- * command line arguments are given. The function will throw an error
- * and fail. It's an implementation of GLib's `(*GOptionArgFunc)`
- * hook function.
+ * Callback function which will be called when non-option command line
+ * arguments are given. The function will throw an error and fail. It's
+ * an implementation of GLib's `(*GOptionArgFunc)` hook function.
  *
- * @param option_name Ignored.
- * @param value Ignored.
- * @param data Ignored.
- * @param err GLib error object for error reporting.
- * @return Always FALSE.
+ * @param[in] option_name Ignored.
+ * @param[in] value Ignored.
+ * @param[in] data Ignored.
+ * @param[out] err Return location for a GError, or `NULL` if error
+ * reporting is to be ignored.
+ * @return Always `FALSE`.
  * */
-gboolean pp_args_fail(const gchar *option_name, const gchar *value, gpointer data, GError **err) {
-	/* Avoid compiler warning, we're not really using these parameters. */
+gboolean pp_args_fail(const gchar *option_name, const gchar *value,
+	gpointer data, GError **err) {
+
+	/* Avoid compiler warning, we're not using these parameters. */
 	(void)option_name;
 	(void)value;
 	(void)data;
+
 	/* Set error and return FALSE. */
-	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE, "This program does not accept non-option arguments.");
+	g_set_error(err, G_OPTION_ERROR, G_OPTION_ERROR_BAD_VALUE,
+		"This program does not accept non-option arguments.");
 	return FALSE;
 }
 
 /**
- * @brief Returns the next multiple of a given divisor which is equal or
+ * Returns the next multiple of a given divisor which is equal or
  * larger than a given value.
  *
- * @param value Minimum value.
- * @param divisor The return value must be a multiple of the divisor.
+ * @param[in] value Minimum value.
+ * @param[in] divisor The return value must be a multiple of the
+ * divisor.
  * @return The next multiple of a given divisor which is equal or larger
  * than a given value.
  * */
-unsigned int pp_next_multiple(unsigned int value, unsigned int divisor) {
+cl_int pp_next_multiple(cl_uint value, cl_uint divisor) {
 
 	/* The remainder. */
 	int rem;
@@ -227,9 +236,12 @@ unsigned int pp_next_multiple(unsigned int value, unsigned int divisor) {
 }
 
 /**
- * @brief Resolves to error category identifying string, in this case an error related to the predator-prey simulation.
+ * Resolves to error category identifying string, in this case an error
+ * related to the predator-prey simulation.
  *
- * @return A GQuark structure defined by category identifying string, which identifies the error as a predator-prey simulation generated error.
+ * @return A GQuark structure defined by category identifying string,
+ * which identifies the error as a predator-prey simulation generated
+ * error.
  */
 GQuark pp_error_quark() {
 	return g_quark_from_static_string("pp-error-quark");

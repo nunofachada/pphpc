@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(pphpc-opencl)
+project(PredPreyOCL)
 
 # Set modules directory
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")

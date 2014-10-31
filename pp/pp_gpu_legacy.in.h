@@ -1,7 +1,7 @@
 /**
  * @file
- * @brief PredPrey OpenCL GPU w/ sorting data structures and function
- * headers.
+ * Data structures and function headers for the legacy predator-prey
+ * OpenCL GPU simulation.
  */
 
 #ifndef _PP_GPU_LEGACY_H_
@@ -12,25 +12,20 @@
 /** GPU legacy kernel source. */
 #define PP_GPU_LEGACY_SRC "@PP_GPU_LEGACY_SRC@"
 
-typedef struct pp_gs_agent {
-	cl_uint x;
-	cl_uint y;
-	cl_uint alive;
-	cl_ushort energy;
-	cl_ushort type;
-} PPGSAgent __attribute__ ((aligned (16)));
+/** Agent properties. */
+typedef struct pp_gs_agent PPGSAgent;
 
-typedef struct pp_gs_sim_params {
-	cl_uint size_x;
-	cl_uint size_y;
-	cl_uint size_xy;
-	cl_uint max_agents;
-	cl_uint grass_restart;
-	cl_uint grid_cell_space;
-} PPGSSimParams;
+/** Simulation parameters. */
+typedef struct pp_gs_sim_params PPGSSimParams;
 
+/* Compute worksizes depending on the device type and number of
+ * available compute units. */
 void computeWorkSizes(PPParameters params);
+
+/* Print worksizes. */
 void printFixedWorkSizes();
-void getKernelEntryPoints(CCLProgram* prg, GError** err);
+
+/* Get kernel wrappers from program wrapper. */
+void getKernelsFromProgram(CCLProgram* prg, GError** err);
 
 #endif
