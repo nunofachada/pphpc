@@ -491,7 +491,6 @@ finish:
  * @param[in] workSizes Work sizes for kernels step1 and step2, and
  * other work/memory sizes related to the simulation.
  * @param[in] args Parsed command line arguments.
- * @param[in] compilerOpts Processed compiler options.
  * @param[out] err Return location for a GError, or `NULL` if error
  * reporting is to be ignored.
  * */
