@@ -1,9 +1,7 @@
-/** 
+/**
  * @file
  * @brief OpenCL CPU kernels and data structures for PredPrey simulation.
  */
-
-#include "pp_common.cl"
 
 #define SHEEP_ID 0
 #define WOLF_ID 1
@@ -37,7 +35,7 @@ typedef struct pp_c_cell_ocl {
 /*
  * Remove agent from given cell
  */
-void removeAgentFromCell(__global PPCAgentOcl * agents, 
+void removeAgentFromCell(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		uint cellIndex,
 		uint agentIndex,
@@ -78,7 +76,7 @@ uint allocateAgentIndex(__global PPCAgentOcl * agents,
 	uint agentIndex;
 	do {
 		// Random strategy will work well if max_agents >> actual number of agents
-		agentIndex = randomNextInt(seeds, sim_params.max_agents);
+		agentIndex = clo_rng_next_int(seeds, sim_params.max_agents);
 	} while (atomic_cmpxchg(&agents[agentIndex].energy, (uint) 0, (uint) 1) != 0);
 	/*for ( agentIndex = 0; agentIndex < sim_params.max_agents; agentIndex++) {
 		if (atomic_cmpxchg(&agents[agentIndex].energy, (uint) 0, (uint) 1) == 0)
@@ -90,11 +88,11 @@ uint allocateAgentIndex(__global PPCAgentOcl * agents,
 /*
  * Get a random neighbor cell, or current cell
  */
-uint getRandomWalkCellIndex(__global ulong * seeds, 
-				uint cellIndex, 
+uint getRandomWalkCellIndex(__global ulong * seeds,
+				uint cellIndex,
 				PPCSimParamsOcl sim_params) {
 	// Throw a coin
-	uint direction = randomNextInt(seeds, 5);
+	uint direction = clo_rng_next_int(seeds, 5);
 	int toWalkIndex = cellIndex; // Default is don't walk (case 0)
 	// Perform the actual walk
 	switch (direction) {
@@ -149,7 +147,7 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
 /*
  * MoveAgentGrowGrass (step1) kernel
  */
-__kernel void step1(__global PPCAgentOcl * agents, 
+__kernel void step1(__global PPCAgentOcl * agents,
 			__global PPCCellOcl * matrix,
 			__global ulong * seeds,
 			__private uint turn,
@@ -212,7 +210,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
 /*
  * AgentActionsGetStats (step2) kernel
  */
-__kernel void step2(__global PPCAgentOcl * agents, 
+__kernel void step2(__global PPCAgentOcl * agents,
 			__global PPCCellOcl * matrix,
 			__global ulong * seeds,
 			__global PPStatisticsOcl * stats,
@@ -287,7 +285,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 					// Perhaps agent will reproduce if energy > reproduce_threshold
 					if (agent.energy > agent_params[agent.type].reproduce_threshold) {
 						// Throw some kind of dice to see if agent reproduces
-						if (randomNextInt(seeds, 100) < agent_params[agent.type].reproduce_prob ) {
+						if (clo_rng_next_int(seeds, 100) < agent_params[agent.type].reproduce_prob ) {
 							// Agent will reproduce! Let's find some space...
 							uint newAgentIndex = allocateAgentIndex(agents, seeds, sim_params);
 							// Create agent with half the energy of parent and pointing to first agent in this cell

@@ -393,9 +393,9 @@ int main(int argc, char* argv[]) {
 
 	/* Output debug info. */
 	g_debug("sort: %d\t agc2: %d\t gc2: %d\n",
-		params.iters * clo_sum(clo_tzc(clo_nlpo2(MAX_AGENTS))),
-		params.iters * (MAX_AGENTS/4) / agentcount2_lws,
-		params.iters * numGrassCount2Loops);
+		(int) (params.iters * clo_sum(clo_tzc(clo_nlpo2(MAX_AGENTS)))),
+		(int) (params.iters * (MAX_AGENTS/4) / agentcount2_lws),
+		(int) (params.iters * numGrassCount2Loops));
 
 	/* Start profiling. */
 	ccl_prof_start(prof);

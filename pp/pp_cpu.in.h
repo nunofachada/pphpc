@@ -15,170 +15,50 @@
 /**
  * Constant which indicates no further agents are in a cell.
  * */
-#define NULL_AGENT_POINTER UINT_MAX
+#define PPC_NULL_AGENT_POINTER UINT_MAX
 
 /**
  * Parsed command-line arguments.
  * */
-typedef struct pp_c_args {
-
-	/** Parameters file. */
-	gchar* params;
-	/** Stats output file. */
-	gchar* stats;
-	/** Compiler options. */
-	gchar* compiler_opts;
-	/** Global work size. */
-	size_t gws;
-	/** Local work size. */
-	size_t lws;
-	/** Index of device to use. */
-	cl_int dev_idx;
-	/** Rng seed. */
-	guint32 rng_seed;
-	/** Random number generator. */
-	gchar* rngen;
-	/** Maximum number of agents. */
-	cl_uint max_agents;
-
-} PPCArgs;
+typedef struct pp_c_args PPCArgs;
 
 /**
  * Agent object for OpenCL kernels.
  * */
-typedef struct pp_c_agent {
-
-	/** Agent energy. */
-	cl_uint energy;
-
-	/** True if agent already acted this turn, false otherwise. */
-	cl_uint action;
-
-	/** Type of agent (sheep or wolf). */
-	cl_uint type;
-
-	/** Pointer to next agent in current cell. */
-	cl_uint next;
-
-} PPCAgent __attribute__ ((aligned (16)));
-
+typedef struct pp_c_agent PPCAgent;
 
 /**
  * Simulation parameters for OpenCL kernels.
  *
  * @todo Maybe this can be constant passed as compiler options?
  * */
-typedef struct pp_c_sim_params {
-
-	/** Width (number of cells) of environment.*/
-	cl_uint size_x;
-	/** Height (number of cells) of environment. */
-	cl_uint size_y;
-	/** Dimension of environment (total number of cells). */
-	cl_uint size_xy;
-	/** Maximum number of agentes. */
-	cl_uint max_agents;
-	/** Constant which indicates no further agents are in cell. */
-	cl_uint null_agent_pointer;
-	/** Number of iterations that the grass takes to regrow after being
-	 * eaten by a sheep. */
-	cl_uint grass_restart;
-	/** Number of rows to be processed by each workitem. */
-	cl_uint rows_per_workitem;
-	/** Does nothing but align the struct to 32 bytes. */
-	cl_uint bogus;
-
-} PPCSimParams __attribute__ ((aligned (32)));
+typedef struct pp_c_sim_params PPCSimParams;
 
 /**
  * Cell object for OpenCL kernels.
  * */
-typedef struct pp_c_cell {
-
-	/** Number of iterations left for grass to grow (or zero if grass
-	 * is alive). */
-	cl_uint grass;
-	/** Pointer to first agent in cell. */
-	cl_uint agent_pointer;
-
-} PPCCell;
+typedef struct pp_c_cell PPCCell;
 
 /**
  * Work sizes for kernels step1 and step2, and other work/memory
  * sizes related to the simulation.
  * */
-typedef struct pp_c_work_sizes {
-
-	/** Global worksize. */
-	size_t gws;
-	/** Local worksize. */
-	size_t lws;
-	/** Number of rows to be processed by each workitem. */
-	size_t rows_per_workitem;
-	/** Maximum global worksize for given simulation parameters. */
-	size_t max_gws;
-	/** Maximum number of agentes. */
-	size_t max_agents;
-
-} PPCWorkSizes;
+typedef struct pp_c_work_sizes PPCWorkSizes;
 
 /**
 * Size of data structures.
 * */
-typedef struct pp_c_data_sizes {
-
-	/** Size of stats data structure. */
-	size_t stats;
-	/** Size of matrix data structure. */
-	size_t matrix;
-	/** Size of agents data structure. */
-	size_t agents;
-	/** Number of RNG seeds required for RNG. */
-	size_t rng_seeds_count;
-	/** Size of agent parameters data structure. */
-	size_t agent_params;
-	/** Size of simulation parameters data structure. */
-	size_t sim_params;
-
-} PPCDataSizes;
+typedef struct pp_c_data_sizes PPCDataSizes;
 
 /**
  * Host buffers.
  * */
-typedef struct pp_c_buffers_host {
-
-	/** Statistics. */
-	PPStatistics* stats;
-	/** Matrix of environment cells. */
-	PPCCell* matrix;
-	/** Array of agents. */
-	PPCAgent *agents;
-	/** Agent parameters. */
-	PPAgentParams* agent_params;
-	/** Simulation parameters. */
-	PPCSimParams sim_params;
-
-} PPCBuffersHost;
+typedef struct pp_c_buffers_host PPCBuffersHost;
 
 /**
  * Device buffers.
  * */
- typedef struct pp_c_buffers_device {
-
-	/** Statistics. */
-	CCLBuffer* stats;
-	/** Matrix of environment cells. */
-	CCLBuffer* matrix;
-	/** Array of agents. */
-	CCLBuffer* agents;
-	/** Array of RNG seeds. */
-	CCLBuffer* rng_seeds;
-	/** Agent parameters. */
-	CCLBuffer* agent_params;
-	/** Simulation parameters. */
-	CCLBuffer* sim_params;
-
-} PPCBuffersDevice;
+typedef struct pp_c_buffers_device PPCBuffersDevice;
 
 /* Determine effective worksizes to use in simulation. */
 void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
