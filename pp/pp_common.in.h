@@ -137,7 +137,7 @@ typedef struct pp_agent_params {
 } PPAgentParams;
 
 /* Load predator-prey simulation parameters. */
-cl_bool pp_load_params(PPParameters* parameters, char* filename,
+void pp_load_params(PPParameters* parameters, char* filename,
 	GError** err);
 
 /* Callback function which will be called when non-option command line

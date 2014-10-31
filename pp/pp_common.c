@@ -15,17 +15,14 @@
  * if default file is to be used).
  * @param[out] err Return location for a GError, or `NULL` if error
  * reporting is to be ignored.
- * @return `CL_TRUE` if function terminates successfully, or `CL_FALSE`
- * otherwise.
  * */
-cl_bool pp_load_params(PPParameters* parameters, char* filename,
+void pp_load_params(PPParameters* parameters, char* filename,
 	GError** err) {
 
 	char param[100];
 	unsigned int value;
 	unsigned int check = 0;
 	FILE * fp;
-	cl_bool status;
 	char* paramsFile = (filename != NULL)
 		? filename : PP_DEFAULT_PARAMS_FILE;
 
@@ -160,15 +157,13 @@ cl_bool pp_load_params(PPParameters* parameters, char* filename,
 	parameters->grid_xy = parameters->grid_x * parameters->grid_y;
 
 	/* If we got here, everything is OK. */
-	g_assert(err == NULL || *err == NULL);
-	status = CL_TRUE;
+	g_assert(*err == NULL);
 	goto finish;
 
 error_handler:
 
 	/* If we got here there was an error, verify that it is so. */
-	g_assert(err == NULL || *err != NULL);
-	status = CL_FALSE;
+	g_assert(*err != NULL);
 
 finish:
 
@@ -176,7 +171,7 @@ finish:
 	if (fp != NULL) fclose(fp);
 
 	/* Return. */
-	return status;
+	return;
 }
 
 /**
