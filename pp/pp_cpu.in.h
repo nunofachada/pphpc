@@ -2,7 +2,7 @@
  * @file
  * Data structures and function headers for the predator-prey OpenCL
  * CPU simulation.
- */
+ * */
 
 #ifndef _PP_CPU_H_
 #define _PP_CPU_H_

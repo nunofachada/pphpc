@@ -1,7 +1,7 @@
 /**
  * @file
  * Implementation of the predator-prey OpenCL CPU simulation.
- */
+ * */
 
 #include "pp_cpu.h"
 
