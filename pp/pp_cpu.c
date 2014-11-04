@@ -416,8 +416,7 @@ cleanup:
  * other work/memory sizes related to the simulation.
  * @param[in] num_rows Number of rows in (height of) simulation
  * environment.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	cl_uint num_rows, GError **err) {
@@ -491,8 +490,7 @@ finish:
  * @param[in] workSizes Work sizes for kernels step1 and step2, and
  * other work/memory sizes related to the simulation.
  * @param[in] args Parsed command line arguments.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_simulation_info_print(CCLDevice* dev, PPCWorkSizes workSizes,
 	PPCArgs args, GError** err) {
@@ -610,8 +608,7 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
  * @param[in] dataSizes Sizes of simulation data structures.
  * @param[in] params Simulation parameters.
  * @param[in] rng_clo CL_Ops RNG object.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq, PPCWorkSizes ws,
 	PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice,
@@ -830,8 +827,7 @@ finish:
  *
  * @param[in] prg Program wrapper.
  * @param[in] buffersDevice Device buffers.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_kernelargs_set(CCLProgram* prg,
 	PPCBuffersDevice* buffersDevice, GError** err) {
@@ -882,8 +878,7 @@ finish:
  * @param[in] params Simulation parameters.
  * @param[in] cq Command queue wrapper.
  * @param[in] prg Program wrapper.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	CCLQueue* cq, CCLProgram* prg, GError** err) {
@@ -987,8 +982,7 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
  * @param[in] buffersDevice Device buffers.
  * @param[in] dataSizes Sizes of simulation data structures.
  * @param[in] params Simulation parameters.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_stats_save(char* filename, CCLQueue* cq,
 	PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice,
@@ -1056,8 +1050,7 @@ finish:
  * @param[in] argc Number of command line arguments.
  * @param[in] argv Command line arguments.
  * @param[in] context Context object for command line argument parsing.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void ppc_args_parse(int argc, char* argv[], GOptionContext** context,
 	GError** err) {

@@ -95,6 +95,36 @@ typedef struct pp_g_args_lws {
 } PPGArgsLWS;
 
 /**
+ * Simulation kernels.
+ * */
+typedef struct pp_g_kernels {
+
+	/** Init cells kernel. */
+	CCLKernel* init_cell;
+	/** Init agents kernel. */
+	CCLKernel* init_agent;
+	/** Grass kernel. */
+	CCLKernel* grass;
+	/** Reduce grass 1 kernel. */
+	CCLKernel* reduce_grass1;
+	/** Reduce grass 2 kernel. */
+	CCLKernel* reduce_grass2;
+	/** Reduce agent 1 kernel. */
+	CCLKernel* reduce_agent1;
+	/** Reduce agent 2 kernel. */
+	CCLKernel* reduce_agent2;
+	/** Move agent kernel. */
+	CCLKernel* move_agent;
+	/** Sort agent kernels. */
+	CCLKernel* *sort_agent;
+	/** Find cell agent index kernel. */
+	CCLKernel* find_cell_idx;
+	/** Agent actions kernel. */
+	CCLKernel* action_agent;
+
+} PPGKernels;
+
+/**
  * Vector width command-line arguments.
  * */
 typedef struct pp_g_args_vw {
@@ -190,16 +220,6 @@ typedef struct pp_g_data_sizes {
 } PPGDataSizes;
 
 /**
- * Host buffers.
- * */
-typedef struct pp_g_buffers_host {
-	/** Simulation statistics array. */
-	PPStatistics* stats;
-	/** RNG seeds/states array. */
-	cl_ulong* rng_seeds;
-} PPGBuffersHost;
-
-/**
  * Device buffers.
  * */
 typedef struct pp_g_buffers_device {
@@ -227,6 +247,9 @@ void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
 	PPGDataSizes dataSizes, gchar* compilerOpts);
 
+/* Get OpenCL kernels wrappers. */
+void ppg_kernels_get(CCLProgram* prg, PPGKernels* krnls, GError** err);
+
 /* Build OpenCL compiler options string. */
 gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
 	PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts);
@@ -235,15 +258,8 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
 void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes,
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws);
 
-/* Initialize host data buffers. */
-void ppg_hostbuffers_create(PPGBuffersHost* buffersHost,
-	PPGDataSizes dataSizes, GRand* rng);
-
-/* Free host buffers. */
-void ppg_hostbuffers_free(PPGBuffersHost* buffersHost);
-
 /* Initialize device buffers. */
-void ppg_devicebuffers_create(cl_context context,
+void ppg_devicebuffers_create(CCLContext* ctx, CloRng* rng_clo,
 	PPGBuffersDevice* buffersDevice, PPGDataSizes dataSizes,
 	GError** err);
 

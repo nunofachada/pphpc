@@ -724,8 +724,7 @@ void printFixedWorkSizes() {
  * Get kernel wrappers from program wrapper.
  *
  * @param[in] prg Program wrapper.
- * @param[out] err Return location for a GError, or `NULL` if error
- * reporting is to be ignored.
+ * @param[out] err Return location for a GError.
  * */
 void getKernelsFromProgram(CCLProgram* prg, GError** err) {
 
