@@ -360,8 +360,23 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 	/* Stats. */
 	PPStatistics *stats_pinned = NULL;
 
-	/* Event wrapper. */
+	/* Event wrappers. */
 	CCLEvent* evt = NULL;
+	CCLEvent* evt_action_agent = NULL;
+	CCLEvent* evt_read_stats = NULL;
+	CCLEvent* evt_reduce_grass2 = NULL;
+
+	/* Kernel wrappers. */
+	CCLKernel* krnl_init_cell = NULL;
+	CCLKernel* krnl_init_agent = NULL;
+	CCLKernel* krnl_reduce_grass1 = NULL;
+	CCLKernel* krnl_reduce_grass2 = NULL;
+	CCLKernel* krnl_reduce_agent1 = NULL;
+	CCLKernel* krnl_reduce_agent2 = NULL;
+	CCLKernel* krnl_grass = NULL;
+	CCLKernel* krnl_move_agent = NULL;
+	CCLKernel* krnl_find_cell_idx = NULL;
+	CCLKernel* krnl_action_agent = NULL;
 
 	/* Event wait list. */
 	CCLEventWaitList ewl = NULL;
@@ -379,6 +394,38 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 
 	/* Current iteration. */
 	cl_uint iter = 0;
+
+	/* Get kernels from program. */
+	krnl_init_cell = ccl_program_get_kernel(
+		prg, "init_cell", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_init_agent = ccl_program_get_kernel(
+		prg, "init_agent", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_reduce_grass1 = ccl_program_get_kernel(
+		prg, "reduce_grass1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_reduce_grass2 = ccl_program_get_kernel(
+		prg, "reduce_grass2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_reduce_agent1 = ccl_program_get_kernel(
+		prg, "reduce_agent1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_reduce_agent2 = ccl_program_get_kernel(
+		prg, "reduce_agent2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_grass = ccl_program_get_kernel(
+		prg, "grass", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_move_agent = ccl_program_get_kernel(
+		prg, "move_agent", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_find_cell_idx = ccl_program_get_kernel(
+		prg, "find_cell_idx", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	krnl_action_agent = ccl_program_get_kernel(
+		prg, "action_agent", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Parse sort algorithm specific options, if any. */
 	gchar* sort_options = g_strrstr(args_alg.sort, ".");
@@ -399,7 +446,7 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 
 	/* Init. cells */
 	g_debug("Initializing cells...");
-	evt = ccl_kernel_enqueue_ndrange(krnls.init_cell, cq1, 1,
+	evt = ccl_kernel_enqueue_ndrange(krnl_init_cell, cq1, 1,
 		NULL, &(gws.init_cell), &(lws.init_cell), NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "K: init cells");
@@ -411,7 +458,7 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 
 	/* Init. agents */
 	g_debug("Initializing agents...");
-	evt = ccl_kernel_enqueue_ndrange(krnls.init_agent, cq2, 1,
+	evt = ccl_kernel_enqueue_ndrange(krnl_init_agent, cq2, 1,
 		NULL, &(gws.init_agent), &(lws.init_agent), NULL,
 		 &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
@@ -436,7 +483,6 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 
 #endif
 
-
 	/* *************** */
 	/* SIMULATION LOOP */
 	/* *************** */
@@ -446,10 +492,13 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		/* ********* Step 4: Gather stats ********** */
 		/* ***************************************** */
 
-		/* Step 4.1: Perform grass reduction, part I. */
+		/* Step 4.1: Perform grass reduction, part I. Wait on agent
+		 * actions from previous iteration. */
 		g_debug("Iter %d: Performing grass reduction, part I...", iter);
-		evt = ccl_kernel_enqueue_ndrange(reduce_grass1, cq1, 1,
-			NULL, &(gws.reduce_grass1), &(lws.reduce_grass1), &ewl, ///  &((evts->action_agent)[iter - 1]
+		if (evt_action_agent != NULL)
+			ccl_event_wait_list_add(&ewl, evt_action_agent, NULL);
+		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_grass1, cq1, 1,
+			NULL, &(gws.reduce_grass1), &(lws.reduce_grass1), &ewl,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce grass 1");
@@ -478,91 +527,69 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		ws_reduce_agent2 = nlpo2(wg_reduce_agent1);
 
 		/* Set variable kernel arguments in agent reduction kernels. */
-		ccl_kernel_set_arg(krnls.reduce_agent1, 3,
+		ccl_kernel_set_arg(krnl_reduce_agent1, 3,
 			ccl_arg_priv(max_agents_iter, cl_uint));
 
-		ccl_kernel_set_arg(krnls.reduce_agent2, 3,
+		ccl_kernel_set_arg(krnl_reduce_agent2, 3,
 			ccl_arg_priv(wg_reduce_agent1, cl_uint));
 
 		/* Run agent reduction kernel 1. */
 		g_debug("Iter %d: Performing agent reduction, part I...", iter);
-		evt = ccl_kernel_enqueue_ndrange(reduce_agent1, cq2, 1,
-			NULL, &(gws.reduce_agent1), &(lws.reduce_agent1), &ewl, ///  &((evts->action_agent)[iter - 1]
+		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_agent1, cq2, 1,
+			NULL, &(gws.reduce_agent1), &(lws.reduce_agent1), NULL,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce agent 1");
 
 #ifdef PPG_DEBUG
-	ccl_queue_finish(cq2, &err);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
-		/* Step 4.3: Perform grass reduction, part II. */
+		/* Step 4.3: Perform grass reduction, part II. Wait on read
+		 * stats from previous iteration. */
 		g_debug("Iter %d: Performing grass reduction part II...", iter);
-
-
-
-		ocl_status = clEnqueueNDRangeKernel(
-			(zone->queues)[0],
-			krnls.reduce_grass2,
-			1,
-			NULL,
-			&gws.reduce_grass2,
-			&lws.reduce_grass2,
-			iter > 0 ? 1 : 0,
-			iter > 0 ? &(evts->read_stats[iter - 1]) : NULL,
-			&(evts->reduce_grass2[iter])
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_grass2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		if (evt_read_stats != NULL)
+			ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_grass2, cq1, 1,
+			NULL, &(gws.reduce_grass2), &(lws.reduce_grass2), &ewl,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt, "K: reduce grass 2");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[0]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after reduce_grass2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq1, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
-		/* Step 4.4: Perform agents reduction, part II. */
-		g_debug("Iteration %d: Performing agent reduction, part II...", iter);
-		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.reduce_agent2,
-			1,
-			NULL,
-			&ws_reduce_agent2,
-			&ws_reduce_agent2,
-			iter > 0 ? 1 : 0,
-			iter > 0 ? &(evts->read_stats[iter - 1]) : NULL,
-#ifdef CLPROFILER
-			&(evts->reduce_agent2[iter])
-#else
-			NULL
-#endif
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec.: reduce_agent2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		/* Step 4.4: Perform agents reduction, part II. Wait on read
+		 * stats from previous iteration. */
+		g_debug("Iter %d: Performing agent reduction part II...", iter);
+		if (evt_read_stats != NULL)
+			ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_agent2, cq2, 1,
+			NULL, &(gws.reduce_agent2), &(lws.reduce_agent2), &ewl,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt, "K: reduce agent 2");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after reduce_agent2, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
-		/* Step 4.5: Get statistics. */
-		g_debug("Iteration %d: Getting statistics...", iter);
-		ocl_status = clEnqueueReadBuffer(
-			zone->queues[1],
-			buffersDevice.stats,
-			CL_FALSE,
-			0,
-			sizeof(PPStatistics),
-			stats_pinned,
-			1,
-			&(evts->reduce_grass2[iter]),  /* Only need to wait for reduce_grass2 because reduce_agent2 is in same queue. */
-			&(evts->read_stats[iter])
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Read back stats, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
-
+		/* Step 4.5: Get statistics. Wait on reduce_grass2. */
+		g_debug("Iter %d: Getting statistics...", iter);
+		ccl_event_wait_list_add(&ewt, evt_reduce_grass2, NULL);
+		evt_read_stats = ccl_buffer_enqueue_read(buffersDevice.stats,
+			cq2, CL_FALSE, 0, sizeof(PPStatistics), stats_pinned, &ewl,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt_read_stats, "Read: stats");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after read stats, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* Stop simulation if this is the last iteration. */
@@ -573,26 +600,15 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		/* ***************************************** */
 
 		/* Grass kernel: grow grass, set number of prey to zero */
-		g_debug("Iteration %d: Running grass kernel...", iter);
-		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[0],
-			krnls.grass, 1,
-			NULL,
-			&gws.grass,
-			&lws.grass,
-			0,
-			NULL,
-#ifdef CLPROFILER
-			&(evts->grass[iter])
-#else
-			NULL
-#endif
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec.: grass, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		g_debug("Iter %d: Running grass kernel...", iter);
+		evt = ccl_kernel_enqueue_ndrange(krnl_grass, cq1, 1,
+			NULL, &(gws.grass), &(lws.grass), NULL, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt, "K: grass");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[0]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after grass, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq1, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* ***************************************** */
@@ -605,66 +621,62 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 			lws.move_agent
 		);
 
-		g_debug("Iteration %d: Move agents...", iter);
-		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.move_agent,
-			1,
-			NULL,
-			&gws_move_agent,
-			&lws.move_agent,
-			0,
-			NULL,
-#ifdef CLPROFILER
-			&(evts->move_agent[iter])
-#else
-			NULL
-#endif
-		);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Kernel exec.: move_agent, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		g_debug("Iter %d: Move agents...", iter);
+		evt = ccl_kernel_enqueue_ndrange(krnl_move_agent, cq2, 1,
+			NULL, &(gws.move_agent), &(lws.move_agent), NULL,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt, "K: move agent");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after move_agent, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* ***************************************** */
 		/* ********* Step 3.1: Agent sort ********** */
 		/* ***************************************** */
 
-		g_debug("Iteration %d: Sorting agents...", iter);
-		sort_info.sort(
-			&zone->queues[1],
-			krnls.sort_agent,
-			lws.sort_agent,
-			agent_size_bytes,
-			max_agents_iter,
-			sort_options,
-			evts->sort_agent,
-			PP_PROFILE,
-			err
-		);
-		gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+		g_debug("Iter %d: Sorting agents...", iter);
+		/// @todo We should use a data_out buffer if sorting algorithm
+		/// is not in-place. Also, should we keep this lws.sort_agent,
+		/// or let the sorting algorithm figure it out
+		ewl = clo_sort_with_device_data(sorter, cq2, cq2,
+			buffersDevice.agents_data, NULL, max_agents_iter,
+			lws.sort_agent, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after sort_agent, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* Determine the maximum number of agents there can be in the
 		 * next iteration. Make sure stats are already transfered back
 		 * to host. */
-		ocl_status = clWaitForEvents(1, &evts->read_stats[iter]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
-		memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
-		max_agents_iter = MAX(PPG_MIN_AGENTS, buffersHost.stats[iter].wolves + buffersHost.stats[iter].sheep);
-		gef_if_error_create_goto(*err, PP_ERROR, max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Agents required for next iteration above defined limit. Current iteration: %d. Required agents: %d. Agents limit: %d", iter, max_agents_iter, args.max_agents);
+
+		ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+		ccl_event_wait(&ewl, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+		memcpy(&buffersHost.stats[iter], stats_pinned,
+			sizeof(PPStatistics));
+		max_agents_iter = MAX(PPG_MIN_AGENTS,
+			buffersHost.stats[iter].wolves
+			+ buffersHost.stats[iter].sheep);
+
+		ccl_if_err_create_goto(*err, PP_ERROR,
+			max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES,
+			error_handler,
+			"Agents required for next iteration above defined limit. " \
+			"Current iter.: %d. Required agents: %d. Agents limit: %d",
+			iter, max_agents_iter, args.max_agents);
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[0]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 0: after copying pinned stats to host, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after copying pinned stats to host, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq1, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* ***************************************** */
@@ -677,28 +689,17 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 			lws.find_cell_idx
 		);
 
-		g_debug("Iteration %d: Find cell agent indexes...", iter);
-		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.find_cell_idx,
-			1,
-			NULL,
-			&gws_find_cell_idx,
-			&lws.find_cell_idx,
-			0,
-			NULL,
-#ifdef CLPROFILER
-			&evts->find_cell_idx[iter]
-#else
-			NULL
-#endif
-		);
+		g_debug("Iter %d: Find cell agent indexes...", iter);
+		evt = ccl_kernel_enqueue_ndrange(krnl_find_cell_idx, cq2, 1,
+			NULL, &(gws.find_cell_idx), &(lws.find_cell_idx), NULL,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt, "K: find cell idx");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after find_cell_idx, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
-
 
 		/* ***************************************** */
 		/* ******* Step 3.3: Agent actions ********* */
@@ -710,36 +711,44 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 			lws.action_agent
 		);
 
-		/* Check if there is enough memory for all possible new agents. */
-		gef_if_error_create_goto(*err, PP_ERROR, gws_action_agent * 2 > args.max_agents, PP_OUT_OF_RESOURCES, error_handler, "Not enough memory for existing and possible new agents. Current iteration: %d. Total possible agents: %d. Agents limit: %d", iter, (int) gws_action_agent * 2, (int) args.max_agents);
+		/* Check if there is enough memory for all possible new
+		 * agents. */
+		ccl_if_err_create_goto(*err, PP_ERROR,
+			gws_action_agent * 2 > args.max_agents, PP_OUT_OF_RESOURCES,
+			error_handler,
+			"Not enough memory for existing and possible new agents. " \
+			"Current iter.: %d. Total possible agents: %d. Agents limit: %d",
+			iter, (int) gws_action_agent * 2, (int) args.max_agents);
 
-		g_debug("Iteration %d: Performing agent actions...", iter);
-		ocl_status = clEnqueueNDRangeKernel(
-			zone->queues[1],
-			krnls.action_agent,
-			1,
-			NULL,
-			&gws_action_agent,
-			&lws.action_agent,
-			0,
-			NULL,
-			&evts->action_agent[iter]
-		);
+		/* Perform agent actions. */
+		g_debug("Iter %d: Performing agent actions...", iter);
+		evt_action_agent = ccl_kernel_enqueue_ndrange(
+			krnl_action_agent, cq2, 1, NULL, &(gws.action_agent),
+			&(lws.action_agent), NULL, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+		ccl_event_set_name(evt_action_agent, "K: agent actions");
 
 #ifdef PPG_DEBUG
-		ocl_status = clFinish(zone->queues[1]);
-		gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: after action_agent, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		if (iter % PPG_DEBUG == 0)
-			fprintf(stderr, "Finishing iteration %d with max_agents_iter=%d (%d sheep, %d wolves)...\n", iter, max_agents_iter, buffersHost.stats[iter].sheep, buffersHost.stats[iter].wolves);
-
+			fprintf(stderr, "Finishing iteration %d with " \
+				"max_agents_iter=%d (%d sheep, %d wolves)...\n",
+				iter, max_agents_iter, buffersHost.stats[iter].sheep,
+				buffersHost.stats[iter].wolves);
 #endif
 
-		/* Agent actions may, in the worst case, double the number of agents. */
+		/* Agent actions may, in the worst case, double the number of
+		 * agents. */
 		max_agents_iter = MAX(max_agents_iter, lws.action_agent) * 2;
 
-
 #ifdef PPG_DUMP
-		ppg_dump(iter, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump, max_agents_iter, gws_reduce_agent1, gws_action_agent, gws_move_agent, params, dataSizes, buffersDevice, agents_data, cells_agents_index, cells_grass, err);
+		ppg_dump(iter, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump,
+			max_agents_iter, gws_reduce_agent1, gws_action_agent,
+			gws_move_agent, params, dataSizes, buffersDevice,
+			agents_data, cells_agents_index, cells_grass,
+			&err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 	}
@@ -758,39 +767,31 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 	/* Post-simulation ops. */
 
 	/* Get last iteration stats. */
-	ocl_status = clWaitForEvents(1, &evts->read_stats[iter]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Wait for events on host thread, iteration %d: OpenCL error %d (%s).", iter, ocl_status, clerror_get(ocl_status));
-	memcpy(&buffersHost.stats[iter], stats_pinned, sizeof(PPStatistics));
+	ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+	ccl_event_wait(&ewl, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	memcpy(&buffersHost.stats[iter], stats_pinned,
+		sizeof(PPStatistics));
 
 	/* Unmap stats. */
-	ocl_status = clEnqueueUnmapMemObject(
-		zone->queues[1],
-		buffersDevice.stats,
-		(void*) stats_pinned,
-		0,
-		NULL,
-#ifdef CLPROFILER
-		&evts->unmap_stats
-#else
-		NULL
-#endif
-	);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Unmap pinned stats: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	evt = ccl_buffer_enqueue_unmap(buffersDevice.stats, cq2,
+		stats_pinned, NULL, &err);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "Unmap: stats");
 
 #ifdef PPG_DEBUG
-	ocl_status = clFinish(zone->queues[1]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "DEBUG queue 1: Unmap pinned stats: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+		ccl_queue_finish(cq2, &err);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 	/* Guarantee all activity has terminated... */
-	ocl_status = clFinish(zone->queues[0]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Finish for queue 0 after simulation: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
-	ocl_status = clFinish(zone->queues[1]);
-	gef_if_error_create_goto(*err, PP_ERROR, CL_SUCCESS != ocl_status, status = PP_LIBRARY_ERROR, error_handler, "Finish for queue 1 after simulation: OpenCL error %d (%s).", ocl_status, clerror_get(ocl_status));
+	ccl_queue_finish(cq1, &err);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_queue_finish(cq2, &err);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
-	status = PP_SUCCESS;
 	goto finish;
 
 error_handler:
