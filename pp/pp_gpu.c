@@ -28,11 +28,11 @@
 
 
 /** Main command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, -1, PP_DEFAULT_SEED,
+static PPGArgs args = {NULL, NULL, NULL, NULL, -1, PP_DEFAULT_SEED,
 	PPG_DEFAULT_AGENT_SIZE, PPG_DEFAULT_MAX_AGENTS};
 
 /** Algorithm selection arguments. */
-static PPGArgsAlg args_alg = {NULL, NULL};
+static PPGArgsAlg args_alg = {NULL, NULL, NULL};
 
 /** Local work sizes command-line arguments*/
 static PPGArgsLWS args_lws = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -58,13 +58,13 @@ static GOptionEntry entries[] = {
 		"Device index (if not given and more than one device is available, chose device from menu)",
 		"INDEX"},
 	{"rng-seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
-		"Seed for random number generator (default is " STR(PP_DEFAULT_SEED) ")",
+		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
 		"SEED"},
 	{"agent-size",      'a', 0, G_OPTION_ARG_INT,      &args.agent_size,
-		"Agent size, 32 or 64 bits (default is " STR(PPG_DEFAULT_AGENT_SIZE) ")",
+		"Agent size, 32 or 64 bits (default is " G_STRINGIFY(PPG_DEFAULT_AGENT_SIZE) ")",
 		"BITS"},
 	{"max-agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
-		"Maximum number of agents (default is " STR(PPG_DEFAULT_MAX_AGENTS) ")",
+		"Maximum number of agents (default is " G_STRINGIFY(PPG_DEFAULT_MAX_AGENTS) ")",
 		"SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL, NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }
@@ -73,12 +73,14 @@ static GOptionEntry entries[] = {
 /** Algorithm selection options. */
 static GOptionEntry entries_alg[] = {
 	{"a-rng",  0, 0, G_OPTION_ARG_STRING, &args_alg.rng,
-		"Random number generator: " CLO_RNGS,
+		"Random number generator: " CLO_RNG_IMPLS,
 		"ALGORITHM"},
 	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort,
-		"Sorting: " CLO_SORT_ALGS,
+		"Sorting: " CLO_SORT_IMPLS,
 		"ALGORITHM"},
-	{ NULL, 0, 0, 0, NULL, NULL, NULL }
+	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort_opts,
+		"Sort algorithm options",
+		"ALGORITHM"},	{ NULL, 0, 0, 0, NULL, NULL, NULL }
 };
 
 /** Kernel local worksizes. */
@@ -155,13 +157,15 @@ int main(int argc, char **argv) {
 	PPGDataSizes dataSizes;
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
+	PPGKernels krnls;
 	PPStatistics* stats_host = NULL;
 	gchar* compilerOpts = NULL;
 
 	/* OpenCL wrappers. */
 	CCLContext* ctx = NULL;
 	CCLDevice* dev = NULL;
-	CCLQueue* cq = NULL;
+	CCLQueue* cq1 = NULL;
+	CCLQueue* cq2 = NULL;
 	CCLProgram* prg = NULL;
 
 	/* Profiler. */
@@ -170,14 +174,23 @@ int main(int argc, char **argv) {
 	/* Device random number generator. */
 	CloRng* rng_clo = NULL;
 
+	/* CL_Ops sorter object. */
+	CloSort* sorter = NULL;
+
 	/* Complete OCL program source code. */
 	gchar* src = NULL;
+
+	/* Device selection filters. */
+	CCLDevSelFilters filters = NULL;
 
 	/* Host random number generator. */
 	GRand* rng = NULL;
 
 	/* Error management object. */
 	GError *err = NULL;
+
+	/* Type (representing agents) to sort. */
+	CloType ag_sort_type;
 
 	/* Parse and validate arguments. */
 	ppg_args_parse(argc, argv, &context, &err);
@@ -205,13 +218,22 @@ int main(int argc, char **argv) {
 	dev = ccl_context_get_device(ctx, 0, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	/* Create command queue. */
-	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	/* Create command queues. */
+	cq1 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	cq2 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Create RNG object. */
 	rng_clo = clo_rng_new(args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
-		args.max_agents, 0, NULL, ctx, cq, &err);
+		args.max_agents, 0, NULL, ctx, cq1, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create sorter object. */
+	ag_sort_type = args.agent_size == 64 ? CLO_ULONG : CLO_UINT;
+	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
+		&ag_sort_type, NULL, NULL, NULL, args.compiler_opts, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Compiler options. */
@@ -241,8 +263,8 @@ int main(int argc, char **argv) {
 	stats_host = (PPStatistics*) g_slice_alloc0(dataSizes.stats);
 
 	/* Create device buffers */
-	status = ppg_devicebuffers_create(
-		dev, &buffersDevice, dataSizes, &err);
+	ppg_devicebuffers_create(ctx, rng_clo, &buffersDevice,
+		dataSizes, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/*  Set fixed kernel arguments. */
@@ -250,24 +272,26 @@ int main(int argc, char **argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/* Print information about simulation. */
-	ppg_info_print(gws, lws, dataSizes, compilerOpts);
+	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts);
 
 	/* Start basic timming / profiling. */
 	ccl_prof_start(prof);
 
 	/* Simulation!! */
-	status = ppg_simulate(params, prg, gws, lws, krnls, &evts, dataSizes, buffersHost, buffersDevice, &err);
+	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, dataSizes,
+		stats_host, buffersDevice, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
-	ccl_prof_start(stop);
+	ccl_prof_stop(prof);
 
 	/* Output results to file */
-	ppg_results_save(args.stats, buffersHost.stats, params);
+	ppg_results_save(args.stats, stats_host, params);
 
 #ifdef PP_PROFILE_OPT
 	/* Analyze events */
-	ccl_prof_add_queue(prof, "Queue 1", cq);
+	ccl_prof_add_queue(prof, "Queue 1", cq1);
+	ccl_prof_add_queue(prof, "Queue 1", cq2);
 	ccl_prof_calc(prof, &err);
 	ccl_if_err_goto(err, error_handler);
 
@@ -301,7 +325,7 @@ cleanup:
 	ppg_devicebuffers_free(&buffersDevice);
 
 	/* Free host statistics buffer. */
-	g_slice_free1(stats_host);
+	g_slice_free1(dataSizes.stats, stats_host);
 
 	/* Free compiler options. */
 	if (compilerOpts) g_free(compilerOpts);
@@ -312,6 +336,9 @@ cleanup:
 	/* Free CL_Ops RNG object. */
 	if (rng_clo) clo_rng_destroy(rng_clo);
 
+	/* Free CL_Ops sorter object. */
+	if (sorter) clo_sort_destroy(sorter);
+
 	/* Free host RNG */
 	if (rng) g_rand_free(rng);
 
@@ -320,7 +347,8 @@ cleanup:
 
 	/* Free remaining OpenCL wrappers. */
 	if (prg) ccl_program_destroy(prg);
-	if (cq) ccl_queue_destroy(cq);
+	if (cq1) ccl_queue_destroy(cq1);
+	if (cq2) ccl_queue_destroy(cq2);
 	if (ctx) ccl_context_destroy(ctx);
 
 	/* Free context and associated cli args parsing buffers. */
@@ -351,9 +379,9 @@ cleanup:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
-	PPParameters params, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
-	PPGDataSizes dataSizes, PPGBuffersHost buffersHost,
+void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
+	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
+	PPGLocalWorkSizes lws, PPGDataSizes dataSizes, PPStatistics* stats_host,
 	PPGBuffersDevice buffersDevice, GError** err) {
 
 	/* Stats. */
@@ -395,32 +423,32 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 	ccl_event_set_name(evt, "Map: stats to host");
 
 #ifdef PPG_DEBUG
-	ccl_queue_finish(cq2, &err);
+	ccl_queue_finish(cq2, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 	/* Init. cells */
 	g_debug("Initializing cells...");
-	evt = ccl_kernel_enqueue_ndrange(krnl_init_cell, cq1, 1,
+	evt = ccl_kernel_enqueue_ndrange(krnls.init_cell, cq1, 1,
 		NULL, &(gws.init_cell), &(lws.init_cell), NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "K: init cells");
 
 #ifdef PPG_DEBUG
-	ccl_queue_finish(cq1, &err);
+	ccl_queue_finish(cq1, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 	/* Init. agents */
 	g_debug("Initializing agents...");
-	evt = ccl_kernel_enqueue_ndrange(krnl_init_agent, cq2, 1,
+	evt = ccl_kernel_enqueue_ndrange(krnls.init_agent, cq2, 1,
 		NULL, &(gws.init_agent), &(lws.init_agent), NULL,
 		 &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "K: init agents");
 
 #ifdef PPG_DEBUG
-	ccl_queue_finish(cq2, &err);
+	ccl_queue_finish(cq2, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -452,14 +480,14 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		g_debug("Iter %d: Performing grass reduction, part I...", iter);
 		if (evt_action_agent != NULL)
 			ccl_event_wait_list_add(&ewl, evt_action_agent, NULL);
-		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_grass1, cq1, 1,
+		evt = ccl_kernel_enqueue_ndrange(krnls.reduce_grass1, cq1, 1,
 			NULL, &(gws.reduce_grass1), &(lws.reduce_grass1), &ewl,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce grass 1");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq1, &err);
+		ccl_queue_finish(cq1, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -479,25 +507,25 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		/* The local/global worksize of reduce_agent2 must be a power of
 		 * 2 for the same reason of reduce_grass2. */
 		wg_reduce_agent1 = gws_reduce_agent1 / lws.reduce_agent1;
-		ws_reduce_agent2 = nlpo2(wg_reduce_agent1);
+		ws_reduce_agent2 = clo_nlpo2(wg_reduce_agent1);
 
 		/* Set variable kernel arguments in agent reduction kernels. */
-		ccl_kernel_set_arg(krnl_reduce_agent1, 3,
+		ccl_kernel_set_arg(krnls.reduce_agent1, 3,
 			ccl_arg_priv(max_agents_iter, cl_uint));
 
-		ccl_kernel_set_arg(krnl_reduce_agent2, 3,
+		ccl_kernel_set_arg(krnls.reduce_agent2, 3,
 			ccl_arg_priv(wg_reduce_agent1, cl_uint));
 
 		/* Run agent reduction kernel 1. */
 		g_debug("Iter %d: Performing agent reduction, part I...", iter);
-		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_agent1, cq2, 1,
-			NULL, &(gws.reduce_agent1), &(lws.reduce_agent1), NULL,
+		evt = ccl_kernel_enqueue_ndrange(krnls.reduce_agent1, cq2, 1,
+			NULL, &(gws_reduce_agent1), &(lws.reduce_agent1), NULL,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce agent 1");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -505,15 +533,15 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		 * stats from previous iteration. */
 		g_debug("Iter %d: Performing grass reduction part II...", iter);
 		if (evt_read_stats != NULL)
-			ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
-		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_grass2, cq1, 1,
+			ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
+		evt = ccl_kernel_enqueue_ndrange(krnls.reduce_grass2, cq1, 1,
 			NULL, &(gws.reduce_grass2), &(lws.reduce_grass2), &ewl,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce grass 2");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq1, &err);
+		ccl_queue_finish(cq1, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -521,21 +549,21 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		 * stats from previous iteration. */
 		g_debug("Iter %d: Performing agent reduction part II...", iter);
 		if (evt_read_stats != NULL)
-			ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
-		evt = ccl_kernel_enqueue_ndrange(krnl_reduce_agent2, cq2, 1,
-			NULL, &(gws.reduce_agent2), &(lws.reduce_agent2), &ewl,
+			ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
+		evt = ccl_kernel_enqueue_ndrange(krnls.reduce_agent2, cq2, 1,
+			NULL, &(ws_reduce_agent2), &(ws_reduce_agent2), &ewl,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: reduce agent 2");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 		/* Step 4.5: Get statistics. Wait on reduce_grass2. */
 		g_debug("Iter %d: Getting statistics...", iter);
-		ccl_event_wait_list_add(&ewt, evt_reduce_grass2, NULL);
+		ccl_event_wait_list_add(&ewl, evt_reduce_grass2, NULL);
 		evt_read_stats = ccl_buffer_enqueue_read(buffersDevice.stats,
 			cq2, CL_FALSE, 0, sizeof(PPStatistics), stats_pinned, &ewl,
 			&err_internal);
@@ -543,7 +571,7 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		ccl_event_set_name(evt_read_stats, "Read: stats");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -556,13 +584,13 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 
 		/* Grass kernel: grow grass, set number of prey to zero */
 		g_debug("Iter %d: Running grass kernel...", iter);
-		evt = ccl_kernel_enqueue_ndrange(krnl_grass, cq1, 1,
+		evt = ccl_kernel_enqueue_ndrange(krnls.grass, cq1, 1,
 			NULL, &(gws.grass), &(lws.grass), NULL, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: grass");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq1, &err);
+		ccl_queue_finish(cq1, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -577,14 +605,14 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		);
 
 		g_debug("Iter %d: Move agents...", iter);
-		evt = ccl_kernel_enqueue_ndrange(krnl_move_agent, cq2, 1,
-			NULL, &(gws.move_agent), &(lws.move_agent), NULL,
+		evt = ccl_kernel_enqueue_ndrange(krnls.move_agent, cq2, 1,
+			NULL, &(gws_move_agent), &(lws.move_agent), NULL,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: move agent");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -602,7 +630,7 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -610,15 +638,13 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		 * next iteration. Make sure stats are already transfered back
 		 * to host. */
 
-		ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+		ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
 		ccl_event_wait(&ewl, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-		memcpy(&buffersHost.stats[iter], stats_pinned,
-			sizeof(PPStatistics));
+		memcpy(&stats_host[iter], stats_pinned, sizeof(PPStatistics));
 		max_agents_iter = MAX(PPG_MIN_AGENTS,
-			buffersHost.stats[iter].wolves
-			+ buffersHost.stats[iter].sheep);
+			stats_host[iter].wolves + stats_host[iter].sheep);
 
 		ccl_if_err_create_goto(*err, PP_ERROR,
 			max_agents_iter > args.max_agents, PP_OUT_OF_RESOURCES,
@@ -628,9 +654,9 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 			iter, max_agents_iter, args.max_agents);
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq1, &err);
+		ccl_queue_finish(cq1, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -645,14 +671,14 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		);
 
 		g_debug("Iter %d: Find cell agent indexes...", iter);
-		evt = ccl_kernel_enqueue_ndrange(krnl_find_cell_idx, cq2, 1,
-			NULL, &(gws.find_cell_idx), &(lws.find_cell_idx), NULL,
+		evt = ccl_kernel_enqueue_ndrange(krnls.find_cell_idx, cq2, 1,
+			NULL, &(gws_find_cell_idx), &(lws.find_cell_idx), NULL,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt, "K: find cell idx");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
@@ -678,13 +704,13 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 		/* Perform agent actions. */
 		g_debug("Iter %d: Performing agent actions...", iter);
 		evt_action_agent = ccl_kernel_enqueue_ndrange(
-			krnl_action_agent, cq2, 1, NULL, &(gws.action_agent),
+			krnls.action_agent, cq2, 1, NULL, &(gws_action_agent),
 			&(lws.action_agent), NULL, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		ccl_event_set_name(evt_action_agent, "K: agent actions");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		if (iter % PPG_DEBUG == 0)
 			fprintf(stderr, "Finishing iteration %d with " \
@@ -722,27 +748,27 @@ void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
 	/* Post-simulation ops. */
 
 	/* Get last iteration stats. */
-	ccl_event_wait_list_add(&ewt, evt_read_stats, NULL);
+	ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
 	ccl_event_wait(&ewl, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	memcpy(&buffersHost.stats[iter], stats_pinned,
+	memcpy(&stats_host[iter], stats_pinned,
 		sizeof(PPStatistics));
 
 	/* Unmap stats. */
 	evt = ccl_buffer_enqueue_unmap(buffersDevice.stats, cq2,
-		stats_pinned, NULL, &err);
+		stats_pinned, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Unmap: stats");
 
 #ifdef PPG_DEBUG
-		ccl_queue_finish(cq2, &err);
+		ccl_queue_finish(cq2, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 #endif
 
 	/* Guarantee all activity has terminated... */
-	ccl_queue_finish(cq1, &err);
+	ccl_queue_finish(cq1, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_queue_finish(cq2, &err);
+	ccl_queue_finish(cq2, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
@@ -780,7 +806,7 @@ finish:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-int ppg_dump(int iter, int dump_type, CLUZone* zone,
+void ppg_dump(int iter, int dump_type, CCLQueue* cq,
 	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
 	size_t gws_reduce_agent1, size_t gws_action_agent, size_t gws_move_agent,
 	PPParameters params, PPGDataSizes dataSizes, PPGBuffersDevice buffersDevice,
@@ -976,7 +1002,7 @@ void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
 	/* Grass reduce worksizes, must be power of 2 for reduction to work. */
 	lws->reduce_grass1 =
 		args_lws.reduce_grass ?  args_lws.reduce_grass : lws->deflt;
-	if (!is_po2(lws->reduce_grass1)) {
+	if (!CLO_IS_PO2(lws->reduce_grass1)) {
 		lws->reduce_grass1 =
 			MIN(lws->max_lws, clo_nlpo2(lws->reduce_grass1));
 		fprintf(stderr, "The workgroup size of the grass reduction " \
@@ -1010,7 +1036,7 @@ void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
 	/* Agent reduce worksizes, must be power of 2 for reduction to work. */
 	lws->reduce_agent1 =
 		args_lws.reduce_agent ?  args_lws.reduce_agent : lws->deflt;
-	if (!is_po2(lws->reduce_agent1)) {
+	if (!CLO_IS_PO2(lws->reduce_agent1)) {
 		lws->reduce_agent1 =
 			MIN(lws->max_lws, clo_nlpo2(lws->reduce_agent1));
 		fprintf(stderr, "The workgroup size of the agent reduction " \
@@ -1060,7 +1086,7 @@ finish:
  * @param compilerOpts Final OpenCL compiler options.
  * */
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
-	PPGDataSizes dataSizes, gchar* compilerOpts) {
+	PPGDataSizes dataSizes, CloSort* sorter, gchar* compilerOpts) {
 
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -1226,7 +1252,7 @@ void ppg_kernelargs_set(PPGKernels krnls,
 	/* The 3rd argument is set on the fly. */
 
 	/* reduce_agent2 kernel */
-	ccl_kernel_set_arg(krnls.reduce_agent2,
+	ccl_kernel_set_args(krnls.reduce_agent2,
 		buffersDevice.reduce_agent_global,
 		ccl_arg_full(NULL, dataSizes.reduce_agent_local2),
 		buffersDevice.stats, NULL);
@@ -1457,7 +1483,6 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
 	compilerOptsStr = compilerOpts->str;
 
 	g_string_free(compilerOpts, FALSE);
-	g_free(path);
 
 	return compilerOptsStr;
 }
@@ -1473,8 +1498,8 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
 void ppg_args_parse(int argc, char* argv[], GOptionContext** context,
 	GError** err) {
 
-	/* Status variable. */
-	int status;
+	/* Internal error object. */
+	GError* err_internal = NULL;
 
 	/* Create context and add main entries. */
 	*context = g_option_context_new (" - " PPG_DESCRIPTION);
@@ -1505,14 +1530,14 @@ void ppg_args_parse(int argc, char* argv[], GOptionContext** context,
 	g_option_context_add_group(*context, group_vw);
 
 	/* Parse all options. */
-	g_option_context_parse(*context, &argc, &argv, err);
-	gef_if_error_goto(*err, PP_LIBRARY_ERROR, status, error_handler);
+	g_option_context_parse(*context, &argc, &argv, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Determine random number generator. */
-	if (!args_alg.rng) args_alg.rng = g_strdup(CLO_DEFAULT_RNG);
+	if (!args_alg.rng) args_alg.rng = g_strdup(PP_RNG_DEFAULT);
 
 	/* Determine sorting algorithm. */
-	if (!args_alg.sort) args_alg.sort = g_strdup(CLO_DEFAULT_SORT);
+	if (!args_alg.sort) args_alg.sort = g_strdup(PPG_SORT_DEFAULT);
 
 	/* ** Validate arguments. ** */
 
@@ -1565,10 +1590,9 @@ void ppg_args_free(GOptionContext* context) {
 	}
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
-#ifdef CLPROFILER
 	if (args.prof_info) g_free(args.prof_info);
-#endif
 	if (args.compiler_opts) g_free(args.compiler_opts);
 	if (args_alg.rng) g_free(args_alg.rng);
 	if (args_alg.sort) g_free(args_alg.sort);
+	if (args_alg.sort_opts) g_free(args_alg.sort_opts);
 }

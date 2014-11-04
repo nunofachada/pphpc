@@ -25,6 +25,9 @@
 /** Default agent size in bits. */
 #define PPG_DEFAULT_AGENT_SIZE 64
 
+/** Default agent sort algorithm. */
+#define PPG_SORT_DEFAULT "sbitonic"
+
 /**
  * A minimal number of possibly existing agents is required in
  * order to determine minimum global worksizes of kernels.
@@ -43,6 +46,8 @@ typedef struct pp_g_args {
 	gchar* params;
 	/** Stats output file. */
 	gchar* stats;
+	/** Profiling info. */
+	gchar* prof_info;
 	/** Compiler options. */ /// @todo Remove compiler_opts?
 	gchar* compiler_opts;
 	/** Index of device to use. */
@@ -65,6 +70,8 @@ typedef struct pp_g_args_alg {
 	gchar* rng;
 	/** Agent sorting algorithm. */
 	gchar* sort;
+	/** Sort algorithm options. */
+	gchar* sort_opts;
 
 } PPGArgsAlg;
 
@@ -245,7 +252,7 @@ void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
 
 /* Print information about simulation. */
 void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
-	PPGDataSizes dataSizes, gchar* compilerOpts);
+	PPGDataSizes dataSizes, CloSort* sorter, gchar* compilerOpts);
 
 /* Get OpenCL kernels wrappers. */
 void ppg_kernels_get(CCLProgram* prg, PPGKernels* krnls, GError** err);
@@ -271,19 +278,17 @@ void ppg_kernelargs_set(CCLProgram* prg, PPGBuffersDevice buffersDevice,
 	PPGDataSizes dataSizes, PPGLocalWorkSizes lws, GError** err);
 
 /* Perform Predator-Prey simulation. */
-void ppg_simulate(CCLProgram* prg, CCLQueue* cq1, CCLQueue* cq2,
-	PPParameters params, PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
-	PPGDataSizes dataSizes, PPGBuffersHost buffersHost,
+void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
+	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
+	PPGLocalWorkSizes lws, PPGDataSizes dataSizes, PPStatistics* stats_host,
 	PPGBuffersDevice buffersDevice, GError** err);
 
 /* Dump simulation data for current iteration. */
-void ppg_dump(CCLProgram* prg, int iter, int dump_type,
-	FILE* fp_agent_dump, FILE* fp_cell_dump,
-	cl_uint max_agents_iter, size_t gws_reduce_agent1,
-	size_t gws_action_agent, size_t gws_move_agent,
-	PPParameters params, PPGDataSizes dataSizes,
-	PPGBuffersDevice buffersDevice, void *agents_data,
-	cl_uint2 *cells_agents_index, cl_uint *cells_grass,
+void ppg_dump(int iter, int dump_type, CCLQueue* cq,
+	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
+	size_t gws_reduce_agent1, size_t gws_action_agent, size_t gws_move_agent,
+	PPParameters params, PPGDataSizes dataSizes, PPGBuffersDevice buffersDevice,
+	void *agents_data, cl_uint2 *cells_agents_index, cl_uint *cells_grass,
 	GError** err);
 
 /* Save simulation statistics. */
