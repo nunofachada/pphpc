@@ -78,9 +78,10 @@ static GOptionEntry entries_alg[] = {
 	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort,
 		"Sorting: " CLO_SORT_IMPLS,
 		"ALGORITHM"},
-	{"a-sort", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort_opts,
+	{"a-sort-opts", 0, 0, G_OPTION_ARG_STRING, &args_alg.sort_opts,
 		"Sort algorithm options",
-		"ALGORITHM"},	{ NULL, 0, 0, 0, NULL, NULL, NULL }
+		"OPTIONS"},
+	{ NULL, 0, 0, 0, NULL, NULL, NULL }
 };
 
 /** Kernel local worksizes. */
@@ -306,11 +307,11 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 		g_debug("Iter %d: Performing grass reduction part II...", iter);
 		if (evt_read_stats != NULL)
 			ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
-		evt = ccl_kernel_enqueue_ndrange(krnls.reduce_grass2, cq1, 1,
+		evt_reduce_grass2 = ccl_kernel_enqueue_ndrange(krnls.reduce_grass2, cq1, 1,
 			NULL, &(gws.reduce_grass2), &(lws.reduce_grass2), &ewl,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
-		ccl_event_set_name(evt, "K: reduce grass 2");
+		ccl_event_set_name(evt_reduce_grass2, "K: reduce grass 2");
 
 #ifdef PPG_DEBUG
 		ccl_queue_finish(cq1, &err_internal);
@@ -1475,8 +1476,6 @@ int main(int argc, char **argv) {
 		args.compiler_opts);
 
 	/* Build program. */
-	printf("** COMPILEROPTS **\n%s\n", compilerOpts);
-
 	ccl_program_build(prg, compilerOpts, &err);
 	ccl_if_err_goto(err, error_handler);
 
@@ -1518,7 +1517,7 @@ int main(int argc, char **argv) {
 #ifdef PP_PROFILE_OPT
 	/* Analyze events */
 	ccl_prof_add_queue(prof, "Queue 1", cq1);
-	ccl_prof_add_queue(prof, "Queue 1", cq2);
+	ccl_prof_add_queue(prof, "Queue 2", cq2);
 	ccl_prof_calc(prof, &err);
 	ccl_if_err_goto(err, error_handler);
 
