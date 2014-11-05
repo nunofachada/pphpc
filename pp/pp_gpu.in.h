@@ -274,13 +274,13 @@ void ppg_devicebuffers_create(CCLContext* ctx, CloRng* rng_clo,
 void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice);
 
 /* Set fixed kernel arguments. */
-void ppg_kernelargs_set(CCLProgram* prg, PPGBuffersDevice buffersDevice,
-	PPGDataSizes dataSizes, PPGLocalWorkSizes lws, GError** err);
+void ppg_kernelargs_set(PPGKernels krnls,
+	PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes);
 
 /* Perform Predator-Prey simulation. */
 void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
-	PPGLocalWorkSizes lws, PPGDataSizes dataSizes, PPStatistics* stats_host,
+	PPGLocalWorkSizes lws, PPStatistics* stats_host,
 	PPGBuffersDevice buffersDevice, GError** err);
 
 /* Dump simulation data for current iteration. */

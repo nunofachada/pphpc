@@ -268,8 +268,7 @@ int main(int argc, char **argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/*  Set fixed kernel arguments. */
-	ppg_kernelargs_set(prg, buffersDevice, dataSizes, lws, &err);
-	ccl_if_err_goto(err, error_handler);
+	ppg_kernelargs_set(krnls, buffersDevice, dataSizes);
 
 	/* Print information about simulation. */
 	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts);
@@ -278,8 +277,8 @@ int main(int argc, char **argv) {
 	ccl_prof_start(prof);
 
 	/* Simulation!! */
-	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, dataSizes,
-		stats_host, buffersDevice, &err);
+	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, stats_host,
+		buffersDevice, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
@@ -381,7 +380,7 @@ cleanup:
  * */
 void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
-	PPGLocalWorkSizes lws, PPGDataSizes dataSizes, PPStatistics* stats_host,
+	PPGLocalWorkSizes lws, PPStatistics* stats_host,
 	PPGBuffersDevice buffersDevice, GError** err) {
 
 	/* Stats. */
@@ -1124,12 +1123,12 @@ void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
 	printf("       | move_agent         |     Var. | %5zu |          0 |          0 |\n",
 		lws.move_agent);
 
-	for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
-		const char* kernel_name = clo_sort_get_kernel_name(sorter);
-		printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n",
-			kernel_name, lws.sort_agent,
-			clo_sort_get_localmem_usage(sorter, kernel_name, lws.sort_agent, args.max_agents));
-	}
+	//~ for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
+		//~ const char* kernel_name = clo_sort_get_kernel_name(sorter);
+		//~ printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n",
+			//~ kernel_name, lws.sort_agent,
+			//~ clo_sort_get_localmem_usage(sorter, kernel_name, lws.sort_agent, args.max_agents));
+	//~ }
 
 	printf("       | find_cell_idx      |     Var. | %5zu |          0 |          0 |\n",
 		lws.find_cell_idx);
@@ -1148,50 +1147,38 @@ void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
  * */
 void ppg_kernels_get(CCLProgram* prg, PPGKernels* krnls, GError** err) {
 
-	/* Kernel wrappers. */
-	CCLKernel* krnl_init_cell = NULL;
-	CCLKernel* krnl_init_agent = NULL;
-	CCLKernel* krnl_reduce_grass1 = NULL;
-	CCLKernel* krnl_reduce_grass2 = NULL;
-	CCLKernel* krnl_reduce_agent1 = NULL;
-	CCLKernel* krnl_reduce_agent2 = NULL;
-	CCLKernel* krnl_grass = NULL;
-	CCLKernel* krnl_move_agent = NULL;
-	CCLKernel* krnl_find_cell_idx = NULL;
-	CCLKernel* krnl_action_agent = NULL;
-
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
 
 	/* Get kernels from program. */
-	krnl_init_cell = ccl_program_get_kernel(
+	krnls->init_cell = ccl_program_get_kernel(
 		prg, "init_cell", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_init_agent = ccl_program_get_kernel(
+	krnls->init_agent = ccl_program_get_kernel(
 		prg, "init_agent", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_reduce_grass1 = ccl_program_get_kernel(
+	krnls->reduce_grass1 = ccl_program_get_kernel(
 		prg, "reduce_grass1", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_reduce_grass2 = ccl_program_get_kernel(
+	krnls->reduce_grass2 = ccl_program_get_kernel(
 		prg, "reduce_grass2", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_reduce_agent1 = ccl_program_get_kernel(
+	krnls->reduce_agent1 = ccl_program_get_kernel(
 		prg, "reduce_agent1", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_reduce_agent2 = ccl_program_get_kernel(
+	krnls->reduce_agent2 = ccl_program_get_kernel(
 		prg, "reduce_agent2", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_grass = ccl_program_get_kernel(
+	krnls->grass = ccl_program_get_kernel(
 		prg, "grass", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_move_agent = ccl_program_get_kernel(
+	krnls->move_agent = ccl_program_get_kernel(
 		prg, "move_agent", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_find_cell_idx = ccl_program_get_kernel(
+	krnls->find_cell_idx = ccl_program_get_kernel(
 		prg, "find_cell_idx", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	krnl_action_agent = ccl_program_get_kernel(
+	krnls->action_agent = ccl_program_get_kernel(
 		prg, "action_agent", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
@@ -1219,8 +1206,7 @@ finish:
  * @param[out] err Return location for a GError.
  * */
 void ppg_kernelargs_set(PPGKernels krnls,
-	PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes,
-	PPGLocalWorkSizes lws, GError** err) {
+	PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes) {
 
 	/* Cell init kernel. */
 	ccl_kernel_set_args(krnls.init_cell, buffersDevice.cells_grass,
