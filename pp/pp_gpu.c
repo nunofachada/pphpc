@@ -1466,10 +1466,6 @@ int main(int argc, char **argv) {
 	prg = ccl_program_new_from_source(ctx, src, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	/* Populate kernels struct. */
-	ppg_kernels_get(prg, &krnls, &err);
-	ccl_if_err_goto(err, error_handler);
-
 	/* Compute work sizes for different kernels. */
 	ppg_worksizes_compute(prg, params, &gws, &lws, &err);
 	ccl_if_err_goto(err, error_handler);
@@ -1482,6 +1478,10 @@ int main(int argc, char **argv) {
 	printf("** COMPILEROPTS **\n%s\n", compilerOpts);
 
 	ccl_program_build(prg, compilerOpts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Populate kernels struct. */
+	ppg_kernels_get(prg, &krnls, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Determine size in bytes for host and device data structures. */

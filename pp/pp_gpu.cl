@@ -212,7 +212,7 @@
  * @param grass Grass counters (0 means grass is alive).
  * @param seeds RNG seeds.
  * */
-__kernel void initCell(
+__kernel void init_cell(
 			__global uint *grass,
 			__global rng_state *seeds)
 {
@@ -245,7 +245,7 @@ __kernel void initCell(
  * @param data The agent data array.
  * @param seeds RNG seeds.
  * */
-__kernel void initAgent(
+__kernel void init_agent(
 			__global uagr *data,
 			__global rng_state *seeds
 )
@@ -316,7 +316,7 @@ __kernel void grass(
  * @param partial_sums Workgroup level (shared memory) grass counts.
  * @param reduce_grass_global Global level grass counts.
  * */
-__kernel void reduceGrass1(
+__kernel void reduce_grass1(
 			__global grassreduce_uintx *grass,
 			__local grassreduce_uintx *partial_sums,
 			__global grassreduce_uintx *reduce_grass_global) {
@@ -368,7 +368,7 @@ __kernel void reduceGrass1(
  * @param partial_sums Workgroup level (shared memory) grass counts.
  * @param stats Final grass count.
  * */
- __kernel void reduceGrass2(
+ __kernel void reduce_grass2(
 			__global grassreduce_uintx *reduce_grass_global,
 			__local grassreduce_uintx *partial_sums,
 			__global PPStatisticsOcl *stats) {
@@ -409,7 +409,7 @@ __kernel void reduceGrass1(
  * @param reduce_agent_global Global level agent counts.
  * @param max_agents Maximum agents for current interation.
  * */
-__kernel void reduceAgent1(
+__kernel void reduce_agent1(
 			__global agentreduce_uagr *data,
 			__local agentreduce_uagr *partial_sums,
 			__global agentreduce_uagr *reduce_agent_global,
@@ -472,7 +472,7 @@ __kernel void reduceAgent1(
  * @param stats Final agents count.
  * @param num_slots Number of workgroups in step 1.
  * */
- __kernel void reduceAgent2(
+ __kernel void reduce_agent2(
 			__global agentreduce_uagr *reduce_agent_global,
 			__local agentreduce_uagr *partial_sums,
 			__global PPStatisticsOcl *stats,
@@ -517,7 +517,7 @@ __kernel void reduceAgent1(
  * @param data The agent data array.
  * @param seeds RNG seeds.
  */
-__kernel void moveAgent(
+__kernel void move_agent(
 			__global uagr *data,
 			__global rng_state *seeds)
 {
@@ -607,7 +607,7 @@ __kernel void moveAgent(
  * @param data The agent data array.
  * @param cell_agents_idx The agents index in cell array.
  * */
-__kernel void findCellIdx(
+__kernel void find_cell_idx(
 			__global uagr *data,
 			__global uint *cell_agents_idx)
 {
@@ -655,7 +655,7 @@ __kernel void findCellIdx(
  * @param data_half The agent data array, allows direct access to upper or lower half of the agent data.
  * @param seeds RNG seeds.
  */
-__kernel void actionAgent(
+__kernel void action_agent(
 			__global uint *grass,
 			__global uint2 *cell_agents_idx,
 			__global uagr *data,
