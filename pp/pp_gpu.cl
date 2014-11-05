@@ -226,10 +226,10 @@ __kernel void initCell(
 	/* Check if this workitem will initialize a cell.*/
 	if (gid < CELL_NUM) {
 		/* Cells within bounds may be dead or alive with 50% chance. */
-		uint is_alive = select((uint) 0, (uint) randomNextInt(seeds, 2), gid < CELL_NUM);
+		uint is_alive = select((uint) 0, (uint) clo_rng_next_int(seeds, 2), gid < CELL_NUM);
 		/* If cell is alive, value will be zero. Otherwise, randomly
 		 * determine a counter value. */
-		counter = select((uint) (randomNextInt(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
+		counter = select((uint) (clo_rng_next_int(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
 	}
 
 	/* Initialize cell counter. Padding cells (gid >= CELL_NUM) will
@@ -258,16 +258,16 @@ __kernel void initAgent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		PPG_AG_XY_SET(new_agent, randomNextInt(seeds, GRID_X), randomNextInt(seeds, GRID_Y));
+		PPG_AG_XY_SET(new_agent, clo_rng_next_int(seeds, GRID_X), clo_rng_next_int(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
 			PPG_AG_TYPE_SET(new_agent, SHEEP_ID);
-			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
+			PPG_AG_ENERGY_SET(new_agent, clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
 		} else {
 			/* A wolf agent. */
 			PPG_AG_TYPE_SET(new_agent, WOLF_ID);
-			PPG_AG_ENERGY_SET(new_agent, randomNextInt(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
+			PPG_AG_ENERGY_SET(new_agent, clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
 	}
 	/* Store new agent in global memory. */
@@ -533,7 +533,7 @@ __kernel void moveAgent(
 
 		ushort2 xy_l = PPG_AG_XY_GET(data_l);
 
-		uint direction = randomNextInt(seeds, 5);
+		uint direction = clo_rng_next_int(seeds, 5);
 
 		/* Perform the actual walk */
 
@@ -718,7 +718,7 @@ __kernel void actionAgent(
 	if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
 
 		/* Throw dice to see if agent reproduces */
-		if (randomNextInt(seeds, 100) < reproduce_prob) {
+		if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
 
 			/* Agent will reproduce! */
 			size_t pos_new = get_global_size(0) + gid;

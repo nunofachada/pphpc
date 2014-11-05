@@ -136,233 +136,6 @@ static GOptionEntry entries_vw[] = {
 static size_t agent_size_bytes;
 
 /**
- * @brief Main program.
- *
- * @param argc Number of command line arguments.
- * @param argv Vector of command line arguments.
- * @return ::PP_SUCCESS if program terminates successfully, or another
- * value of ::pp_error_codes if an error occurs.
- * */
-int main(int argc, char **argv) {
-
-	/* Auxiliary status variable. */
-	int status;
-
-	/* Context object for command line argument parsing. */
-	GOptionContext *context = NULL;
-
-	/* Predator-Prey simulation data structures. */
-	PPGGlobalWorkSizes gws;
-	PPGLocalWorkSizes lws;
-	PPGDataSizes dataSizes;
-	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPParameters params;
-	PPGKernels krnls;
-	PPStatistics* stats_host = NULL;
-	gchar* compilerOpts = NULL;
-
-	/* OpenCL wrappers. */
-	CCLContext* ctx = NULL;
-	CCLDevice* dev = NULL;
-	CCLQueue* cq1 = NULL;
-	CCLQueue* cq2 = NULL;
-	CCLProgram* prg = NULL;
-
-	/* Profiler. */
-	CCLProf* prof = NULL;
-
-	/* Device random number generator. */
-	CloRng* rng_clo = NULL;
-
-	/* CL_Ops sorter object. */
-	CloSort* sorter = NULL;
-
-	/* Complete OCL program source code. */
-	gchar* src = NULL;
-
-	/* Device selection filters. */
-	CCLDevSelFilters filters = NULL;
-
-	/* Host random number generator. */
-	GRand* rng = NULL;
-
-	/* Error management object. */
-	GError *err = NULL;
-
-	/* Type (representing agents) to sort. */
-	CloType ag_sort_type;
-
-	/* Parse and validate arguments. */
-	ppg_args_parse(argc, argv, &context, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create host RNG with specified seed. */
-	rng = g_rand_new_with_seed(args.rng_seed);
-
-	/* Profiling / Timmings. */
-	prof = ccl_prof_new();
-
-	/* Get simulation parameters */
-	pp_load_params(&params, args.params, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Specify device filters and create context from them. */
-	ccl_devsel_add_indep_filter(
-		&filters, ccl_devsel_indep_type_gpu, NULL);
-	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu, NULL);
-
-	ctx = ccl_context_new_from_filters(&filters, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Get chosen device. */
-	dev = ccl_context_get_device(ctx, 0, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create command queues. */
-	cq1 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	cq2 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create RNG object. */
-	rng_clo = clo_rng_new(args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
-		args.max_agents, 0, NULL, ctx, cq1, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create sorter object. */
-	ag_sort_type = args.agent_size == 64 ? CLO_ULONG : CLO_UINT;
-	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
-		&ag_sort_type, NULL, NULL, NULL, args.compiler_opts, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Compiler options. */
-	compilerOpts = ppg_compiler_opts_build(gws, lws, params,
-		args.compiler_opts);
-
-	/* Concatenate complete source: RNG kernels source + common source
-	 * + GPU legacy source. */
-	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
-		PP_GPU_SRC, NULL);
-
-	/* Create and build program. */
-	prg = ccl_program_new_from_source(ctx, src, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	ccl_program_build(prg, args.compiler_opts, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Compute work sizes for different kernels. */
-	ppg_worksizes_compute(prg, params, &gws, &lws, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Determine size in bytes for host and device data structures. */
-	ppg_datasizes_get(params, &dataSizes, gws, lws);
-
-	/* Initialize host statistics buffer. */
-	stats_host = (PPStatistics*) g_slice_alloc0(dataSizes.stats);
-
-	/* Create device buffers */
-	ppg_devicebuffers_create(ctx, rng_clo, &buffersDevice,
-		dataSizes, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/*  Set fixed kernel arguments. */
-	ppg_kernelargs_set(krnls, buffersDevice, dataSizes);
-
-	/* Print information about simulation. */
-	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts);
-
-	/* Start basic timming / profiling. */
-	ccl_prof_start(prof);
-
-	/* Simulation!! */
-	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, stats_host,
-		buffersDevice, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Stop basic timing / profiling. */
-	ccl_prof_stop(prof);
-
-	/* Output results to file */
-	ppg_results_save(args.stats, stats_host, params);
-
-#ifdef PP_PROFILE_OPT
-	/* Analyze events */
-	ccl_prof_add_queue(prof, "Queue 1", cq1);
-	ccl_prof_add_queue(prof, "Queue 1", cq2);
-	ccl_prof_calc(prof, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Print profiling summary. */
-	ccl_prof_print_summary(prof);
-#else
-
-	/* Print ellapsed time. */
-	printf("Ellapsed time: %.4es\n", ccl_prof_time_elapsed(prof));
-
-#endif
-
-	/* If we get here, no need for error checking, jump to cleanup. */
-	status = PP_SUCCESS;
-	g_assert(err == NULL);
-	goto cleanup;
-
-error_handler:
-	/* Handle error. */
-	g_assert(err != NULL);
-	fprintf(stderr, "Error: %s\n", err->message);
-#ifdef PPG_DEBUG
-	fprintf(stderr, "Error code (domain): %d (%s)\n", err->code, g_quark_to_string(err->domain));
-	fprintf(stderr, "Exit status: %d\n", status);
-#endif
-	g_error_free(err);
-
-cleanup:
-
-	/* Release OpenCL memory objects */
-	ppg_devicebuffers_free(&buffersDevice);
-
-	/* Free host statistics buffer. */
-	g_slice_free1(dataSizes.stats, stats_host);
-
-	/* Free compiler options. */
-	if (compilerOpts) g_free(compilerOpts);
-
-	/* Free profiler object. */
-	if (prof) ccl_prof_destroy(prof);
-
-	/* Free CL_Ops RNG object. */
-	if (rng_clo) clo_rng_destroy(rng_clo);
-
-	/* Free CL_Ops sorter object. */
-	if (sorter) clo_sort_destroy(sorter);
-
-	/* Free host RNG */
-	if (rng) g_rand_free(rng);
-
-	/* Free complete program source. */
-	if (src) g_free(src);
-
-	/* Free remaining OpenCL wrappers. */
-	if (prg) ccl_program_destroy(prg);
-	if (cq1) ccl_queue_destroy(cq1);
-	if (cq2) ccl_queue_destroy(cq2);
-	if (ctx) ccl_context_destroy(ctx);
-
-	/* Free context and associated cli args parsing buffers. */
-	ppg_args_free(context);
-
-	/* Confirm that memory allocated by wrappers has been properly
-	 * freed. */
-	g_assert(ccl_wrapper_memcheck());
-
-	/* Bye. */
-	return status;
-
-}
-
-/**
  * Perform Predator-Prey simulation.
  *
  * @param params Simulation parameters.
@@ -378,7 +151,7 @@ cleanup:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
+static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
 	PPGLocalWorkSizes lws, PPStatistics* stats_host,
 	PPGBuffersDevice buffersDevice, GError** err) {
@@ -805,7 +578,7 @@ finish:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-void ppg_dump(int iter, int dump_type, CCLQueue* cq,
+static void ppg_dump(int iter, int dump_type, CCLQueue* cq,
 	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
 	size_t gws_reduce_agent1, size_t gws_action_agent, size_t gws_move_agent,
 	PPParameters params, PPGDataSizes dataSizes, PPGBuffersDevice buffersDevice,
@@ -922,7 +695,7 @@ finish:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
+static void ppg_worksizes_compute(CCLProgram* prg, PPParameters paramsSim,
 	PPGGlobalWorkSizes *gws, PPGLocalWorkSizes *lws, GError** err) {
 
 	/* Device preferred int and long vector widths. */
@@ -1084,7 +857,7 @@ finish:
  * @param dataSizes Size of data buffers.
  * @param compilerOpts Final OpenCL compiler options.
  * */
-void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
+static void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
 	PPGDataSizes dataSizes, CloSort* sorter, gchar* compilerOpts) {
 
 	/* Determine total global memory. */
@@ -1145,7 +918,7 @@ void ppg_info_print(PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws,
  * @param[out] krnls Kernel wrappers.
  * @param[out] err Return location for a GError.
  * */
-void ppg_kernels_get(CCLProgram* prg, PPGKernels* krnls, GError** err) {
+static void ppg_kernels_get(CCLProgram* prg, PPGKernels* krnls, GError** err) {
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
@@ -1205,7 +978,7 @@ finish:
  * @param[in] lws Local work sizes.
  * @param[out] err Return location for a GError.
  * */
-void ppg_kernelargs_set(PPGKernels krnls,
+static void ppg_kernelargs_set(PPGKernels krnls,
 	PPGBuffersDevice buffersDevice, PPGDataSizes dataSizes) {
 
 	/* Cell init kernel. */
@@ -1265,7 +1038,7 @@ void ppg_kernelargs_set(PPGKernels krnls,
  * @param[in] statsArray Statistics information array.
  * @param[in] params Simulation parameters.
  * */
-void ppg_results_save(char* filename, PPStatistics* statsArray,
+static void ppg_results_save(char* filename, PPStatistics* statsArray,
 	PPParameters params) {
 
 	/* Get definite file name. */
@@ -1288,7 +1061,7 @@ void ppg_results_save(char* filename, PPStatistics* statsArray,
  * @param[in] gws Kernel global work sizes.
  * @param[in] lws Kernel local work sizes.
  * */
-void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes,
+static void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes,
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
 	/* Statistics */
@@ -1329,7 +1102,7 @@ void ppg_datasizes_get(PPParameters params, PPGDataSizes* dataSizes,
  * @param[in] dataSizes Size of data buffers.
  * @param[out] err Return location for a GError.
  * */
-void ppg_devicebuffers_create(CCLContext* ctx, CloRng* rng_clo,
+static void ppg_devicebuffers_create(CCLContext* ctx, CloRng* rng_clo,
 	PPGBuffersDevice* buffersDevice, PPGDataSizes dataSizes,
 	GError** err) {
 
@@ -1393,7 +1166,7 @@ finish:
  * @param[in] buffersDevice Data structure containing device data
  * buffers.
  * */
-void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
+static void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
 
 	if (buffersDevice->stats)
 		ccl_buffer_destroy(buffersDevice->stats);
@@ -1419,7 +1192,7 @@ void ppg_devicebuffers_free(PPGBuffersDevice* buffersDevice) {
  * @param[in] cliOpts Compiler options specified through the command-line.
  * @return The final OpenCL compiler options string.
  */
-gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
+static gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
 	PPGLocalWorkSizes lws, PPParameters params, gchar* cliOpts) {
 
 	gchar* compilerOptsStr;
@@ -1481,7 +1254,7 @@ gchar* ppg_compiler_opts_build(PPGGlobalWorkSizes gws,
  * @param[in] context Context object for command line argument parsing.
  * @param[out] err Return location for a GError.
  * */
-void ppg_args_parse(int argc, char* argv[], GOptionContext** context,
+static void ppg_args_parse(int argc, char* argv[], GOptionContext** context,
 	GError** err) {
 
 	/* Internal error object. */
@@ -1570,7 +1343,7 @@ finish:
  *
  * @param context Context object for command line argument parsing.
  * */
-void ppg_args_free(GOptionContext* context) {
+static void ppg_args_free(GOptionContext* context) {
 	if (context) {
 		g_option_context_free(context);
 	}
@@ -1581,4 +1354,238 @@ void ppg_args_free(GOptionContext* context) {
 	if (args_alg.rng) g_free(args_alg.rng);
 	if (args_alg.sort) g_free(args_alg.sort);
 	if (args_alg.sort_opts) g_free(args_alg.sort_opts);
+}
+
+/**
+ * @brief Main program.
+ *
+ * @param argc Number of command line arguments.
+ * @param argv Vector of command line arguments.
+ * @return ::PP_SUCCESS if program terminates successfully, or another
+ * value of ::pp_error_codes if an error occurs.
+ * */
+int main(int argc, char **argv) {
+
+	/* Auxiliary status variable. */
+	int status;
+
+	/* Context object for command line argument parsing. */
+	GOptionContext *context = NULL;
+
+	/* Predator-Prey simulation data structures. */
+	PPGGlobalWorkSizes gws;
+	PPGLocalWorkSizes lws;
+	PPGDataSizes dataSizes;
+	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPParameters params;
+	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPStatistics* stats_host = NULL;
+	gchar* compilerOpts = NULL;
+
+	/* OpenCL wrappers. */
+	CCLContext* ctx = NULL;
+	CCLDevice* dev = NULL;
+	CCLQueue* cq1 = NULL;
+	CCLQueue* cq2 = NULL;
+	CCLProgram* prg = NULL;
+
+	/* Profiler. */
+	CCLProf* prof = NULL;
+
+	/* Device random number generator. */
+	CloRng* rng_clo = NULL;
+
+	/* CL_Ops sorter object. */
+	CloSort* sorter = NULL;
+
+	/* Complete OCL program source code. */
+	gchar* src = NULL;
+
+	/* Device selection filters. */
+	CCLDevSelFilters filters = NULL;
+
+	/* Host random number generator. */
+	GRand* rng = NULL;
+
+	/* Error management object. */
+	GError *err = NULL;
+
+	/* Type (representing agents) to sort. */
+	CloType ag_sort_type;
+
+	/* Parse and validate arguments. */
+	ppg_args_parse(argc, argv, &context, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create host RNG with specified seed. */
+	rng = g_rand_new_with_seed(args.rng_seed);
+
+	/* Profiling / Timmings. */
+	prof = ccl_prof_new();
+
+	/* Get simulation parameters */
+	pp_load_params(&params, args.params, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Specify device filters and create context from them. */
+	ccl_devsel_add_indep_filter(
+		&filters, ccl_devsel_indep_type_gpu, NULL);
+	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu, NULL);
+
+	ctx = ccl_context_new_from_filters(&filters, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Get chosen device. */
+	dev = ccl_context_get_device(ctx, 0, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create command queues. */
+	cq1 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	cq2 = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create RNG object. */
+	rng_clo = clo_rng_new(args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
+		args.max_agents, 0, NULL, ctx, cq1, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create sorter object. */
+	ag_sort_type = args.agent_size == 64 ? CLO_ULONG : CLO_UINT;
+	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
+		&ag_sort_type, NULL, NULL, NULL, args.compiler_opts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Concatenate complete source: RNG kernels source + common source
+	 * + GPU legacy source. */
+	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
+		PP_GPU_SRC, NULL);
+
+	/* Create program. */
+	prg = ccl_program_new_from_source(ctx, src, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Populate kernels struct. */
+	ppg_kernels_get(prg, &krnls, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Compute work sizes for different kernels. */
+	ppg_worksizes_compute(prg, params, &gws, &lws, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Compiler options. */
+	compilerOpts = ppg_compiler_opts_build(gws, lws, params,
+		args.compiler_opts);
+
+	/* Build program. */
+	printf("** COMPILEROPTS **\n%s\n", compilerOpts);
+
+	ccl_program_build(prg, compilerOpts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Determine size in bytes for host and device data structures. */
+	ppg_datasizes_get(params, &dataSizes, gws, lws);
+
+	/* Initialize host statistics buffer. */
+	stats_host = (PPStatistics*) g_slice_alloc0(dataSizes.stats);
+
+	/* Create device buffers */
+	ppg_devicebuffers_create(ctx, rng_clo, &buffersDevice,
+		dataSizes, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/*  Set fixed kernel arguments. */
+	ppg_kernelargs_set(krnls, buffersDevice, dataSizes);
+
+	/* Print information about simulation. */
+	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts);
+
+	/* Start basic timming / profiling. */
+	ccl_prof_start(prof);
+
+	/* Simulation!! */
+	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, stats_host,
+		buffersDevice, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Stop basic timing / profiling. */
+	ccl_prof_stop(prof);
+
+	/* Output results to file */
+	ppg_results_save(args.stats, stats_host, params);
+
+#ifdef PP_PROFILE_OPT
+	/* Analyze events */
+	ccl_prof_add_queue(prof, "Queue 1", cq1);
+	ccl_prof_add_queue(prof, "Queue 1", cq2);
+	ccl_prof_calc(prof, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Print profiling summary. */
+	ccl_prof_print_summary(prof);
+#else
+
+	/* Print ellapsed time. */
+	printf("Ellapsed time: %.4es\n", ccl_prof_time_elapsed(prof));
+
+#endif
+
+	/* If we get here, no need for error checking, jump to cleanup. */
+	status = PP_SUCCESS;
+	g_assert(err == NULL);
+	goto cleanup;
+
+error_handler:
+	/* Handle error. */
+	g_assert(err != NULL);
+	fprintf(stderr, "Error: %s\n", err->message);
+#ifdef PPG_DEBUG
+	fprintf(stderr, "Error code (domain): %d (%s)\n", err->code, g_quark_to_string(err->domain));
+	fprintf(stderr, "Exit status: %d\n", status);
+#endif
+	g_error_free(err);
+
+cleanup:
+
+	/* Release OpenCL memory objects */
+	ppg_devicebuffers_free(&buffersDevice);
+
+	/* Free host statistics buffer. */
+	g_slice_free1(dataSizes.stats, stats_host);
+
+	/* Free compiler options. */
+	if (compilerOpts) g_free(compilerOpts);
+
+	/* Free profiler object. */
+	if (prof) ccl_prof_destroy(prof);
+
+	/* Free CL_Ops RNG object. */
+	if (rng_clo) clo_rng_destroy(rng_clo);
+
+	/* Free CL_Ops sorter object. */
+	if (sorter) clo_sort_destroy(sorter);
+
+	/* Free host RNG */
+	if (rng) g_rand_free(rng);
+
+	/* Free complete program source. */
+	if (src) g_free(src);
+
+	/* Free remaining OpenCL wrappers. */
+	if (prg) ccl_program_destroy(prg);
+	if (cq1) ccl_queue_destroy(cq1);
+	if (cq2) ccl_queue_destroy(cq2);
+	if (ctx) ccl_context_destroy(ctx);
+
+	/* Free context and associated cli args parsing buffers. */
+	ppg_args_free(context);
+
+	/* Confirm that memory allocated by wrappers has been properly
+	 * freed. */
+	g_assert(ccl_wrapper_memcheck());
+
+	/* Bye. */
+	return status;
+
 }
