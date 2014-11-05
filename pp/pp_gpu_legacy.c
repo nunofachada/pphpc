@@ -22,7 +22,7 @@
 #define MAX_GRASS_COUNT_LOOPS 5 //More than enough...
 
 /** Agent properties. */
-struct pp_gs_agent {
+typedef struct pp_gs_agent {
 	/** Horizontal position. */
 	cl_uint x;
 	/** Vertical position. */
@@ -33,10 +33,10 @@ struct pp_gs_agent {
 	cl_ushort energy;
 	/** Agent type. */
 	cl_ushort type;
-} __attribute__ ((aligned (16)));
+}  PPGSAgent __attribute__ ((aligned (16)));
 
 /** Simulation parameters. */
-struct pp_gs_sim_params {
+typedef struct pp_gs_sim_params {
 	/** Horizontal grid size. */
 	cl_uint size_x;
 	/** Vertical grid size. */
@@ -49,7 +49,7 @@ struct pp_gs_sim_params {
 	cl_uint grass_restart;
 	/** Size of each cell grid. */
 	cl_uint grid_cell_space;
-};
+} PPGSSimParams;
 
 /* Global work sizes */
 size_t agentsort_gws, agent_gws, grass_gws[2], agentcount1_gws,
@@ -72,6 +72,131 @@ CCLKernel* countagents1_kernel = NULL;
 CCLKernel* countagents2_kernel = NULL;
 CCLKernel* countgrass1_kernel = NULL;
 CCLKernel* countgrass2_kernel = NULL;
+
+/**
+ * Compute worksizes depending on the device type and number of
+ * available compute units.
+ *
+ * @param[in] params Simulation parameters.
+ * */
+static void computeWorkSizes(PPParameters params) {
+
+	/* grass growth worksizes */
+	grass_lws[0] = LWS_GPU_PREF_2D_X;
+	grass_gws[0] = LWS_GPU_PREF_2D_X *
+		ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
+	grass_lws[1] = LWS_GPU_PREF_2D_Y;
+	grass_gws[1] = LWS_GPU_PREF_2D_Y *
+		ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
+
+	/* fixed local agent kernel worksizes */
+	agent_lws = LWS_GPU_PREF;
+	agentcount1_lws = LWS_GPU_MAX;
+	agentcount2_lws = LWS_GPU_MAX;
+
+	/* grass count worksizes */
+	grasscount1_lws = LWS_GPU_MAX;
+	grasscount1_gws = LWS_GPU_MAX *
+		ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
+	grasscount2_lws = LWS_GPU_MAX;
+	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
+	grasscount2_gws[0] = LWS_GPU_MAX *
+		ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
+
+	/* Determine number of loops of secondary count required to perform
+	 * complete reduction */
+	numGrassCount2Loops = 1;
+	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
+		effectiveNextGrassToCount[numGrassCount2Loops] =
+			grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
+		grasscount2_gws[numGrassCount2Loops] = LWS_GPU_MAX *
+			ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops])
+				/ LWS_GPU_MAX);
+		numGrassCount2Loops++;
+	}
+}
+
+/**
+ * Print worksizes.
+ * */
+static void printFixedWorkSizes() {
+	printf("Fixed kernel sizes:\n");
+	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0],
+		(int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
+	printf("agent_lws=%d\n", (int) agent_lws);
+	printf("agentcount1_lws=%d\n", (int) agentcount1_lws);
+	printf("agentcount2_lws=%d\n", (int) agentcount2_lws);
+	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n",
+		(int) grasscount1_gws, (int) grasscount1_lws);
+	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
+	for (int i = 0; i < numGrassCount2Loops; i++) {
+		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n",
+			i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
+	}
+	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
+}
+
+/**
+ * Get kernel wrappers from program wrapper.
+ *
+ * @param[in] prg Program wrapper.
+ * @param[out] err Return location for a GError.
+ * */
+static void getKernelsFromProgram(CCLProgram* prg, GError** err) {
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
+
+	/* Get kernels. */
+	grass_kernel = ccl_program_get_kernel(prg, "Grass", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	agentmov_kernel =
+		ccl_program_get_kernel(prg, "RandomWalk", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	agentupdate_kernel =
+		ccl_program_get_kernel(prg, "AgentsUpdateGrid", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	sort_kernel =
+		ccl_program_get_kernel(prg, "BitonicSort", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	agentaction_kernel =
+		ccl_program_get_kernel(prg, "AgentAction", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	countagents1_kernel =
+		ccl_program_get_kernel(prg, "CountAgents1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	countagents2_kernel =
+		ccl_program_get_kernel(prg, "CountAgents2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	countgrass1_kernel =
+		ccl_program_get_kernel(prg, "CountGrass1", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	countgrass2_kernel =
+		ccl_program_get_kernel(prg, "CountGrass2", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
+}
 
 /**
  * Main function of the legacy predator-prey OpenCL GPU simulation.
@@ -423,9 +548,12 @@ int main(int argc, char* argv[]) {
 		/* Worst case array agent (dead or alive) occupation */
 		cl_uint maxOccupiedSpace = (*numAgentsHost) * 2;
 
-		agent_gws = LWS_GPU_PREF * ceil(((float) maxOccupiedSpace) / LWS_GPU_PREF);
-		agentcount1_gws = LWS_GPU_MAX * ceil(((float) maxOccupiedSpace) / LWS_GPU_MAX);
-		cl_uint effectiveNextAgentsToCount = agentcount1_gws / agentcount1_lws;
+		agent_gws = LWS_GPU_PREF *
+			ceil(((float) maxOccupiedSpace) / LWS_GPU_PREF);
+		agentcount1_gws = LWS_GPU_MAX *
+			ceil(((float) maxOccupiedSpace) / LWS_GPU_MAX);
+		cl_uint effectiveNextAgentsToCount =
+			agentcount1_gws / agentcount1_lws;
 
 		/* Agent movement */
 		agentaction_move_event = ccl_kernel_enqueue_ndrange(
@@ -452,11 +580,13 @@ int main(int argc, char* argv[]) {
 		ccl_if_err_goto(err, error_handler);
 		ccl_event_set_name(barrier_event, "Barrier Move-Sort");
 
-		for (unsigned int currentStage = 1; currentStage <= totalStages; currentStage++) {
+		for (unsigned int currentStage = 1; currentStage <= totalStages;
+			currentStage++) {
 
 			cl_uint step = currentStage;
 
-			for (int currentStep = step; currentStep > 0; currentStep--) {
+			for (int currentStep = step; currentStep > 0;
+				currentStep--) {
 
 				agentsort_event =
 					ccl_kernel_set_args_and_enqueue_ndrange(sort_kernel,
@@ -509,7 +639,8 @@ int main(int argc, char* argv[]) {
 		/* Count agents, part 2 */
 		do {
 
-			agentcount2_gws = LWS_GPU_MAX * ceil(((float) effectiveNextAgentsToCount) / LWS_GPU_MAX);
+			agentcount2_gws = LWS_GPU_MAX *
+				ceil(((float) effectiveNextAgentsToCount) / LWS_GPU_MAX);
 
 			ccl_kernel_set_arg(countagents2_kernel, 2,
 				ccl_arg_priv(effectiveNextAgentsToCount, cl_uint));
@@ -521,7 +652,8 @@ int main(int argc, char* argv[]) {
 			ccl_if_err_goto(err, error_handler);
 			ccl_event_set_name(agentcount2_event, "K: agentcount2");
 
-			effectiveNextAgentsToCount = agentcount2_gws / agentcount2_lws;
+			effectiveNextAgentsToCount =
+				agentcount2_gws / agentcount2_lws;
 
 			barrier_event = ccl_enqueue_barrier(cq, NULL, &err);
 			ccl_if_err_goto(err, error_handler);
@@ -661,115 +793,4 @@ cleanup:
 	/* Bye */
 	return status;
 
-}
-
-/**
- * Compute worksizes depending on the device type and number of
- * available compute units.
- *
- * @param[in] params Simulation parameters.
- * */
-void computeWorkSizes(PPParameters params) {
-
-	/* grass growth worksizes */
-	grass_lws[0] = LWS_GPU_PREF_2D_X;
-	grass_gws[0] = LWS_GPU_PREF_2D_X * ceil(((float) params.grid_x) / LWS_GPU_PREF_2D_X);
-	grass_lws[1] = LWS_GPU_PREF_2D_Y;
-	grass_gws[1] = LWS_GPU_PREF_2D_Y * ceil(((float) params.grid_y) / LWS_GPU_PREF_2D_Y);
-
-	/* fixed local agent kernel worksizes */
-	agent_lws = LWS_GPU_PREF;
-	agentcount1_lws = LWS_GPU_MAX;
-	agentcount2_lws = LWS_GPU_MAX;
-
-	/* grass count worksizes */
-	grasscount1_lws = LWS_GPU_MAX;
-	grasscount1_gws = LWS_GPU_MAX * ceil((((float) params.grid_x * params.grid_y)) / LWS_GPU_MAX);
-	grasscount2_lws = LWS_GPU_MAX;
-	effectiveNextGrassToCount[0] = grasscount1_gws / grasscount1_lws;
-	grasscount2_gws[0] = LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[0]) / LWS_GPU_MAX);
-
-	/* Determine number of loops of secondary count required to perform complete reduction */
-	numGrassCount2Loops = 1;
-	while ( grasscount2_gws[numGrassCount2Loops - 1] > grasscount2_lws) {
-		effectiveNextGrassToCount[numGrassCount2Loops] =
-			grasscount2_gws[numGrassCount2Loops - 1] / grasscount2_lws;
-		grasscount2_gws[numGrassCount2Loops] =
-			LWS_GPU_MAX * ceil(((float) effectiveNextGrassToCount[numGrassCount2Loops]) / LWS_GPU_MAX);
-		numGrassCount2Loops++;
-	}
-}
-
-/**
- * Print worksizes.
- * */
-void printFixedWorkSizes() {
-	printf("Fixed kernel sizes:\n");
-	printf("grass_gws=[%d,%d]\tgrass_lws=[%d,%d]\n", (int) grass_gws[0],
-		(int) grass_gws[1], (int) grass_lws[0], (int) grass_lws[1]);
-	printf("agent_lws=%d\n", (int) agent_lws);
-	printf("agentcount1_lws=%d\n", (int) agentcount1_lws);
-	printf("agentcount2_lws=%d\n", (int) agentcount2_lws);
-	printf("grasscount1_gws=%d\tgrasscount1_lws=%d\n",
-		(int) grasscount1_gws, (int) grasscount1_lws);
-	printf("grasscount2_lws=%d\n", (int) grasscount2_lws);
-	for (int i = 0; i < numGrassCount2Loops; i++) {
-		printf("grasscount2_gws[%d]=%d (effective grass to count: %d)\n",
-			i, (int) grasscount2_gws[i], effectiveNextGrassToCount[i]);
-	}
-	printf("Total of %d grass count loops.\n", numGrassCount2Loops);
-}
-
-/**
- * Get kernel wrappers from program wrapper.
- *
- * @param[in] prg Program wrapper.
- * @param[out] err Return location for a GError.
- * */
-void getKernelsFromProgram(CCLProgram* prg, GError** err) {
-
-	/* Internal error handling object. */
-	GError* err_internal = NULL;
-
-	/* Get kernels. */
-	grass_kernel = ccl_program_get_kernel(prg, "Grass", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	agentmov_kernel = ccl_program_get_kernel(prg, "RandomWalk", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	agentupdate_kernel = ccl_program_get_kernel(prg, "AgentsUpdateGrid", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	sort_kernel = ccl_program_get_kernel(prg, "BitonicSort", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	agentaction_kernel = ccl_program_get_kernel(prg, "AgentAction", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	countagents1_kernel = ccl_program_get_kernel(prg, "CountAgents1", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	countagents2_kernel = ccl_program_get_kernel(prg, "CountAgents2", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	countgrass1_kernel = ccl_program_get_kernel(prg, "CountGrass1", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	countgrass2_kernel = ccl_program_get_kernel(prg, "CountGrass2", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	/* If we got here, everything is OK. */
-	g_assert(*err == NULL);
-	goto finish;
-
-error_handler:
-
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return;
 }

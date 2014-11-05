@@ -5,21 +5,28 @@
 
 #include "pp_cpu.h"
 
-/** The default maximum number of agents: 16777216. Each agent requires
+/**
+ * The default maximum number of agents: 16777216. Each agent requires
  * 16 bytes, thus by default 256Mb of memory will be allocated for the
  * agents buffer. A higher value may lead to faster simulations
- * given that it will increase the success rate of new agent allocations,
- * but on the other hand memory allocation and initialization may take
- * longer. */
+ * given that it will increase the success rate of new agent
+ * allocations, but on the other hand memory allocation and
+ * initialization may take longer.
+ * */
 #define PPC_DEFAULT_MAX_AGENTS 16777216
 
 /** A description of the program. */
 #define PPC_DESCRIPTION "OpenCL predator-prey simulation for the CPU"
 
 /**
+ * Constant which indicates no further agents are in a cell.
+ * */
+#define PPC_NULL_AGENT_POINTER UINT_MAX
+
+/**
  * Parsed command-line arguments.
  * */
-struct pp_c_args {
+typedef struct pp_c_args {
 
 	/** Parameters file. */
 	gchar* params;
@@ -40,12 +47,12 @@ struct pp_c_args {
 	/** Maximum number of agents. */
 	cl_uint max_agents;
 
-};
+} PPCArgs;
 
 /**
  * Agent object for OpenCL kernels.
  * */
-struct pp_c_agent {
+typedef struct pp_c_agent {
 
 	/** Agent energy. */
 	cl_uint energy;
@@ -59,14 +66,14 @@ struct pp_c_agent {
 	/** Pointer to next agent in current cell. */
 	cl_uint next;
 
-} __attribute__ ((aligned (16)));
+} PPCAgent __attribute__ ((aligned (16)));
 
 /**
  * Simulation parameters for OpenCL kernels.
  *
  * @todo Maybe this can be constant passed as compiler options?
  * */
-struct pp_c_sim_params {
+typedef struct pp_c_sim_params {
 
 	/** Width (number of cells) of environment.*/
 	cl_uint size_x;
@@ -86,12 +93,12 @@ struct pp_c_sim_params {
 	/** Does nothing but align the struct to 32 bytes. */
 	cl_uint bogus;
 
-} __attribute__ ((aligned (32)));
+} PPCSimParams __attribute__ ((aligned (32)));
 
 /**
  * Cell object for OpenCL kernels.
  * */
-struct pp_c_cell {
+typedef struct pp_c_cell {
 
 	/** Number of iterations left for grass to grow (or zero if grass
 	 * is alive). */
@@ -99,13 +106,13 @@ struct pp_c_cell {
 	/** Pointer to first agent in cell. */
 	cl_uint agent_pointer;
 
-};
+} PPCCell;
 
 /**
  * Work sizes for kernels step1 and step2, and other work/memory
  * sizes related to the simulation.
  * */
-struct pp_c_work_sizes {
+typedef struct pp_c_work_sizes {
 
 	/** Global worksize. */
 	size_t gws;
@@ -118,12 +125,12 @@ struct pp_c_work_sizes {
 	/** Maximum number of agentes. */
 	size_t max_agents;
 
-};
+} PPCWorkSizes;
 
 /**
 * Size of data structures.
 * */
-struct pp_c_data_sizes {
+typedef struct pp_c_data_sizes {
 
 	/** Size of stats data structure. */
 	size_t stats;
@@ -138,12 +145,12 @@ struct pp_c_data_sizes {
 	/** Size of simulation parameters data structure. */
 	size_t sim_params;
 
-};
+} PPCDataSizes;
 
 /**
  * Host buffers.
  * */
-struct pp_c_buffers_host {
+typedef struct pp_c_buffers_host {
 
 	/** Statistics. */
 	PPStatistics* stats;
@@ -156,12 +163,12 @@ struct pp_c_buffers_host {
 	/** Simulation parameters. */
 	PPCSimParams sim_params;
 
-};
+} PPCBuffersHost;
 
 /**
  * Device buffers.
  * */
-struct pp_c_buffers_device {
+typedef struct pp_c_buffers_device {
 
 	/** Statistics. */
 	CCLBuffer* stats;
@@ -176,7 +183,7 @@ struct pp_c_buffers_device {
 	/** Simulation parameters. */
 	CCLBuffer* sim_params;
 
-};
+} PPCBuffersDevice;
 
 /** Command line arguments and respective default values. */
 static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED,
@@ -217,198 +224,6 @@ static GOptionEntry entries[] = {
 };
 
 /**
- * PredPrey CPU simulation main program.
- *
- * @param[in] argc Number of command line arguments.
- * @param[in] argv Vector of command line arguments.
- * @return ::PP_SUCCESS if program terminates successfully, or another
- * value of ::pp_error_codes if an error occurs.
- * */
-int main(int argc, char ** argv) {
-
-	/* Status var aux */
-	int status;
-
-	/* Context object for command line argument parsing. */
-	GOptionContext *context = NULL;
-
-	/* Predator-Prey simulation data structures. */
-	PPCWorkSizes workSizes;
-	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost =
-		{NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
-	PPCBuffersDevice buffersDevice =
-		{NULL, NULL, NULL, NULL, NULL, NULL};
-	PPParameters params;
-
-	/* OpenCL object wrappers. */
-	CCLContext* ctx = NULL;
-	CCLDevice* dev = NULL;
-	CCLQueue* cq = NULL;
-	CCLProgram* prg = NULL;
-
-	/* Complete OCL program source code. */
-	gchar* src = NULL;
-
-	/* Device selection filters. */
-	CCLDevSelFilters filters = NULL;
-
-	/* Profiler. */
-	CCLProf* prof = NULL;
-
-	/* CL_Ops RNG. */
-	CloRng* rng_clo = NULL;
-
-	/* Error management object. */
-	GError *err = NULL;
-
-	/* Parse arguments. */
-	ppc_args_parse(argc, argv, &context, &err);
-	ccl_if_err_goto(err, error_handler);
-	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
-
-	/* Select device and create context. */
-	ccl_devsel_add_indep_filter(
-		&filters, ccl_devsel_indep_type_cpu, NULL);
-	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu, &args.dev_idx);
-
-	ctx = ccl_context_new_from_filters(&filters, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Get chosen device. */
-	dev = ccl_context_get_device(ctx, 0, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create command queue. */
-	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Create RNG with specified seed. */
-	rng_clo = clo_rng_new(args.rngen, CLO_RNG_SEED_HOST_MT, NULL,
-		args.max_agents, args.rng_seed, NULL, ctx, cq, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Concatenate complete source: RNG kernels source + common source
-	 * + GPU legacy source. */
-	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
-		PP_CPU_SRC, NULL);
-
-	/* Create and build program. */
-	prg = ccl_program_new_from_source(ctx, src, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	ccl_program_build(prg, args.compiler_opts, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Profiling / Timmings. */
-	prof = ccl_prof_new();
-
-	/* Get simulation parameters */
-	pp_load_params(&params, args.params, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Determine number of threads to use based on compute capabilities
-	 * and user arguments */
-	ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Set simulation parameters for passing to the OpenCL kernels. */
-	buffersHost.sim_params = ppc_simparams_init(params,
-		PPC_NULL_AGENT_POINTER, workSizes);
-
-	/* Print simulation info to screen */
-	ppc_simulation_info_print(dev, workSizes, args, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Determine size in bytes for host and device data structures. */
-	ppc_datasizes_get(params, &dataSizes, workSizes);
-
-	/* Start basic timming / profiling. */
-	ccl_prof_start(prof);
-
-	/* Initialize and map host/device buffers */
-	ppc_buffers_init(ctx, cq, workSizes, &buffersHost, &buffersDevice,
-		dataSizes, params, rng_clo, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/*  Set fixed kernel arguments. */
-	ppc_kernelargs_set(prg, &buffersDevice, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Simulation!! */
-	ppc_simulate(workSizes, params, cq, prg, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Get statistics. */
-	ppc_stats_save(args.stats, cq, &buffersHost,
-		&buffersDevice, dataSizes, params, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Stop basic timing / profiling. */
-	ccl_prof_stop(prof);
-
-#ifdef PP_PROFILE_OPT
-	/* Analyze events */
-	ccl_prof_add_queue(prof, "Queue 1", cq);
-	ccl_prof_calc(prof, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Print profiling summary. */
-	ccl_prof_print_summary(prof);
-#else
-
-	/* Print ellapsed time. */
-	printf("Ellapsed time: %.4es\n", ccl_prof_time_elapsed(prof));
-
-#endif
-
-	/* If we get here, everything went Ok. */
-	g_assert(err == NULL);
-	status = PP_SUCCESS;
-	goto cleanup;
-
-error_handler:
-	/* Handle error. */
-	g_assert(err != NULL);
-	fprintf(stderr, "Error: %s\n", err->message);
-	status = err->code;
-	g_error_free(err);
-
-cleanup:
-
-	/* Free stuff! */
-
-	/* Release OpenCL memory objects. This also frees host buffers
-	 * because of CL_MEM_ALLOC_HOST_PTR (I think). If we try to
-	 * free() the host buffers we will have a kind of segfault. */
-	ppc_devicebuffers_free(&buffersDevice);
-
-	/* Free profiler object. */
-	if (prof) ccl_prof_destroy(prof);
-
-	/* Free CL_Ops RNG object. */
-	if (rng_clo) clo_rng_destroy(rng_clo);
-
-	/* Free complete program source. */
-	if (src) g_free(src);
-
-	/* Free remaining OpenCL wrappers. */
-	if (prg) ccl_program_destroy(prg);
-	if (cq) ccl_queue_destroy(cq);
-	if (ctx) ccl_context_destroy(ctx);
-
-	/* Free context and associated cli args parsing buffers. */
-	ppc_args_free(context);
-
-	/* Confirm that memory allocated by wrappers has been properly
-	 * freed. */
-	g_assert(ccl_wrapper_memcheck());
-
-	/* Bye. */
-	return status;
-}
-
-/**
  * Determine effective worksizes to use in simulation.
  *
  * @param[in] args Parsed command line arguments.
@@ -418,7 +233,7 @@ cleanup:
  * environment.
  * @param[out] err Return location for a GError.
  * */
-void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
+static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	cl_uint num_rows, GError **err) {
 
 	/* Determine maximum number of global work-items which can be used
@@ -459,7 +274,8 @@ void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	/* Get local work size. */
 	workSizes->lws = args.lws;
 
-	/* Check that the global work size is a multiple of the local work size. */
+	/* Check that the global work size is a multiple of the local work
+	 * size. */
 	ccl_if_err_create_goto(*err, PP_ERROR,
 		(workSizes->lws > 0) && (workSizes->gws % workSizes->lws != 0),
 		PP_INVALID_ARGS, error_handler,
@@ -492,8 +308,8 @@ finish:
  * @param[in] args Parsed command line arguments.
  * @param[out] err Return location for a GError.
  * */
-void ppc_simulation_info_print(CCLDevice* dev, PPCWorkSizes workSizes,
-	PPCArgs args, GError** err) {
+static void ppc_simulation_info_print(CCLDevice* dev,
+	PPCWorkSizes workSizes, PPCArgs args, GError** err) {
 
 	/* Error reporting object. */
 	GError* err_internal = NULL;
@@ -554,7 +370,7 @@ finish:
  * work/memory sizes related to the simulation.
  * @return Simulation parameters to be sent to OpenCL kernels.
  * */
-PPCSimParams ppc_simparams_init(PPParameters params,
+static PPCSimParams ppc_simparams_init(PPParameters params,
 	cl_uint null_agent_pointer, PPCWorkSizes ws) {
 
 	PPCSimParams simParams;
@@ -576,8 +392,8 @@ PPCSimParams ppc_simparams_init(PPParameters params,
  * @param[in] dataSizes Sizes of simulation data structures.
  * @param[in] ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
-void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
-	PPCWorkSizes ws) {
+static void ppc_datasizes_get(PPParameters params,
+	PPCDataSizes* dataSizes, PPCWorkSizes ws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -610,10 +426,10 @@ void ppc_datasizes_get(PPParameters params, PPCDataSizes* dataSizes,
  * @param[in] rng_clo CL_Ops RNG object.
  * @param[out] err Return location for a GError.
  * */
-void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq, PPCWorkSizes ws,
-	PPCBuffersHost *buffersHost, PPCBuffersDevice *buffersDevice,
-	PPCDataSizes dataSizes, PPParameters params, CloRng* rng_clo,
-	GError** err) {
+static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
+	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
+	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
+	PPParameters params, CloRng* rng_clo, GError** err) {
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
@@ -829,7 +645,7 @@ finish:
  * @param[in] buffersDevice Device buffers.
  * @param[out] err Return location for a GError.
  * */
-void ppc_kernelargs_set(CCLProgram* prg,
+static void ppc_kernelargs_set(CCLProgram* prg,
 	PPCBuffersDevice* buffersDevice, GError** err) {
 
 	/* Internal error handling object. */
@@ -880,7 +696,7 @@ finish:
  * @param[in] prg Program wrapper.
  * @param[out] err Return location for a GError.
  * */
-void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
+static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	CCLQueue* cq, CCLProgram* prg, GError** err) {
 
 	/* Internal error handling object. */
@@ -960,7 +776,7 @@ finish:
  *
  * @param[in] buffersDevice Device buffers.
  * */
-void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
+static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 	if (buffersDevice->stats)
 		ccl_buffer_destroy(buffersDevice->stats);
 	if (buffersDevice->agents)
@@ -984,7 +800,7 @@ void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
  * @param[in] params Simulation parameters.
  * @param[out] err Return location for a GError.
  * */
-void ppc_stats_save(char* filename, CCLQueue* cq,
+static void ppc_stats_save(char* filename, CCLQueue* cq,
 	PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice,
 	PPCDataSizes dataSizes, PPParameters params, GError** err) {
 
@@ -1052,8 +868,8 @@ finish:
  * @param[in] context Context object for command line argument parsing.
  * @param[out] err Return location for a GError.
  * */
-void ppc_args_parse(int argc, char* argv[], GOptionContext** context,
-	GError** err) {
+static void ppc_args_parse(int argc, char* argv[],
+	GOptionContext** context, GError** err) {
 
 	*context = g_option_context_new (" - " PPC_DESCRIPTION);
 	g_option_context_add_main_entries(*context, entries, NULL);
@@ -1066,7 +882,7 @@ void ppc_args_parse(int argc, char* argv[], GOptionContext** context,
  *
  * @param[in] context Context object for command line argument parsing.
  * */
-void ppc_args_free(GOptionContext* context) {
+static void ppc_args_free(GOptionContext* context) {
 
 	if (context) {
 		g_option_context_free(context);
@@ -1075,4 +891,197 @@ void ppc_args_free(GOptionContext* context) {
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
 	if (args.rngen) g_free(args.rngen);
+}
+
+/**
+ * PredPrey CPU simulation main program.
+ *
+ * @param[in] argc Number of command line arguments.
+ * @param[in] argv Vector of command line arguments.
+ * @return ::PP_SUCCESS if program terminates successfully, or another
+ * value of ::pp_error_codes if an error occurs.
+ * */
+int main(int argc, char ** argv) {
+
+	/* Status var aux */
+	int status;
+
+	/* Context object for command line argument parsing. */
+	GOptionContext *context = NULL;
+
+	/* Predator-Prey simulation data structures. */
+	PPCWorkSizes workSizes;
+	PPCDataSizes dataSizes;
+	PPCBuffersHost buffersHost =
+		{NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
+	PPCBuffersDevice buffersDevice =
+		{NULL, NULL, NULL, NULL, NULL, NULL};
+	PPParameters params;
+
+	/* OpenCL object wrappers. */
+	CCLContext* ctx = NULL;
+	CCLDevice* dev = NULL;
+	CCLQueue* cq = NULL;
+	CCLProgram* prg = NULL;
+
+	/* Complete OCL program source code. */
+	gchar* src = NULL;
+
+	/* Device selection filters. */
+	CCLDevSelFilters filters = NULL;
+
+	/* Profiler. */
+	CCLProf* prof = NULL;
+
+	/* CL_Ops RNG. */
+	CloRng* rng_clo = NULL;
+
+	/* Error management object. */
+	GError *err = NULL;
+
+	/* Parse arguments. */
+	ppc_args_parse(argc, argv, &context, &err);
+	ccl_if_err_goto(err, error_handler);
+	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
+
+	/* Select device and create context. */
+	ccl_devsel_add_indep_filter(
+		&filters, ccl_devsel_indep_type_cpu, NULL);
+	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu,
+		&args.dev_idx);
+
+	ctx = ccl_context_new_from_filters(&filters, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Get chosen device. */
+	dev = ccl_context_get_device(ctx, 0, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create command queue. */
+	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Create RNG with specified seed. */
+	rng_clo = clo_rng_new(args.rngen, CLO_RNG_SEED_HOST_MT, NULL,
+		args.max_agents, args.rng_seed, NULL, ctx, cq, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Concatenate complete source: RNG kernels source + common source
+	 * + GPU legacy source. */
+	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
+		PP_CPU_SRC, NULL);
+
+	/* Create and build program. */
+	prg = ccl_program_new_from_source(ctx, src, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	ccl_program_build(prg, args.compiler_opts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Profiling / Timmings. */
+	prof = ccl_prof_new();
+
+	/* Get simulation parameters */
+	pp_load_params(&params, args.params, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Determine number of threads to use based on compute capabilities
+	 * and user arguments */
+	ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Set simulation parameters for passing to the OpenCL kernels. */
+	buffersHost.sim_params = ppc_simparams_init(params,
+		PPC_NULL_AGENT_POINTER, workSizes);
+
+	/* Print simulation info to screen */
+	ppc_simulation_info_print(dev, workSizes, args, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Determine size in bytes for host and device data structures. */
+	ppc_datasizes_get(params, &dataSizes, workSizes);
+
+	/* Start basic timming / profiling. */
+	ccl_prof_start(prof);
+
+	/* Initialize and map host/device buffers */
+	ppc_buffers_init(ctx, cq, workSizes, &buffersHost, &buffersDevice,
+		dataSizes, params, rng_clo, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/*  Set fixed kernel arguments. */
+	ppc_kernelargs_set(prg, &buffersDevice, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Simulation!! */
+	ppc_simulate(workSizes, params, cq, prg, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Get statistics. */
+	ppc_stats_save(args.stats, cq, &buffersHost,
+		&buffersDevice, dataSizes, params, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Stop basic timing / profiling. */
+	ccl_prof_stop(prof);
+
+#ifdef PP_PROFILE_OPT
+	/* Analyze events */
+	ccl_prof_add_queue(prof, "Queue 1", cq);
+	ccl_prof_calc(prof, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Print profiling summary. */
+	ccl_prof_print_summary(prof);
+#else
+
+	/* Print ellapsed time. */
+	printf("Ellapsed time: %.4es\n", ccl_prof_time_elapsed(prof));
+
+#endif
+
+	/* If we get here, everything went Ok. */
+	g_assert(err == NULL);
+	status = PP_SUCCESS;
+	goto cleanup;
+
+error_handler:
+	/* Handle error. */
+	g_assert(err != NULL);
+	fprintf(stderr, "Error: %s\n", err->message);
+	status = err->code;
+	g_error_free(err);
+
+cleanup:
+
+	/* Free stuff! */
+
+	/* Release OpenCL memory objects. This also frees host buffers
+	 * because of CL_MEM_ALLOC_HOST_PTR (I think). If we try to
+	 * free() the host buffers we will have a kind of segfault. */
+	ppc_devicebuffers_free(&buffersDevice);
+
+	/* Free profiler object. */
+	if (prof) ccl_prof_destroy(prof);
+
+	/* Free CL_Ops RNG object. */
+	if (rng_clo) clo_rng_destroy(rng_clo);
+
+	/* Free complete program source. */
+	if (src) g_free(src);
+
+	/* Free remaining OpenCL wrappers. */
+	if (prg) ccl_program_destroy(prg);
+	if (cq) ccl_queue_destroy(cq);
+	if (ctx) ccl_context_destroy(ctx);
+
+	/* Free context and associated cli args parsing buffers. */
+	ppc_args_free(context);
+
+	/* Confirm that memory allocated by wrappers has been properly
+	 * freed. */
+	g_assert(ccl_wrapper_memcheck());
+
+	/* Bye. */
+	return status;
 }
