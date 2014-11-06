@@ -1140,12 +1140,12 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 	printf("       | move_agent         |     Var. | %5zu |          0 |          0 |\n",
 		lws.move_agent);
 
-	//~ for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
-		//~ const char* kernel_name = clo_sort_get_kernel_name(sorter);
-		//~ printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n",
-			//~ kernel_name, lws.sort_agent,
-			//~ clo_sort_get_localmem_usage(sorter, kernel_name, lws.sort_agent, args.max_agents));
-	//~ }
+	for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
+		const char* kernel_name = clo_sort_get_kernel_name(sorter, i);
+		printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n",
+			kernel_name, lws.sort_agent,
+			clo_sort_get_localmem_usage(sorter, i, lws.sort_agent, args.max_agents));
+	}
 
 	printf("       | find_cell_idx      |     Var. | %5zu |          0 |          0 |\n",
 		lws.find_cell_idx);
