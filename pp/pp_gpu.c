@@ -12,19 +12,19 @@
  //~ * this constant corresponds to an interval of iterations to print
  //~ * simulation info for the current iteration.
  //~ * */
-//~ #define PPG_DEBUG 1000
+//~ #define PPG_DEBUG 250
 
-//~ /**
- //~ * If the constant bellow is set, then simulation info will be dumped
- //~ * to a file in each iteration. The constant can assume the following
- //~ * values:
- //~ *
- //~ * 0x00 - dump all agents + all grass
- //~ * 0x01 - dump only alive agents + all grass
- //~ * 0x10 - dump all agents + only dead grass (counter>0)
- //~ * 0x11 - dump only alive agents + only dead grass (counter>0)
- //~ * */
-//~ #define PPG_DUMP 0x11
+/**
+ * If the constant bellow is set, then simulation info will be dumped
+ * to a file in each iteration. The constant can assume the following
+ * values:
+ *
+ * 0x00 - dump all agents + all grass
+ * 0x01 - dump only alive agents + all grass
+ * 0x10 - dump all agents + only dead grass (counter>0)
+ * 0x11 - dump only alive agents + only dead grass (counter>0)
+ * */
+#define PPG_DUMP 0x11
 
 /**
  * The default maximum number of agents: 16777216. Each agent requires
@@ -369,6 +369,136 @@ static GOptionEntry entries_vw[] = {
 /** Agent size in bytes. */
 static size_t agent_size_bytes;
 
+#ifdef PPG_DUMP
+
+/**
+ * Dump simulation data for current iteration.
+ *
+ * @param iter Current iteration.
+ * @param dump_type Type of dump (see comment for PPG_DUMP constant).
+ * @param zone OpenCL zone.
+ * @param fp_agent_dump Pointer of file where to dump agent info.
+ * @param fp_cell_dump Pointer of file where to dump cell info.
+ * @param gws_action_agent GWS for action_agent kernel (current iteration).
+ * @param gws_move_agent GWS for move_agent kernel (current iteration).
+ * @param params Simulation parameters.
+ * @param dataSizes Size of data buffers.
+ * @param buffersDevice Device data buffers.
+ * @param agents_data Host buffer where to put agent data.
+ * @param cells_agents_index Host buffer where to put cell data (agents
+ * index).
+ * @param cells_grass Host buffer where to put cell data (grass).
+ * @param err GLib error object for error reporting.
+ * @return @link pp_error_codes::PP_SUCCESS @endlink if function
+ * terminates successfully, or an error code otherwise.
+ * */
+static void ppg_dump(int iter, int dump_type, CCLQueue* cq,
+	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
+	size_t gws_reduce_agent1, size_t gws_action_agent,
+	size_t gws_move_agent, PPParameters params, PPGDataSizes dataSizes,
+	PPGBuffersDevice buffersDevice, void *agents_data,
+	cl_uint2 *cells_agents_index, cl_uint *cells_grass, GError** err) {
+
+	/* Aux. status vars. */
+	int blank_line;
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
+
+	/* Read data from device. */
+	ccl_buffer_enqueue_read(buffersDevice.agents_data, cq, CL_TRUE, 0,
+		dataSizes.agents_data, agents_data, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	ccl_buffer_enqueue_read(buffersDevice.cells_agents_index, cq,
+		CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index,
+		NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	ccl_buffer_enqueue_read(buffersDevice.cells_grass, cq, CL_TRUE, 0,
+		dataSizes.cells_grass, cells_grass, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Export agent info. */
+	fprintf(fp_agent_dump, "\nIter %d, max_agents_iter=%d, " \
+		"gws_reduce_agent1=%zu, gws_action_ag=%zu, gws_mov_ag=%zu\n",
+		iter, max_agents_iter, gws_reduce_agent1, gws_action_agent,
+		gws_move_agent);
+	blank_line = FALSE;
+	if (agent_size_bytes == 8) {
+		for (cl_uint k = 0; k < args.max_agents; k++) {
+			cl_ulong curr_ag = ((cl_ulong*) agents_data)[k];
+			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFFFFFF00000000)!= 0xFFFFFFFF00000000)) {
+				if (blank_line) fprintf(fp_agent_dump, "\n");
+				blank_line = FALSE;
+				fprintf(fp_agent_dump, "[%4d] %016lx: (%4d, %4d) type=%d energy=%d\n",
+					k, curr_ag,
+					(cl_uint) (curr_ag >> 48),
+					(cl_uint) ((curr_ag >> 32) & 0xFFFF),
+					(cl_uint) ((curr_ag >> 16) & 0xFFFF),
+					(cl_uint) (curr_ag & 0xFFFF));
+			} else {
+				blank_line = TRUE;
+			}
+		}
+	} else if (agent_size_bytes == 4) {
+		for (cl_uint k = 0; k < args.max_agents; k++) {
+			cl_uint curr_ag = ((cl_uint*) agents_data)[k];
+			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFF0000)!= 0xFFFF0000)) {
+				if (blank_line) fprintf(fp_agent_dump, "\n");
+				blank_line = FALSE;
+				fprintf(fp_agent_dump, "[%4d] %08x: (%3d, %3d) type=%d energy=%d\n",
+					k, curr_ag,
+					(cl_uint) (curr_ag >> 22),
+					(cl_uint) ((curr_ag >> 12) & 0x3FF),
+					(cl_uint) ((curr_ag >> 11) & 0x1),
+					(cl_uint) (curr_ag & 0x7FF));
+			} else {
+				blank_line = TRUE;
+			}
+		}
+	}
+
+	/* Export cell info. */
+	fprintf(fp_cell_dump, "\nIteration %d\n", iter);
+	blank_line = FALSE;
+	for (cl_uint k = 0; k < params.grid_xy; k++) {
+		if (!(dump_type & 0x10) || ((iter != -1) & (cells_agents_index[k].s[0] != args.max_agents))) {
+			if (blank_line) fprintf(fp_cell_dump, "\n");
+			blank_line = FALSE;
+			if (iter != -1) {
+				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s [Grass: %d]\n",
+					k % params.grid_x, k / params.grid_y,
+					cells_agents_index[k].s[0], cells_agents_index[k].s[1],
+					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "",
+					cells_grass[k]);
+			} else {
+				fprintf(fp_cell_dump, "(%d, %d) -> (-, -) [Grass: %d]\n",
+					k % params.grid_x, k / params.grid_y,
+					cells_grass[k]);
+			}
+		} else {
+			blank_line = TRUE;
+		}
+	}
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
+
+}
+
+#endif
+
 /**
  * Perform Predator-Prey simulation.
  *
@@ -387,8 +517,9 @@ static size_t agent_size_bytes;
  * */
 static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
-	PPGLocalWorkSizes lws, PPStatistics* stats_host,
-	PPGBuffersDevice buffersDevice, GError** err) {
+	PPGLocalWorkSizes lws, PPGDataSizes dataSizes,
+	PPStatistics* stats_host, PPGBuffersDevice buffersDevice,
+	GError** err) {
 
 	/* Stats. */
 	PPStatistics *stats_pinned = NULL;
@@ -465,11 +596,18 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	cl_uint *cells_grass =
 		(cl_uint*) malloc(dataSizes.cells_grass);
 
-	ppg_dump(prg, -1, PPG_DUMP, fp_agent_dump, fp_cell_dump, 0, 0, 0, 0,
+	ppg_dump(-1, PPG_DUMP, cq1, fp_agent_dump, fp_cell_dump, 0, 0, 0, 0,
 		params, dataSizes, buffersDevice, agents_data,
-		cells_agents_index, cells_grass, err);
+		cells_agents_index, cells_grass, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+#else
+
+	/* Ignore compiler warnings. */
+	(void)dataSizes;
 
 #endif
+
 
 	/* *************** */
 	/* SIMULATION LOOP */
@@ -720,8 +858,8 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 		if (iter % PPG_DEBUG == 0)
 			fprintf(stderr, "Finishing iteration %d with " \
 				"max_agents_iter=%d (%d sheep, %d wolves)...\n",
-				iter, max_agents_iter, buffersHost.stats[iter].sheep,
-				buffersHost.stats[iter].wolves);
+				iter, max_agents_iter, stats_host[iter].sheep,
+				stats_host[iter].wolves);
 #endif
 
 		/* Agent actions may, in the worst case, double the number of
@@ -729,12 +867,14 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 		max_agents_iter = MAX(max_agents_iter, lws.action_agent) * 2;
 
 #ifdef PPG_DUMP
-		ppg_dump(iter, PPG_DUMP, zone, fp_agent_dump, fp_cell_dump,
+
+		ppg_dump(iter, PPG_DUMP, cq1, fp_agent_dump, fp_cell_dump,
 			max_agents_iter, gws_reduce_agent1, gws_action_agent,
 			gws_move_agent, params, dataSizes, buffersDevice,
 			agents_data, cells_agents_index, cells_grass,
 			&err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
 #endif
 
 	}
@@ -790,136 +930,6 @@ finish:
 	return;
 
 }
-
-#ifdef PPG_DEBUG
-
-/**
- * Dump simulation data for current iteration.
- *
- * @param iter Current iteration.
- * @param dump_type Type of dump (see comment for PPG_DUMP constant).
- * @param zone OpenCL zone.
- * @param fp_agent_dump Pointer of file where to dump agent info.
- * @param fp_cell_dump Pointer of file where to dump cell info.
- * @param gws_action_agent GWS for action_agent kernel (current iteration).
- * @param gws_move_agent GWS for move_agent kernel (current iteration).
- * @param params Simulation parameters.
- * @param dataSizes Size of data buffers.
- * @param buffersDevice Device data buffers.
- * @param agents_data Host buffer where to put agent data.
- * @param cells_agents_index Host buffer where to put cell data (agents
- * index).
- * @param cells_grass Host buffer where to put cell data (grass).
- * @param err GLib error object for error reporting.
- * @return @link pp_error_codes::PP_SUCCESS @endlink if function
- * terminates successfully, or an error code otherwise.
- * */
-static void ppg_dump(int iter, int dump_type, CCLQueue* cq,
-	FILE* fp_agent_dump, FILE* fp_cell_dump, cl_uint max_agents_iter,
-	size_t gws_reduce_agent1, size_t gws_action_agent,
-	size_t gws_move_agent, PPParameters params, PPGDataSizes dataSizes,
-	PPGBuffersDevice buffersDevice, void *agents_data,
-	cl_uint2 *cells_agents_index, cl_uint *cells_grass, GError** err) {
-
-	/* Aux. status vars. */
-	int blank_line;
-
-	/* Internal error handling object. */
-	GError* err_internal = NULL;
-
-	/* Read data from device. */
-	ccl_buffer_enqueue_read(buffersDevice.agents_data, cq, CL_TRUE, 0,
-		dataSizes.agents_data, agents_data, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	ccl_buffer_enqueue_read(buffersDevice.cells_agents_index, cq,
-		CL_TRUE, 0, dataSizes.cells_agents_index, cells_agents_index,
-		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	ccl_buffer_enqueue_read(buffersDevice.cells_grass, cq, CL_TRUE, 0,
-		dataSizes.cells_grass, cells_grass, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	/* Export agent info. */
-	fprintf(fp_agent_dump, "\nIter %d, max_agents_iter=%d, " \
-		"gws_reduce_agent1=%zu, gws_action_ag=%zu, gws_mov_ag=%zu\n",
-		iter, max_agents_iter, gws_reduce_agent1, gws_action_agent,
-		gws_move_agent);
-	blank_line = FALSE;
-	if (agent_size_bytes == 8) {
-		for (cl_uint k = 0; k < args.max_agents; k++) {
-			cl_ulong curr_ag = ((cl_ulong*) agents_data)[k];
-			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFFFFFF00000000)!= 0xFFFFFFFF00000000)) {
-				if (blank_line) fprintf(fp_agent_dump, "\n");
-				blank_line = FALSE;
-				fprintf(fp_agent_dump, "[%4d] %016lx: (%4d, %4d) type=%d energy=%d\n",
-					k, curr_ag,
-					(cl_uint) (curr_ag >> 48),
-					(cl_uint) ((curr_ag >> 32) & 0xFFFF),
-					(cl_uint) ((curr_ag >> 16) & 0xFFFF),
-					(cl_uint) (curr_ag & 0xFFFF));
-			} else {
-				blank_line = TRUE;
-			}
-		}
-	} else if (agent_size_bytes == 4) {
-		for (cl_uint k = 0; k < args.max_agents; k++) {
-			cl_uint curr_ag = ((cl_uint*) agents_data)[k];
-			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFF0000)!= 0xFFFF0000)) {
-				if (blank_line) fprintf(fp_agent_dump, "\n");
-				blank_line = FALSE;
-				fprintf(fp_agent_dump, "[%4d] %08x: (%3d, %3d) type=%d energy=%d\n",
-					k, curr_ag,
-					(cl_uint) (curr_ag >> 22),
-					(cl_uint) ((curr_ag >> 12) & 0x3FF),
-					(cl_uint) ((curr_ag >> 11) & 0x1),
-					(cl_uint) (curr_ag & 0x7FF));
-			} else {
-				blank_line = TRUE;
-			}
-		}
-	}
-
-	/* Export cell info. */
-	fprintf(fp_cell_dump, "\nIteration %d\n", iter);
-	blank_line = FALSE;
-	for (cl_uint k = 0; k < params.grid_xy; k++) {
-		if (!(dump_type & 0x10) || ((iter != -1) & (cells_agents_index[k].s[0] != args.max_agents))) {
-			if (blank_line) fprintf(fp_cell_dump, "\n");
-			blank_line = FALSE;
-			if (iter != -1) {
-				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s [Grass: %d]\n",
-					k % params.grid_x, k / params.grid_y,
-					cells_agents_index[k].s[0], cells_agents_index[k].s[1],
-					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "",
-					cells_grass[k]);
-			} else {
-				fprintf(fp_cell_dump, "(%d, %d) -> (-, -) [Grass: %d]\n",
-					k % params.grid_x, k / params.grid_y,
-					cells_grass[k]);
-			}
-		} else {
-			blank_line = TRUE;
-		}
-	}
-
-	/* If we got here, everything is OK. */
-	g_assert(*err == NULL);
-	goto finish;
-
-error_handler:
-	/* If we got here there was an error, verify that it is so. */
-	g_assert(*err != NULL);
-
-finish:
-
-	/* Return. */
-	return;
-
-}
-
-#endif
 
 /**
  * Compute worksizes depending on the device type and number of
@@ -1777,8 +1787,8 @@ int main(int argc, char **argv) {
 	ccl_prof_start(prof);
 
 	/* Simulation!! */
-	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, stats_host,
-		buffersDevice, &err);
+	ppg_simulate(krnls, cq1, cq2, sorter, params, gws, lws, dataSizes,
+		stats_host, buffersDevice, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
@@ -1811,6 +1821,7 @@ int main(int argc, char **argv) {
 error_handler:
 	/* Handle error. */
 	g_assert(err != NULL);
+	status = err->code;
 	fprintf(stderr, "Error: %s\n", err->message);
 #ifdef PPG_DEBUG
 	fprintf(stderr, "Error code (domain): %d (%s)\n",
