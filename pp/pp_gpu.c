@@ -214,6 +214,7 @@ typedef struct pp_g_local_work_sizes {
 * Size of data structures.
 * */
 typedef struct pp_g_data_sizes {
+
 	/** Simulation statistics. */
 	size_t stats;
 	/** Grass regrowth timer array. */
@@ -236,8 +237,7 @@ typedef struct pp_g_data_sizes {
 	size_t reduce_agent_global;
 	/** RNG seeds/state array. */
 	size_t rng_seeds;
-	/** Number of RNG seeds. */
-	size_t rng_seeds_count;
+
 } PPGDataSizes;
 
 /**
@@ -1102,7 +1102,10 @@ finish:
  * */
 static void ppg_info_print(PPGGlobalWorkSizes gws,
 	PPGLocalWorkSizes lws, PPGDataSizes dataSizes, CloSort* sorter,
-	gchar* compilerOpts) {
+	gchar* compilerOpts, GError** err) {
+
+	/* Internal error handling object. */
+	GError* err_internal = NULL;
 
 	/* Determine total global memory. */
 	size_t dev_mem = sizeof(PPStatistics) +
@@ -1142,9 +1145,11 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 
 	for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
 		const char* kernel_name = clo_sort_get_kernel_name(sorter, i);
+		size_t loc_mem = clo_sort_get_localmem_usage(
+			sorter, i, lws.sort_agent, args.max_agents, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		printf("       | %-18.18s |     Var. | %5zu | %10zu |          0 |\n",
-			kernel_name, lws.sort_agent,
-			clo_sort_get_localmem_usage(sorter, i, lws.sort_agent, args.max_agents));
+			kernel_name, lws.sort_agent, loc_mem);
 	}
 
 	printf("       | find_cell_idx      |     Var. | %5zu |          0 |          0 |\n",
@@ -1152,6 +1157,19 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 	printf("       | action_agent       |     Var. | %5zu |          0 |          0 |\n",
 		lws.action_agent);
 	printf("       -------------------------------------------------------------------\n");
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
 
 }
 
@@ -1306,9 +1324,13 @@ static void ppg_results_save(char* filename, PPStatistics* statsArray,
  * @param[in] gws Kernel global work sizes.
  * @param[in] lws Kernel local work sizes.
  * */
-static void ppg_datasizes_get(PPParameters params,
-	PPGDataSizes* dataSizes, PPGGlobalWorkSizes gws,
-	PPGLocalWorkSizes lws) {
+static void ppg_datasizes_get(PPGDataSizes* dataSizes,
+	PPParameters params, CloRng* rng_clo, CloSort* sorter,
+	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
+
+	/// @todo Sorter should be used to query for total required device
+	/// memory for sorting.
+	(void)sorter;
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -1335,6 +1357,9 @@ static void ppg_datasizes_get(PPParameters params,
 		* args_vw.reduce_agent * agent_size_bytes; /* 2x to count sheep and wolves. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
+
+	/* RNG */
+	dataSizes->rng_seeds = clo_rng_get_size(rng_clo);
 
 }
 
@@ -1731,7 +1756,7 @@ int main(int argc, char **argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/* Determine size in bytes for host and device data structures. */
-	ppg_datasizes_get(params, &dataSizes, gws, lws);
+	ppg_datasizes_get(&dataSizes, params, rng_clo, sorter, gws, lws);
 
 	/* Initialize host statistics buffer. */
 	stats_host = (PPStatistics*) g_slice_alloc0(dataSizes.stats);
@@ -1745,7 +1770,8 @@ int main(int argc, char **argv) {
 	ppg_kernelargs_set(krnls, buffersDevice, dataSizes);
 
 	/* Print information about simulation. */
-	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts);
+	ppg_info_print(gws, lws, dataSizes, sorter, compilerOpts, &err);
+	ccl_if_err_goto(err, error_handler);
 
 	/* Start basic timming / profiling. */
 	ccl_prof_start(prof);
