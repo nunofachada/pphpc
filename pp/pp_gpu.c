@@ -14,17 +14,17 @@
  //~ * */
 //~ #define PPG_DEBUG 250
 
-/**
- * If the constant bellow is set, then simulation info will be dumped
- * to a file in each iteration. The constant can assume the following
- * values:
- *
- * 0x00 - dump all agents + all grass
- * 0x01 - dump only alive agents + all grass
- * 0x10 - dump all agents + only dead grass (counter>0)
- * 0x11 - dump only alive agents + only dead grass (counter>0)
- * */
-#define PPG_DUMP 0x11
+//~ /**
+ //~ * If the constant bellow is set, then simulation info will be dumped
+ //~ * to a file in each iteration. The constant can assume the following
+ //~ * values:
+ //~ *
+ //~ * 0x00 - dump all agents + all grass
+ //~ * 0x01 - dump only alive agents + all grass
+ //~ * 0x10 - dump all agents + only dead grass (counter>0)
+ //~ * 0x11 - dump only alive agents + only dead grass (counter>0)
+ //~ * */
+//~ #define PPG_DUMP 0x01
 
 /**
  * The default maximum number of agents: 16777216. Each agent requires
@@ -1731,7 +1731,7 @@ int main(int argc, char **argv) {
 
 	/* Create RNG object. */
 	rng_clo = clo_rng_new(args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
-		args.max_agents, 0, NULL, ctx, cq1, &err);
+		MAX(args.max_agents, params.grid_xy), 0, NULL, ctx, cq1, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Create sorter object. */
