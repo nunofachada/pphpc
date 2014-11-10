@@ -1153,8 +1153,16 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 	printf("       | move_agent         |     Var. | %5zu |          0 |          0 |\n",
 		lws.move_agent);
 
-	for (unsigned int i = 0; i < clo_sort_get_num_kernels(sorter); i++) {
-		const char* kernel_name = clo_sort_get_kernel_name(sorter, i);
+	/* Get number of sort kernels. */
+	cl_uint num_sort_kernels =
+		clo_sort_get_num_kernels(sorter, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Show information for sort kernels. */
+	for (unsigned int i = 0; i < num_sort_kernels; i++) {
+		const char* kernel_name = clo_sort_get_kernel_name(
+			sorter, i, &err_internal);
+		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 		size_t loc_mem = clo_sort_get_localmem_usage(
 			sorter, i, lws.sort_agent, args.max_agents, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
