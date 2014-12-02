@@ -529,6 +529,7 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 	CCLEvent* evt_action_agent = NULL;
 	CCLEvent* evt_read_stats = NULL;
 	CCLEvent* evt_reduce_grass2 = NULL;
+	CCLEvent* evt_sort = NULL;
 
 	/* Event wait list. */
 	CCLEventWaitList ewl = NULL;
@@ -767,7 +768,7 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 		/// @todo We should use a data_out buffer if sorting algorithm
 		/// is not in-place. Also, should we keep this lws.sort_agent,
 		/// or let the sorting algorithm figure it out
-		ewl = clo_sort_with_device_data(sorter, cq2, cq2,
+		evt_sort = clo_sort_with_device_data(sorter, cq2, cq2,
 			buffersDevice.agents_data, NULL, max_agents_iter,
 			lws.sort_agent, &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
@@ -781,8 +782,7 @@ static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
 		 * next iteration. Make sure stats are already transfered back
 		 * to host. */
 
-		ccl_event_wait_list_add(&ewl, evt_read_stats, NULL);
-		ccl_event_wait(&ewl, &err_internal);
+		ccl_event_wait(ccl_ewl(&ewl, evt_sort, NULL), &err_internal);
 		ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 		memcpy(&stats_host[iter], stats_pinned, sizeof(PPStatistics));
