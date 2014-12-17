@@ -1,1 +1,1 @@
-java -cp bin:lib/colt.jar org.laseeb.predpreymulti.PredPreyMulti $1
+java -cp bin:lib/colt-1.2.0.jar org.laseeb.predpreymulti.PredPreyMulti $1
