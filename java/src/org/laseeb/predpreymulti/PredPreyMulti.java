@@ -35,13 +35,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Properties;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+
+import org.laseeb.predpreysimple.PredPreySimple;
 
 import cern.jet.random.Uniform;
 import cern.jet.random.engine.MersenneTwister;
@@ -333,9 +334,10 @@ public class PredPreyMulti {
 		try {
 			out = new FileWriter(str);
             for (int i = 0; i <= ITERS ; i++)
-            	out.write(sheepStats.get(i) + "\t" + wolfStats.get(i) + "\t" + grassStats.get(i) + "\n");
+            	out.write(sheepStats.get(i) + "\t" + wolfStats.get(i) + 
+            			"\t" + grassStats.get(i) + "\n");
 
-        } catch (Exception e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
             if (out != null) {
@@ -349,11 +351,11 @@ public class PredPreyMulti {
         }
  	}
 	
-	private static void loadProperties() {
+	private static void loadProperties(String params) {
 		Properties properties = new Properties();
 		FileReader in = null;
 		try {
-			in = new FileReader("config.txt");
+			in = new FileReader(params);
 			properties.load(in);
 			in.close();
 		} catch (Exception ex) {
@@ -374,7 +376,6 @@ public class PredPreyMulti {
 		GRID_X = Integer.parseInt(properties.getProperty("GRID_X"));
 		GRID_Y = Integer.parseInt(properties.getProperty("GRID_Y"));
 		ITERS = Integer.parseInt(properties.getProperty("ITERS"));
-		NUM_THREADS = Integer.parseInt(properties.getProperty("NUM_THREADS"));
 	}
 	
 	/**
@@ -383,11 +384,21 @@ public class PredPreyMulti {
 	 * If ignored, all iterations will be printed to screen.
 	 */
 	public static void main(String[] args) {
-		loadProperties();
+		if (args.length == 0) {
+			System.err.println("Usage: java -cp bin:lib/colt-1.2.0.jar " 
+				+ PredPreySimple.class.getName() + " PARAMS_FILE [NUM_THREADS] [PRINT_STEP]");
+			System.exit(-1);
+		}
+		loadProperties(args[0]);
 		int stepPrint = 1;
-		if (args.length == 1)
-			stepPrint = Integer.parseInt(args[0]);
+		if (args.length >= 2)
+				NUM_THREADS = Integer.parseInt(args[1]);
+		else
+				NUM_THREADS = Runtime.getRuntime().availableProcessors();
+		if (args.length >= 3)
+			stepPrint = Integer.parseInt(args[2]);
 		PredPreyMulti pps = new PredPreyMulti();
+		System.out.println("stepprint="+stepPrint+" threads="+NUM_THREADS);
 		pps.start(stepPrint);
 		pps.export("statsjava.txt");
 	}

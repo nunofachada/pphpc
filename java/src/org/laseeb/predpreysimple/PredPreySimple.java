@@ -245,11 +245,11 @@ public class PredPreySimple {
         }
  	}
 	
-	private static void loadProperties() {
+	private static void loadProperties(String params) {
 		Properties properties = new Properties();
 		FileReader in = null;
 		try {
-			in = new FileReader("config.txt");
+			in = new FileReader(params);
 			properties.load(in);
 			in.close();
 		} catch (Exception ex) {
@@ -278,10 +278,15 @@ public class PredPreySimple {
 	 * If ignored, all iterations will be printed to screen.
 	 */
 	public static void main(String[] args) {
-		loadProperties();
+		if (args.length == 0) {
+			System.err.println("Usage: java -cp bin:lib/colt-1.2.0.jar " 
+				+ PredPreySimple.class.getName() + " PARAMS_FILE [PRINT_STEP]");
+			System.exit(-1);
+		}
+		loadProperties(args[0]);
 		int stepPrint = 1;
-		if (args.length == 1)
-			stepPrint = Integer.parseInt(args[0]);
+		if (args.length >= 2)
+			stepPrint = Integer.parseInt(args[1]);
 		PredPreySimple pps = new PredPreySimple();
 		pps.start(stepPrint);
 		pps.export("statsjava.txt");
