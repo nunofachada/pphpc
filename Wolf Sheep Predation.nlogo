@@ -468,91 +468,17 @@ NIL
 @#$#@#$#@
 ## WHAT IS IT?
 
-This model explores the stability of predator-prey ecosystems. Such a system is called unstable if it tends to result in extinction for one or more species involved.  In contrast, a system is stable if it tends to maintain itself over time, despite fluctuations in population sizes.
+This model is based on the "Wolf Sheep Predation" model by Uri Wilensky (see reference bellow). Several changes have been implemented in order for the model to conform with the PPHPC ODD model by Nuno Fachada (see reference bellow).
 
-## HOW IT WORKS
+## REFERENCES
 
-There are two main variations to this model.
+For this specific NetLogo implementation with changes by Nuno Fachada:
 
-In the first variation, wolves and sheep wander randomly around the landscape, while the wolves look for sheep to prey on. Each step costs the wolves energy, and they must eat sheep in order to replenish their energy - when they run out of energy they die. To allow the population to continue, each wolf or sheep has a fixed probability of reproducing at each time step. This variation produces interesting population dynamics, but is ultimately unstable.
+- Fachada, N. and Lopes, Vitor V. and Martins, Rui C. and Rosa, A.C. (2014). PPHPC: A model for benchmarking Agent-based simulations.
 
-The second variation includes grass (green) in addition to wolves and sheep. The behavior of the wolves is identical to the first variation, however this time the sheep must eat grass in order to maintain their energy - when they run out of energy they die. Once grass is eaten it will only regrow after a fixed amount of time. This variation is more complex than the first, but it is generally stable.
-
-The construction of this model is described in two papers by Wilensky & Reisman referenced below.
-
-## HOW TO USE IT
-
-1. Set the GRASS? switch to TRUE to include grass in the model, or to FALSE to only include wolves (red) and sheep (white).  
-2. Adjust the slider parameters (see below), or use the default settings.  
-3. Press the SETUP button.  
-4. Press the GO button to begin the simulation.  
-5. Look at the monitors to see the current population sizes  
-6. Look at the POPULATIONS plot to watch the populations fluctuate over time
-
-Parameters:  
-INITIAL-NUMBER-SHEEP: The initial size of sheep population  
-INITIAL-NUMBER-WOLVES: The initial size of wolf population  
-SHEEP-GAIN-FROM-FOOD: The amount of energy sheep get for every grass patch eaten  
-WOLF-GAIN-FROM-FOOD: The amount of energy wolves get for every sheep eaten  
-SHEEP-REPRODUCE: The probability of a sheep reproducing at each time step  
-WOLF-REPRODUCE: The probability of a wolf reproducing at each time step  
-GRASS?: Whether or not to include grass in the model  
-GRASS-REGROWTH-TIME: How long it takes for grass to regrow once it is eaten  
-SHOW-ENERGY?: Whether or not to show the energy of each animal as a number
-
-Notes:  
-- one unit of energy is deducted for every step a wolf takes  
-- when grass is included, one unit of energy is deducted for every step a sheep takes
-
-## THINGS TO NOTICE
-
-When grass is not included, watch as the sheep and wolf populations fluctuate. Notice that increases and decreases in the sizes of each population are related. In what way are they related? What eventually happens?
-
-Once grass is added, notice the green line added to the population plot representing fluctuations in the amount of grass. How do the sizes of the three populations appear to relate now? What is the explanation for this?
-
-Why do you suppose that some variations of the model might be stable while others are not?
-
-## THINGS TO TRY
-
-Try adjusting the parameters under various settings. How sensitive is the stability of the model to the particular parameters?
-
-Can you find any parameters that generate a stable ecosystem that includes only wolves and sheep?
-
-Try setting GRASS? to TRUE, but setting INITIAL-NUMBER-WOLVES to 0. This gives a stable ecosystem with only sheep and grass. Why might this be stable while the variation with only sheep and wolves is not?
-
-Notice that under stable settings, the populations tend to fluctuate at a predictable pace. Can you find any parameters that will speed this up or slow it down?
-
-Try changing the reproduction rules -- for example, what would happen if reproduction depended on energy rather than being determined by a fixed probability?
-
-## EXTENDING THE MODEL
-
-There are a number ways to alter the model so that it will be stable with only wolves and sheep (no grass). Some will require new elements to be coded in or existing behaviors to be changed. Can you develop such a version?
-
-## NETLOGO FEATURES
-
-Note the use of breeds to model two different kinds of "turtles": wolves and sheep. Note the use of patches to model grass.
-
-Note use of the ONE-OF agentset reporter to select a random sheep to be eaten by a wolf.
-
-## RELATED MODELS
-
-Look at Rabbits Grass Weeds for another model of interacting populations with different rules.
-
-## CREDITS AND REFERENCES
-
-Wilensky, U. & Reisman, K. (1999). Connected Science: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. International Journal of Complex Systems, M. 234, pp. 1 - 12. (This model is a slightly extended version of the model described in the paper.)
-
-Wilensky, U. & Reisman, K. (2006). Thinking like a Wolf, a Sheep or a Firefly: Learning Biology through Constructing and Testing Computational Theories -- an Embodied Modeling Approach. Cognition & Instruction, 24(2), pp. 171-209.  
-http://ccl.northwestern.edu/papers/wolfsheep.pdf
-
-## HOW TO CITE
-
-If you mention this model in an academic publication, we ask that you include these citations for the model itself and for the NetLogo software:  
+For the original model:
+  
 - Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.  
-- Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
-
-In other publications, please use:  
-- Copyright 1997 Uri Wilensky. All rights reserved. See http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation for terms of use.
 
 ## COPYRIGHT NOTICE
 
@@ -562,9 +488,6 @@ Permission to use, modify or redistribute this model is hereby granted, provided
 a) this copyright notice is included.  
 b) this model will not be redistributed for profit without permission from Uri Wilensky. Contact Uri Wilensky for appropriate licenses for redistribution for profit.
 
-This model was created as part of the project: CONNECTED MATHEMATICS: MAKING SENSE OF COMPLEX PHENOMENA THROUGH BUILDING OBJECT-BASED PARALLEL MODELS (OBPML).  The project gratefully acknowledges the support of the National Science Foundation (Applications of Advanced Technologies Program) -- grant numbers RED #9552950 and REC #9632612.
-
-This model was converted to NetLogo as part of the projects: PARTICIPATORY SIMULATIONS: NETWORK-BASED DESIGN FOR SYSTEMS LEARNING IN CLASSROOMS and/or INTEGRATED SIMULATION AND MODELING ENVIRONMENT. The project gratefully acknowledges the support of the National Science Foundation (REPP & ROLE programs) -- grant numbers REC #9814682 and REC-0126227. Converted from StarLogoT to NetLogo, 2000.
 @#$#@#$#@
 default
 true
