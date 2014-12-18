@@ -107,7 +107,7 @@ public class PredPreySimple {
 				/* Grow grass in current cell. */
 				if (rand.nextBoolean()) {
 					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + nextInt(GRASS_RESTART));
+					grid[i][j].setGrass(1 + nextInt(GRASS_RESTART - 1));
 				} else {
 					/* Grass alive. */
 					grid[i][j].setGrass(0);
