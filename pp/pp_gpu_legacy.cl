@@ -37,7 +37,7 @@ typedef struct pp_gs_agent {
  * Also increments iteration number.atomic_
  */
 __kernel void RandomWalk(__global PPGSAgent * agents,
-				__global rng_state * seeds,
+				__global clo_statetype * seeds,
 				const PPGSSimParams sim_params,
 				__global uint * iter)
 {
@@ -332,7 +332,7 @@ __kernel void CountGrass2(__global uint * gcounter,
 /*
  * Agent reproduction function for agents action kernel
  */
-PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParamsOcl * params, __global uint * num_agents, __global rng_state * seeds)
+PPGSAgent agentReproduction(__global PPGSAgent * agents, PPGSAgent agent, __global PPAgentParamsOcl * params, __global uint * num_agents, __global clo_statetype * seeds)
 {
 	// Perhaps agent will reproduce if energy > reproduce_threshold
 	if (agent.energy > params[agent.type].reproduce_threshold) {
@@ -414,7 +414,7 @@ __kernel void AgentAction( __global PPGSAgent * agents,
 			__global uint * matrix,
 			const PPGSSimParams sim_params,
 			__global PPAgentParamsOcl * params,
-			__global rng_state * seeds,
+			__global clo_statetype * seeds,
 			__global uint * num_agents)
 {
 	// Global id for this work-item

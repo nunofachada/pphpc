@@ -967,7 +967,7 @@ int main(int argc, char ** argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/* Concatenate complete source: RNG kernels source + common source
-	 * + GPU legacy source. */
+	 * + CPU kernel source. */
 	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
 		PP_CPU_SRC, NULL);
 

@@ -214,7 +214,7 @@
  * */
 __kernel void init_cell(
 			__global uint *grass,
-			__global rng_state *seeds)
+			__global clo_statetype *seeds)
 {
 
 	/* Grid position for this work-item */
@@ -247,7 +247,7 @@ __kernel void init_cell(
  * */
 __kernel void init_agent(
 			__global uagr *data,
-			__global rng_state *seeds
+			__global clo_statetype *seeds
 )
 {
 	/* Agent to be handled by this workitem. */
@@ -519,7 +519,7 @@ __kernel void reduce_agent1(
  */
 __kernel void move_agent(
 			__global uagr *data,
-			__global rng_state *seeds)
+			__global clo_statetype *seeds)
 {
 
 	/* Global id for this work-item */
@@ -660,7 +660,7 @@ __kernel void action_agent(
 			__global uint2 *cell_agents_idx,
 			__global uagr *data,
 			__global uagr_half *data_half,
-			__global rng_state *seeds)
+			__global clo_statetype *seeds)
 {
 
 	/* Global id for this workitem */

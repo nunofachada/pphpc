@@ -70,7 +70,7 @@ void addAgentToCell(__global PPCAgentOcl * agents,
  * Find a place for the new agent to stay
  */
 uint allocateAgentIndex(__global PPCAgentOcl * agents,
-			__global ulong * seeds,
+			__global clo_statetype* seeds,
 			PPCSimParamsOcl sim_params) {
 	// Find a place for the agent to stay
 	uint agentIndex;
@@ -88,7 +88,7 @@ uint allocateAgentIndex(__global PPCAgentOcl * agents,
 /*
  * Get a random neighbor cell, or current cell
  */
-uint getRandomWalkCellIndex(__global ulong * seeds,
+uint getRandomWalkCellIndex(__global clo_statetype* seeds,
 				uint cellIndex,
 				PPCSimParamsOcl sim_params) {
 	// Throw a coin
@@ -135,7 +135,7 @@ uint getRandomWalkCellIndex(__global ulong * seeds,
  * Kernel for testing random walk
  */
 __kernel void testGetRandomWalkCellIndex(__global int * intarray,
-					__global ulong * seeds,
+					__global clo_statetype* seeds,
 					PPCSimParamsOcl sim_params)
 {
 	for (uint i = 0; i < 20; i++) {
@@ -149,7 +149,7 @@ __kernel void testGetRandomWalkCellIndex(__global int * intarray,
  */
 __kernel void step1(__global PPCAgentOcl * agents,
 			__global PPCCellOcl * matrix,
-			__global ulong * seeds,
+			__global clo_statetype* seeds,
 			__private uint turn,
 			__constant PPCSimParamsOcl* sim_params_ptr)
 {
@@ -212,7 +212,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
  */
 __kernel void step2(__global PPCAgentOcl * agents,
 			__global PPCCellOcl * matrix,
-			__global ulong * seeds,
+			__global clo_statetype* seeds,
 			__global PPStatisticsOcl * stats,
 			__private uint iter,
 			__private uint turn,
