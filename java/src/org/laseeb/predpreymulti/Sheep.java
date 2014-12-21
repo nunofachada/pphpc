@@ -38,8 +38,8 @@ public class Sheep extends Agent {
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Sheep(int energy) {
-		super(energy);
+	public Sheep(int energy, SimParams params) {
+		super(energy, params);
 	}
 	
 	@Override
@@ -49,7 +49,7 @@ public class Sheep extends Agent {
 	protected void play(Cell cell) {
 		if (cell.getGrass() == 0) {
 			cell.eatGrass();
-			this.setEnergy(this.getEnergy() + PredPreyMulti.SHEEP_GAIN_FROM_FOOD);
+			this.setEnergy(this.getEnergy() + params.getSheepGainFromFood());
 		}
 
 	}
@@ -59,7 +59,7 @@ public class Sheep extends Agent {
 	 * @see Agent
 	 */
 	protected int getReproduceProbability() {
-		return PredPreyMulti.SHEEP_REPRODUCE_PROB;
+		return params.getSheepReproduceProb();
 	}
 
 	@Override
@@ -67,7 +67,7 @@ public class Sheep extends Agent {
 	 * @see Agent
 	 */
 	protected int getReproduceThreshold() {
-		return PredPreyMulti.SHEEP_REPRODUCE_THRESHOLD;
+		return params.getSheepReproduceThreshold();
 	}
 
 }

@@ -31,12 +31,11 @@
 package org.laseeb.predpreymulti;
 
 import java.awt.Point;
-import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Properties;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
@@ -47,29 +46,39 @@ import org.laseeb.predpreysimple.PredPreySimple;
 import cern.jet.random.Uniform;
 import cern.jet.random.engine.MersenneTwister;
 
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+
 /**
  * Main class for multi-threaded predator-prey model.
  * @author Nuno Fachada
  */
 public class PredPreyMulti {
+	
+	final String paramsFileDefault = "config.txt";
+	final String statsFileDefault = "stats.txt";
 
-	/*
-	 * Model parameters.
-	 */
-	static int INIT_SHEEP;
-	static int SHEEP_GAIN_FROM_FOOD;
-	static int SHEEP_REPRODUCE_THRESHOLD;
-	static int SHEEP_REPRODUCE_PROB;
-	static int INIT_WOLVES;
-	static int WOLVES_GAIN_FROM_FOOD;
-	static int WOLVES_REPRODUCE_THRESHOLD;
-	static int WOLVES_REPRODUCE_PROB;
-	static int GRASS_RESTART;
-	static int GRID_X;
-	static int GRID_Y;
-	static int ITERS;
-	static int NUM_THREADS;
+	
+	/* Number of threads. */
+	@Option(name="-n", usage="number of threads, defaults to the number of processors")
+	int NUM_THREADS = Runtime.getRuntime().availableProcessors();
+	
+	/* Interval to print current iteration. */
+	@Option(name="-i", usage="interval of iterations to print current iteration")
+	long stepPrint = Long.MAX_VALUE;
+	
+	/* File containing simulation parameters. */
+	@Option(name="-p", usage="specify parameters file (default is " + paramsFileDefault + ")")
+	String paramsFile = paramsFileDefault;
+	
+	/* File where to output simulation statistics. */
+	@Option(name="-s", usage="Specify statistics output file (default is " + statsFileDefault + ")")
+	String statsFile = statsFileDefault;
 
+	/* Simulation parameters. */
+	private SimParams params;
+	
 	/* Simulation grid. */
 	private Cell[][] grid;
 	
@@ -120,17 +129,17 @@ public class PredPreyMulti {
 			/* Aux. var. */
 			Point auxPoint = new Point();
 			/* Define this thread's cells. */
-			long gridsize = GRID_X * GRID_Y;
+			long gridsize = params.getGridX() * params.getGridY();
 			ArrayList<Point> myCells = new ArrayList<Point>();
 			for (int k = offset; k < gridsize; k += NUM_THREADS) {
 				Point point = new Point();
-				point.y = k / GRID_X;
-				point.x = k - point.y * GRID_X;
+				point.y = k / params.getGridX();
+				point.x = k - point.y * params.getGridX();
 				myCells.add(point);
 			}
 			int numCells = myCells.size();
 			/* Perform simulation steps. */
-			for (int iter = 1; iter <= ITERS; iter++) {
+			for (int iter = 1; iter <= params.getIters(); iter++) {
 				/* Agent movement. */
 				for (int i = 0; i < numCells; i++) {
 					/* Get x and y coordinates for this cell. */
@@ -151,23 +160,23 @@ public class PredPreyMulti {
 							if (direction == 1) {
 								/* Move to the right. */
 								x++;
-								if (x == GRID_X)
+								if (x == params.getGridX())
 									x = 0;
 							} else if (direction == 2) {
 								/* Move to the left. */
 								x--;
 								if (x < 0)
-									x = GRID_X - 1;
+									x = params.getGridX() - 1;
 							} else if (direction == 3) {
 								/* Move down. */
 								y++;
-								if (y == GRID_Y)
+								if (y == params.getGridY())
 									y = 0;
 							} else if (direction == 4) {
 								/* Move up. */
 								y--;
 								if (y < 0)
-									y = GRID_Y - 1;
+									y = params.getGridY() - 1;
 							}
 							/* Move agent to new cell in the future. */
 							grid[x][y].putAgentFuture(agent);
@@ -250,7 +259,7 @@ public class PredPreyMulti {
 	/**
 	 * Perform simulation.
 	 */
-	public void start(final int stepPrint) {
+	public void start() {
 		/* Initialize thread-safe random number generator. */
 		rand = new ThreadLocal<Uniform>();
 		rand.set(new Uniform(new MersenneTwister((int) System.nanoTime())));
@@ -271,31 +280,31 @@ public class PredPreyMulti {
 					System.out.println("Iter " + iter);
 				iter++;
 				/* If this is the last iteration, let main thread continue... */
-				if (iter > ITERS) {
+				if (iter > params.getIters()) {
 					semaphore.release();
 				}				
 			}
 		});
 		this.partialBarrier = new CyclicBarrier(NUM_THREADS);
 		/* Initialize statistics. */
-		int[] resetArray = new int[ITERS + 1];
+		int[] resetArray = new int[params.getIters() + 1];
 		Arrays.fill(resetArray, 0);
 		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.sheepStats.set(0, INIT_SHEEP);
+		this.sheepStats.set(0, params.getInitSheep());
 		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats.set(0, INIT_WOLVES);
+		this.wolfStats.set(0, params.getInitWolves());
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		/* Initialize simulation grid. */
-		grid = new Cell[GRID_X][GRID_Y];
+		grid = new Cell[params.getGridX()][params.getGridY()];
 		/* Initialize simulation grid cells. */
-		for (int i = 0; i < GRID_X; i++) {
-			for (int j = 0; j < GRID_Y; j++) {
+		for (int i = 0; i < params.getGridX(); i++) {
+			for (int j = 0; j < params.getGridY(); j++) {
 				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell();
+				grid[i][j] = new Cell(params, this.NUM_THREADS);
 				/* Grow grass in current cell. */
 				if (rand.get().nextBoolean()) {
 					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + nextInt(GRASS_RESTART - 1));
+					grid[i][j].setGrass(1 + nextInt(params.getGrassRestart() - 1));
 				} else {
 					/* Grass alive. */
 					grid[i][j].setGrass(0);
@@ -305,10 +314,12 @@ public class PredPreyMulti {
 			}
 		}
 		/* Populate simulation grid with agents. */
-		for (int i = 0; i < INIT_SHEEP; i++)
-			grid[nextInt(GRID_X - 1)][nextInt(GRID_Y - 1)].putAgentNow(new Sheep(1 + nextInt(2 * SHEEP_GAIN_FROM_FOOD - 1)));
-		for (int i = 0; i < INIT_WOLVES; i++)
-			grid[nextInt(GRID_X - 1)][nextInt(GRID_Y - 1)].putAgentNow(new Wolf(1 + nextInt(2 * WOLVES_GAIN_FROM_FOOD - 1)));
+		for (int i = 0; i < params.getInitSheep(); i++)
+			grid[nextInt(params.getGridX() - 1)][nextInt(params.getGridY() - 1)].putAgentNow(
+						new Sheep(1 + nextInt(2 * params.getSheepGainFromFood() - 1), params));
+		for (int i = 0; i < params.getInitWolves(); i++)
+			grid[nextInt(params.getGridX() - 1)][nextInt(params.getGridY() - 1)].putAgentNow(
+						new Wolf(1 + nextInt(2 * params.getWolvesGainFromFood() - 1), params));
 		
 		/* Run simulation. */
 		long startTime = System.currentTimeMillis();
@@ -329,11 +340,11 @@ public class PredPreyMulti {
 	 * Export statistics to file.
 	 * @param str Statistics filename.
 	 */
-	public void export(String str) {
+	private void export() {
 		FileWriter out = null;
 		try {
-			out = new FileWriter(str);
-            for (int i = 0; i <= ITERS ; i++)
+			out = new FileWriter(this.statsFile);
+            for (int i = 0; i <= params.getIters() ; i++)
             	out.write(sheepStats.get(i) + "\t" + wolfStats.get(i) + 
             			"\t" + grassStats.get(i) + "\n");
 
@@ -351,32 +362,35 @@ public class PredPreyMulti {
         }
  	}
 	
-	private static void loadProperties(String params) {
-		Properties properties = new Properties();
-		FileReader in = null;
+	public void doMain(String[] args) {
+		
+		CmdLineParser parser = new CmdLineParser(this);
+		
 		try {
-			in = new FileReader(params);
-			properties.load(in);
-			in.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
+			parser.parseArgument(args);
+		} catch (CmdLineException e) {
+			System.err.println(e.getMessage());
+			System.err.println("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
+				+ PredPreySimple.class.getName() + " [options...]");
+			parser.printUsage(System.err);
+			System.err.println();
+			return;
 		}
-		/*
-		 * Model parameters.
-		 */
-		INIT_SHEEP = Integer.parseInt(properties.getProperty("INIT_SHEEP"));
-		SHEEP_GAIN_FROM_FOOD = Integer.parseInt(properties.getProperty("SHEEP_GAIN_FROM_FOOD"));
-		SHEEP_REPRODUCE_THRESHOLD = Integer.parseInt(properties.getProperty("SHEEP_REPRODUCE_THRESHOLD"));
-		SHEEP_REPRODUCE_PROB = Integer.parseInt(properties.getProperty("SHEEP_REPRODUCE_PROB"));
-		INIT_WOLVES = Integer.parseInt(properties.getProperty("INIT_WOLVES"));
-		WOLVES_GAIN_FROM_FOOD = Integer.parseInt(properties.getProperty("WOLVES_GAIN_FROM_FOOD"));
-		WOLVES_REPRODUCE_THRESHOLD = Integer.parseInt(properties.getProperty("WOLVES_REPRODUCE_THRESHOLD"));
-		WOLVES_REPRODUCE_PROB = Integer.parseInt(properties.getProperty("WOLVES_REPRODUCE_PROB"));
-		GRASS_RESTART = Integer.parseInt(properties.getProperty("GRASS_RESTART"));
-		GRID_X = Integer.parseInt(properties.getProperty("GRID_X"));
-		GRID_Y = Integer.parseInt(properties.getProperty("GRID_Y"));
-		ITERS = Integer.parseInt(properties.getProperty("ITERS"));
+		
+		try {
+			this.params = new SimParams(this.paramsFile);
+		} catch (IOException e) {
+			System.err.println(e.getMessage());
+			return;
+		}
+		
+		System.out.println("Starting simulation with " + this.NUM_THREADS + " threads.");
+		
+		this.start();
+		this.export();
+		
 	}
+	
 	
 	/**
 	 * Main function.
@@ -384,23 +398,8 @@ public class PredPreyMulti {
 	 * If ignored, all iterations will be printed to screen.
 	 */
 	public static void main(String[] args) {
-		if (args.length == 0) {
-			System.err.println("Usage: java -cp bin:lib/colt-1.2.0.jar " 
-				+ PredPreySimple.class.getName() + " PARAMS_FILE [NUM_THREADS] [PRINT_STEP]");
-			System.exit(-1);
-		}
-		loadProperties(args[0]);
-		int stepPrint = 1;
-		if (args.length >= 2)
-				NUM_THREADS = Integer.parseInt(args[1]);
-		else
-				NUM_THREADS = Runtime.getRuntime().availableProcessors();
-		if (args.length >= 3)
-			stepPrint = Integer.parseInt(args[2]);
-		PredPreyMulti pps = new PredPreyMulti();
-		System.out.println("stepprint="+stepPrint+" threads="+NUM_THREADS);
-		pps.start(stepPrint);
-		pps.export("statsjava.txt");
+		
+		new PredPreyMulti().doMain(args);
 	}
 
 }

@@ -39,12 +39,16 @@ public abstract class Agent implements Cloneable {
 	/* Agent energy. */
 	protected int energy;
 	
+	/* Simulation parameters. */
+	protected SimParams params;
+	
 	/**
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Agent(int energy) {
+	public Agent(int energy, SimParams params) {
 		this.energy = energy;
+		this.params = params;
 	}
 	
 	/**
