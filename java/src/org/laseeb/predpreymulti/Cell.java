@@ -46,6 +46,8 @@ public class Cell {
 	private ConcurrentHashMap<Integer, Agent> futureAgents;
 	/* Structure where to put agents to be removed. */
 	private HashSet<Agent> agentsToRemove;
+	/* Simulation parameters. */
+	private SimParams params;
 	
 	/* Grass counter. */
 	private int grass;
@@ -53,11 +55,12 @@ public class Cell {
 	/**
 	 * Constructor.
 	 */
-	public Cell() {
+	public Cell(SimParams params, int numThreads) {
 		/* Initialize agent keeping structures. */
-		agents = new HashSet<Agent>();
-		futureAgents = new ConcurrentHashMap<Integer, Agent>(16, 0.75f, PredPreyMulti.NUM_THREADS);
-		agentsToRemove = new HashSet<Agent>();
+		this.agents = new HashSet<Agent>();
+		this.futureAgents = new ConcurrentHashMap<Integer, Agent>(16, 0.75f, numThreads);
+		this.agentsToRemove = new HashSet<Agent>();
+		this.params = params;
 	}
 	
 	/**
@@ -123,7 +126,7 @@ public class Cell {
 	 * Eat grass.
 	 */
 	public void eatGrass() {
-		grass = PredPreyMulti.GRASS_RESTART;
+		grass = params.getGrassRestart();
 	}
 	
 	/**

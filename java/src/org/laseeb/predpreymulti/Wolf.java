@@ -40,8 +40,8 @@ public class Wolf extends Agent {
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Wolf(int energy) {
-		super(energy);
+	public Wolf(int energy, SimParams params) {
+		super(energy, params);
 	}
 
 	@Override
@@ -58,7 +58,7 @@ public class Wolf extends Agent {
 			if (agent instanceof Sheep) {
 				/* Eat sheep (only one please). */
 				if (agent.getEnergy() > 0) {
-					this.setEnergy(this.getEnergy() + PredPreyMulti.WOLVES_GAIN_FROM_FOOD);
+					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
 					cell.removeAgent(agent);
 					agent.setEnergy(0);
 					break;
@@ -72,7 +72,7 @@ public class Wolf extends Agent {
 	 * @see Agent
 	 */
 	protected int getReproduceProbability() {
-		return PredPreyMulti.WOLVES_REPRODUCE_PROB;
+		return params.getWolvesReproduceProb();
 	}
 	
 	@Override
@@ -80,7 +80,7 @@ public class Wolf extends Agent {
 	 * @see Agent
 	 */
 	protected int getReproduceThreshold() {
-		return PredPreyMulti.WOLVES_REPRODUCE_THRESHOLD;
+		return params.getWolvesReproduceThreshold();
 	}
 
 }
