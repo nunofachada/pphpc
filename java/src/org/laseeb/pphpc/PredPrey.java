@@ -34,8 +34,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Random;
 
 import org.uncommons.maths.random.AESCounterRNG;
@@ -47,7 +45,6 @@ import org.uncommons.maths.random.SeedException;
 import org.uncommons.maths.random.SeedGenerator;
 import org.uncommons.maths.random.XORShiftRNG;
 
-import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
@@ -58,87 +55,11 @@ import com.beust.jcommander.ParameterException;
  */
 public abstract class PredPrey {
 	
-	private class BigIntegerValidator implements IParameterValidator {
-
-		@Override
-		public void validate(String name, String value)
-				throws ParameterException {
-			try {
-				seed = new BigInteger(value);
-			} catch (NumberFormatException nfe) {
-				throw new ParameterException(nfe);
-			}
-			
-		}
-	}
-	
-	private class RngTypeValidator implements IParameterValidator {
-
-		@Override
-		public void validate(String name, String value)
-				throws ParameterException {
-			if (value.equalsIgnoreCase("aes")) {
-				rngType = RNGType.AES;
-			} else if (value.equalsIgnoreCase("ca")) {
-				rngType = RNGType.CA;
-			} else if (value.equalsIgnoreCase("cmwc")) {
-				rngType = RNGType.CMWC;
-			} else if (value.equalsIgnoreCase("java")) {
-				rngType = RNGType.JAVA;
-			} else if (value.equalsIgnoreCase("mt")) {
-				rngType = RNGType.MT;
-			} else if (value.equalsIgnoreCase("xorshift")) {
-				rngType = RNGType.XORSHIFT;
-			} else {
-				throw new ParameterException("Unknown random number generator '" + value + "'");
-			}
-		}
-		
-	}
-	
-	private class PPSeedGenerator implements SeedGenerator {
-		
-		private long modifier;
-		
-		public PPSeedGenerator(long modifier) {
-			this.modifier = modifier;
-		}
-
-		@Override
-		public byte[] generateSeed(int length) throws SeedException {
-			
-			BigInteger finalSeed = seed;
-			BigInteger modifierXor;
-			
-			if (modifier == 0) {
-				modifierXor = new BigInteger("0");
-			} else {
-				try {
-					MessageDigest digest = MessageDigest.getInstance("SHA-256");
-					digest.update(Long.toString(modifier).getBytes());
-					modifierXor = new BigInteger(digest.digest());
-				} catch (NoSuchAlgorithmException e) {
-					throw new SeedException(e.getMessage(), e);
-				}
-			}
-
-			finalSeed = finalSeed.xor(modifierXor);
-			
-			while (finalSeed.bitCount() < length * 8) {
-				finalSeed = finalSeed.pow(2);
-			}
-			System.out.println(finalSeed.bitCount() / 8);
-			return finalSeed.toByteArray();
-		}
-		
-	}
 
 	public enum StatType { SHEEP, WOLVES, GRASS }
-	public enum RNGType { AES, CA, CMWC, JAVA, MT, XORSHIFT }
 	
 	final String paramsFileDefault = "config.txt";
 	final String statsFileDefault = "stats.txt";
-	final String nanoTimeSeed = "System.nanoTime()";
 	
 	/* Interval to print current iteration. */
 	@Parameter(names = "-i", description = "Interval of iterations to print current iteration")
@@ -152,14 +73,10 @@ public abstract class PredPrey {
 	@Parameter(names = "-s", description = "Statistics output file")
 	private String statsFile = statsFileDefault;
 	
-	@Parameter(names = "-r", description = "Seed for random number generator", validateWith = BigIntegerValidator.class)
-	private String seedStr = nanoTimeSeed;
+	@Parameter(names = "-r", description = "Seed for random number generator (defaults to System.nanoTime())", converter = BigIntegerConverter.class)
+	private BigInteger seed = null;
 	
-	@Parameter(names = "-g", description = "Random number generator (aes, ca, cmwc, java, mt or xorshift)", validateWith = RngTypeValidator.class)
-	private String rngTypeStr = "mt";
-	
-	private BigInteger seed;
-	
+	@Parameter(names = "-g", description = "Random number generator (aes, ca, cmwc, java, mt or xorshift)", converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
 	
 	/* Help option. */
@@ -237,9 +154,8 @@ public abstract class PredPrey {
 			return;
 		}
 		
-		if (this.seedStr.equals(this.nanoTimeSeed))
-			this.seedStr = Long.toString(System.nanoTime());
-		this.seed = new BigInteger(this.seedStr); 
+		if (this.seed == null)
+			this.seed = BigInteger.valueOf(System.nanoTime());
 //		System.out.println("Starting simulation with " + this.NUM_THREADS + " threads.");
 		
 		try {
@@ -255,7 +171,7 @@ public abstract class PredPrey {
 	
 	protected Random createRNG(long modifier) throws SeedException, GeneralSecurityException {
 		
-		SeedGenerator seedGen = new PPSeedGenerator(modifier);
+		SeedGenerator seedGen = new PPSeedGenerator(modifier, this.seed);
 
 		switch (this.rngType) {
 			case AES:
