@@ -28,7 +28,9 @@
 /**
  * 
  */
-package org.laseeb.predpreymulti;
+package org.laseeb.pphpc;
+
+import java.util.Random;
 
 /**
  * Generic agent class.
@@ -86,22 +88,22 @@ public abstract class Agent implements Cloneable {
 	 * - Reproduction.
 	 * @param cell Cell where agent is currently in.
 	 */
-	public void doPlay(Cell cell) {
+	public void doPlay(Cell cell, Random rng) {
 		/* Perform specific agent actions. */
 		play(cell);
 		/* Maybe perform reproduction. */
-		reproduce(cell);
+		reproduce(cell, rng);
 	}
 	
 	/**
 	 * Reproduction action.
 	 * @param cell Cell where agent is currently in.
 	 */
-	protected void reproduce(Cell cell) {
+	protected void reproduce(Cell cell, Random rng) {
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {
 			/* Throw dice, see if agent reproduces. */
-			if (PredPreyMulti.nextInt(99) < getReproduceProbability()) {
+			if (rng.nextInt(100) < getReproduceProbability()) {
 				/* Create new agent with half of the energy of the current agent. */
 				Agent agent = null;
 				try {

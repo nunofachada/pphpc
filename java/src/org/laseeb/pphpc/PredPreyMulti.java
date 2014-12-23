@@ -28,62 +28,35 @@
 /**
  * The PPHPC multithreaded package.
  */
-package org.laseeb.predpreymulti;
+package org.laseeb.pphpc;
 
 import java.awt.Point;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
-import org.laseeb.predpreysimple.PredPreySimple;
+import org.uncommons.maths.random.SeedException;
 
-import cern.jet.random.Uniform;
-import cern.jet.random.engine.MersenneTwister;
-
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
+import com.beust.jcommander.Parameter;
 
 /**
  * Main class for multi-threaded predator-prey model.
  * @author Nuno Fachada
  */
-public class PredPreyMulti {
-	
-	final String paramsFileDefault = "config.txt";
-	final String statsFileDefault = "stats.txt";
-
+public class PredPreyMulti extends PredPrey {
 	
 	/* Number of threads. */
-	@Option(name="-n", usage="number of threads, defaults to the number of processors")
-	int NUM_THREADS = Runtime.getRuntime().availableProcessors();
-	
-	/* Interval to print current iteration. */
-	@Option(name="-i", usage="interval of iterations to print current iteration")
-	long stepPrint = Long.MAX_VALUE;
-	
-	/* File containing simulation parameters. */
-	@Option(name="-p", usage="specify parameters file (default is " + paramsFileDefault + ")")
-	String paramsFile = paramsFileDefault;
-	
-	/* File where to output simulation statistics. */
-	@Option(name="-s", usage="Specify statistics output file (default is " + statsFileDefault + ")")
-	String statsFile = statsFileDefault;
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors")
+	private int NUM_THREADS = Runtime.getRuntime().availableProcessors();
 
-	/* Simulation parameters. */
-	private SimParams params;
-	
-	/* Simulation grid. */
-	private Cell[][] grid;
-	
-	/* Random number generator. */
-	private static ThreadLocal<Uniform> rand;
+//	/* Random number generator. */
+//	private static ThreadLocal<Uniform> rand;
 
 	/* Statistics gathering. */
 	private AtomicIntegerArray sheepStats;
@@ -96,20 +69,14 @@ public class PredPreyMulti {
 	/* Semaphore for waiting until the end of the simulation. */
 	private Semaphore semaphore;
 	
+	/* Thread local random number generator. */
+	ThreadLocal<Random> rng;
+	
 	/** 
 	 * Constructor, no arguments required.
 	 */
 	public PredPreyMulti() {}
 	
-	/**
-	 * Returns random integer between 0 and i.
-	 * @param i Maximum integer to obtain.
-	 * @return A random integer between 0 and i.
-	 */
-	public static int nextInt(int i) {
-		return rand.get().nextIntFromTo(0, i);
-	}
-
 	/* A simulation thread. */
 	private class SimThread implements Runnable {
 		/* Grid offset for each thread. */
@@ -120,8 +87,15 @@ public class PredPreyMulti {
 		}
 		/* Simulate! */
 		public void run() {
+			
 			/* Initialize my own random number generator. */
-			rand.set(new Uniform(new MersenneTwister((int) System.nanoTime())));
+			try {
+				rng.set(createRNG(Thread.currentThread().getId()));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				throw new RuntimeException(e);
+			}
+			
 			/* Partial statistics */
 			int sheepStatsPartial;
 			int wolfStatsPartial;
@@ -155,7 +129,7 @@ public class PredPreyMulti {
 							/* ...perform movement. */
 							int x = auxPoint.x; int y = auxPoint.y;
 							/* Choose direction, if any. */
-							int direction = nextInt(4);
+							int direction = rng.get().nextInt(5);
 							/* If agent decides to move, move him. */
 							if (direction == 1) {
 								/* Move to the right. */
@@ -214,7 +188,7 @@ public class PredPreyMulti {
 					while (agentIter.hasNext()) {
 						Agent agent = agentIter.next();
 						/* Tell agent to act. */
-						agent.doPlay(grid[auxPoint.x][auxPoint.y]);
+						agent.doPlay(grid[auxPoint.x][auxPoint.y], rng.get());
 					}
 					/* Remove dead agents. */
 					grid[auxPoint.x][auxPoint.y].removeAgentsToBeRemoved();
@@ -256,13 +230,18 @@ public class PredPreyMulti {
 		}
 
 	}
+	
 	/**
 	 * Perform simulation.
+	 * @throws GeneralSecurityException 
+	 * @throws SeedException 
 	 */
-	public void start() {
+	protected void start() throws SeedException, GeneralSecurityException {
+		
 		/* Initialize thread-safe random number generator. */
-		rand = new ThreadLocal<Uniform>();
-		rand.set(new Uniform(new MersenneTwister((int) System.nanoTime())));
+		this.rng = new ThreadLocal<Random>();
+		rng.set(createRNG(0));
+		
 		/* Initialize and acquire one permit semaphore. */
 		semaphore = new Semaphore(1);
 		try {
@@ -295,16 +274,16 @@ public class PredPreyMulti {
 		this.wolfStats.set(0, params.getInitWolves());
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		/* Initialize simulation grid. */
-		grid = new Cell[params.getGridX()][params.getGridY()];
+		grid = new CellMulti[params.getGridX()][params.getGridY()];
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
 			for (int j = 0; j < params.getGridY(); j++) {
 				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params, this.NUM_THREADS);
+				grid[i][j] = new CellMulti(params.getGrassRestart(), this.NUM_THREADS);
 				/* Grow grass in current cell. */
-				if (rand.get().nextBoolean()) {
+				if (rng.get().nextBoolean()) {
 					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + nextInt(params.getGrassRestart() - 1));
+					grid[i][j].setGrass(1 + rng.get().nextInt(params.getGrassRestart()));
 				} else {
 					/* Grass alive. */
 					grid[i][j].setGrass(0);
@@ -315,11 +294,11 @@ public class PredPreyMulti {
 		}
 		/* Populate simulation grid with agents. */
 		for (int i = 0; i < params.getInitSheep(); i++)
-			grid[nextInt(params.getGridX() - 1)][nextInt(params.getGridY() - 1)].putAgentNow(
-						new Sheep(1 + nextInt(2 * params.getSheepGainFromFood() - 1), params));
+			grid[rng.get().nextInt(params.getGridX())][rng.get().nextInt(params.getGridY())].putAgentNow(
+						new Sheep(1 + rng.get().nextInt(2 * params.getSheepGainFromFood()), params));
 		for (int i = 0; i < params.getInitWolves(); i++)
-			grid[nextInt(params.getGridX() - 1)][nextInt(params.getGridY() - 1)].putAgentNow(
-						new Wolf(1 + nextInt(2 * params.getWolvesGainFromFood() - 1), params));
+			grid[rng.get().nextInt(params.getGridX())][rng.get().nextInt(params.getGridY())].putAgentNow(
+						new Wolf(1 + rng.get().nextInt(2 * params.getWolvesGainFromFood()), params));
 		
 		/* Run simulation. */
 		long startTime = System.currentTimeMillis();
@@ -336,61 +315,6 @@ public class PredPreyMulti {
 		System.out.println("Total simulation time: " + timeInSeconds + "\n");
 		
 	}
-	/**
-	 * Export statistics to file.
-	 * @param str Statistics filename.
-	 */
-	private void export() {
-		FileWriter out = null;
-		try {
-			out = new FileWriter(this.statsFile);
-            for (int i = 0; i <= params.getIters() ; i++)
-            	out.write(sheepStats.get(i) + "\t" + wolfStats.get(i) + 
-            			"\t" + grassStats.get(i) + "\n");
-
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-            if (out != null) {
-                try {
-					out.close();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-            }
-        }
- 	}
-	
-	public void doMain(String[] args) {
-		
-		CmdLineParser parser = new CmdLineParser(this);
-		
-		try {
-			parser.parseArgument(args);
-		} catch (CmdLineException e) {
-			System.err.println(e.getMessage());
-			System.err.println("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
-				+ PredPreySimple.class.getName() + " [options...]");
-			parser.printUsage(System.err);
-			System.err.println();
-			return;
-		}
-		
-		try {
-			this.params = new SimParams(this.paramsFile);
-		} catch (IOException e) {
-			System.err.println(e.getMessage());
-			return;
-		}
-		
-		System.out.println("Starting simulation with " + this.NUM_THREADS + " threads.");
-		
-		this.start();
-		this.export();
-		
-	}
-	
 	
 	/**
 	 * Main function.
@@ -400,6 +324,20 @@ public class PredPreyMulti {
 	public static void main(String[] args) {
 		
 		new PredPreyMulti().doMain(args);
+	}
+
+	@Override
+	protected int getStats(StatType st, int iter) {
+		
+		switch (st) {
+			case SHEEP:
+				return sheepStats.get(iter);
+			case WOLVES:
+				return wolfStats.get(iter);
+			case GRASS:
+				return grassStats.get(iter);
+		}
+		return 0;
 	}
 
 }

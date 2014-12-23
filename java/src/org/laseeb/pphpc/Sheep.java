@@ -25,62 +25,49 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreymulti;
-
-import java.util.Iterator;
+package org.laseeb.pphpc;
 
 /**
- * Wolf class.
+ * Sheep class.
  * @author Nuno Fachada
  *
  */
-public class Wolf extends Agent {
-	
+public class Sheep extends Agent {
+
 	/**
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Wolf(int energy, SimParams params) {
+	public Sheep(int energy, SimParams params) {
 		super(energy, params);
 	}
-
+	
 	@Override
 	/**
 	 * @see Agent
 	 */
 	protected void play(Cell cell) {
-		/* Iterate over agents in this cell. */
-		Iterator<Agent> agents = cell.getAgents();
-		while (agents.hasNext()) {
-			/* Get next agent. */
-			Agent agent = agents.next();
-			/* Check if agent is sheep. */
-			if (agent instanceof Sheep) {
-				/* Eat sheep (only one please). */
-				if (agent.getEnergy() > 0) {
-					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-					cell.removeAgent(agent);
-					agent.setEnergy(0);
-					break;
-				}
-			}
+		if (cell.getGrass() == 0) {
+			cell.eatGrass();
+			this.setEnergy(this.getEnergy() + params.getSheepGainFromFood());
 		}
+
 	}
-	
+
 	@Override
 	/**
 	 * @see Agent
 	 */
 	protected int getReproduceProbability() {
-		return params.getWolvesReproduceProb();
+		return params.getSheepReproduceProb();
 	}
-	
+
 	@Override
 	/**
 	 * @see Agent
 	 */
 	protected int getReproduceThreshold() {
-		return params.getWolvesReproduceThreshold();
+		return params.getSheepReproduceThreshold();
 	}
 
 }

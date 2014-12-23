@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 
-COLT_VER=1.2.0
-COLT=colt-${COLT_VER}.jar
+JCOMMANDER_VER=1.47
+UNCOMMONS_MATHS_VER=1.2.3
 
-ARGS4J_VER=2.0.21
-ARGS4J=args4j-${ARGS4J_VER}.jar
+JCOMMANDER=jcommander-${JCOMMANDER_VER}.jar
+UNCOMMONS_MATHS=uncommons-maths-${UNCOMMONS_MATHS_VER}.jar
 
-if [ ! -e $COLT ]
+if [ ! -e ${JCOMMANDER} ]
 then
-	wget http://central.maven.org/maven2/colt/colt/${COLT_VER}/${COLT}
+	wget http://central.maven.org/maven2/com/beust/jcommander/${JCOMMANDER_VER}/${JCOMMANDER}
 else
-	echo "Colt already present, not downloading."
+	echo "JCommander already present, not downloading."
 fi
 
-if [ ! -e $ARGS4J ]
+if [ ! -e ${UNCOMMONS_MATHS} ]
 then
-	wget http://maven.jenkins-ci.org/content/repositories/releases/args4j/args4j/${ARGS4J_VER}/${ARGS4J}
+	wget http://central.maven.org/maven2/io/gatling/uncommons/maths/uncommons-maths/${UNCOMMONS_MATHS_VER}/${UNCOMMONS_MATHS}
 else
-	echo "args4j already present, not downloading."
+	echo "Uncommons maths already present, not downloading."
 fi

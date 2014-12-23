@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreysimple;
+package org.laseeb.pphpc;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -35,7 +35,7 @@ import java.util.Iterator;
  * @author Nuno Fachada
  * Grid cell, which contains grass and agents.
  */
-public class Cell {
+public class CellSingle extends Cell {
 	
 	/* Structure where to keep current agents. */
 	private HashSet<Agent> agents;
@@ -44,13 +44,11 @@ public class Cell {
 	/* Structure where to put agents to be removed. */
 	private HashSet<Agent> agentsToRemove;
 	
-	/* Grass counter. */
-	private int grass;
-	
 	/**
 	 * Constructor.
 	 */
-	public Cell() {
+	public CellSingle(int grassRestart) {
+		super(grassRestart);
 		/* Initialize agent keeping structures. */
 		agents = new HashSet<Agent>();
 		futureAgents = new HashSet<Agent>();
@@ -120,7 +118,7 @@ public class Cell {
 	 * Eat grass.
 	 */
 	public void eatGrass() {
-		grass = PredPreySimple.GRASS_RESTART;
+		grass = this.getGrassRestart();
 	}
 	
 	/**
