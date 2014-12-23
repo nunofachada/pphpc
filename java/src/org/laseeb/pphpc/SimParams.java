@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreymulti;
+package org.laseeb.pphpc;
 
 import java.io.FileReader;
 import java.io.IOException;

@@ -1,1 +1,1 @@
-java -cp bin:lib/* org.laseeb.predpreysimple.PredPreySimple $*
+java -cp bin:lib/* org.laseeb.pphpc.PredPreySingle $*

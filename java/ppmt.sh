@@ -1,1 +1,1 @@
-java -cp bin:lib/* org.laseeb.predpreymulti.PredPreyMulti $*
+java -cp bin:lib/* org.laseeb.pphpc.PredPreyMulti $*
