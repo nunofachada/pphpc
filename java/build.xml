@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project basedir="." default="build" name="pphpc-java">
+	
+	<description>
+		Build file for pphpc-java
+	</description>
+	
+	<!-- Properties -->
+	<property name="name" value="pphpc-java" />
+	<property name="year" value="2014" />
+	<property name="target" value="1.7"/>
+	<property name="source" value="1.7"/>
+    	
+	<!-- Define the project base directories -->
+	<property name="root.dir" value="." />
+	<property name="doc.dir" value="${root.dir}/doc" />
+	<property name="lib.dir" value="${root.dir}/lib" />
+	<property name="src.dir" value="${root.dir}/src" />
+	<property name="bin.dir" value="${root.dir}/bin" />
+	
+	<!-- Dependencies -->
+	<property name="jcommander.ver" value="1.47"/>
+	<property name="uncommons-maths.ver" value="1.2.3"/>
+
+	<!-- Classpath -->
+	<path id="pphpc-java.classpath">
+		<pathelement location="${bin.dir}"/>
+		<pathelement location="${lib.dir}/jcommander-${jcommander.ver}.jar"/>
+		<pathelement location="${lib.dir}/uncommons-maths-${uncommons-maths.ver}.jar"/>
+	</path>
+	
+	<!-- Build source code -->
+	<target name="build" depends="init">
+		<javac includeantruntime="false" source="${source}" target="${target}" srcdir="${src.dir}" destdir="${bin.dir}">
+			<classpath refid="pphpc-java.classpath"/>
+		</javac>
+	</target>
+	
+	<!-- Copy additional files (not sources) in src dir to bin -->
+	<target name="init">
+		<tstamp/>
+        <mkdir dir="${bin.dir}"/>
+        <copy includeemptydirs="false" todir="${bin.dir}">
+            <fileset dir="${src.dir}">
+                <exclude name="**/*.java"/>
+            </fileset>
+        </copy>
+    </target>
+	
+	<!-- Build docs -->
+	<target name="javadoc" depends="clean-docs">
+		<mkdir dir="${doc.dir}"/>
+		<javadoc access="package" author="true" destdir="${doc.dir}" doctitle="PPHPC-Java Documentation" 
+				nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" 
+				packagenames="org.laseeb.pphpc" source="1.7" sourcepath="src" splitindex="true" use="true" version="true">
+			<classpath refid="pphpc-java.classpath" />
+			<link href="http://jcommander.org/apidocs/"/>
+			<link href="http://maths.uncommons.org/api/"/>
+			<link href="http://docs.oracle.com/javase/7/docs/api/"/>
+		</javadoc>
+	</target>
+
+	<!-- Clean binary dir -->
+	<target name="clean">
+        <delete dir="${bin.dir}"/>
+    </target>
+	
+	<!-- Clean docs dir -->
+	<target name="clean-docs">
+		<delete dir="${doc.dir}"/>
+	</target>
+   
+	<!-- Clean everything -->
+	<target depends="clean,clean-docs" name="cleanall"/>
+	
+	<!-- Get dependencies -->
+	<target name="get-libs">
+		<get src="http://central.maven.org/maven2/com/beust/jcommander/${jcommander.ver}/jcommander-${jcommander.ver}.jar"
+			dest="${lib.dir}/jcommander-${jcommander.ver}.jar" skipexisting="true"/>
+		<get src="http://central.maven.org/maven2/io/gatling/uncommons/maths/uncommons-maths/${uncommons-maths.ver}/uncommons-maths-${uncommons-maths.ver}.jar"
+			dest="${lib.dir}/uncommons-maths-${uncommons-maths.ver}.jar" skipexisting="true"/>
+	</target>
+
+</project>
