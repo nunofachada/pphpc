@@ -67,8 +67,10 @@ public class PredPreySingle extends PredPrey {
 		this.wolfStats = new int[params.getIters() + 1];
 		this.wolfStats[0] = params.getInitWolves();
 		this.grassStats = new int[params.getIters() + 1];
+		
 		/* Initialize simulation grid. */
 		grid = new CellSingle[params.getGridX()][params.getGridY()];
+		
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
 			for (int j = 0; j < params.getGridY(); j++) {
@@ -98,19 +100,31 @@ public class PredPreySingle extends PredPrey {
 		/* Run simulation. */
 		long startTime = System.currentTimeMillis();
 		for (int iter = 1; iter <= params.getIters(); iter++) {
+			
 			if (iter % stepPrint == 0)
 				System.out.println("Iter " + iter);
-			/* Agent movement. */
+			
+			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
 			for (int i = 0; i < params.getGridX(); i++) {
 				for (int j = 0; j < params.getGridY(); j++) {
+					
+					/* ************************* */
+					/* ** 1 - Agent movement. ** */
+					/* ************************* */
+
 					/* Cycle through agents in current cell. */
 					Iterator<Agent> agentIter = grid[i][j].getAgents();
 					while (agentIter.hasNext()) {
+						
+						/* Get next agent. */
 						Agent agent = agentIter.next();
+						
 						/* Decrement agent energy. */
 						agent.decEnergy();
+						
 						/* If agent energy is greater than zero... */
 						if (agent.getEnergy() > 0) {
+							
 							/* ...perform movement. */
 							int x = i; int y = j;
 							/* Choose direction, if any. */
@@ -142,11 +156,11 @@ public class PredPreySingle extends PredPrey {
 
 						}
 					}
-				}
-			}
-			/* Grass growth. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
+					
+					/* ************************* */
+					/* *** 2 - Grass growth. *** */
+					/* ************************* */
+					
 					/* If grass is not alive... */
 					if (grid[i][j].getGrass() > 0) {
 						/* ...decrement alive counter. */
@@ -154,11 +168,18 @@ public class PredPreySingle extends PredPrey {
 					}
 				}
 			}
-			/* Agent actions */
+			
+			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
 			for (int i = 0; i < params.getGridX(); i++) {
 				for (int j = 0; j < params.getGridY(); j++) {
+
+					/* ************************** */
+					/* *** 3 - Agent actions. *** */
+					/* ************************** */
+
 					/* The future is now (future agents are now present agents)... */
 					grid[i][j].futureIsNow();
+					
 					/* Cycle through agents in cell. */
 					Iterator<Agent> agentIter = grid[i][j].getAgents();
 					while (agentIter.hasNext()) {
@@ -166,14 +187,15 @@ public class PredPreySingle extends PredPrey {
 						/* Tell agent to act. */
 						agent.doPlay(grid[i][j], rng);
 					}
+					
 					/* Remove dead agents. */
 					grid[i][j].removeAgentsToBeRemoved();
-				}
-			}
-			/* Gather statistics. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
-					Iterator<Agent> agentIter = grid[i][j].getAgents();
+					
+					/* ****************************** */
+					/* *** 4 - Gather statistics. *** */
+					/* ****************************** */
+
+					agentIter = grid[i][j].getAgents();
 					while (agentIter.hasNext()) {
 						Agent agent = agentIter.next();
 						if (agent instanceof Sheep)
@@ -183,6 +205,7 @@ public class PredPreySingle extends PredPrey {
 					}
 					if (grid[i][j].getGrass() == 0)
 						grassStats[iter]++;
+					
 				}
 			}
 			

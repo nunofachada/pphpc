@@ -27,11 +27,7 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 
 /**
  * 
@@ -40,22 +36,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CellMulti extends Cell {
 	
-	/* Structure where to keep current agents. */
-	private Set<Agent> agents;
-	/* Structure where to put future agents. */
-	private ConcurrentHashMap<Integer, Agent> futureAgents;
-	/* Structure where to put agents to be removed. */
-	private HashSet<Agent> agentsToRemove;
-	
 	/**
 	 * Constructor.
 	 */
 	public CellMulti(int grassRestart, int numThreads) {
 		/* Initialize agent keeping structures. */
 		super(grassRestart);
-		this.agents = new HashSet<Agent>();
-		this.futureAgents = new ConcurrentHashMap<Integer, Agent>(16, 0.75f, numThreads);
-		this.agentsToRemove = new HashSet<Agent>();
+		this.agents = new ArrayList<Agent>();
+		this.futureAgents = new ArrayList<Agent>();
+		this.agentsToRemove = new ArrayList<Agent>();
 	}
 	
 	/**
@@ -64,89 +53,11 @@ public class CellMulti extends Cell {
 	 */
 	@Override
 	public void putAgentFuture(Agent agent) {
-		if (agent.getEnergy() > 0)
-			futureAgents.put(agent.hashCode(), agent);
-	}
-	
-	/**
-	 * Put new agent in this cell now. Only used for initialization.
-	 * @param agent Agent to put in cell now.
-	 */
-	@Override
-	public void putAgentNow(Agent agent) {
-		if (agent.getEnergy() > 0)
-			agents.add(agent);
-	}
 
-	/**
-	 * Make future agents the current agents.
-	 */
-	@Override
-	public void futureIsNow() {
-		agents.clear();
-		agents.addAll(futureAgents.values());
-		futureAgents.clear();
+		synchronized (futureAgents) {
+			if (agent.getEnergy() > 0)
+				futureAgents.add(agent);
+		}
 	}
 	
-	/**
-	 * Remove agents to be removed.
-	 */
-	@Override
-	public void removeAgentsToBeRemoved() {
-		agents.removeAll(agentsToRemove);
-		agentsToRemove.clear();
-	}
-	
-	/**
-	 * Returns an iterator over agents in this cell.
-	 * @return Iterator for agents in this cell.
-	 */
-	@Override
-	public Iterator<Agent> getAgents() {
-		return Collections.synchronizedSet(agents).iterator();
-	}
-	
-	/**
-	 * Remove agent from this cell.
-	 * @param agent Agent to remove from cell.
-	 */
-	@Override
-	public void removeAgent(Agent agent) {
-		agentsToRemove.add(agent);
-	}
-	
-	/**
-	 * Return grass counter value.
-	 * @return Grass counter value.
-	 */
-	@Override
-	public int getGrass() {
-		return grass;
-	}
-	
-	/**
-	 * Eat grass.
-	 */
-	@Override
-	public void eatGrass() {
-		grass = this.getGrassRestart();
-	}
-	
-	/**
-	 * Decrement grass counter.
-	 */
-	@Override
-	public void decGrass() {
-		grass--;
-	}
-	
-	/**
-	 * Set grass counter to a specific value.
-	 * @param grass Value to set grass counter.
-	 */
-	@Override
-	public void setGrass(int grass) {
-		this.grass = grass;
-	}
-
 }

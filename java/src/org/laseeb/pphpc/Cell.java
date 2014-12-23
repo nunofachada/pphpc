@@ -27,38 +27,59 @@
 
 package org.laseeb.pphpc;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 
 public abstract class Cell {
 	
 	private int grassRestart;
+		
+	/* Structure where to keep current agents. */
+	protected Collection<Agent> agents;
+	/* Structure where to put agents to be removed. */
+	protected Collection<Agent> agentsToRemove;	
+	/* Structure where to put future agents. */
+	protected Collection<Agent> futureAgents;
 	
 	/* Grass counter. */
-	protected int grass;
+	private int grass;
+
+	public abstract void putAgentFuture(Agent agent);
 
 	public Cell(int grassRestart) {
 		this.grassRestart = grassRestart;
 	}
 
-	public abstract void setGrass(int grass);
-
-	public abstract void decGrass();
-
-	public abstract void eatGrass();
-
-	public abstract int getGrass();
-
-	public abstract void removeAgent(Agent agent);
-
-	public abstract Iterator<Agent> getAgents();
-
-	public abstract void removeAgentsToBeRemoved();
-
-	public abstract void futureIsNow();
-
-	public abstract void putAgentNow(Agent agent);
-
-	public abstract void putAgentFuture(Agent agent);
+	/**
+	 * Return grass counter value.
+	 * @return Grass counter value.
+	 */
+	public int getGrass() {
+		return grass;
+	}
+	
+	/**
+	 * Eat grass.
+	 */
+	public void eatGrass() {
+		grass = this.getGrassRestart();
+	}
+	
+	/**
+	 * Decrement grass counter.
+	 */
+	public void decGrass() {
+		grass--;
+	}
+	
+	/**
+	 * Set grass counter to a specific value.
+	 * @param grass Value to set grass counter.
+	 */
+	public void setGrass(int grass) {
+		this.grass = grass;
+	}
 
 	/**
 	 * @return the grassRestart
@@ -67,6 +88,47 @@ public abstract class Cell {
 		return grassRestart;
 	}
 
+	
+	/**
+	 * Remove agent from this cell.
+	 * @param agent Agent to remove from cell.
+	 */
+	public void removeAgent(Agent agent) {
+		agentsToRemove.add(agent);
+	}
 
+	
+	/**
+	 * Returns an iterator over agents in this cell.
+	 * @return Iterator for agents in this cell.
+	 */
+	public Iterator<Agent> getAgents() {
+		return agents.iterator();
+	}
 
+	
+	/**
+	 * Remove agents to be removed.
+	 */
+	public void removeAgentsToBeRemoved() {
+		agents.removeAll(agentsToRemove);
+		agentsToRemove.clear();
+	}
+
+	/**
+	 * Make future agents the current agents.
+	 */
+	public void futureIsNow() {
+		agents = futureAgents;
+		futureAgents = new ArrayList<Agent>();
+	}	
+	
+	/**
+	 * Put new agent in this cell now.
+	 * @param agent Agent to put in cell now.
+	 */
+	public void putAgentNow(Agent agent) {
+		if (agent.getEnergy() > 0)
+			agents.add(agent);
+	}
 }
