@@ -27,46 +27,49 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Iterator;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
-public abstract class Cell {
-	
-	private int grassRestart;
-	
-	/* Grass counter. */
-	protected int grass;
+import org.uncommons.maths.random.SeedException;
+import org.uncommons.maths.random.SeedGenerator;
 
-	public Cell(int grassRestart) {
-		this.grassRestart = grassRestart;
+public class PPSeedGenerator implements SeedGenerator {
+	
+	private long modifier;
+	private BigInteger seed;
+	
+	public PPSeedGenerator(long modifier, BigInteger seed) {
+		this.modifier = modifier;
+		this.seed = seed;
 	}
 
-	public abstract void setGrass(int grass);
+	@Override
+	public byte[] generateSeed(int length) throws SeedException {
+		
+		BigInteger finalSeed = this.seed;
+		BigInteger modifierXor;
+		
+		if (modifier == 0) {
+			modifierXor = new BigInteger("0");
+		} else {
+			try {
+				MessageDigest digest = MessageDigest.getInstance("SHA-256");
+				digest.update(Long.toString(modifier).getBytes());
+				modifierXor = new BigInteger(digest.digest());
+			} catch (NoSuchAlgorithmException e) {
+				throw new SeedException(e.getMessage(), e);
+			}
+		}
 
-	public abstract void decGrass();
-
-	public abstract void eatGrass();
-
-	public abstract int getGrass();
-
-	public abstract void removeAgent(Agent agent);
-
-	public abstract Iterator<Agent> getAgents();
-
-	public abstract void removeAgentsToBeRemoved();
-
-	public abstract void futureIsNow();
-
-	public abstract void putAgentNow(Agent agent);
-
-	public abstract void putAgentFuture(Agent agent);
-
-	/**
-	 * @return the grassRestart
-	 */
-	public int getGrassRestart() {
-		return grassRestart;
+		finalSeed = finalSeed.xor(modifierXor);
+		
+		while (finalSeed.bitCount() < length * 8) {
+			finalSeed = finalSeed.pow(2).add(BigInteger.TEN);
+		}
+		return Arrays.copyOf(finalSeed.toByteArray(), length);
 	}
-
-
-
+	
 }
+

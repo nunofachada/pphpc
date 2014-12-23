@@ -27,46 +27,29 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Iterator;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 
-public abstract class Cell {
+public class RNGTypeConverter implements IStringConverter<RNGType> {
 	
-	private int grassRestart;
-	
-	/* Grass counter. */
-	protected int grass;
-
-	public Cell(int grassRestart) {
-		this.grassRestart = grassRestart;
+	@Override
+	public RNGType convert(String value) {
+		if (value.equalsIgnoreCase("aes")) {
+			return RNGType.AES;
+		} else if (value.equalsIgnoreCase("ca")) {
+			return RNGType.CA;
+		} else if (value.equalsIgnoreCase("cmwc")) {
+			return RNGType.CMWC;
+		} else if (value.equalsIgnoreCase("java")) {
+			return RNGType.JAVA;
+		} else if (value.equalsIgnoreCase("mt")) {
+			return RNGType.MT;
+		} else if (value.equalsIgnoreCase("xorshift")) {
+			return RNGType.XORSHIFT;
+		} else {
+			throw new ParameterException("Unknown random number generator '" + value + "'");
+		}
+		
 	}
-
-	public abstract void setGrass(int grass);
-
-	public abstract void decGrass();
-
-	public abstract void eatGrass();
-
-	public abstract int getGrass();
-
-	public abstract void removeAgent(Agent agent);
-
-	public abstract Iterator<Agent> getAgents();
-
-	public abstract void removeAgentsToBeRemoved();
-
-	public abstract void futureIsNow();
-
-	public abstract void putAgentNow(Agent agent);
-
-	public abstract void putAgentFuture(Agent agent);
-
-	/**
-	 * @return the grassRestart
-	 */
-	public int getGrassRestart() {
-		return grassRestart;
-	}
-
-
 
 }
