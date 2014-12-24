@@ -41,10 +41,11 @@ public class CellSingle extends Cell {
 	 */
 	public CellSingle(int grassRestart) {
 		super(grassRestart);
+		
 		/* Initialize agent keeping structures. */
-		agents = new ArrayList<Agent>();
-		futureAgents = new ArrayList<Agent>();
-		agentsToRemove = new ArrayList<Agent>();
+		this.agents = new ArrayList<Agent>();
+		this.futureAgents = new ArrayList<Agent>();
+		this.agentsToRemove = new ArrayList<Agent>();
 	}
 	
 	/**

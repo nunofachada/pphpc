@@ -40,8 +40,9 @@ public class CellMulti extends Cell {
 	 * Constructor.
 	 */
 	public CellMulti(int grassRestart, int numThreads) {
-		/* Initialize agent keeping structures. */
 		super(grassRestart);
+
+		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<Agent>();
 		this.futureAgents = new ArrayList<Agent>();
 		this.agentsToRemove = new ArrayList<Agent>();

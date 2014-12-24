@@ -27,7 +27,6 @@
 
 package org.laseeb.pphpc;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -119,8 +118,10 @@ public abstract class Cell {
 	 * Make future agents the current agents.
 	 */
 	public void futureIsNow() {
+		Collection<Agent> aux = agents;
 		agents = futureAgents;
-		futureAgents = new ArrayList<Agent>();
+		futureAgents = aux;
+		futureAgents.clear();
 	}	
 	
 	/**
