@@ -58,6 +58,10 @@ public class PredPreySingle extends PredPrey {
 	 * @throws SeedException 
 	 */
 	public void start() throws SeedException, GeneralSecurityException {
+
+		/* Start timing. */
+		long startTime = System.currentTimeMillis();
+
 		/* Initialize random number generator. */
 		Random rng = this.createRNG(0);
 		
@@ -69,13 +73,13 @@ public class PredPreySingle extends PredPrey {
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid. */
-		grid = new CellSingle[params.getGridX()][params.getGridY()];
+		grid = new Cell[params.getGridX()][params.getGridY()];
 		
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
 			for (int j = 0; j < params.getGridY(); j++) {
 				/* Add cell to current place in grid. */
-				grid[i][j] = new CellSingle(params.getGrassRestart());
+				grid[i][j] = new Cell(params.getGrassRestart());
 				/* Grow grass in current cell. */
 				if (rng.nextBoolean()) {
 					/* Grass not alive, initialize grow timer. */
@@ -98,7 +102,6 @@ public class PredPreySingle extends PredPrey {
 					new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params));
 		
 		/* Run simulation. */
-		long startTime = System.currentTimeMillis();
 		for (int iter = 1; iter <= params.getIters(); iter++) {
 			
 			if (iter % stepPrint == 0)
@@ -210,6 +213,8 @@ public class PredPreySingle extends PredPrey {
 			}
 			
 		}
+		
+		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
 		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
 		System.out.println("Total simulation time: " + timeInSeconds + "\n");

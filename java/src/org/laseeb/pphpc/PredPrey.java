@@ -162,6 +162,7 @@ public abstract class PredPrey {
 			this.start();
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
+			e.printStackTrace();
 			return;
 		}
 		

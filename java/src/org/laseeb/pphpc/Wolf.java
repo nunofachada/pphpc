@@ -44,10 +44,10 @@ public class Wolf extends Agent {
 		super(energy, params);
 	}
 
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected void play(Cell cell) {
 		/* Iterate over agents in this cell. */
 		Iterator<Agent> agents = cell.getAgents();
@@ -67,18 +67,18 @@ public class Wolf extends Agent {
 		}
 	}
 	
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceProbability() {
 		return params.getWolvesReproduceProb();
 	}
 	
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceThreshold() {
 		return params.getWolvesReproduceThreshold();
 	}

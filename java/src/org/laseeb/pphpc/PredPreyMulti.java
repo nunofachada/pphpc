@@ -65,9 +65,6 @@ public class PredPreyMulti extends PredPrey {
 	/* Semaphore for waiting until the end of the simulation. */
 	private Semaphore semaphore;
 	
-	/* Thread local random number generator. */
-	ThreadLocal<Random> rng;
-	
 	/** 
 	 * Constructor, no arguments required.
 	 */
@@ -75,18 +72,24 @@ public class PredPreyMulti extends PredPrey {
 	
 	/* A simulation thread. */
 	private class SimThread implements Runnable {
+		
 		/* Grid offset for each thread. */
 		private int offset; 
+		
+		/* Random number generator for current thread. */
+		Random rng;
+		
 		/* Constructor only sets the grid offset each thread. */
 		public SimThread(int offset) {
 			this.offset = offset;
 		}
+		
 		/* Simulate! */
 		public void run() {
 			
-			/* Initialize my own random number generator. */
+			/* Initialize this thread's random number generator. */
 			try {
-				rng.set(createRNG(Thread.currentThread().getId()));
+				rng = createRNG(Thread.currentThread().getId());
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				throw new RuntimeException(e);
@@ -109,6 +112,90 @@ public class PredPreyMulti extends PredPrey {
 			
 //			System.out.println("Thread " + offset + " has cells from " + startCellIdx + " to " + (endCellIdx - 1));
 			
+			/* Initialize simulation grid cells. */
+			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
+			
+				/* Get x and y coordinates for this cell. */
+				int currCellY = (int) (currCellIdx / params.getGridX());
+				int currCellX = (int) (currCellIdx % params.getGridX());
+
+				/* Add cell to current place in grid. */
+				grid[currCellX][currCellY] = new Cell(params.getGrassRestart());
+				
+				/* Grow grass in current cell. */
+				if (rng.nextBoolean()) {
+				
+					/* Grass not alive, initialize grow timer. */
+					grid[currCellX][currCellY].setGrass(1 + rng.nextInt(params.getGrassRestart()));
+					
+				} else {
+					
+					/* Grass alive. */
+					grid[currCellX][currCellY].setGrass(0);
+					
+					/* Update grass statistics. */
+					grassStats.getAndIncrement(0);
+					
+				}
+
+			}
+			
+			/* Sync. with barrier. */
+			try {
+				partialBarrier.await();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (BrokenBarrierException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			/* Populate simulation grid with agents. */
+
+			/* Determine sheep per thread. The bellow operation is equivalent to ceil(numSheep/numThreads) */
+			int sheepPerThread = (params.getInitSheep() + numThreads - 1) / numThreads;
+			
+			/* Determine start and end sheep index for current thread. */
+			int startSheepIdx = offset * sheepPerThread; /* Inclusive */
+			int endSheepIdx = Math.min((offset + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
+			
+			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
+				int x = rng.nextInt(params.getGridX());
+				int y = rng.nextInt(params.getGridY());
+				Agent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+				synchronized (grid[x][y]) {
+					grid[x][y].putAgentNow(sheep);
+				}
+			}
+
+			/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
+			int wolvesPerThread = (params.getInitWolves() + numThreads - 1) / numThreads;
+			
+			/* Determine start and end wolves index for current thread. */
+			int startWolvesIdx = offset * wolvesPerThread; /* Inclusive */
+			int endWolvesIdx = Math.min((offset + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
+			
+			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
+				int x = rng.nextInt(params.getGridX());
+				int y = rng.nextInt(params.getGridY());
+				Agent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+				synchronized (grid[x][y]) {
+					grid[x][y].putAgentNow(wolf);
+				}
+			}
+			
+			/* Sync. with barrier. */
+			try {
+				partialBarrier.await();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (BrokenBarrierException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 				
@@ -140,7 +227,7 @@ public class PredPreyMulti extends PredPrey {
 							int x = currCellX; int y = currCellY;
 							
 							/* Choose direction, if any. */
-							int direction = rng.get().nextInt(5);
+							int direction = rng.nextInt(5);
 							
 							/* If agent decides to move, move him. */
 							if (direction == 1) {
@@ -165,7 +252,9 @@ public class PredPreyMulti extends PredPrey {
 									y = params.getGridY() - 1;
 							}
 							/* Move agent to new cell in the future. */
-							grid[x][y].putAgentFuture(agent);
+							synchronized (grid[x][y]) {
+								grid[x][y].putAgentFuture(agent);
+							}
 						}
 					}
 
@@ -219,7 +308,7 @@ public class PredPreyMulti extends PredPrey {
 						Agent agent = agentIter.next();
 						
 						/* Tell agent to act. */
-						agent.doPlay(grid[currCellX][currCellY], rng.get());
+						agent.doPlay(grid[currCellX][currCellY], rng);
 						
 					}
 					
@@ -269,9 +358,8 @@ public class PredPreyMulti extends PredPrey {
 	 */
 	protected void start() throws SeedException, GeneralSecurityException {
 		
-		/* Initialize thread-safe random number generator. */
-		this.rng = new ThreadLocal<Random>();
-		rng.set(createRNG(0));
+		/* Start timing. */
+		long startTime = System.currentTimeMillis();
 		
 		/* Initialize and acquire one permit semaphore. */
 		semaphore = new Semaphore(1);
@@ -307,36 +395,9 @@ public class PredPreyMulti extends PredPrey {
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		
 		/* Initialize simulation grid. */
-		grid = new CellMulti[params.getGridX()][params.getGridY()];
-		
-		/* Initialize simulation grid cells. */
-		for (int i = 0; i < params.getGridX(); i++) {
-			for (int j = 0; j < params.getGridY(); j++) {
-				/* Add cell to current place in grid. */
-				grid[i][j] = new CellMulti(params.getGrassRestart(), this.numThreads);
-				/* Grow grass in current cell. */
-				if (rng.get().nextBoolean()) {
-					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + rng.get().nextInt(params.getGrassRestart()));
-				} else {
-					/* Grass alive. */
-					grid[i][j].setGrass(0);
-					/* Update grass statistics. */
-					this.grassStats.getAndIncrement(0);
-				}
-			}
-		}
-		
-		/* Populate simulation grid with agents. */
-		for (int i = 0; i < params.getInitSheep(); i++)
-			grid[rng.get().nextInt(params.getGridX())][rng.get().nextInt(params.getGridY())].putAgentNow(
-						new Sheep(1 + rng.get().nextInt(2 * params.getSheepGainFromFood()), params));
-		for (int i = 0; i < params.getInitWolves(); i++)
-			grid[rng.get().nextInt(params.getGridX())][rng.get().nextInt(params.getGridY())].putAgentNow(
-						new Wolf(1 + rng.get().nextInt(2 * params.getWolvesGainFromFood()), params));
+		grid = new Cell[params.getGridX()][params.getGridY()];
 		
 		/* Run simulation. */
-		long startTime = System.currentTimeMillis();
 		for (int i = 0; i < numThreads; i++)
 			(new Thread(new SimThread(i))).start();
 		try {
@@ -345,6 +406,8 @@ public class PredPreyMulti extends PredPrey {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+
+		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
 		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
 		System.out.println("Total simulation time: " + timeInSeconds + "\n");

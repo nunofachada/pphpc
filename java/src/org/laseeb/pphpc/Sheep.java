@@ -42,10 +42,10 @@ public class Sheep extends Agent {
 		super(energy, params);
 	}
 	
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected void play(Cell cell) {
 		if (cell.getGrass() == 0) {
 			cell.eatGrass();
@@ -54,18 +54,18 @@ public class Sheep extends Agent {
 
 	}
 
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceProbability() {
 		return params.getSheepReproduceProb();
 	}
 
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceThreshold() {
 		return params.getSheepReproduceThreshold();
 	}

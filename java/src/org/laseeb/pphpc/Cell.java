@@ -27,10 +27,11 @@
 
 package org.laseeb.pphpc;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 
-public abstract class Cell {
+public class Cell {
 	
 	private int grassRestart;
 		
@@ -44,10 +45,17 @@ public abstract class Cell {
 	/* Grass counter. */
 	private int grass;
 
-	public abstract void putAgentFuture(Agent agent);
+//	public abstract void putAgentFuture(Agent agent);
 
+	/**
+	 * Constructor.
+	 */
 	public Cell(int grassRestart) {
 		this.grassRestart = grassRestart;
+		/* Initialize agent keeping structures. */
+		this.agents = new ArrayList<Agent>();
+		this.futureAgents = new ArrayList<Agent>();
+		this.agentsToRemove = new ArrayList<Agent>();
 	}
 
 	/**
@@ -132,4 +140,14 @@ public abstract class Cell {
 		if (agent.getEnergy() > 0)
 			agents.add(agent);
 	}
+	
+	/**
+	 * In the future, put new agent in this cell.
+	 * @param agent Agent to put in cell in the future.
+	 */
+	public void putAgentFuture(Agent agent) {
+		if (agent.getEnergy() > 0)
+			futureAgents.add(agent);
+	}
+	
 }
