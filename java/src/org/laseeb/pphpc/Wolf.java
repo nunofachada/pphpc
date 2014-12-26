@@ -25,49 +25,65 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreysimple;
+package org.laseeb.pphpc;
 
 /**
- * Sheep class.
+ * Wolf class.
  * @author Nuno Fachada
  *
  */
-public class Sheep extends Agent {
-
+public class Wolf extends Agent {
+	
 	/**
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Sheep(int energy) {
-		super(energy);
+	public Wolf(int energy, SimParams params) {
+		super(energy, params);
+	}
+
+	/**
+	 * @see Agent
+	 */
+	@Override
+	protected void play(Cell cell) {
+		
+		/* Iterate over agents in this cell. */
+		for (Agent agent : cell.getAgents()) {
+			
+			/* Check if agent is sheep. */
+			if (agent instanceof Sheep) {
+				
+				/* Eat sheep (only one please). */
+				if (agent.getEnergy() > 0) {
+					
+					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
+					cell.removeAgent(agent);
+					agent.setEnergy(0);
+					break;
+					
+				}
+				
+			}
+			
+		}
+		
 	}
 	
-	@Override
 	/**
 	 * @see Agent
 	 */
-	protected void play(Cell cell) {
-		if (cell.getGrass() == 0) {
-			cell.eatGrass();
-			this.setEnergy(this.getEnergy() + PredPreySimple.SHEEP_GAIN_FROM_FOOD);
-		}
-
-	}
-
 	@Override
-	/**
-	 * @see Agent
-	 */
 	protected int getReproduceProbability() {
-		return PredPreySimple.SHEEP_REPRODUCE_PROB;
+		return params.getWolvesReproduceProb();
 	}
-
-	@Override
+	
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceThreshold() {
-		return PredPreySimple.SHEEP_REPRODUCE_THRESHOLD;
+		return params.getWolvesReproduceThreshold();
 	}
 
 }

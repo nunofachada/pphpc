@@ -25,62 +25,51 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreymulti;
+package org.laseeb.pphpc;
 
-import java.util.Iterator;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
-/**
- * Wolf class.
- * @author Nuno Fachada
- *
- */
-public class Wolf extends Agent {
+import org.uncommons.maths.random.SeedException;
+import org.uncommons.maths.random.SeedGenerator;
+
+public class PPSeedGenerator implements SeedGenerator {
 	
-	/**
-	 * Constructor.
-	 * @param energy Initial agents' energy.
-	 */
-	public Wolf(int energy, SimParams params) {
-		super(energy, params);
+	private long modifier;
+	private BigInteger seed;
+	
+	public PPSeedGenerator(long modifier, BigInteger seed) {
+		this.modifier = modifier;
+		this.seed = seed;
 	}
 
 	@Override
-	/**
-	 * @see Agent
-	 */
-	protected void play(Cell cell) {
-		/* Iterate over agents in this cell. */
-		Iterator<Agent> agents = cell.getAgents();
-		while (agents.hasNext()) {
-			/* Get next agent. */
-			Agent agent = agents.next();
-			/* Check if agent is sheep. */
-			if (agent instanceof Sheep) {
-				/* Eat sheep (only one please). */
-				if (agent.getEnergy() > 0) {
-					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-					cell.removeAgent(agent);
-					agent.setEnergy(0);
-					break;
-				}
+	public byte[] generateSeed(int length) throws SeedException {
+		
+		BigInteger finalSeed = this.seed;
+		BigInteger modifierXor;
+		
+		if (modifier == 0) {
+			modifierXor = new BigInteger("0");
+		} else {
+			try {
+				MessageDigest digest = MessageDigest.getInstance("SHA-256");
+				digest.update(Long.toString(modifier).getBytes());
+				modifierXor = new BigInteger(digest.digest());
+			} catch (NoSuchAlgorithmException e) {
+				throw new SeedException(e.getMessage(), e);
 			}
 		}
-	}
-	
-	@Override
-	/**
-	 * @see Agent
-	 */
-	protected int getReproduceProbability() {
-		return params.getWolvesReproduceProb();
-	}
-	
-	@Override
-	/**
-	 * @see Agent
-	 */
-	protected int getReproduceThreshold() {
-		return params.getWolvesReproduceThreshold();
-	}
 
+		finalSeed = finalSeed.xor(modifierXor);
+		
+		while (finalSeed.bitCount() < length * 8) {
+			finalSeed = finalSeed.pow(2).add(BigInteger.TEN);
+		}
+		return Arrays.copyOf(finalSeed.toByteArray(), length);
+	}
+	
 }
+

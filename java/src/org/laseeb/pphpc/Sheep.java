@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.laseeb.predpreymulti;
+package org.laseeb.pphpc;
 
 /**
  * Sheep class.
@@ -42,10 +42,10 @@ public class Sheep extends Agent {
 		super(energy, params);
 	}
 	
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected void play(Cell cell) {
 		if (cell.getGrass() == 0) {
 			cell.eatGrass();
@@ -54,20 +54,21 @@ public class Sheep extends Agent {
 
 	}
 
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceProbability() {
 		return params.getSheepReproduceProb();
 	}
 
-	@Override
 	/**
 	 * @see Agent
 	 */
+	@Override
 	protected int getReproduceThreshold() {
 		return params.getSheepReproduceThreshold();
 	}
+
 
 }
