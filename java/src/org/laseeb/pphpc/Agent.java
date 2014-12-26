@@ -36,7 +36,7 @@ import java.util.Random;
  * Generic agent class.
  * @author Nuno Fachada
  */
-public abstract class Agent implements Cloneable {
+public abstract class Agent implements Cloneable, Comparable<Agent> {
 	
 	/* Agent energy. */
 	protected int energy;
@@ -100,6 +100,7 @@ public abstract class Agent implements Cloneable {
 	 * @param cell Cell where agent is currently in.
 	 */
 	protected void reproduce(Cell cell, Random rng) {
+
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {
 			/* Throw dice, see if agent reproduces. */
@@ -118,6 +119,34 @@ public abstract class Agent implements Cloneable {
 			}
 		}
 	}
+	
+	@Override
+	public int compareTo(Agent otherAgent) {
+		
+		/* Get a unique profile for current agent based on its type and 
+		 * energy. */
+		int p1 = (this instanceof Wolf ? 1 << 31 : 1 << 30) | this.getEnergy();
+		
+		/* Get a unique profile for the other agent based on its type and 
+		 * energy. */
+		int p2 = (otherAgent instanceof Wolf ? 1 << 31 : 1 << 30) | otherAgent.getEnergy();
+
+		/* Get a hash for current agent. */
+		int h1 = p1;
+		h1 ^= (h1 >>> 20) ^ (h1 >>> 12);
+		h1 = h1 ^ (h1 >>> 7) ^ (h1 >>> 4);
+		
+		/* Get a hash for the other agent. */
+		int h2 = p2;
+		h2 ^= (h2 >>> 20) ^ (h2 >>> 12);
+		h2 = h2 ^ (h2 >>> 7) ^ (h2 >>> 4);
+		
+		/* Return comparison depending on hash, if hashes are equal, comparison
+		 * depends on agent type and energy (something we wish to minimize in
+		 * order to make ordering as "random" as possible). */
+		return h1 != h2 ? h1 - h2 : p1 - p2;
+
+	}	
 	
 	/**
 	 * Returns the agent-specific reproduction threshold.

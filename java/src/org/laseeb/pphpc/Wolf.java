@@ -27,8 +27,6 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Iterator;
-
 /**
  * Wolf class.
  * @author Nuno Fachada
@@ -49,22 +47,27 @@ public class Wolf extends Agent {
 	 */
 	@Override
 	protected void play(Cell cell) {
+		
 		/* Iterate over agents in this cell. */
-		Iterator<Agent> agents = cell.getAgents();
-		while (agents.hasNext()) {
-			/* Get next agent. */
-			Agent agent = agents.next();
+		for (Agent agent : cell.getAgents()) {
+			
 			/* Check if agent is sheep. */
 			if (agent instanceof Sheep) {
+				
 				/* Eat sheep (only one please). */
 				if (agent.getEnergy() > 0) {
+					
 					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
 					cell.removeAgent(agent);
 					agent.setEnergy(0);
 					break;
+					
 				}
+				
 			}
+			
 		}
+		
 	}
 	
 	/**

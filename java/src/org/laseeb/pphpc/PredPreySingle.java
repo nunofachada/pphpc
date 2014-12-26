@@ -31,7 +31,6 @@
 package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
-import java.util.Iterator;
 import java.util.Random;
 
 import org.uncommons.maths.random.SeedException;
@@ -65,6 +64,10 @@ public class PredPreySingle extends PredPrey {
 		/* Initialize random number generator. */
 		Random rng = this.createRNG(0);
 		
+		/* Cell behaviors are fixed in the single-threaded case. */
+		CellFutureIsNowPostBehavior futureIsNowPost = new CellFutureIsNowPostNop();
+		CellPutAgentBehavior putAgent = new CellPutAgentAsync();
+		
 		/* Initialize statistics. */
 		this.sheepStats = new int[params.getIters() + 1];
 		this.sheepStats[0] = params.getInitSheep();
@@ -79,7 +82,7 @@ public class PredPreySingle extends PredPrey {
 		for (int i = 0; i < params.getGridX(); i++) {
 			for (int j = 0; j < params.getGridY(); j++) {
 				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params.getGrassRestart());
+				grid[i][j] = new Cell(params.getGrassRestart(), putAgent, putAgent, futureIsNowPost);
 				/* Grow grass in current cell. */
 				if (rng.nextBoolean()) {
 					/* Grass not alive, initialize grow timer. */
@@ -116,11 +119,7 @@ public class PredPreySingle extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					Iterator<Agent> agentIter = grid[i][j].getAgents();
-					while (agentIter.hasNext()) {
-						
-						/* Get next agent. */
-						Agent agent = agentIter.next();
+					for (Agent agent : grid[i][j].getAgents()) {
 						
 						/* Decrement agent energy. */
 						agent.decEnergy();
@@ -184,11 +183,11 @@ public class PredPreySingle extends PredPrey {
 					grid[i][j].futureIsNow();
 					
 					/* Cycle through agents in cell. */
-					Iterator<Agent> agentIter = grid[i][j].getAgents();
-					while (agentIter.hasNext()) {
-						Agent agent = agentIter.next();
+					for (Agent agent : grid[i][j].getAgents()) {
+
 						/* Tell agent to act. */
 						agent.doPlay(grid[i][j], rng);
+						
 					}
 					
 					/* Remove dead agents. */
@@ -198,14 +197,15 @@ public class PredPreySingle extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					agentIter = grid[i][j].getAgents();
-					while (agentIter.hasNext()) {
-						Agent agent = agentIter.next();
+					for (Agent agent : grid[i][j].getAgents()) {
+						
 						if (agent instanceof Sheep)
 							sheepStats[iter]++;
 						else if (agent instanceof Wolf)
 							wolfStats[iter]++;
+						
 					}
+					
 					if (grid[i][j].getGrass() == 0)
 						grassStats[iter]++;
 					

@@ -32,7 +32,6 @@ package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -52,6 +51,9 @@ public class PredPreyMulti extends PredPrey {
 	/* Number of threads. */
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors")
 	private int numThreads = Runtime.getRuntime().availableProcessors();
+	
+	@Parameter(names = "-d", description = "Make the simulation repeatable? (slower)")
+	private boolean repeatable = false;
 
 	/* Statistics gathering. */
 	private AtomicIntegerArray sheepStats;
@@ -64,6 +66,12 @@ public class PredPreyMulti extends PredPrey {
 	
 	/* Semaphore for waiting until the end of the simulation. */
 	private Semaphore semaphore;
+	
+	/* Cell behaviors. */
+	CellFutureIsNowPostBehavior futureIsNowPost;
+	CellPutAgentBehavior putAgentNow;
+	CellPutAgentBehavior putAgentFuture = new CellPutAgentSync();
+	
 	
 	/** 
 	 * Constructor, no arguments required.
@@ -120,7 +128,8 @@ public class PredPreyMulti extends PredPrey {
 				int currCellX = (int) (currCellIdx % params.getGridX());
 
 				/* Add cell to current place in grid. */
-				grid[currCellX][currCellY] = new Cell(params.getGrassRestart());
+				grid[currCellX][currCellY] = new Cell(
+						params.getGrassRestart(), putAgentNow, putAgentFuture, futureIsNowPost);
 				
 				/* Grow grass in current cell. */
 				if (rng.nextBoolean()) {
@@ -164,9 +173,7 @@ public class PredPreyMulti extends PredPrey {
 				int x = rng.nextInt(params.getGridX());
 				int y = rng.nextInt(params.getGridY());
 				Agent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
-				synchronized (grid[x][y]) {
-					grid[x][y].putAgentNow(sheep);
-				}
+				grid[x][y].putAgentNow(sheep);
 			}
 
 			/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
@@ -180,9 +187,7 @@ public class PredPreyMulti extends PredPrey {
 				int x = rng.nextInt(params.getGridX());
 				int y = rng.nextInt(params.getGridY());
 				Agent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
-				synchronized (grid[x][y]) {
-					grid[x][y].putAgentNow(wolf);
-				}
+				grid[x][y].putAgentNow(wolf);
 			}
 			
 			/* Sync. with barrier. */
@@ -211,12 +216,8 @@ public class PredPreyMulti extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					Iterator<Agent> agentIter = grid[currCellX][currCellY].getAgents();
-					while (agentIter.hasNext()) {
+					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
 						
-						/* Get next agent. */
-						Agent agent = agentIter.next();
-
 						/* Decrement agent energy. */
 						agent.decEnergy();
 
@@ -252,9 +253,7 @@ public class PredPreyMulti extends PredPrey {
 									y = params.getGridY() - 1;
 							}
 							/* Move agent to new cell in the future. */
-							synchronized (grid[x][y]) {
-								grid[x][y].putAgentFuture(agent);
-							}
+							grid[x][y].putAgentFuture(agent);
 						}
 					}
 
@@ -301,11 +300,7 @@ public class PredPreyMulti extends PredPrey {
 					grid[currCellX][currCellY].futureIsNow();
 
 					/* Cycle through agents in cell. */
-					Iterator<Agent> agentIter = grid[currCellX][currCellY].getAgents();
-					while (agentIter.hasNext()) {
-						
-						/* Get next agent in cell. */
-						Agent agent = agentIter.next();
+					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Tell agent to act. */
 						agent.doPlay(grid[currCellX][currCellY], rng);
@@ -319,14 +314,14 @@ public class PredPreyMulti extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					agentIter = grid[currCellX][currCellY].getAgents();
-					while (agentIter.hasNext()) {
-						Agent agent = agentIter.next();
+					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+
 						if (agent instanceof Sheep)
 							sheepStatsPartial++;
 						else if (agent instanceof Wolf)
 							wolfStatsPartial++;
 					}
+					
 					if (grid[currCellX][currCellY].getGrass() == 0)
 						grassStatsPartial++;
 				}
@@ -357,6 +352,14 @@ public class PredPreyMulti extends PredPrey {
 	 * @throws SeedException 
 	 */
 	protected void start() throws SeedException, GeneralSecurityException {
+		
+		if (repeatable) {
+			this.futureIsNowPost = new CellFutureIsNowPostSort();
+			this.putAgentNow = new CellPutAgentSyncSort();
+		} else {
+			this.futureIsNowPost = new CellFutureIsNowPostNop();
+			this.putAgentNow = new CellPutAgentSync();
+		}
 		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();

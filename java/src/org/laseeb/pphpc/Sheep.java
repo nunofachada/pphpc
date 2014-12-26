@@ -70,4 +70,5 @@ public class Sheep extends Agent {
 		return params.getSheepReproduceThreshold();
 	}
 
+
 }

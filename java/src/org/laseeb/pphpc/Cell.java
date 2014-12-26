@@ -28,30 +28,42 @@
 package org.laseeb.pphpc;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.List;
 
 public class Cell {
 	
+	/* Put agents now behavior. */
+	private CellPutAgentBehavior putAgentNowBehavior;
+	
+	private CellPutAgentBehavior putAgentFutureBehavior;
+	
+	private CellFutureIsNowPostBehavior futureIsNowBehavior;
+	
+	/* Iterations for cell restart. */
 	private int grassRestart;
 		
 	/* Structure where to keep current agents. */
-	protected Collection<Agent> agents;
+	private List<Agent> agents;
 	/* Structure where to put agents to be removed. */
-	protected Collection<Agent> agentsToRemove;	
+	private List<Agent> agentsToRemove;	
 	/* Structure where to put future agents. */
-	protected Collection<Agent> futureAgents;
+	private List<Agent> futureAgents;
 	
 	/* Grass counter. */
 	private int grass;
-
-//	public abstract void putAgentFuture(Agent agent);
-
+	
 	/**
 	 * Constructor.
 	 */
-	public Cell(int grassRestart) {
+	public Cell(int grassRestart, CellPutAgentBehavior putAgentsNowBehavior, 
+			CellPutAgentBehavior putAgentsFutureBehavior,
+			CellFutureIsNowPostBehavior futureIsNowBehavior) {
+		
 		this.grassRestart = grassRestart;
+		this.putAgentNowBehavior = putAgentsNowBehavior;
+		this.putAgentFutureBehavior = putAgentsFutureBehavior;
+		this.futureIsNowBehavior = futureIsNowBehavior;
+		
 		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<Agent>();
 		this.futureAgents = new ArrayList<Agent>();
@@ -109,8 +121,8 @@ public class Cell {
 	 * Returns an iterator over agents in this cell.
 	 * @return Iterator for agents in this cell.
 	 */
-	public Iterator<Agent> getAgents() {
-		return agents.iterator();
+	public Iterable<Agent> getAgents() {
+		return agents;
 	}
 
 	
@@ -126,10 +138,11 @@ public class Cell {
 	 * Make future agents the current agents.
 	 */
 	public void futureIsNow() {
-		Collection<Agent> aux = agents;
+		List<Agent> aux = agents;
 		agents = futureAgents;
 		futureAgents = aux;
 		futureAgents.clear();
+		futureIsNowBehavior.futureIsNowPost(agents);
 	}	
 	
 	/**
@@ -138,7 +151,7 @@ public class Cell {
 	 */
 	public void putAgentNow(Agent agent) {
 		if (agent.getEnergy() > 0)
-			agents.add(agent);
+			this.putAgentNowBehavior.putAgent(this.agents, agent);
 	}
 	
 	/**
@@ -147,7 +160,7 @@ public class Cell {
 	 */
 	public void putAgentFuture(Agent agent) {
 		if (agent.getEnergy() > 0)
-			futureAgents.add(agent);
+			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);
 	}
 	
 }
