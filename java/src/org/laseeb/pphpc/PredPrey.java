@@ -55,7 +55,6 @@ import com.beust.jcommander.ParameterException;
  */
 public abstract class PredPrey {
 	
-
 	public enum StatType { SHEEP, WOLVES, GRASS }
 	
 	final String paramsFileDefault = "config.txt";
