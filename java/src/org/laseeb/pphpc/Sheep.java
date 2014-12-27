@@ -58,7 +58,7 @@ public class Sheep extends Agent {
 	 * @see Agent
 	 */
 	@Override
-	protected int getReproduceProbability() {
+	public int getReproduceProbability() {
 		return params.getSheepReproduceProb();
 	}
 
@@ -66,7 +66,7 @@ public class Sheep extends Agent {
 	 * @see Agent
 	 */
 	@Override
-	protected int getReproduceThreshold() {
+	public int getReproduceThreshold() {
 		return params.getSheepReproduceThreshold();
 	}
 

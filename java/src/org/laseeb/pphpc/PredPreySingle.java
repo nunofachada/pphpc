@@ -107,7 +107,7 @@ public class PredPreySingle extends PredPrey {
 		/* Run simulation. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
 			
-			if (iter % stepPrint == 0)
+			if ((iter > 0) && (iter % stepPrint == 0))
 				System.out.println("Iter " + iter);
 			
 			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
@@ -119,7 +119,7 @@ public class PredPreySingle extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 						
 						/* Decrement agent energy. */
 						agent.decEnergy();
@@ -183,7 +183,7 @@ public class PredPreySingle extends PredPrey {
 					grid[i][j].futureIsNow();
 					
 					/* Cycle through agents in cell. */
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 
 						/* Tell agent to act. */
 						agent.doPlay(grid[i][j], rng);
@@ -197,7 +197,7 @@ public class PredPreySingle extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 						
 						if (agent instanceof Sheep)
 							sheepStats[iter]++;
@@ -227,7 +227,10 @@ public class PredPreySingle extends PredPrey {
 	 * If ignored, all iterations will be printed to screen.
 	 */
 	public static void main(String[] args) {
-		new PredPreySingle().doMain(args);
+		
+		int status = (new PredPreySingle()).doMain(args);
+		System.exit(status);
+		
 	}
 
 	@Override

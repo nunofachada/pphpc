@@ -43,11 +43,11 @@ public class Cell {
 	private int grassRestart;
 		
 	/* Structure where to keep current agents. */
-	private List<Agent> agents;
+	private List<IAgent> agents;
 	/* Structure where to put agents to be removed. */
-	private List<Agent> agentsToRemove;	
+	private List<IAgent> agentsToRemove;	
 	/* Structure where to put future agents. */
-	private List<Agent> futureAgents;
+	private List<IAgent> futureAgents;
 	
 	/* Grass counter. */
 	private int grass;
@@ -65,9 +65,9 @@ public class Cell {
 		this.futureIsNowBehavior = futureIsNowBehavior;
 		
 		/* Initialize agent keeping structures. */
-		this.agents = new ArrayList<Agent>();
-		this.futureAgents = new ArrayList<Agent>();
-		this.agentsToRemove = new ArrayList<Agent>();
+		this.agents = new ArrayList<IAgent>();
+		this.futureAgents = new ArrayList<IAgent>();
+		this.agentsToRemove = new ArrayList<IAgent>();
 	}
 
 	/**
@@ -112,7 +112,7 @@ public class Cell {
 	 * Remove agent from this cell.
 	 * @param agent Agent to remove from cell.
 	 */
-	public void removeAgent(Agent agent) {
+	public void removeAgent(IAgent agent) {
 		agentsToRemove.add(agent);
 	}
 
@@ -121,7 +121,7 @@ public class Cell {
 	 * Returns an iterator over agents in this cell.
 	 * @return Iterator for agents in this cell.
 	 */
-	public Iterable<Agent> getAgents() {
+	public Iterable<IAgent> getAgents() {
 		return agents;
 	}
 
@@ -138,7 +138,7 @@ public class Cell {
 	 * Make future agents the current agents.
 	 */
 	public void futureIsNow() {
-		List<Agent> aux = agents;
+		List<IAgent> aux = agents;
 		agents = futureAgents;
 		futureAgents = aux;
 		futureAgents.clear();
@@ -149,7 +149,7 @@ public class Cell {
 	 * Put new agent in this cell now.
 	 * @param agent Agent to put in cell now.
 	 */
-	public void putAgentNow(Agent agent) {
+	public void putAgentNow(IAgent agent) {
 		if (agent.getEnergy() > 0)
 			this.putAgentNowBehavior.putAgent(this.agents, agent);
 	}
@@ -158,7 +158,7 @@ public class Cell {
 	 * In the future, put new agent in this cell.
 	 * @param agent Agent to put in cell in the future.
 	 */
-	public void putAgentFuture(Agent agent) {
+	public void putAgentFuture(IAgent agent) {
 		if (agent.getEnergy() > 0)
 			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);
 	}

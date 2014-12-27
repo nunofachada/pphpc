@@ -27,63 +27,45 @@
 
 package org.laseeb.pphpc;
 
-/**
- * Wolf class.
- * @author Nuno Fachada
- *
- */
-public class Wolf extends Agent {
-	
-	/**
-	 * Constructor.
-	 * @param energy Initial agents' energy.
-	 */
-	public Wolf(int energy, SimParams params) {
-		super(energy, params);
-	}
+import java.util.Random;
+
+public interface IAgent extends Cloneable, Comparable<IAgent> {
 
 	/**
-	 * @see Agent
+	 * Returns the agents' energy.
+	 * @return The agent's energy.
 	 */
-	@Override
-	protected void play(Cell cell) {
-		
-		/* Iterate over agents in this cell. */
-		for (IAgent agent : cell.getAgents()) {
-			
-			/* Check if agent is sheep. */
-			if (agent instanceof Sheep) {
-				
-				/* Eat sheep (only one please). */
-				if (agent.getEnergy() > 0) {
-					
-					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-					cell.removeAgent(agent);
-					agent.setEnergy(0);
-					break;
-					
-				}
-				
-			}
-			
-		}
-		
-	}
-	
-	/**
-	 * @see Agent
-	 */
-	@Override
-	public int getReproduceProbability() {
-		return params.getWolvesReproduceProb();
-	}
-	
-	/**
-	 * @see Agent
-	 */
-	@Override
-	public int getReproduceThreshold() {
-		return params.getWolvesReproduceThreshold();
-	}
+	public int getEnergy();
 
+	/**
+	 * Sets the agent energy.
+	 * @param energy Value to which set the agents' energy-
+	 */
+	public void setEnergy(int energy);
+
+	/**
+	 * Decrements the agent's energy.
+	 */
+	public void decEnergy();
+
+	/**
+	 * Generic agent actions, consisting of:
+	 * - Specific agent actions.
+	 * - Reproduction.
+	 * @param cell Cell where agent is currently in.
+	 */
+	public void doPlay(Cell cell, Random rng);
+
+	/**
+	 * Returns the agent-specific reproduction threshold.
+	 * @return Agent-specific reproduction threshold.
+	 */
+	public int getReproduceThreshold();
+	
+	/**
+	 * Returns the agent-specific reproduction probability.
+	 * @return Agent-specific reproduction probability.
+	 */
+	public int getReproduceProbability();
+	
 }

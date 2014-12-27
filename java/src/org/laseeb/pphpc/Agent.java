@@ -36,7 +36,7 @@ import java.util.Random;
  * Generic agent class.
  * @author Nuno Fachada
  */
-public abstract class Agent implements Cloneable, Comparable<Agent> {
+public abstract class Agent implements IAgent {
 	
 	/* Agent energy. */
 	protected int energy;
@@ -53,25 +53,26 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 		this.params = params;
 	}
 	
-	/**
-	 * Returns the agents' energy.
-	 * @return The agent's energy.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.IAgent#getEnergy()
 	 */
+	@Override
 	public int getEnergy() {
 		return energy;
 	}
 
-	/**
-	 * Sets the agent energy.
-	 * @param energy Value to which set the agents' energy-
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.IAgent#setEnergy(int)
 	 */
+	@Override
 	public void setEnergy(int energy) {
 		this.energy = energy;
 	}
 
-	/**
-	 * Decrements the agent's energy.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.IAgent#decEnergy()
 	 */
+	@Override
 	public void decEnergy() {
 		this.energy--;
 	}
@@ -82,12 +83,10 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 	 */
 	protected abstract void play(Cell cell);
 	
-	/**
-	 * Generic agent actions, consisting of:
-	 * - Specific agent actions.
-	 * - Reproduction.
-	 * @param cell Cell where agent is currently in.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.IAgent#doPlay(org.laseeb.pphpc.Cell, java.util.Random)
 	 */
+	@Override
 	public void doPlay(Cell cell, Random rng) {
 		/* Perform specific agent actions. */
 		play(cell);
@@ -96,8 +95,10 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 	}
 	
 	/**
-	 * Reproduction action.
+	 * Try to reproduce the agent.
+	 * 
 	 * @param cell Cell where agent is currently in.
+	 * @param rng Random number generator used to try reproduction.
 	 */
 	protected void reproduce(Cell cell, Random rng) {
 
@@ -112,6 +113,7 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 					agent.energy = this.energy / 2;
 					this.energy = this.energy - agent.energy;
 				} catch (CloneNotSupportedException e) {
+					/* This should never be reached. */
 					e.printStackTrace();
 				}
 				/* Put new agent in current cell. */
@@ -120,8 +122,19 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 		}
 	}
 	
+	/**
+	 * Implementation of the {@link Comparable#compareTo(Object)} method for agent
+	 * ordering. Agent ordering is used in multithreaded simulations for which simulation
+	 * reproducibility is required. A value is attributed to an agent using a simple hash
+	 * based on energy and type, but in a way that ordering is not apparently affected by 
+	 * either. 
+	 * 
+	 * @param otherAgent The agent to which this agent will be compared.
+	 * @return A negative integer, zero, or a positive integer if this agent is to
+	 * be ordered before, equally or after than the specified agent, respectively.
+	 */
 	@Override
-	public int compareTo(Agent otherAgent) {
+	public int compareTo(IAgent otherAgent) {
 		
 		/* Get a unique profile for current agent based on its type and 
 		 * energy. */
@@ -148,15 +161,4 @@ public abstract class Agent implements Cloneable, Comparable<Agent> {
 
 	}	
 	
-	/**
-	 * Returns the agent-specific reproduction threshold.
-	 * @return Agent-specific reproduction threshold.
-	 */
-	protected abstract int getReproduceThreshold();
-	
-	/**
-	 * Returns the agent-specific reproduction probability.
-	 * @return Agent-specific reproduction probability.
-	 */
-	protected abstract int getReproduceProbability();
 }

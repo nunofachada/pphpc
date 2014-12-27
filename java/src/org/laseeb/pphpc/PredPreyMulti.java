@@ -52,7 +52,7 @@ public class PredPreyMulti extends PredPrey {
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors")
 	private int numThreads = Runtime.getRuntime().availableProcessors();
 	
-	@Parameter(names = "-d", description = "Make the simulation repeatable? (slower)")
+	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
 	private boolean repeatable = false;
 
 	/* Statistics gathering. */
@@ -216,7 +216,7 @@ public class PredPreyMulti extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Decrement agent energy. */
 						agent.decEnergy();
@@ -300,7 +300,7 @@ public class PredPreyMulti extends PredPrey {
 					grid[currCellX][currCellY].futureIsNow();
 
 					/* Cycle through agents in cell. */
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Tell agent to act. */
 						agent.doPlay(grid[currCellX][currCellY], rng);
@@ -314,7 +314,7 @@ public class PredPreyMulti extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 
 						if (agent instanceof Sheep)
 							sheepStatsPartial++;
@@ -377,7 +377,7 @@ public class PredPreyMulti extends PredPrey {
 			int iter = 1;
 			public void run() {
 				/* Print current iteration, if that is the case. */
-				if (iter % stepPrint == 0)
+				if ((iter > 0) && (iter % stepPrint == 0))
 					System.out.println("Iter " + iter);
 				iter++;
 				/* If this is the last iteration, let main thread continue... */
@@ -424,7 +424,9 @@ public class PredPreyMulti extends PredPrey {
 	 */
 	public static void main(String[] args) {
 		
-		new PredPreyMulti().doMain(args);
+		int status = (new PredPreyMulti()).doMain(args);
+		System.exit(status);
+		
 	}
 
 	@Override
