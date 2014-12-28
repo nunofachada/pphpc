@@ -33,7 +33,6 @@ package org.laseeb.pphpc;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.GeneralSecurityException;
 import java.util.Random;
 
 import org.uncommons.maths.random.AESCounterRNG;
@@ -41,7 +40,6 @@ import org.uncommons.maths.random.CMWC4096RNG;
 import org.uncommons.maths.random.CellularAutomatonRNG;
 import org.uncommons.maths.random.JavaRNG;
 import org.uncommons.maths.random.MersenneTwisterRNG;
-import org.uncommons.maths.random.SeedException;
 import org.uncommons.maths.random.SeedGenerator;
 import org.uncommons.maths.random.XORShiftRNG;
 
@@ -110,11 +108,19 @@ public abstract class PredPrey {
 
 	/**
 	 * Perform simulation.
-	 * @throws GeneralSecurityException 
-	 * @throws SeedException 
+	 * 
+	 * @throws Exception Any exception which may occur during the course of
+	 * a simulation run.
 	 */
-	protected abstract void start() throws SeedException, GeneralSecurityException;
+	protected abstract void start() throws Exception;
 	
+	/**
+	 * Get statistics.
+	 * 
+	 * @param st Type of statistic (number of sheep or wolves, or quantity of grass).
+	 * @param iter Iteration.
+	 * @return The requested statistic.
+	 */
 	protected abstract int getStats(StatType st, int iter);
 	
 	/**
@@ -144,12 +150,13 @@ public abstract class PredPrey {
 	 * 
 	 * @param e Exception which caused the error.
 	 */
-	private void errMessage(Exception e) {
+	protected void errMessage(Exception e) {
 		
 		if (this.debug)
 			e.printStackTrace();
 		else
-			System.err.println("An error ocurred: " + e.getMessage());
+			System.err.println("An error ocurred in thread " 
+					+ Thread.currentThread().getName() + ": " + e.getMessage());
 		
 	}
 	
@@ -215,7 +222,18 @@ public abstract class PredPrey {
 		
 	}
 	
-	protected Random createRNG(long modifier) throws SeedException, GeneralSecurityException {
+	/**
+	 * Create a random number generator of the type and with the seed specified as 
+	 * the command line arguments.
+	 * 
+	 * @param modifier Seed modifier, such as a thread ID, so that each thread
+	 * can instantiate an independent random number generator (not really
+	 * independent, but good enough for the purpose).
+	 * 
+	 * @return A new random number generator.
+	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
+	 */
+	protected Random createRNG(long modifier) throws Exception {
 		
 		SeedGenerator seedGen = new PPSeedGenerator(modifier, this.seed);
 

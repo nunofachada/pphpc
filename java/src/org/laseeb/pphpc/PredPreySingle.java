@@ -56,7 +56,7 @@ public class PredPreySingle extends PredPrey {
 	 * @throws GeneralSecurityException 
 	 * @throws SeedException 
 	 */
-	public void start() throws SeedException, GeneralSecurityException {
+	public void start() throws Exception {
 
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
@@ -97,17 +97,23 @@ public class PredPreySingle extends PredPrey {
 		}
 		
 		/* Populate simulation grid with agents. */
-		for (int i = 0; i < params.getInitSheep(); i++)
-			grid[rng.nextInt(params.getGridX())][rng.nextInt(params.getGridY())].putAgentNow(
-						new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params));
-		for (int i = 0; i < params.getInitWolves(); i++)
-			grid[rng.nextInt(params.getGridX())][rng.nextInt(params.getGridY())].putAgentNow(
-					new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params));
+		for (int i = 0; i < params.getInitSheep(); i++) {
+			int x = rng.nextInt(params.getGridX());
+			int y = rng.nextInt(params.getGridY());
+			IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+			grid[x][y].putAgentNow(sheep);
+		}
+		for (int i = 0; i < params.getInitWolves(); i++) {
+			int x = rng.nextInt(params.getGridX());
+			int y = rng.nextInt(params.getGridY());
+			IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
+			grid[x][y].putAgentNow(wolf);
+		}
 		
 		/* Run simulation. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
 			
-			if ((iter > 0) && (iter % stepPrint == 0))
+			if ((stepPrint > 0) && (iter % stepPrint == 0))
 				System.out.println("Iter " + iter);
 			
 			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
@@ -223,8 +229,8 @@ public class PredPreySingle extends PredPrey {
 
 	/**
 	 * Main function.
-	 * @param args Optionally indicate period of iterations to print current iteration to screen.
-	 * If ignored, all iterations will be printed to screen.
+	 * 
+	 * @param args Command line arguments.
 	 */
 	public static void main(String[] args) {
 		
