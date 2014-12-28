@@ -29,6 +29,20 @@ package org.laseeb.pphpc;
 
 import java.util.List;
 
+/**
+ * Cell behavior after {@link ICell#futureIsNow()} is invoked.
+ * Strategy design pattern.
+ * 
+ * @author Nuno Fachada
+ */
 public interface CellFutureIsNowPostBehavior {
+	
+	/**
+	 * Perform some action on a list of agents after {@link ICell#futureIsNow()} 
+	 * is invoked.
+	 * 
+	 * @param agents List of agents on which some action will be perform.
+	 */
 	public void futureIsNowPost(List<IAgent> agents);
+	
 }

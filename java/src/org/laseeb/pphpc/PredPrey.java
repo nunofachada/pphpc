@@ -48,12 +48,15 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
 /**
- * Main class for multi-threaded predator-prey model.
+ * Abstract PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public abstract class PredPrey {
 	
-	/* Enumeration for collected simulation quantities. */
+	/**
+	 *  Enumeration for collected simulation quantities. 
+	 * */
 	protected enum StatType { SHEEP, WOLVES, GRASS }
 	
 	/* Enumeration containing program errors. */
@@ -104,7 +107,7 @@ public abstract class PredPrey {
 	protected SimParams params;
 	
 	/* Simulation grid. */
-	protected Cell[][] grid;
+	protected ICell[][] grid;
 
 	/**
 	 * Perform simulation.

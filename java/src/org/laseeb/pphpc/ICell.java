@@ -27,30 +27,73 @@
 
 package org.laseeb.pphpc;
 
-import java.util.List;
-
 /**
- * Put an agent in a cell's internal agent list asynchronously. This behavior
- * is not allowed when multiple threads try to put agents in this list.
- *  
+ * An abstract PPHPC model cell, part of a larger simulation grid.
+ * 
  * @author Nuno Fachada
+ *
  */
-public class CellPutAgentAsync implements CellPutAgentBehavior {
+public interface ICell {
 
 	/**
-	 * Create a new instance of this class.
+	 * Return grass counter value.
+	 * @return Grass counter value.
 	 */
-	public CellPutAgentAsync() {}
+	public int getGrass();
 
 	/**
-	 * Put an agent in a cell's internal agent list asynchronously.
-	 * 
-	 * @param agents Agent list, internal to the cell.
-	 * @param agent Agent to put in list.
+	 * Eat grass.
 	 */
-	@Override
-	public void putAgent(List<IAgent> agents, IAgent agent) {
-		agents.add(agent);
-	}
+	public void eatGrass();
+
+	/**
+	 * Decrement grass counter.
+	 */
+	public void decGrass();
+
+	/**
+	 * Set grass counter to a specific value.
+	 * @param grass Value to set grass counter.
+	 */
+	public void setGrass(int grass);
+
+	/**
+	 * @return the grassRestart
+	 */
+	public int getGrassRestart();
+
+	/**
+	 * Remove agent from this cell.
+	 * @param agent Agent to remove from cell.
+	 */
+	public void removeAgent(IAgent agent);
+
+	/**
+	 * Returns an iterator over agents in this cell.
+	 * @return Iterator for agents in this cell.
+	 */
+	public Iterable<IAgent> getAgents();
+
+	/**
+	 * Remove agents to be removed.
+	 */
+	public void removeAgentsToBeRemoved();
+
+	/**
+	 * Make future agents the current agents.
+	 */
+	public void futureIsNow();
+
+	/**
+	 * Put new agent in this cell now.
+	 * @param agent Agent to put in cell now.
+	 */
+	public void putAgentNow(IAgent agent);
+
+	/**
+	 * In the future, put new agent in this cell.
+	 * @param agent Agent to put in cell in the future.
+	 */
+	public void putAgentFuture(IAgent agent);
 
 }

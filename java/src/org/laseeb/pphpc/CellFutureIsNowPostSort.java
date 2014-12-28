@@ -30,10 +30,24 @@ package org.laseeb.pphpc;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Sort agent list after {@link ICell#futureIsNow()} is invoked.
+ * 
+ * @author Nuno Fachada
+ */
 public class CellFutureIsNowPostSort implements CellFutureIsNowPostBehavior {
 
+	/**
+	 * Create a new instance of this class.
+	 */
 	public CellFutureIsNowPostSort() {}
 
+	/**
+	 * Sort agent list after {@link ICell#futureIsNow()} is invoked.
+	 * 
+	 * @param agents List of agents to be sorted.
+	 * @see CellFutureIsNowPostBehavior#futureIsNowPost(List)
+	 */
 	@Override
 	public void futureIsNowPost(List<IAgent> agents) {
 		

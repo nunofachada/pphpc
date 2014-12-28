@@ -36,7 +36,8 @@ import java.util.Random;
 import org.uncommons.maths.random.SeedException;
 
 /**
- * Main class for simple predator-prey model.
+ * Single-threaded PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public class PredPreySingle extends PredPrey {
@@ -76,7 +77,7 @@ public class PredPreySingle extends PredPrey {
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid. */
-		grid = new Cell[params.getGridX()][params.getGridY()];
+		grid = new ICell[params.getGridX()][params.getGridY()];
 		
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
@@ -239,6 +240,9 @@ public class PredPreySingle extends PredPrey {
 		
 	}
 
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.PredPrey#getStats(StatType, int)
+	 */
 	@Override
 	protected int getStats(StatType st, int iter) {
 

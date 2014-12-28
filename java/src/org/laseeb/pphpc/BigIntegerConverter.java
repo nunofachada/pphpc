@@ -32,6 +32,12 @@ import java.math.BigInteger;
 import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.converters.BaseConverter;
 
+/**
+ * This class provides a String to BigInteger converter for JCommander,
+ * which allows the user to pass a big integer as a command line option.
+ * 
+ * @author Nuno Fachada
+ */
 public class BigIntegerConverter extends BaseConverter<BigInteger> {
 
 	public BigIntegerConverter(String optionName) {

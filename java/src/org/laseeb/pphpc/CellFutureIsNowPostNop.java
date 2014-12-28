@@ -29,10 +29,24 @@ package org.laseeb.pphpc;
 
 import java.util.List;
 
+/**
+ * Do nothing after {@link ICell#futureIsNow()} is invoked.
+ * 
+ * @author Nuno Fachada
+ */
 public class CellFutureIsNowPostNop implements CellFutureIsNowPostBehavior {
 
+	/**
+	 * Create a new instance of this class.
+	 */
 	public CellFutureIsNowPostNop() {}
 
+	/**
+	 * Do nothing after {@link ICell#futureIsNow()} is invoked.
+	 * 
+	 * @param agents List of agents.
+	 * @see CellFutureIsNowPostBehavior#futureIsNowPost(List)
+	 */
 	@Override
 	public void futureIsNowPost(List<IAgent> agents) {}
 

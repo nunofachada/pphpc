@@ -43,7 +43,8 @@ import org.uncommons.maths.random.SeedException;
 import com.beust.jcommander.Parameter;
 
 /**
- * Main class for multi-threaded predator-prey model.
+ * Multi-threaded PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public class PredPreyMulti extends PredPrey {
@@ -118,8 +119,6 @@ public class PredPreyMulti extends PredPrey {
 			/* Determine start and end cell index for current thread. */
 			long startCellIdx = offset * cellsPerThread; /* Inclusive */
 			long endCellIdx = Math.min((offset + 1) * cellsPerThread, gridsize); /* Exclusive */
-			
-//			System.out.println("Thread " + offset + " has cells from " + startCellIdx + " to " + (endCellIdx - 1));
 			
 			/* Initialize simulation grid cells. */
 			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
@@ -354,11 +353,21 @@ public class PredPreyMulti extends PredPrey {
 	 */
 	protected void start() throws Exception {
 		
+		/* Is this simulation repeatable? */
 		if (repeatable) {
+			
+			/* If so, sort agent list after calls to futureIsNow()... */
 			this.futureIsNowPost = new CellFutureIsNowPostSort();
+			/* ...and sort agent list after synchronized placement of
+			 * initial agents. */
 			this.putAgentNow = new CellPutAgentSyncSort();
+			
 		} else {
+			
+			/* If not, no special actions are required after calls to
+			 * futureIsNow()... */
 			this.futureIsNowPost = new CellFutureIsNowPostNop();
+			/* ...but initial agents must be placed in cell synchronously. */
 			this.putAgentNow = new CellPutAgentSync();
 		}
 		
@@ -370,21 +379,32 @@ public class PredPreyMulti extends PredPrey {
 
 		/* Initialize thread barriers. */
 		this.mainBarrier = new CyclicBarrier(numThreads, new Runnable() {
+			
+			/* Initial iteration is 1. */
 			int iter = 1;
+			
+			/* Method to run after each iteration. */
 			public void run() {
+				
 				/* Print current iteration, if that is the case. */
 				if ((stepPrint > 0) && (iter % stepPrint == 0))
 					System.out.println("Iter " + iter);
+				
+				/* Increment iteration count. */
 				iter++;
+				
 				/* If this is the last iteration, let main thread continue... */
 				if (iter > params.getIters()) {
+					
+					/* ...by opening the latch on which it is waiting one. */
 					latch.countDown();
+					
 				}				
 			}
 		});
 		this.partialBarrier = new CyclicBarrier(numThreads);
 		
-		/* Initialize statistics. */
+		/* Initialize statistics arrays. */
 		int[] resetArray = new int[params.getIters() + 1];
 		Arrays.fill(resetArray, 0);
 		this.sheepStats = new AtomicIntegerArray(resetArray);
@@ -394,7 +414,7 @@ public class PredPreyMulti extends PredPrey {
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		
 		/* Initialize simulation grid. */
-		grid = new Cell[params.getGridX()][params.getGridY()];
+		grid = new ICell[params.getGridX()][params.getGridY()];
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)
@@ -422,6 +442,9 @@ public class PredPreyMulti extends PredPrey {
 		
 	}
 
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.PredPrey#getStats(StatType, int)
+	 */
 	@Override
 	protected int getStats(StatType st, int iter) {
 		

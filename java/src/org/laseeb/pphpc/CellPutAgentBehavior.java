@@ -29,6 +29,22 @@ package org.laseeb.pphpc;
 
 import java.util.List;
 
+/**
+ * This class defines how an agent is added to an cell's internal agent list.
+ * Strategy design pattern.
+ *  
+ * @see Cell#putAgentFuture(IAgent)
+ * @see Cell#putAgentNow(IAgent)
+ * 
+ * @author Nuno Fachada
+ */
 public interface CellPutAgentBehavior {
+	
+	/**
+	 * Put an agent in a cell's internal agent list using some specific behavior.
+	 * 
+	 * @param agents Agent list, internal to the cell.
+	 * @param agent Agent to put in list.
+	 */
 	public void putAgent(List<IAgent> agents, IAgent agent);
 }

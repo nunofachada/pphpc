@@ -29,6 +29,11 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Interface for PPHPC agent implementations.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IAgent extends Cloneable, Comparable<IAgent> {
 
 	/**
@@ -54,7 +59,7 @@ public interface IAgent extends Cloneable, Comparable<IAgent> {
 	 * - Reproduction.
 	 * @param cell Cell where agent is currently in.
 	 */
-	public void doPlay(Cell cell, Random rng);
+	public void doPlay(ICell cell, Random rng);
 
 	/**
 	 * Returns the agent-specific reproduction threshold.

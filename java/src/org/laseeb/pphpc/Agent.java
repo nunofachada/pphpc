@@ -33,7 +33,8 @@ package org.laseeb.pphpc;
 import java.util.Random;
 
 /**
- * Generic agent class.
+ * Abstract PPHPC agent class.
+ * 
  * @author Nuno Fachada
  */
 public abstract class Agent implements IAgent {
@@ -81,13 +82,13 @@ public abstract class Agent implements IAgent {
 	 * Agent-specific actions.
 	 * @param cell Cell where agent is currently in.
 	 */
-	protected abstract void play(Cell cell);
+	protected abstract void play(ICell cell);
 	
 	/* (non-Javadoc)
 	 * @see org.laseeb.pphpc.IAgent#doPlay(org.laseeb.pphpc.Cell, java.util.Random)
 	 */
 	@Override
-	public void doPlay(Cell cell, Random rng) {
+	public void doPlay(ICell cell, Random rng) {
 		/* Perform specific agent actions. */
 		play(cell);
 		/* Maybe perform reproduction. */
@@ -100,7 +101,7 @@ public abstract class Agent implements IAgent {
 	 * @param cell Cell where agent is currently in.
 	 * @param rng Random number generator used to try reproduction.
 	 */
-	protected void reproduce(Cell cell, Random rng) {
+	protected void reproduce(ICell cell, Random rng) {
 
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {

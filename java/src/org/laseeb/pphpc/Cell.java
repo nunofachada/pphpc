@@ -30,7 +30,13 @@ package org.laseeb.pphpc;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Cell {
+/**
+ * Concrete implementation of a PPHPC model cell, part of a larger simulation grid.
+ * 
+ * @author Nuno Fachada
+ *
+ */
+public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
 	private CellPutAgentBehavior putAgentNowBehavior;
@@ -70,73 +76,78 @@ public class Cell {
 		this.agentsToRemove = new ArrayList<IAgent>();
 	}
 
-	/**
-	 * Return grass counter value.
-	 * @return Grass counter value.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#getGrass()
 	 */
+	@Override
 	public int getGrass() {
 		return grass;
 	}
 	
-	/**
-	 * Eat grass.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#eatGrass()
 	 */
+	@Override
 	public void eatGrass() {
 		grass = this.getGrassRestart();
 	}
 	
-	/**
-	 * Decrement grass counter.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#decGrass()
 	 */
+	@Override
 	public void decGrass() {
 		grass--;
 	}
 	
-	/**
-	 * Set grass counter to a specific value.
-	 * @param grass Value to set grass counter.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#setGrass(int)
 	 */
+	@Override
 	public void setGrass(int grass) {
 		this.grass = grass;
 	}
 
-	/**
-	 * @return the grassRestart
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#getGrassRestart()
 	 */
+	@Override
 	public int getGrassRestart() {
 		return grassRestart;
 	}
 
 	
-	/**
-	 * Remove agent from this cell.
-	 * @param agent Agent to remove from cell.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#removeAgent(org.laseeb.pphpc.IAgent)
 	 */
+	@Override
 	public void removeAgent(IAgent agent) {
 		agentsToRemove.add(agent);
 	}
 
 	
-	/**
-	 * Returns an iterator over agents in this cell.
-	 * @return Iterator for agents in this cell.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#getAgents()
 	 */
+	@Override
 	public Iterable<IAgent> getAgents() {
 		return agents;
 	}
 
 	
-	/**
-	 * Remove agents to be removed.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#removeAgentsToBeRemoved()
 	 */
+	@Override
 	public void removeAgentsToBeRemoved() {
 		agents.removeAll(agentsToRemove);
 		agentsToRemove.clear();
 	}
 
-	/**
-	 * Make future agents the current agents.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#futureIsNow()
 	 */
+	@Override
 	public void futureIsNow() {
 		List<IAgent> aux = agents;
 		agents = futureAgents;
@@ -145,19 +156,19 @@ public class Cell {
 		futureIsNowBehavior.futureIsNowPost(agents);
 	}	
 	
-	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#putAgentNow(org.laseeb.pphpc.IAgent)
 	 */
+	@Override
 	public void putAgentNow(IAgent agent) {
 		if (agent.getEnergy() > 0)
 			this.putAgentNowBehavior.putAgent(this.agents, agent);
 	}
 	
-	/**
-	 * In the future, put new agent in this cell.
-	 * @param agent Agent to put in cell in the future.
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.ICell#putAgentFuture(org.laseeb.pphpc.IAgent)
 	 */
+	@Override
 	public void putAgentFuture(IAgent agent) {
 		if (agent.getEnergy() > 0)
 			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);

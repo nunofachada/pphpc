@@ -29,13 +29,15 @@ package org.laseeb.pphpc;
 
 /**
  * Sheep class.
+ * 
  * @author Nuno Fachada
  *
  */
 public class Sheep extends Agent {
 
 	/**
-	 * Constructor.
+	 * Create a sheep agent.
+	 * 
 	 * @param energy Initial agents' energy.
 	 */
 	public Sheep(int energy, SimParams params) {
@@ -43,10 +45,10 @@ public class Sheep extends Agent {
 	}
 	
 	/**
-	 * @see Agent
+	 * @see Agent#play(ICell)
 	 */
 	@Override
-	protected void play(Cell cell) {
+	protected void play(ICell cell) {
 		if (cell.getGrass() == 0) {
 			cell.eatGrass();
 			this.setEnergy(this.getEnergy() + params.getSheepGainFromFood());
@@ -55,7 +57,7 @@ public class Sheep extends Agent {
 	}
 
 	/**
-	 * @see Agent
+	 * @see IAgent#getReproduceProbability()
 	 */
 	@Override
 	public int getReproduceProbability() {
@@ -63,7 +65,7 @@ public class Sheep extends Agent {
 	}
 
 	/**
-	 * @see Agent
+	 * @see IAgent#getReproduceThreshold()
 	 */
 	@Override
 	public int getReproduceThreshold() {

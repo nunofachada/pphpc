@@ -30,10 +30,26 @@ package org.laseeb.pphpc;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Put an agent in a cell's internal agent list synchronously and then sort the list,
+ * in a thread-safe fashion.
+ *  
+ * @author Nuno Fachada
+ */
 public class CellPutAgentSyncSort implements CellPutAgentBehavior {
 
+	/**
+	 * Create a new instance of this class.
+	 */
 	public CellPutAgentSyncSort() {}
 
+	/**
+	 * Put an agent in a cell's internal agent list synchronously and then sort the 
+	 * list, in a thread-safe fashion.
+	 * 
+	 * @param agents Agent list, internal to the cell.
+	 * @param agent Agent to put in list.
+	 * */
 	@Override
 	public void putAgent(List<IAgent> agents, IAgent agent) {
 		synchronized (agents) {
