@@ -30,25 +30,24 @@ package org.laseeb.pphpc;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 
+/**
+ * This class provides a String to RNGType converter for JCommander,
+ * which allows the user to select an Uncommons Maths random number 
+ * generator as a command line option.
+ * 
+ * @author Nuno Fachada
+ */
 public class RNGTypeConverter implements IStringConverter<RNGType> {
 	
 	@Override
 	public RNGType convert(String value) {
-		if (value.equalsIgnoreCase("aes")) {
-			return RNGType.AES;
-		} else if (value.equalsIgnoreCase("ca")) {
-			return RNGType.CA;
-		} else if (value.equalsIgnoreCase("cmwc")) {
-			return RNGType.CMWC;
-		} else if (value.equalsIgnoreCase("java")) {
-			return RNGType.JAVA;
-		} else if (value.equalsIgnoreCase("mt")) {
-			return RNGType.MT;
-		} else if (value.equalsIgnoreCase("xorshift")) {
-			return RNGType.XORSHIFT;
-		} else {
+		RNGType type;
+		try {
+			type = RNGType.valueOf(value.toUpperCase());
+		} catch (Exception e) {
 			throw new ParameterException("Unknown random number generator '" + value + "'");
 		}
+		return type;
 		
 	}
 

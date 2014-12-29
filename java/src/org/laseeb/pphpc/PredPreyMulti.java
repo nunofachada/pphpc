@@ -34,8 +34,8 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 import org.uncommons.maths.random.SeedException;
@@ -43,7 +43,8 @@ import org.uncommons.maths.random.SeedException;
 import com.beust.jcommander.Parameter;
 
 /**
- * Main class for multi-threaded predator-prey model.
+ * Multi-threaded PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public class PredPreyMulti extends PredPrey {
@@ -52,7 +53,7 @@ public class PredPreyMulti extends PredPrey {
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors")
 	private int numThreads = Runtime.getRuntime().availableProcessors();
 	
-	@Parameter(names = "-d", description = "Make the simulation repeatable? (slower)")
+	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
 	private boolean repeatable = false;
 
 	/* Statistics gathering. */
@@ -64,8 +65,9 @@ public class PredPreyMulti extends PredPrey {
 	private CyclicBarrier mainBarrier;
 	private CyclicBarrier partialBarrier;
 	
-	/* Semaphore for waiting until the end of the simulation. */
-	private Semaphore semaphore;
+	/* Latch on which the main thread will wait until the simulation threads
+	 * terminate. */
+	private CountDownLatch latch;
 	
 	/* Cell behaviors. */
 	CellFutureIsNowPostBehavior futureIsNowPost;
@@ -99,8 +101,8 @@ public class PredPreyMulti extends PredPrey {
 			try {
 				rng = createRNG(Thread.currentThread().getId());
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				throw new RuntimeException(e);
+				errMessage(e);
+				return;
 			}
 			
 			/* Partial statistics */
@@ -117,8 +119,6 @@ public class PredPreyMulti extends PredPrey {
 			/* Determine start and end cell index for current thread. */
 			long startCellIdx = offset * cellsPerThread; /* Inclusive */
 			long endCellIdx = Math.min((offset + 1) * cellsPerThread, gridsize); /* Exclusive */
-			
-//			System.out.println("Thread " + offset + " has cells from " + startCellIdx + " to " + (endCellIdx - 1));
 			
 			/* Initialize simulation grid cells. */
 			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
@@ -153,11 +153,11 @@ public class PredPreyMulti extends PredPrey {
 			try {
 				partialBarrier.await();
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				errMessage(e);
+				return;
 			} catch (BrokenBarrierException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				errMessage(e);
+				return;
 			}
 
 			/* Populate simulation grid with agents. */
@@ -172,7 +172,7 @@ public class PredPreyMulti extends PredPrey {
 			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
 				int x = rng.nextInt(params.getGridX());
 				int y = rng.nextInt(params.getGridY());
-				Agent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
 				grid[x][y].putAgentNow(sheep);
 			}
 
@@ -186,7 +186,7 @@ public class PredPreyMulti extends PredPrey {
 			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
 				int x = rng.nextInt(params.getGridX());
 				int y = rng.nextInt(params.getGridY());
-				Agent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
 				grid[x][y].putAgentNow(wolf);
 			}
 			
@@ -194,11 +194,11 @@ public class PredPreyMulti extends PredPrey {
 			try {
 				partialBarrier.await();
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				errMessage(e);
+				return;
 			} catch (BrokenBarrierException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				errMessage(e);
+				return;
 			}
 
 			/* Perform simulation steps. */
@@ -216,7 +216,7 @@ public class PredPreyMulti extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Decrement agent energy. */
 						agent.decEnergy();
@@ -273,11 +273,11 @@ public class PredPreyMulti extends PredPrey {
 				try {
 					partialBarrier.await();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					errMessage(e);
+					return;
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					errMessage(e);
+					return;
 				}
 				
 				/* Reset statistics. */
@@ -300,7 +300,7 @@ public class PredPreyMulti extends PredPrey {
 					grid[currCellX][currCellY].futureIsNow();
 
 					/* Cycle through agents in cell. */
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Tell agent to act. */
 						agent.doPlay(grid[currCellX][currCellY], rng);
@@ -314,7 +314,7 @@ public class PredPreyMulti extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					for (Agent agent : grid[currCellX][currCellY].getAgents()) {
+					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 
 						if (agent instanceof Sheep)
 							sheepStatsPartial++;
@@ -335,11 +335,11 @@ public class PredPreyMulti extends PredPrey {
 				try {
 					mainBarrier.await();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					errMessage(e);
+					return;
 				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					errMessage(e);
+					return;
 				}
 			}
 		}
@@ -351,44 +351,60 @@ public class PredPreyMulti extends PredPrey {
 	 * @throws GeneralSecurityException 
 	 * @throws SeedException 
 	 */
-	protected void start() throws SeedException, GeneralSecurityException {
+	protected void start() throws Exception {
 		
+		/* Is this simulation repeatable? */
 		if (repeatable) {
+			
+			/* If so, sort agent list after calls to futureIsNow()... */
 			this.futureIsNowPost = new CellFutureIsNowPostSort();
+			/* ...and sort agent list after synchronized placement of
+			 * initial agents. */
 			this.putAgentNow = new CellPutAgentSyncSort();
+			
 		} else {
+			
+			/* If not, no special actions are required after calls to
+			 * futureIsNow()... */
 			this.futureIsNowPost = new CellFutureIsNowPostNop();
+			/* ...but initial agents must be placed in cell synchronously. */
 			this.putAgentNow = new CellPutAgentSync();
 		}
 		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 		
-		/* Initialize and acquire one permit semaphore. */
-		semaphore = new Semaphore(1);
-		try {
-			semaphore.acquire();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		/* Initialize latch. */
+		latch = new CountDownLatch(1);
+
 		/* Initialize thread barriers. */
 		this.mainBarrier = new CyclicBarrier(numThreads, new Runnable() {
+			
+			/* Initial iteration is 1. */
 			int iter = 1;
+			
+			/* Method to run after each iteration. */
 			public void run() {
+				
 				/* Print current iteration, if that is the case. */
-				if (iter % stepPrint == 0)
+				if ((stepPrint > 0) && (iter % stepPrint == 0))
 					System.out.println("Iter " + iter);
+				
+				/* Increment iteration count. */
 				iter++;
+				
 				/* If this is the last iteration, let main thread continue... */
 				if (iter > params.getIters()) {
-					semaphore.release();
+					
+					/* ...by opening the latch on which it is waiting one. */
+					latch.countDown();
+					
 				}				
 			}
 		});
 		this.partialBarrier = new CyclicBarrier(numThreads);
 		
-		/* Initialize statistics. */
+		/* Initialize statistics arrays. */
 		int[] resetArray = new int[params.getIters() + 1];
 		Arrays.fill(resetArray, 0);
 		this.sheepStats = new AtomicIntegerArray(resetArray);
@@ -398,17 +414,14 @@ public class PredPreyMulti extends PredPrey {
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		
 		/* Initialize simulation grid. */
-		grid = new Cell[params.getGridX()][params.getGridY()];
+		grid = new ICell[params.getGridX()][params.getGridY()];
 		
-		/* Run simulation. */
+		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)
 			(new Thread(new SimThread(i))).start();
-		try {
-			semaphore.acquire();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+
+		/* Wait for simulation threads to finish. */
+		latch.await();
 
 		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
@@ -419,14 +432,19 @@ public class PredPreyMulti extends PredPrey {
 	
 	/**
 	 * Main function.
-	 * @param args Optionally indicate period of iterations to print current iteration to screen.
-	 * If ignored, all iterations will be printed to screen.
+	 * 
+	 * @param args Command line arguments.
 	 */
 	public static void main(String[] args) {
 		
-		new PredPreyMulti().doMain(args);
+		int status = (new PredPreyMulti()).doMain(args);
+		System.exit(status);
+		
 	}
 
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.PredPrey#getStats(StatType, int)
+	 */
 	@Override
 	protected int getStats(StatType st, int iter) {
 		

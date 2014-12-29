@@ -33,7 +33,6 @@ package org.laseeb.pphpc;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.GeneralSecurityException;
 import java.util.Random;
 
 import org.uncommons.maths.random.AESCounterRNG;
@@ -41,7 +40,6 @@ import org.uncommons.maths.random.CMWC4096RNG;
 import org.uncommons.maths.random.CellularAutomatonRNG;
 import org.uncommons.maths.random.JavaRNG;
 import org.uncommons.maths.random.MersenneTwisterRNG;
-import org.uncommons.maths.random.SeedException;
 import org.uncommons.maths.random.SeedGenerator;
 import org.uncommons.maths.random.XORShiftRNG;
 
@@ -50,19 +48,34 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
 /**
- * Main class for multi-threaded predator-prey model.
+ * Abstract PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public abstract class PredPrey {
 	
-	public enum StatType { SHEEP, WOLVES, GRASS }
+	/**
+	 *  Enumeration for collected simulation quantities. 
+	 * */
+	protected enum StatType { SHEEP, WOLVES, GRASS }
 	
-	final String paramsFileDefault = "config.txt";
-	final String statsFileDefault = "stats.txt";
+	/* Enumeration containing program errors. */
+	private enum Errors {
+		NONE(0), ARGS(-1), PARAMS(-2), SIM(-3), EXPORT(-4);
+		private int value;
+		private Errors(int value) { this.value = value; }
+		public int getValue() { return this.value; }
+	}
+	
+	/* Default parameters filename. */
+	private final String paramsFileDefault = "config.txt";
+
+	/* Default statistics output filename. */
+	private final String statsFileDefault = "stats.txt";
 	
 	/* Interval to print current iteration. */
 	@Parameter(names = "-i", description = "Interval of iterations to print current iteration")
-	protected long stepPrint = Long.MAX_VALUE;
+	protected long stepPrint = 0;
 	
 	/* File containing simulation parameters. */
 	@Parameter(names = "-p", description = "File containing simulation parameters")
@@ -72,11 +85,19 @@ public abstract class PredPrey {
 	@Parameter(names = "-s", description = "Statistics output file")
 	private String statsFile = statsFileDefault;
 	
-	@Parameter(names = "-r", description = "Seed for random number generator (defaults to System.nanoTime())", converter = BigIntegerConverter.class)
+	/* Seed for random number generator. */
+	@Parameter(names = "-r", description = "Seed for random number generator (defaults to System.nanoTime())", 
+			converter = BigIntegerConverter.class)
 	private BigInteger seed = null;
 	
-	@Parameter(names = "-g", description = "Random number generator (aes, ca, cmwc, java, mt or xorshift)", converter =  RNGTypeConverter.class)
+	/* Random number generator implementation. */
+	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT or XORSHIFT)", 
+			converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
+	
+	/* Debug mode. */
+	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)
+	private boolean debug = false;
 	
 	/* Help option. */
 	@Parameter(names = {"--help", "-h", "-?"}, description = "Show options", help = true)
@@ -86,90 +107,136 @@ public abstract class PredPrey {
 	protected SimParams params;
 	
 	/* Simulation grid. */
-	protected Cell[][] grid;
+	protected ICell[][] grid;
 
 	/**
 	 * Perform simulation.
-	 * @throws GeneralSecurityException 
-	 * @throws SeedException 
+	 * 
+	 * @throws Exception Any exception which may occur during the course of
+	 * a simulation run.
 	 */
-	protected abstract void start() throws SeedException, GeneralSecurityException;
+	protected abstract void start() throws Exception;
 	
+	/**
+	 * Get statistics.
+	 * 
+	 * @param st Type of statistic (number of sheep or wolves, or quantity of grass).
+	 * @param iter Iteration.
+	 * @return The requested statistic.
+	 */
 	protected abstract int getStats(StatType st, int iter);
 	
 	/**
 	 * Export statistics to file.
 	 * @param str Statistics filename.
+	 * @throws IOException 
 	 */
-	private void export() {
+	private void export() throws IOException {
 		
 		FileWriter out = null;
-		try {
-			out = new FileWriter(this.statsFile);
+
+		out = new FileWriter(this.statsFile);
 		
-			for (int i = 0; i <= params.getIters() ; i++) {
-				out.write(this.getStats(StatType.SHEEP, i) + "\t"
-						+ this.getStats(StatType.WOLVES, i) + "\t"
-						+ this.getStats(StatType.GRASS, i) + "\n");
-			}
+		for (int i = 0; i <= params.getIters() ; i++) {
+			out.write(this.getStats(StatType.SHEEP, i) + "\t"
+					+ this.getStats(StatType.WOLVES, i) + "\t"
+					+ this.getStats(StatType.GRASS, i) + "\n");
+		}
 		
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-            if (out != null) {
-                try {
-					out.close();
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-            }
-        }
- 	}
+		if (out != null) {
+			out.close();
+		}
+	}
 	
-	public void doMain(String[] args) {
+	/**
+	 * Show error message or stack trace, depending on debug parameter.
+	 * 
+	 * @param e Exception which caused the error.
+	 */
+	protected void errMessage(Exception e) {
 		
+		if (this.debug)
+			e.printStackTrace();
+		else
+			System.err.println("An error ocurred in thread " 
+					+ Thread.currentThread().getName() + ": " + e.getMessage());
+		
+	}
+	
+	/**
+	 * Run program.
+	 * 
+	 * @param args Command line arguments.
+	 * @return Error code.
+	 */
+	public int doMain(String[] args) {
+		
+		/* Setup command line options parser. */
 		JCommander parser = new JCommander(this);
 		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
 				+ PredPreyMulti.class.getName());
 		
+		/* Parse command line options. */
 		try {
 			parser.parse(args);
 		} catch (ParameterException pe) {
-			System.err.println(pe.getMessage());
+			/* On parsing error, show usage and return. */
+			errMessage(pe);
 			parser.usage();
-			return;
+			return Errors.ARGS.getValue();
 		}
 		
+		/* If help option was passed, show help and quit. */
 		if (this.help) {
 			parser.usage();
-			return;
+			return Errors.NONE.getValue();
 		}
 		
+		/* Read parameters file. */
 		try {
 			this.params = new SimParams(this.paramsFile);
-		} catch (IOException e) {
-			System.err.println(e.getMessage());
-			return;
+		} catch (IOException ioe) {
+			errMessage(ioe);
+			return Errors.PARAMS.getValue();
 		}
 		
+		/* Setup seed for random number generator. */
 		if (this.seed == null)
 			this.seed = BigInteger.valueOf(System.nanoTime());
-//		System.out.println("Starting simulation with " + this.NUM_THREADS + " threads.");
 		
+		/* Perform simulation. */
 		try {
 			this.start();
 		} catch (Exception e) {
-			System.err.println(e.getMessage());
-			e.printStackTrace();
-			return;
+			errMessage(e);
+			return Errors.SIM.getValue();
 		}
 		
-		this.export();
+		/* Export simulation results. */
+		try {
+			this.export();
+		} catch (IOException e) {
+			errMessage(e);
+			return Errors.EXPORT.getValue();
+		}
+		
+		/* Terminate with no errors. */
+		return Errors.NONE.getValue();
 		
 	}
 	
-	protected Random createRNG(long modifier) throws SeedException, GeneralSecurityException {
+	/**
+	 * Create a random number generator of the type and with the seed specified as 
+	 * the command line arguments.
+	 * 
+	 * @param modifier Seed modifier, such as a thread ID, so that each thread
+	 * can instantiate an independent random number generator (not really
+	 * independent, but good enough for the purpose).
+	 * 
+	 * @return A new random number generator.
+	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
+	 */
+	protected Random createRNG(long modifier) throws Exception {
 		
 		SeedGenerator seedGen = new PPSeedGenerator(modifier, this.seed);
 

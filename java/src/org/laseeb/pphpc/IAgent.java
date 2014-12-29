@@ -27,30 +27,50 @@
 
 package org.laseeb.pphpc;
 
-import java.util.List;
+import java.util.Random;
 
 /**
- * Put an agent in a cell's internal agent list asynchronously. This behavior
- * is not allowed when multiple threads try to put agents in this list.
- *  
+ * Interface for PPHPC agent implementations.
+ * 
  * @author Nuno Fachada
  */
-public class CellPutAgentAsync implements CellPutAgentBehavior {
+public interface IAgent extends Cloneable, Comparable<IAgent> {
 
 	/**
-	 * Create a new instance of this class.
+	 * Returns the agents' energy.
+	 * @return The agent's energy.
 	 */
-	public CellPutAgentAsync() {}
+	public int getEnergy();
 
 	/**
-	 * Put an agent in a cell's internal agent list asynchronously.
-	 * 
-	 * @param agents Agent list, internal to the cell.
-	 * @param agent Agent to put in list.
+	 * Sets the agent energy.
+	 * @param energy Value to which set the agents' energy-
 	 */
-	@Override
-	public void putAgent(List<IAgent> agents, IAgent agent) {
-		agents.add(agent);
-	}
+	public void setEnergy(int energy);
 
+	/**
+	 * Decrements the agent's energy.
+	 */
+	public void decEnergy();
+
+	/**
+	 * Generic agent actions, consisting of:
+	 * - Specific agent actions.
+	 * - Reproduction.
+	 * @param cell Cell where agent is currently in.
+	 */
+	public void doPlay(ICell cell, Random rng);
+
+	/**
+	 * Returns the agent-specific reproduction threshold.
+	 * @return Agent-specific reproduction threshold.
+	 */
+	public int getReproduceThreshold();
+	
+	/**
+	 * Returns the agent-specific reproduction probability.
+	 * @return Agent-specific reproduction probability.
+	 */
+	public int getReproduceProbability();
+	
 }

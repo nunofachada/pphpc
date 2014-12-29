@@ -36,7 +36,8 @@ import java.util.Random;
 import org.uncommons.maths.random.SeedException;
 
 /**
- * Main class for simple predator-prey model.
+ * Single-threaded PPHPC model.
+ * 
  * @author Nuno Fachada
  */
 public class PredPreySingle extends PredPrey {
@@ -56,7 +57,7 @@ public class PredPreySingle extends PredPrey {
 	 * @throws GeneralSecurityException 
 	 * @throws SeedException 
 	 */
-	public void start() throws SeedException, GeneralSecurityException {
+	public void start() throws Exception {
 
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
@@ -76,7 +77,7 @@ public class PredPreySingle extends PredPrey {
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid. */
-		grid = new Cell[params.getGridX()][params.getGridY()];
+		grid = new ICell[params.getGridX()][params.getGridY()];
 		
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
@@ -97,17 +98,23 @@ public class PredPreySingle extends PredPrey {
 		}
 		
 		/* Populate simulation grid with agents. */
-		for (int i = 0; i < params.getInitSheep(); i++)
-			grid[rng.nextInt(params.getGridX())][rng.nextInt(params.getGridY())].putAgentNow(
-						new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params));
-		for (int i = 0; i < params.getInitWolves(); i++)
-			grid[rng.nextInt(params.getGridX())][rng.nextInt(params.getGridY())].putAgentNow(
-					new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params));
+		for (int i = 0; i < params.getInitSheep(); i++) {
+			int x = rng.nextInt(params.getGridX());
+			int y = rng.nextInt(params.getGridY());
+			IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+			grid[x][y].putAgentNow(sheep);
+		}
+		for (int i = 0; i < params.getInitWolves(); i++) {
+			int x = rng.nextInt(params.getGridX());
+			int y = rng.nextInt(params.getGridY());
+			IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
+			grid[x][y].putAgentNow(wolf);
+		}
 		
 		/* Run simulation. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
 			
-			if (iter % stepPrint == 0)
+			if ((stepPrint > 0) && (iter % stepPrint == 0))
 				System.out.println("Iter " + iter);
 			
 			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
@@ -119,7 +126,7 @@ public class PredPreySingle extends PredPrey {
 					/* ************************* */
 
 					/* Cycle through agents in current cell. */
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 						
 						/* Decrement agent energy. */
 						agent.decEnergy();
@@ -183,7 +190,7 @@ public class PredPreySingle extends PredPrey {
 					grid[i][j].futureIsNow();
 					
 					/* Cycle through agents in cell. */
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 
 						/* Tell agent to act. */
 						agent.doPlay(grid[i][j], rng);
@@ -197,7 +204,7 @@ public class PredPreySingle extends PredPrey {
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					for (Agent agent : grid[i][j].getAgents()) {
+					for (IAgent agent : grid[i][j].getAgents()) {
 						
 						if (agent instanceof Sheep)
 							sheepStats[iter]++;
@@ -223,13 +230,19 @@ public class PredPreySingle extends PredPrey {
 
 	/**
 	 * Main function.
-	 * @param args Optionally indicate period of iterations to print current iteration to screen.
-	 * If ignored, all iterations will be printed to screen.
+	 * 
+	 * @param args Command line arguments.
 	 */
 	public static void main(String[] args) {
-		new PredPreySingle().doMain(args);
+		
+		int status = (new PredPreySingle()).doMain(args);
+		System.exit(status);
+		
 	}
 
+	/* (non-Javadoc)
+	 * @see org.laseeb.pphpc.PredPrey#getStats(StatType, int)
+	 */
 	@Override
 	protected int getStats(StatType st, int iter) {
 

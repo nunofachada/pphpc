@@ -35,39 +35,85 @@ import java.util.Arrays;
 import org.uncommons.maths.random.SeedException;
 import org.uncommons.maths.random.SeedGenerator;
 
+/**
+ * A deterministic seed generator for the Uncommons Maths random number 
+ * generators. Can produce seeds of any size using a base BigInteger seed.
+ * Also supports generating different seeds for different threads based on
+ * the same base seed, as to allow for deterministic parallel streams of
+ * pseudo-random numbers.
+ * 
+ * @author Nuno Fachada
+ */
 public class PPSeedGenerator implements SeedGenerator {
 	
+	/* Different threads should pass different modifiers, so that each
+	 * gets a "different" stream from the RNG. */
 	private long modifier;
+	
+	/* Base seed for this seed generator. */
 	private BigInteger seed;
 	
+	/**
+	 * Create a new seed generator.
+	 * 
+	 * @param modifier A thread ID or similar, used for producing different
+	 * seeds for different threads, based on the same {@link #seed}. If only
+	 * one thread is used, pass zero.
+	 * @param seed Base seed for this seed generator.
+	 */
 	public PPSeedGenerator(long modifier, BigInteger seed) {
 		this.modifier = modifier;
 		this.seed = seed;
 	}
 
+	/**
+	 * Generate a seed of a given length in bytes.
+	 * 
+	 * @param length Length in bytes of seed to generate.
+	 * @throws SeedException if something bad happens.
+	 */
 	@Override
 	public byte[] generateSeed(int length) throws SeedException {
 		
+		/* Final seed to be generated. */
 		BigInteger finalSeed = this.seed;
-		BigInteger modifierXor;
 		
-		if (modifier == 0) {
-			modifierXor = new BigInteger("0");
-		} else {
+		/* If the thread modifier is not zero, create a scrambled modifierXor, 
+		 * unique for each thread. */
+		if (modifier != 0) {
+
+			/* This modifier will be XOR'ed with the final seed in order to
+			 * produce different seeds for different threads. */
+			BigInteger modifierXor;
+
 			try {
+				
+				/* Use SHA-256 for the scramble. */
 				MessageDigest digest = MessageDigest.getInstance("SHA-256");
 				digest.update(Long.toString(modifier).getBytes());
 				modifierXor = new BigInteger(digest.digest());
+				
 			} catch (NoSuchAlgorithmException e) {
+				
 				throw new SeedException(e.getMessage(), e);
+				
 			}
+
+			/* Xor the final seed with the modifierXor. */
+			finalSeed = finalSeed.xor(modifierXor);
+			
 		}
 
-		finalSeed = finalSeed.xor(modifierXor);
-		
+		/* Keep increasing the final seed deterministically until it has
+		 * at least the size required by the RNG. */
 		while (finalSeed.bitCount() < length * 8) {
+			
+			/* We add the value 10 for the case when the base seed is zero. */
 			finalSeed = finalSeed.pow(2).add(BigInteger.TEN);
+			
 		}
+		
+		/* Return a byte array of the exact length required by the RNG. */
 		return Arrays.copyOf(finalSeed.toByteArray(), length);
 	}
 	

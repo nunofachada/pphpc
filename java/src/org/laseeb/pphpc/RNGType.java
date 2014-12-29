@@ -26,6 +26,12 @@
  */
 package org.laseeb.pphpc;
 
+/**
+ * Enum representing the random number generators present in the Uncommons
+ * Math library.
+ * 
+ * @author Nuno Fachada
+ */
 public enum RNGType { 
 	AES, 
 	CA, 

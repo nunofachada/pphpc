@@ -35,7 +35,8 @@ package org.laseeb.pphpc;
 public class Wolf extends Agent {
 	
 	/**
-	 * Constructor.
+	 * Create a wolf agent.
+	 * 
 	 * @param energy Initial agents' energy.
 	 */
 	public Wolf(int energy, SimParams params) {
@@ -43,13 +44,13 @@ public class Wolf extends Agent {
 	}
 
 	/**
-	 * @see Agent
+	 * @see Agent#play(ICell)
 	 */
 	@Override
-	protected void play(Cell cell) {
+	protected void play(ICell cell) {
 		
 		/* Iterate over agents in this cell. */
-		for (Agent agent : cell.getAgents()) {
+		for (IAgent agent : cell.getAgents()) {
 			
 			/* Check if agent is sheep. */
 			if (agent instanceof Sheep) {
@@ -71,18 +72,18 @@ public class Wolf extends Agent {
 	}
 	
 	/**
-	 * @see Agent
+	 * @see IAgent#getReproduceProbability()
 	 */
 	@Override
-	protected int getReproduceProbability() {
+	public int getReproduceProbability() {
 		return params.getWolvesReproduceProb();
 	}
 	
 	/**
-	 * @see Agent
+	 * @see IAgent#getReproduceThreshold()
 	 */
 	@Override
-	protected int getReproduceThreshold() {
+	public int getReproduceThreshold() {
 		return params.getWolvesReproduceThreshold();
 	}
 

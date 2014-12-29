@@ -31,6 +31,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Properties;
 
+/**
+ * PPHPC simulation parameters.
+ * 
+ * @author Nuno Fachada
+ */
 public class SimParams {
 	/*
 	 * Model parameters.
@@ -48,6 +53,13 @@ public class SimParams {
 	private int gridY;
 	private int iters;
 	
+	/**
+	 * Create a simulation parameters object by loading parameters
+	 * from a parameters file.
+	 * 
+	 * @param paramsFile Parameters file.
+	 * @throws IOException If it wasn't possible to open the given parameters file.
+	 */
 	public SimParams(String paramsFile) throws IOException {
 		
 		Properties properties = new Properties();
@@ -70,50 +82,110 @@ public class SimParams {
 		this.iters = Integer.parseInt(properties.getProperty("ITERS"));
 	}
 
+	/**
+	 * Get initial number of sheep.
+	 * 
+	 * @return Initial number of sheep.
+	 */
 	public int getInitSheep() {
 		return initSheep;
 	}
 
+	/**
+	 * Get sheep gain from food.
+	 * 
+	 * @return Sheep gain from food.
+	 */
 	public int getSheepGainFromFood() {
 		return sheepGainFromFood;
 	}
 
+	/**
+	 * Get sheep reproduction threshold.
+	 * 
+	 * @return Sheep reproduction threshold.
+	 */
 	public int getSheepReproduceThreshold() {
 		return sheepReproduceThreshold;
 	}
 
+	/**
+	 * Get sheep reproduction probability.
+	 * 
+	 * @return Sheep reproduction probability.
+	 */
 	public int getSheepReproduceProb() {
 		return sheepReproduceProb;
 	}
 
+	/**
+	 * Get initial number of wolves.
+	 * 
+	 * @return Initial number of wolves.
+	 */
 	public int getInitWolves() {
 		return initWolves;
 	}
 
+	/**
+	 * Get wolves gain from food.
+	 * 
+	 * @return Wolves gain from food.
+	 */
 	public int getWolvesGainFromFood() {
 		return wolvesGainFromFood;
 	}
 
+	/**
+	 * Get wolves reproduction threshold.
+	 * 
+	 * @return Wolves reproduction threshold.
+	 */
 	public int getWolvesReproduceThreshold() {
 		return wolvesReproduceThreshold;
 	}
 
+	/**
+	 * Get wolves reproduction probability.
+	 * 
+	 * @return Wolves reproduction probability.
+	 */
 	public int getWolvesReproduceProb() {
 		return wolvesReproduceProb;
 	}
 
+	/**
+	 * Get grass restart time.
+	 * 
+	 * @return Grass restart time.
+	 */
 	public int getGrassRestart() {
 		return grassRestart;
 	}
 
+	/**
+	 * Get horizontal grid size (number of columns).
+	 * 
+	 * @return Horizontal grid size (number of columns).
+	 */
 	public int getGridX() {
 		return gridX;
 	}
 
+	/**
+	 * Get vertical grid size (number of rows).
+	 * 
+	 * @return Vertical grid size (number of rows).
+	 */
 	public int getGridY() {
 		return gridY;
 	}
 
+	/**
+	 * Get number of iterations.
+	 * 
+	 * @return Number of iterations.
+	 */
 	public int getIters() {
 		return iters;
 	}
