@@ -45,6 +45,8 @@ public interface IAgent extends Cloneable, Comparable<IAgent> {
 	 * @param energy Value to which set the agents' energy-
 	 */
 	public void setEnergy(int energy);
+	
+	public boolean isAlive();
 
 	/**
 	 * Decrements the agent's energy.

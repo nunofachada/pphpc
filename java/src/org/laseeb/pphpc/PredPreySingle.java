@@ -67,6 +67,8 @@ public class PredPreySingle extends PredPrey {
 		/* Initialize random number generator. */
 		rng = this.createRNG(0);
 		
+		PPStats stats = new PPStats();
+		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
 
@@ -102,15 +104,25 @@ public class PredPreySingle extends PredPrey {
 			int x = rng.nextInt(params.getGridX());
 			int y = rng.nextInt(params.getGridY());
 			IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
-			grid[x][y].putAgentNow(sheep);
+			grid[x][y].putNewAgent(sheep);
 		}
 		for (int i = 0; i < params.getInitWolves(); i++) {
 			int x = rng.nextInt(params.getGridX());
 			int y = rng.nextInt(params.getGridY());
 			IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
-			grid[x][y].putAgentNow(wolf);
+			grid[x][y].putNewAgent(wolf);
 		}
 		
+		stats.reset();
+		
+		for (int i = 0; i < params.getGridX(); i++)
+			for (int j = 0; j < params.getGridY(); j++)
+				grid[i][j].getStats(stats);
+		
+		sheepStats[0] = stats.getSheep();
+		wolfStats[0] = stats.getWolves();
+		grassStats[0] = stats.getGrass();
+
 		/* Run simulation. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
 			
@@ -161,7 +173,7 @@ public class PredPreySingle extends PredPrey {
 									y = params.getGridY() - 1;
 							}
 							/* Move agent to new cell in the future. */
-							grid[x][y].putAgentFuture(agent);
+							grid[x][y].putExistingAgent(agent);
 
 						}
 					}
@@ -178,6 +190,8 @@ public class PredPreySingle extends PredPrey {
 				}
 			}
 			
+			stats.reset();
+			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
 			for (int i = 0; i < params.getGridX(); i++) {
 				for (int j = 0; j < params.getGridY(); j++) {
@@ -185,39 +199,47 @@ public class PredPreySingle extends PredPrey {
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */
 					/* ************************** */
-
-					/* The future is now (future agents are now present agents)... */
-					grid[i][j].futureIsNow();
 					
-					/* Cycle through agents in cell. */
-					for (IAgent agent : grid[i][j].getAgents()) {
+					grid[i][j].agentActions();
 
-						/* Tell agent to act. */
-						agent.doPlay(grid[i][j]);
-						
-					}
+//					/* The future is now (future agents are now present agents)... */
+//					grid[i][j].futureIsNow();
 					
-					/* Remove dead agents. */
-					grid[i][j].removeAgentsToBeRemoved();
+//					/* Cycle through agents in cell. */
+//					for (IAgent agent : grid[i][j].getAgents()) {
+//
+//						/* Tell agent to act. */
+//						agent.doPlay(grid[i][j]);
+//						
+//					}
+					
+//					/* Remove dead agents. */
+//					grid[i][j].removeAgentsToBeRemoved();
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
-
-					for (IAgent agent : grid[i][j].getAgents()) {
-						
-						if (agent instanceof Sheep)
-							sheepStats[iter]++;
-						else if (agent instanceof Wolf)
-							wolfStats[iter]++;
-						
-					}
 					
-					if (grid[i][j].isGrassAlive())
-						grassStats[iter]++;
+					grid[i][j].getStats(stats);
+
+//					for (IAgent agent : grid[i][j].getAgents()) {
+//						
+//						if (agent instanceof Sheep)
+//							sheepStats[iter]++;
+//						else if (agent instanceof Wolf)
+//							wolfStats[iter]++;
+//						
+//					}
+//					
+//					if (grid[i][j].isGrassAlive())
+//						grassStats[iter]++;
 					
 				}
 			}
+			
+			sheepStats[iter] = stats.getSheep();
+			wolfStats[iter] = stats.getWolves();
+			grassStats[iter] = stats.getGrass();
 			
 		}
 		

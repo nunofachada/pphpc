@@ -34,7 +34,7 @@ import java.util.List;
  * Strategy design pattern.
  *  
  * @see Cell#putAgentFuture(IAgent)
- * @see Cell#putAgentNow(IAgent)
+ * @see Cell#putNewAgent(IAgent)
  * 
  * @author Nuno Fachada
  */

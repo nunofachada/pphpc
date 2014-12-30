@@ -167,7 +167,7 @@ public class PredPreyMulti extends PredPrey {
 				int x = localRng.nextInt(params.getGridX());
 				int y = localRng.nextInt(params.getGridY());
 				IAgent sheep = new Sheep(1 + localRng.nextInt(2 * params.getSheepGainFromFood()), params);
-				grid[x][y].putAgentNow(sheep);
+				grid[x][y].putNewAgent(sheep);
 			}
 
 			/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
@@ -181,7 +181,7 @@ public class PredPreyMulti extends PredPrey {
 				int x = localRng.nextInt(params.getGridX());
 				int y = localRng.nextInt(params.getGridY());
 				IAgent wolf = new Wolf(1 + localRng.nextInt(2 * params.getWolvesGainFromFood()), params);		
-				grid[x][y].putAgentNow(wolf);
+				grid[x][y].putNewAgent(wolf);
 			}
 			
 			/* Sync. with barrier. */

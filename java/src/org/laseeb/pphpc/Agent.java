@@ -116,7 +116,7 @@ public abstract class Agent implements IAgent {
 					e.printStackTrace();
 				}
 				/* Put new agent in current cell. */
-				cell.putAgentFuture(agent);
+				cell.putNewAgent(agent);
 			}
 		}
 	}
@@ -158,6 +158,10 @@ public abstract class Agent implements IAgent {
 		 * order to make ordering as "random" as possible). */
 		return h1 != h2 ? h1 - h2 : p1 - p2;
 
-	}	
+	}
+	
+	public boolean isAlive() {
+		return this.energy > 0;
+	}
 
 }

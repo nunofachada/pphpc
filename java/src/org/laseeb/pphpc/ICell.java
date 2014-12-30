@@ -35,12 +35,12 @@ package org.laseeb.pphpc;
  */
 public interface ICell {
 
-//	/**
-//	 * Return grass counter value.
-//	 * @return Grass counter value.
-//	 */
-//	public int getGrass();
-	
+
+	/**
+	 * Is grass alive?
+	 * 
+	 * @return True if grass is alive, false otherwise.
+	 */
 	public boolean isGrassAlive();
 
 	/**
@@ -58,11 +58,11 @@ public interface ICell {
 	 */
 	public int getGrassRestart();
 
-	/**
-	 * Remove agent from this cell.
-	 * @param agent Agent to remove from cell.
-	 */
-	public void removeAgent(IAgent agent);
+//	/**
+//	 * Remove agent from this cell.
+//	 * @param agent Agent to remove from cell.
+//	 */
+//	public void removeAgent(IAgent agent);
 
 	/**
 	 * Returns an iterator over agents in this cell.
@@ -70,27 +70,37 @@ public interface ICell {
 	 */
 	public Iterable<IAgent> getAgents();
 
-	/**
-	 * Remove agents to be removed.
-	 */
-	public void removeAgentsToBeRemoved();
-
-	/**
-	 * Make future agents the current agents.
-	 */
-	public void futureIsNow();
+//	/**
+//	 * Remove agents to be removed.
+//	 */
+//	public void removeAgentsToBeRemoved();
+//
+//	/**
+//	 * Make future agents the current agents.
+//	 */
+//	public void futureIsNow();
 
 	/**
 	 * Put new agent in this cell now.
 	 * @param agent Agent to put in cell now.
 	 */
-	public void putAgentNow(IAgent agent);
-
+	public void putNewAgent(IAgent agent);
+	
 	/**
-	 * In the future, put new agent in this cell.
-	 * @param agent Agent to put in cell in the future.
+	 * Put new agent in this cell now.
+	 * @param agent Agent to put in cell now.
 	 */
-	public void putAgentFuture(IAgent agent);
+	public void putExistingAgent(IAgent agent);	
+	
+	public void getStats(PPStats stats);
+
+	void agentActions();
+
+//	/**
+//	 * In the future, put new agent in this cell.
+//	 * @param agent Agent to put in cell in the future.
+//	 */
+//	public void putAgentFuture(IAgent agent);
 
 
 }
