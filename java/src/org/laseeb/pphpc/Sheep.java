@@ -49,7 +49,7 @@ public class Sheep extends Agent {
 	 */
 	@Override
 	protected void play(ICell cell) {
-		if (cell.getGrass() == 0) {
+		if (cell.isGrassAlive()) {
 			cell.eatGrass();
 			this.setEnergy(this.getEnergy() + params.getSheepGainFromFood());
 		}

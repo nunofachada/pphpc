@@ -65,6 +65,9 @@ public class PredPreySingle extends PredPrey {
 		/* Initialize random number generator. */
 		Random rng = this.createRNG(0);
 		
+		/* Grass initialization strategy. */
+		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
+
 		/* Cell behaviors are fixed in the single-threaded case. */
 		CellFutureIsNowPostBehavior futureIsNowPost = new CellFutureIsNowPostNop();
 		CellPutAgentBehavior putAgent = new CellPutAgentAsync();
@@ -82,18 +85,13 @@ public class PredPreySingle extends PredPrey {
 		/* Initialize simulation grid cells. */
 		for (int i = 0; i < params.getGridX(); i++) {
 			for (int j = 0; j < params.getGridY(); j++) {
+				
 				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params.getGrassRestart(), putAgent, putAgent, futureIsNowPost);
-				/* Grow grass in current cell. */
-				if (rng.nextBoolean()) {
-					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + rng.nextInt(params.getGrassRestart()));
-				} else {
-					/* Grass alive. */
-					grid[i][j].setGrass(0);
-					/* Update grass statistics. */
+				grid[i][j] = new Cell(params.getGrassRestart(), grassInitStrategy, putAgent, putAgent, futureIsNowPost);
+
+				/* Update grass statistics. */
+				if (grid[i][j].isGrassAlive())
 					this.grassStats[0]++;
-				}
 			}
 		}
 		
@@ -171,9 +169,9 @@ public class PredPreySingle extends PredPrey {
 					/* ************************* */
 					
 					/* If grass is not alive... */
-					if (grid[i][j].getGrass() > 0) {
+					if (!grid[i][j].isGrassAlive()) {
 						/* ...decrement alive counter. */
-						grid[i][j].decGrass();
+						grid[i][j].regenerateGrass();
 					}
 				}
 			}
@@ -213,7 +211,7 @@ public class PredPreySingle extends PredPrey {
 						
 					}
 					
-					if (grid[i][j].getGrass() == 0)
+					if (grid[i][j].isGrassAlive())
 						grassStats[iter]++;
 					
 				}

@@ -109,6 +109,9 @@ public class PredPreyMulti extends PredPrey {
 			int sheepStatsPartial;
 			int wolfStatsPartial;
 			int grassStatsPartial;
+			
+			/* Grass initialization strategy. */
+			CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
 
 			/* Determine the grid size. */
 			long gridsize = ((long) params.getGridX()) * params.getGridY();
@@ -128,24 +131,13 @@ public class PredPreyMulti extends PredPrey {
 				int currCellX = (int) (currCellIdx % params.getGridX());
 
 				/* Add cell to current place in grid. */
-				grid[currCellX][currCellY] = new Cell(
-						params.getGrassRestart(), putAgentNow, putAgentFuture, futureIsNowPost);
+				grid[currCellX][currCellY] = new Cell(params.getGrassRestart(), 
+						grassInitStrategy, putAgentNow, putAgentFuture, futureIsNowPost);
 				
-				/* Grow grass in current cell. */
-				if (rng.nextBoolean()) {
-				
-					/* Grass not alive, initialize grow timer. */
-					grid[currCellX][currCellY].setGrass(1 + rng.nextInt(params.getGrassRestart()));
-					
-				} else {
-					
-					/* Grass alive. */
-					grid[currCellX][currCellY].setGrass(0);
-					
-					/* Update grass statistics. */
+				/* Update grass statistics. */
+				if (grid[currCellX][currCellY].isGrassAlive())
 					grassStats.getAndIncrement(0);
-					
-				}
+
 
 			}
 			
@@ -262,9 +254,9 @@ public class PredPreyMulti extends PredPrey {
 					/* ************************* */
 					
 					/* If grass is not alive... */
-					if (grid[currCellX][currCellY].getGrass() > 0) {
+					if (!grid[currCellX][currCellY].isGrassAlive()) {
 						/* ...decrement alive counter. */
-						grid[currCellX][currCellY].decGrass();
+						grid[currCellX][currCellY].regenerateGrass();
 					}
 					
 				}
@@ -310,6 +302,9 @@ public class PredPreyMulti extends PredPrey {
 					/* Remove dead agents. */
 					grid[currCellX][currCellY].removeAgentsToBeRemoved();
 					
+					/* Put new agents. */
+					((Cell) grid[currCellX][currCellY]).mergeFutureWithPresent();
+					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
@@ -322,7 +317,7 @@ public class PredPreyMulti extends PredPrey {
 							wolfStatsPartial++;
 					}
 					
-					if (grid[currCellX][currCellY].getGrass() == 0)
+					if (grid[currCellX][currCellY].isGrassAlive())
 						grassStatsPartial++;
 				}
 				

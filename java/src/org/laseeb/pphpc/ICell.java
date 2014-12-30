@@ -35,11 +35,13 @@ package org.laseeb.pphpc;
  */
 public interface ICell {
 
-	/**
-	 * Return grass counter value.
-	 * @return Grass counter value.
-	 */
-	public int getGrass();
+//	/**
+//	 * Return grass counter value.
+//	 * @return Grass counter value.
+//	 */
+//	public int getGrass();
+	
+	public boolean isGrassAlive();
 
 	/**
 	 * Eat grass.
@@ -49,13 +51,7 @@ public interface ICell {
 	/**
 	 * Decrement grass counter.
 	 */
-	public void decGrass();
-
-	/**
-	 * Set grass counter to a specific value.
-	 * @param grass Value to set grass counter.
-	 */
-	public void setGrass(int grass);
+	public void regenerateGrass();
 
 	/**
 	 * @return the grassRestart

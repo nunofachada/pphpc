@@ -61,10 +61,13 @@ public class Cell implements ICell {
 	/**
 	 * Constructor.
 	 */
-	public Cell(int grassRestart, CellPutAgentBehavior putAgentsNowBehavior, 
+	public Cell(int grassRestart,
+			CellGrassInitStrategy grassInitStrategy,
+			CellPutAgentBehavior putAgentsNowBehavior, 
 			CellPutAgentBehavior putAgentsFutureBehavior,
 			CellFutureIsNowPostBehavior futureIsNowBehavior) {
 		
+		this.grass = grassInitStrategy.getInitGrass(grassRestart);
 		this.grassRestart = grassRestart;
 		this.putAgentNowBehavior = putAgentsNowBehavior;
 		this.putAgentFutureBehavior = putAgentsFutureBehavior;
@@ -76,12 +79,16 @@ public class Cell implements ICell {
 		this.agentsToRemove = new ArrayList<IAgent>();
 	}
 
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getGrass()
-	 */
-	@Override
-	public int getGrass() {
-		return grass;
+//	/* (non-Javadoc)
+//	 * @see org.laseeb.pphpc.ICell#getGrass()
+//	 */
+//	@Override
+//	public int getGrass() {
+//		return grass;
+//	}
+	
+	public boolean isGrassAlive() {
+		return this.grass == 0;
 	}
 	
 	/* (non-Javadoc)
@@ -96,18 +103,10 @@ public class Cell implements ICell {
 	 * @see org.laseeb.pphpc.ICell#decGrass()
 	 */
 	@Override
-	public void decGrass() {
+	public void regenerateGrass() {
 		grass--;
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#setGrass(int)
-	 */
-	@Override
-	public void setGrass(int grass) {
-		this.grass = grass;
-	}
-
 	/* (non-Javadoc)
 	 * @see org.laseeb.pphpc.ICell#getGrassRestart()
 	 */
@@ -172,6 +171,11 @@ public class Cell implements ICell {
 	public void putAgentFuture(IAgent agent) {
 		if (agent.getEnergy() > 0)
 			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);
+	}
+	
+	public void mergeFutureWithPresent() {
+		this.agents.addAll(this.futureAgents);
+		this.futureAgents.clear();
 	}
 	
 }
