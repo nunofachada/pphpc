@@ -30,7 +30,6 @@ package org.laseeb.pphpc;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 /**
  * Concrete implementation of a PPHPC model cell, part of a larger simulation grid.
@@ -41,11 +40,7 @@ import java.util.NoSuchElementException;
 public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
-	private CellPutAgentBehavior putAgentNowBehavior;
-	
-	private CellPutAgentBehavior putAgentFutureBehavior;
-	
-	private CellFutureIsNowPostBehavior futureIsNowBehavior;
+	private CellPutAgentBehavior putAgentBehavior;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
@@ -66,15 +61,11 @@ public class Cell implements ICell {
 	 */
 	public Cell(int grassRestart,
 			CellGrassInitStrategy grassInitStrategy,
-			CellPutAgentBehavior putAgentsNowBehavior, 
-			CellPutAgentBehavior putAgentsFutureBehavior,
-			CellFutureIsNowPostBehavior futureIsNowBehavior) {
+			CellPutAgentBehavior putAgentsBehavior) {
 		
 		this.grass = grassInitStrategy.getInitGrass(grassRestart);
 		this.grassRestart = grassRestart;
-		this.putAgentNowBehavior = putAgentsNowBehavior;
-		this.putAgentFutureBehavior = putAgentsFutureBehavior;
-		this.futureIsNowBehavior = futureIsNowBehavior;
+		this.putAgentBehavior = putAgentsBehavior;
 		
 		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<IAgent>();
@@ -82,133 +73,42 @@ public class Cell implements ICell {
 		this.existingAgents = new ArrayList<IAgent>();
 	}
 
-//	/* (non-Javadoc)
-//	 * @see org.laseeb.pphpc.ICell#getGrass()
-//	 */
-//	@Override
-//	public int getGrass() {
-//		return grass;
-//	}
-	
+
+	@Override
 	public boolean isGrassAlive() {
 		return this.grass == 0;
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#eatGrass()
-	 */
 	@Override
 	public void eatGrass() {
 		grass = this.getGrassRestart();
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#decGrass()
-	 */
 	@Override
 	public void regenerateGrass() {
 		grass--;
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getGrassRestart()
-	 */
 	@Override
 	public int getGrassRestart() {
 		return grassRestart;
 	}
 
-	
-//	/* (non-Javadoc)
-//	 * @see org.laseeb.pphpc.ICell#removeAgent(org.laseeb.pphpc.IAgent)
-//	 */
-//	@Override
-//	public void removeAgent(IAgent agent) {
-////		agentsToRemove.add(agent);
-//		agent.setEnergy(0);
-//	}
-
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getAgents()
-	 */
 	@Override
 	public Iterable<IAgent> getAgents() {
 		
 		return this.agents;
 		
-//		return new Iterable<IAgent>() {
-//
-//			@Override
-//			public Iterator<IAgent> iterator() {
-//
-//				return new Iterator<IAgent>() {
-//					
-//					int index = 0;
-//					int size = agents.size();
-//					
-//					@Override
-//					public boolean hasNext() {
-//						while (index < size) {
-//							if (agents.get(index).getEnergy() > 0)
-//								return true;
-//							index++;
-//						}
-//						return false;
-//					}
-//
-//					@Override
-//					public IAgent next() {
-//						if (hasNext())
-//							return agents.get(index);
-//						throw new NoSuchElementException();
-//					}
-//
-//					@Override
-//					public void remove() {
-//						throw new UnsupportedOperationException();
-//					}
-//					
-//				};
-//			}
-//			
-//		};
 	}
 
-	
-//	/* (non-Javadoc)
-//	 * @see org.laseeb.pphpc.ICell#removeAgentsToBeRemoved()
-//	 */
-//	@Override
-//	public void removeAgentsToBeRemoved() {
-//		agents.removeAll(agentsToRemove);
-//		agentsToRemove.clear();
-//	}
-//
-//	/* (non-Javadoc)
-//	 * @see org.laseeb.pphpc.ICell#futureIsNow()
-//	 */
-//	@Override
-//	private void swap() {
-//		List<IAgent> aux = agents;
-//		agents = futureAgents;
-//		futureAgents = aux;
-//		futureAgents.clear();
-////		futureIsNowBehavior.futureIsNowPost(agents);
-//	}	
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#putAgentNow(org.laseeb.pphpc.IAgent)
-	 */
 	@Override
 	public void putNewAgent(IAgent agent) {
-//		this.putAgentNowBehavior.putAgent(this.agents, agent);
-		this.newAgents.add(agent);
+		this.putAgentBehavior.putAgent(this.newAgents, agent);
 	}
 	
 	@Override
 	public void putExistingAgent(IAgent agent) {
-//		this.putAgentNowBehavior.putAgent(this.agents, agent);
-		this.existingAgents.add(agent);
+		this.putAgentBehavior.putAgent(this.existingAgents, agent);
 	}
 	
 	@Override
@@ -255,19 +155,5 @@ public class Cell implements ICell {
 		}
 		
 	}
-	
-//	/* (non-Javadoc)
-//	 * @see org.laseeb.pphpc.ICell#putAgentFuture(org.laseeb.pphpc.IAgent)
-//	 */
-//	@Override
-//	public void putAgentFuture(IAgent agent) {
-//		if (agent.getEnergy() > 0)
-//			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);
-//	}
-//	
-//	public void mergeFutureWithPresent() {
-//		this.agents.addAll(this.futureAgents);
-//		this.futureAgents.clear();
-//	}
 	
 }

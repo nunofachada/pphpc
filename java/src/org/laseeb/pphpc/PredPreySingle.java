@@ -73,7 +73,6 @@ public class PredPreySingle extends PredPrey {
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
 
 		/* Cell behaviors are fixed in the single-threaded case. */
-		CellFutureIsNowPostBehavior futureIsNowPost = new CellFutureIsNowPostNop();
 		CellPutAgentBehavior putAgent = new CellPutAgentAsync();
 		
 		/* Initialize statistics. */
@@ -91,7 +90,7 @@ public class PredPreySingle extends PredPrey {
 			for (int j = 0; j < params.getGridY(); j++) {
 				
 				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params.getGrassRestart(), grassInitStrategy, putAgent, putAgent, futureIsNowPost);
+				grid[i][j] = new Cell(params.getGrassRestart(), grassInitStrategy, putAgent);
 
 				/* Update grass statistics. */
 				if (grid[i][j].isGrassAlive())
@@ -113,8 +112,8 @@ public class PredPreySingle extends PredPrey {
 			grid[x][y].putNewAgent(wolf);
 		}
 		
+		/* Get initial statistics. */
 		stats.reset();
-		
 		for (int i = 0; i < params.getGridX(); i++)
 			for (int j = 0; j < params.getGridY(); j++)
 				grid[i][j].getStats(stats);
@@ -190,6 +189,7 @@ public class PredPreySingle extends PredPrey {
 				}
 			}
 			
+			/* Reset statistics for current iteration. */
 			stats.reset();
 			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
@@ -202,41 +202,16 @@ public class PredPreySingle extends PredPrey {
 					
 					grid[i][j].agentActions();
 
-//					/* The future is now (future agents are now present agents)... */
-//					grid[i][j].futureIsNow();
-					
-//					/* Cycle through agents in cell. */
-//					for (IAgent agent : grid[i][j].getAgents()) {
-//
-//						/* Tell agent to act. */
-//						agent.doPlay(grid[i][j]);
-//						
-//					}
-					
-//					/* Remove dead agents. */
-//					grid[i][j].removeAgentsToBeRemoved();
-					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 					
 					grid[i][j].getStats(stats);
-
-//					for (IAgent agent : grid[i][j].getAgents()) {
-//						
-//						if (agent instanceof Sheep)
-//							sheepStats[iter]++;
-//						else if (agent instanceof Wolf)
-//							wolfStats[iter]++;
-//						
-//					}
-//					
-//					if (grid[i][j].isGrassAlive())
-//						grassStats[iter]++;
 					
 				}
 			}
 			
+			/* Update global stats. */
 			sheepStats[iter] = stats.getSheep();
 			wolfStats[iter] = stats.getWolves();
 			grassStats[iter] = stats.getGrass();

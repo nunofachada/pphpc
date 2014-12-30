@@ -69,11 +69,7 @@ public class PredPreyMulti extends PredPrey {
 	 * terminate. */
 	private CountDownLatch latch;
 	
-	/* Cell behaviors. */
-	CellFutureIsNowPostBehavior futureIsNowPost;
-	CellPutAgentBehavior putAgentNow;
-	CellPutAgentBehavior putAgentFuture = new CellPutAgentSync();
-	
+	/* Thread-local random number generator. */
 	ThreadLocal<Random> rng = new ThreadLocal<Random>();
 	
 	/** 
@@ -108,12 +104,13 @@ public class PredPreyMulti extends PredPrey {
 			rng.set(localRng);
 			
 			/* Partial statistics */
-			int sheepStatsPartial;
-			int wolfStatsPartial;
-			int grassStatsPartial;
+			PPStats stats = new PPStats();
 			
 			/* Grass initialization strategy. */
 			CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(localRng); 
+			
+			/* Put agent cell behavior depends on whether simulation is repeteable or not. */
+			CellPutAgentBehavior putAgentBehavior = repeatable ? new CellPutAgentSyncSort() : new CellPutAgentSync();
 
 			/* Determine the grid size. */
 			long gridsize = ((long) params.getGridX()) * params.getGridY();
@@ -134,13 +131,8 @@ public class PredPreyMulti extends PredPrey {
 
 				/* Add cell to current place in grid. */
 				grid[currCellX][currCellY] = new Cell(params.getGrassRestart(), 
-						grassInitStrategy, putAgentNow, putAgentFuture, futureIsNowPost);
+						grassInitStrategy, putAgentBehavior);
 				
-				/* Update grass statistics. */
-				if (grid[currCellX][currCellY].isGrassAlive())
-					grassStats.getAndIncrement(0);
-
-
 			}
 			
 			/* Sync. with barrier. */
@@ -194,6 +186,23 @@ public class PredPreyMulti extends PredPrey {
 				errMessage(e);
 				return;
 			}
+			
+			/* Get initial statistics. */
+			stats.reset();
+			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
+				
+				/* Get x and y coordinates for this cell. */
+				int currCellY = (int) (currCellIdx / params.getGridX());
+				int currCellX = (int) (currCellIdx % params.getGridX());
+
+				/* Get stats. */
+				grid[currCellX][currCellY].getStats(stats);
+			}
+			
+			/* Update global statistics. */
+			sheepStats.addAndGet(0, stats.getSheep());
+			wolfStats.addAndGet(0, stats.getWolves());
+			grassStats.addAndGet(0, stats.getGrass());
 
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
@@ -247,7 +256,7 @@ public class PredPreyMulti extends PredPrey {
 									y = params.getGridY() - 1;
 							}
 							/* Move agent to new cell in the future. */
-							grid[x][y].putAgentFuture(agent);
+							grid[x][y].putExistingAgent(agent);
 						}
 					}
 
@@ -274,10 +283,8 @@ public class PredPreyMulti extends PredPrey {
 					return;
 				}
 				
-				/* Reset statistics. */
-				sheepStatsPartial = 0;
-				wolfStatsPartial = 0;
-				grassStatsPartial = 0;
+				/* Reset statistics for current iteration. */
+				stats.reset();
 				
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
 				for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
@@ -291,42 +298,20 @@ public class PredPreyMulti extends PredPrey {
 					/* ************************** */
 
 					/* The future is now (future agents are now present agents)... */
-					grid[currCellX][currCellY].futureIsNow();
-
-					/* Cycle through agents in cell. */
-					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
-						
-						/* Tell agent to act. */
-						agent.doPlay(grid[currCellX][currCellY]);
-						
-					}
-					
-					/* Remove dead agents. */
-					grid[currCellX][currCellY].removeAgentsToBeRemoved();
-					
-					/* Put new agents. */
-					((Cell) grid[currCellX][currCellY]).mergeFutureWithPresent();
+					grid[currCellX][currCellY].agentActions();
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
-
-						if (agent instanceof Sheep)
-							sheepStatsPartial++;
-						else if (agent instanceof Wolf)
-							wolfStatsPartial++;
-					}
+					grid[currCellX][currCellY].getStats(stats);
 					
-					if (grid[currCellX][currCellY].isGrassAlive())
-						grassStatsPartial++;
 				}
 				
 				/* Update global statistics. */
-				sheepStats.addAndGet(iter, sheepStatsPartial);
-				wolfStats.addAndGet(iter, wolfStatsPartial);
-				grassStats.addAndGet(iter, grassStatsPartial);
+				sheepStats.addAndGet(iter, stats.getSheep());
+				wolfStats.addAndGet(iter, stats.getWolves());
+				grassStats.addAndGet(iter, stats.getGrass());
 				
 				/* Sync. with barrier. */
 				try {
@@ -349,24 +334,6 @@ public class PredPreyMulti extends PredPrey {
 	 * @throws SeedException 
 	 */
 	protected void start() throws Exception {
-		
-		/* Is this simulation repeatable? */
-		if (repeatable) {
-			
-			/* If so, sort agent list after calls to futureIsNow()... */
-			this.futureIsNowPost = new CellFutureIsNowPostSort();
-			/* ...and sort agent list after synchronized placement of
-			 * initial agents. */
-			this.putAgentNow = new CellPutAgentSyncSort();
-			
-		} else {
-			
-			/* If not, no special actions are required after calls to
-			 * futureIsNow()... */
-			this.futureIsNowPost = new CellFutureIsNowPostNop();
-			/* ...but initial agents must be placed in cell synchronously. */
-			this.putAgentNow = new CellPutAgentSync();
-		}
 		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
