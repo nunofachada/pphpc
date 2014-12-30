@@ -57,6 +57,7 @@ public class Cell implements ICell {
 	
 	/* Grass counter. */
 	private int grass;
+
 	
 	/**
 	 * Constructor.

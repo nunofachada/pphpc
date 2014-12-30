@@ -47,10 +47,12 @@ public class PredPreySingle extends PredPrey {
 	private int[] wolfStats;
 	private int[] grassStats;
 	
+	private Random rng;
+	
 	/** 
 	 * Constructor, no arguments required.
 	 */
-	public PredPreySingle() {}
+	private PredPreySingle() {}
 	
 	/**
 	 * Perform simulation.
@@ -63,7 +65,7 @@ public class PredPreySingle extends PredPrey {
 		long startTime = System.currentTimeMillis();
 
 		/* Initialize random number generator. */
-		Random rng = this.createRNG(0);
+		rng = this.createRNG(0);
 		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
@@ -191,7 +193,7 @@ public class PredPreySingle extends PredPrey {
 					for (IAgent agent : grid[i][j].getAgents()) {
 
 						/* Tell agent to act. */
-						agent.doPlay(grid[i][j], rng);
+						agent.doPlay(grid[i][j]);
 						
 					}
 					
@@ -233,7 +235,8 @@ public class PredPreySingle extends PredPrey {
 	 */
 	public static void main(String[] args) {
 		
-		int status = (new PredPreySingle()).doMain(args);
+		PredPrey pp = PredPrey.getInstance(PredPreySingle.class);
+		int status = pp.doMain(args);
 		System.exit(status);
 		
 	}
@@ -254,6 +257,12 @@ public class PredPreySingle extends PredPrey {
 			}
 
 		return 0;
+	}
+
+	@Override
+	protected Random getRng() {
+		// TODO Auto-generated method stub
+		return this.rng;
 	}
 
 }

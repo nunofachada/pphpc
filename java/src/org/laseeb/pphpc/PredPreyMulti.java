@@ -74,11 +74,12 @@ public class PredPreyMulti extends PredPrey {
 	CellPutAgentBehavior putAgentNow;
 	CellPutAgentBehavior putAgentFuture = new CellPutAgentSync();
 	
+	ThreadLocal<Random> rng = new ThreadLocal<Random>();
 	
 	/** 
 	 * Constructor, no arguments required.
 	 */
-	public PredPreyMulti() {}
+	private PredPreyMulti() {}
 	
 	/* A simulation thread. */
 	private class SimThread implements Runnable {
@@ -87,7 +88,7 @@ public class PredPreyMulti extends PredPrey {
 		private int offset; 
 		
 		/* Random number generator for current thread. */
-		Random rng;
+		private Random localRng;
 		
 		/* Constructor only sets the grid offset each thread. */
 		public SimThread(int offset) {
@@ -99,11 +100,12 @@ public class PredPreyMulti extends PredPrey {
 			
 			/* Initialize this thread's random number generator. */
 			try {
-				rng = createRNG(Thread.currentThread().getId());
+				localRng = createRNG(Thread.currentThread().getId());
 			} catch (Exception e) {
 				errMessage(e);
 				return;
 			}
+			rng.set(localRng);
 			
 			/* Partial statistics */
 			int sheepStatsPartial;
@@ -111,7 +113,7 @@ public class PredPreyMulti extends PredPrey {
 			int grassStatsPartial;
 			
 			/* Grass initialization strategy. */
-			CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
+			CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(localRng); 
 
 			/* Determine the grid size. */
 			long gridsize = ((long) params.getGridX()) * params.getGridY();
@@ -162,9 +164,9 @@ public class PredPreyMulti extends PredPrey {
 			int endSheepIdx = Math.min((offset + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
 			
 			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
-				int x = rng.nextInt(params.getGridX());
-				int y = rng.nextInt(params.getGridY());
-				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+				int x = localRng.nextInt(params.getGridX());
+				int y = localRng.nextInt(params.getGridY());
+				IAgent sheep = new Sheep(1 + localRng.nextInt(2 * params.getSheepGainFromFood()), params);
 				grid[x][y].putAgentNow(sheep);
 			}
 
@@ -176,9 +178,9 @@ public class PredPreyMulti extends PredPrey {
 			int endWolvesIdx = Math.min((offset + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
 			
 			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
-				int x = rng.nextInt(params.getGridX());
-				int y = rng.nextInt(params.getGridY());
-				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+				int x = localRng.nextInt(params.getGridX());
+				int y = localRng.nextInt(params.getGridY());
+				IAgent wolf = new Wolf(1 + localRng.nextInt(2 * params.getWolvesGainFromFood()), params);		
 				grid[x][y].putAgentNow(wolf);
 			}
 			
@@ -220,7 +222,7 @@ public class PredPreyMulti extends PredPrey {
 							int x = currCellX; int y = currCellY;
 							
 							/* Choose direction, if any. */
-							int direction = rng.nextInt(5);
+							int direction = localRng.nextInt(5);
 							
 							/* If agent decides to move, move him. */
 							if (direction == 1) {
@@ -295,7 +297,7 @@ public class PredPreyMulti extends PredPrey {
 					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
 						
 						/* Tell agent to act. */
-						agent.doPlay(grid[currCellX][currCellY], rng);
+						agent.doPlay(grid[currCellX][currCellY]);
 						
 					}
 					
@@ -432,7 +434,8 @@ public class PredPreyMulti extends PredPrey {
 	 */
 	public static void main(String[] args) {
 		
-		int status = (new PredPreyMulti()).doMain(args);
+		PredPrey pp = PredPrey.getInstance(PredPreyMulti.class);
+		int status = pp.doMain(args);
 		System.exit(status);
 		
 	}
@@ -452,6 +455,11 @@ public class PredPreyMulti extends PredPrey {
 				return grassStats.get(iter);
 		}
 		return 0;
+	}
+
+	@Override
+	protected Random getRng() {
+		return this.rng.get();
 	}
 
 }

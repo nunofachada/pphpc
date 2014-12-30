@@ -32,6 +32,7 @@ package org.laseeb.pphpc;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.Random;
 
@@ -53,6 +54,9 @@ import com.beust.jcommander.ParameterException;
  * @author Nuno Fachada
  */
 public abstract class PredPrey {
+	
+	/* There can be only one. */
+	private volatile static PredPrey instance = null;	
 	
 	/**
 	 *  Enumeration for collected simulation quantities. 
@@ -125,6 +129,30 @@ public abstract class PredPrey {
 	 * @return The requested statistic.
 	 */
 	protected abstract int getStats(StatType st, int iter);
+	
+	public static PredPrey getInstance() {
+		if (instance == null)
+			throw new IllegalStateException(PredPrey.class.getSimpleName() + " instance not properly initialized.");
+		return instance;
+	}
+	
+	public static PredPrey getInstance(Class<? extends PredPrey> ppclass) {
+		if (instance == null) {
+			synchronized (PredPrey.class) {
+				if (instance == null) {
+					try {
+						Constructor<? extends PredPrey> constructor = ppclass.getDeclaredConstructor();
+						constructor.setAccessible(true);
+						instance = constructor.newInstance();
+					} catch (Exception e) {
+						throw new RuntimeException("Unable to get an instance of " + ppclass.getSimpleName()
+								+ " due to the following error: " + e.getMessage());
+					}
+				}
+			}
+		}
+		return instance;
+	}
 	
 	/**
 	 * Export statistics to file.
@@ -258,5 +286,7 @@ public abstract class PredPrey {
 		}
 		
 	}
+	
+	protected abstract Random getRng();
 	
 }
