@@ -28,7 +28,6 @@
 package org.laseeb.pphpc;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -52,6 +51,8 @@ public class Cell implements ICell {
 	/* Structure where to put future agents. */
 	private List<IAgent> newAgents;
 	
+	private List<IAgent> auxAgents;
+	
 	/* Grass counter. */
 	private int grass;
 
@@ -71,6 +72,7 @@ public class Cell implements ICell {
 		this.agents = new ArrayList<IAgent>();
 		this.newAgents = new ArrayList<IAgent>();
 		this.existingAgents = new ArrayList<IAgent>();
+		this.auxAgents = new ArrayList<IAgent>();
 	}
 
 
@@ -118,6 +120,8 @@ public class Cell implements ICell {
 		if (this.isGrassAlive())
 			stats.incGrass();
 		
+		this.auxAgents.clear();
+		
 		/* Previously existing agents. */
 		for (int i = 0; i < this.agents.size(); i++) {
 			
@@ -128,7 +132,7 @@ public class Cell implements ICell {
 					stats.incSheep();
 				else if (agent instanceof Wolf)
 					stats.incWolves();
-				this.existingAgents.add(agent);
+				this.auxAgents.add(agent);
 			}
 		}
 		
@@ -141,16 +145,15 @@ public class Cell implements ICell {
 				stats.incSheep();
 			else if (agent instanceof Wolf)
 				stats.incWolves();
-			this.existingAgents.add(agent);
+			this.auxAgents.add(agent);
 
 		}
+		this.newAgents.clear();
 		
 		/* Swap agents lists. */
 		List<IAgent> aux = this.agents;
-		this.agents = this.existingAgents;
-		this.existingAgents = aux;
-		this.existingAgents.clear();
-		this.newAgents.clear();
+		this.agents = this.auxAgents;
+		this.auxAgents = aux;
 		
 	}
 	
