@@ -58,6 +58,9 @@ public class Cell implements ICell {
 	 * agents in simulation. */
 	private List<IAgent> auxAgents;
 	
+	/* This cell's neighborhood. */
+	private List<ICell> neighborhood = null;
+	
 	/* Grass counter. */
 	private int grass;
 
@@ -183,5 +186,36 @@ public class Cell implements ICell {
 		}
 		
 	}
-	
+
+
+	@Override
+	public void setNeighborhood(List<ICell> neighborhood) {
+		if (this.neighborhood == null)
+			this.neighborhood = neighborhood;
+		else
+			throw new IllegalStateException("Cell neighborhood already set!");
+		
+	}
+
+	@Override
+	public void agentsMove() {
+			
+
+		for (int i = 0; i < this.agents.size(); i++) {
+			
+			IAgent agent = this.agents.get(i);
+
+			/* Decrement agent energy. */
+			agent.decEnergy();
+
+			/* Choose direction. */
+			int direction = PredPrey.getInstance().getRng().nextInt(this.neighborhood.size());
+			
+			/* Move agent. */
+			this.neighborhood.get(direction).putExistingAgent(agent);
+		}
+		
+		
+	}
+
 }

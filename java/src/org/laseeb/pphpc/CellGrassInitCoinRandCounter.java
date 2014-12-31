@@ -4,16 +4,13 @@ import java.util.Random;
 
 public class CellGrassInitCoinRandCounter implements CellGrassInitStrategy {
 
-	Random rng;
-	
-	public CellGrassInitCoinRandCounter(Random rng) {
-		this.rng = rng;
-	}
+	public CellGrassInitCoinRandCounter() {}
 
 	@Override
 	public int getInitGrass(int grassRestart) {
 
 		int grassState;
+		Random rng = PredPrey.getInstance().getRng();
 		
 		/* Grow grass in current cell. */
 		if (rng.nextBoolean()) {

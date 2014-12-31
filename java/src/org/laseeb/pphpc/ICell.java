@@ -27,6 +27,8 @@
 
 package org.laseeb.pphpc;
 
+import java.util.List;
+
 /**
  * An abstract PPHPC model cell, part of a larger simulation grid.
  * 
@@ -78,6 +80,10 @@ public interface ICell {
 	
 	public void getStats(PPStats stats);
 
-	void agentActions();
+	public void agentActions();
+
+	public void setNeighborhood(List<ICell> neighborhood);
+
+	public void agentsMove();
 
 }

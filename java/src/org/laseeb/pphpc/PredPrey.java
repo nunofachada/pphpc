@@ -111,7 +111,7 @@ public abstract class PredPrey {
 	protected SimParams params;
 	
 	/* Simulation grid. */
-	protected ICell[][] grid;
+	protected ISimGrid grid;
 
 	/**
 	 * Perform simulation.

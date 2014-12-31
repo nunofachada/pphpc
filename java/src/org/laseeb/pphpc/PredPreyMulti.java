@@ -70,7 +70,7 @@ public class PredPreyMulti extends PredPrey {
 	private CountDownLatch latch;
 	
 	/* Thread-local random number generator. */
-	ThreadLocal<Random> rng = new ThreadLocal<Random>();
+	private ThreadLocal<Random> rng = new ThreadLocal<Random>();
 	
 	/** 
 	 * Constructor, no arguments required.
@@ -94,6 +94,9 @@ public class PredPreyMulti extends PredPrey {
 		/* Simulate! */
 		public void run() {
 			
+			/* Current cell being processed. */
+			ICell cell;
+
 			/* Initialize this thread's random number generator. */
 			try {
 				localRng = createRNG(Thread.currentThread().getId());
@@ -106,34 +109,8 @@ public class PredPreyMulti extends PredPrey {
 			/* Partial statistics */
 			PPStats stats = new PPStats();
 			
-			/* Grass initialization strategy. */
-			CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(localRng); 
-			
-			/* Put agent cell behavior depends on whether simulation is repeteable or not. */
-			CellPutAgentBehavior putAgentBehavior = repeatable ? new CellPutAgentSyncSort() : new CellPutAgentSync();
-
-			/* Determine the grid size. */
-			long gridsize = ((long) params.getGridX()) * params.getGridY();
-		
-			/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
-			long cellsPerThread = (gridsize + numThreads - 1) / numThreads;
-			
-			/* Determine start and end cell index for current thread. */
-			long startCellIdx = offset * cellsPerThread; /* Inclusive */
-			long endCellIdx = Math.min((offset + 1) * cellsPerThread, gridsize); /* Exclusive */
-			
 			/* Initialize simulation grid cells. */
-			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
-			
-				/* Get x and y coordinates for this cell. */
-				int currCellY = (int) (currCellIdx / params.getGridX());
-				int currCellX = (int) (currCellIdx % params.getGridX());
-
-				/* Add cell to current place in grid. */
-				grid[currCellX][currCellY] = new Cell(params.getGrassRestart(), 
-						grassInitStrategy, putAgentBehavior);
-				
-			}
+			grid.initialize(this.offset);
 			
 			/* Sync. with barrier. */
 			try {
@@ -156,10 +133,9 @@ public class PredPreyMulti extends PredPrey {
 			int endSheepIdx = Math.min((offset + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
 			
 			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
-				int x = localRng.nextInt(params.getGridX());
-				int y = localRng.nextInt(params.getGridY());
+				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
 				IAgent sheep = new Sheep(1 + localRng.nextInt(2 * params.getSheepGainFromFood()), params);
-				grid[x][y].putNewAgent(sheep);
+				grid.getCell(idx).putNewAgent(sheep);
 			}
 
 			/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
@@ -170,10 +146,9 @@ public class PredPreyMulti extends PredPrey {
 			int endWolvesIdx = Math.min((offset + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
 			
 			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
-				int x = localRng.nextInt(params.getGridX());
-				int y = localRng.nextInt(params.getGridY());
+				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
 				IAgent wolf = new Wolf(1 + localRng.nextInt(2 * params.getWolvesGainFromFood()), params);		
-				grid[x][y].putNewAgent(wolf);
+				grid.getCell(idx).putNewAgent(wolf);
 			}
 			
 			/* Sync. with barrier. */
@@ -189,14 +164,9 @@ public class PredPreyMulti extends PredPrey {
 			
 			/* Get initial statistics. */
 			stats.reset();
-			for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
-				
-				/* Get x and y coordinates for this cell. */
-				int currCellY = (int) (currCellIdx / params.getGridX());
-				int currCellX = (int) (currCellIdx % params.getGridX());
-
-				/* Get stats. */
-				grid[currCellX][currCellY].getStats(stats);
+			grid.reset();
+			while ((cell = grid.getNextCell()) != null) {
+				cell.getStats(stats);
 			}
 			
 			/* Update global statistics. */
@@ -207,70 +177,26 @@ public class PredPreyMulti extends PredPrey {
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 				
-				/* Cycle through cells in order to perform step 1 and 2 of simulation. */
-				for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
-				
-					/* Get x and y coordinates for this cell. */
-					int currCellY = (int) (currCellIdx / params.getGridX());
-					int currCellX = (int) (currCellIdx % params.getGridX());
+				grid.reset();
+				while ((cell = grid.getNextCell()) != null) {
 					
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
 					/* ************************* */
 
-					/* Cycle through agents in current cell. */
-					for (IAgent agent : grid[currCellX][currCellY].getAgents()) {
+					cell.agentsMove();
 						
-						/* Decrement agent energy. */
-						agent.decEnergy();
-
-						/* If agent energy is greater than zero... */
-						if (agent.getEnergy() > 0) {
-							
-							/* ...perform movement. */
-							int x = currCellX; int y = currCellY;
-							
-							/* Choose direction, if any. */
-							int direction = localRng.nextInt(5);
-							
-							/* If agent decides to move, move him. */
-							if (direction == 1) {
-								/* Move to the right. */
-								x++;
-								if (x == params.getGridX())
-									x = 0;
-							} else if (direction == 2) {
-								/* Move to the left. */
-								x--;
-								if (x < 0)
-									x = params.getGridX() - 1;
-							} else if (direction == 3) {
-								/* Move down. */
-								y++;
-								if (y == params.getGridY())
-									y = 0;
-							} else if (direction == 4) {
-								/* Move up. */
-								y--;
-								if (y < 0)
-									y = params.getGridY() - 1;
-							}
-							/* Move agent to new cell in the future. */
-							grid[x][y].putExistingAgent(agent);
-						}
-					}
-
 					/* ************************* */
 					/* *** 2 - Grass growth. *** */
 					/* ************************* */
 					
 					/* If grass is not alive... */
-					if (!grid[currCellX][currCellY].isGrassAlive()) {
+					if (!cell.isGrassAlive()) {
 						/* ...decrement alive counter. */
-						grid[currCellX][currCellY].regenerateGrass();
+						cell.regenerateGrass();
 					}
-					
 				}
+				
 				
 				/* Sync. with barrier. */
 				try {
@@ -287,24 +213,20 @@ public class PredPreyMulti extends PredPrey {
 				stats.reset();
 				
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				for (long currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
+				grid.reset();
+				while ((cell = grid.getNextCell()) != null) {
 					
-					/* Get x and y coordinates for this cell. */
-					int currCellY = (int) (currCellIdx / params.getGridX());
-					int currCellX = (int) (currCellIdx % params.getGridX());
-
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */
 					/* ************************** */
 
-					/* The future is now (future agents are now present agents)... */
-					grid[currCellX][currCellY].agentActions();
+					cell.agentActions();
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
 					/* ****************************** */
 
-					grid[currCellX][currCellY].getStats(stats);
+					cell.getStats(stats);
 					
 				}
 				
@@ -372,13 +294,15 @@ public class PredPreyMulti extends PredPrey {
 		int[] resetArray = new int[params.getIters() + 1];
 		Arrays.fill(resetArray, 0);
 		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.sheepStats.set(0, params.getInitSheep());
 		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats.set(0, params.getInitWolves());
 		this.grassStats = new AtomicIntegerArray(resetArray);
 		
-		/* Initialize simulation grid. */
-		grid = new ICell[params.getGridX()][params.getGridY()];
+		/* Grass initialization strategy. */
+		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
+		
+		/* Create simulation grid. */
+		SimGrid.Threading threading = repeatable ? SimGrid.Threading.MULTI_REPEAT : SimGrid.Threading.MULTI;
+		grid = new SimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)

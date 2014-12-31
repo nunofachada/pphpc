@@ -61,6 +61,9 @@ public class PredPreySingle extends PredPrey {
 	 */
 	public void start() throws Exception {
 
+		/* Current cell being processed. */
+		ICell cell;
+		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 
@@ -70,48 +73,37 @@ public class PredPreySingle extends PredPrey {
 		PPStats stats = new PPStats();
 		
 		/* Grass initialization strategy. */
-		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter(rng); 
-
-		/* Cell behaviors are fixed in the single-threaded case. */
-		CellPutAgentBehavior putAgent = new CellPutAgentAsync();
+		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
+		
+		/* Create simulation grid. */
+		grid = new SimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, SimGrid.Threading.SINGLE, 1); 
 		
 		/* Initialize statistics. */
 		this.sheepStats = new int[params.getIters() + 1];
 		this.wolfStats = new int[params.getIters() + 1];
 		this.grassStats = new int[params.getIters() + 1];
 		
-		/* Initialize simulation grid. */
-		grid = new ICell[params.getGridX()][params.getGridY()];
-		
 		/* Initialize simulation grid cells. */
-		for (int i = 0; i < params.getGridX(); i++) {
-			for (int j = 0; j < params.getGridY(); j++) {
-				
-				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params.getGrassRestart(), grassInitStrategy, putAgent);
-
-			}
-		}
+		grid.initialize(0);
 		
 		/* Populate simulation grid with agents. */
 		for (int i = 0; i < params.getInitSheep(); i++) {
-			int x = rng.nextInt(params.getGridX());
-			int y = rng.nextInt(params.getGridY());
-			IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
-			grid[x][y].putNewAgent(sheep);
+			int idx = this.rng.nextInt(params.getGridX() * params.getGridY());
+			IAgent sheep = new Sheep(1 + this.rng.nextInt(2 * params.getSheepGainFromFood()), params);
+			grid.getCell(idx).putNewAgent(sheep);
 		}
 		for (int i = 0; i < params.getInitWolves(); i++) {
-			int x = rng.nextInt(params.getGridX());
-			int y = rng.nextInt(params.getGridY());
-			IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
-			grid[x][y].putNewAgent(wolf);
+			int idx = this.rng.nextInt(params.getGridX() * params.getGridY());
+			IAgent wolf = new Wolf(1 + this.rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+			grid.getCell(idx).putNewAgent(wolf);
 		}
 		
 		/* Get initial statistics. */
 		stats.reset();
-		for (int i = 0; i < params.getGridX(); i++)
-			for (int j = 0; j < params.getGridY(); j++)
-				grid[i][j].getStats(stats);
+		grid.reset();
+		while ((cell = grid.getNextCell()) != null) {
+			cell.getStats(stats);
+		}
 		
 		sheepStats[0] = stats.getSheep();
 		wolfStats[0] = stats.getWolves();
@@ -124,63 +116,23 @@ public class PredPreySingle extends PredPrey {
 				System.out.println("Iter " + iter);
 			
 			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
-					
-					/* ************************* */
-					/* ** 1 - Agent movement. ** */
-					/* ************************* */
+			grid.reset();
+			while ((cell = grid.getNextCell()) != null) {
+				
+				/* ************************* */
+				/* ** 1 - Agent movement. ** */
+				/* ************************* */
 
-					/* Cycle through agents in current cell. */
-					for (IAgent agent : grid[i][j].getAgents()) {
-						
-						/* Decrement agent energy. */
-						agent.decEnergy();
-						
-						/* If agent energy is greater than zero... */
-						if (agent.getEnergy() > 0) {
-							
-							/* ...perform movement. */
-							int x = i; int y = j;
-							/* Choose direction, if any. */
-							int direction = rng.nextInt(5);
-							/* If agent decides to move, move him. */
-							if (direction == 1) {
-								/* Move to the right. */
-								x++;
-								if (x == params.getGridX())
-									x = 0;
-							} else if (direction == 2) {
-								/* Move to the left. */
-								x--;
-								if (x < 0)
-									x = params.getGridX() - 1;
-							} else if (direction == 3) {
-								/* Move down. */
-								y++;
-								if (y == params.getGridY())
-									y = 0;
-							} else if (direction == 4) {
-								/* Move up. */
-								y--;
-								if (y < 0)
-									y = params.getGridY() - 1;
-							}
-							/* Move agent to new cell in the future. */
-							grid[x][y].putExistingAgent(agent);
-
-						}
-					}
+				cell.agentsMove();
 					
-					/* ************************* */
-					/* *** 2 - Grass growth. *** */
-					/* ************************* */
+				/* ************************* */
+				/* *** 2 - Grass growth. *** */
+				/* ************************* */
 					
-					/* If grass is not alive... */
-					if (!grid[i][j].isGrassAlive()) {
-						/* ...decrement alive counter. */
-						grid[i][j].regenerateGrass();
-					}
+				/* If grass is not alive... */
+				if (!cell.isGrassAlive()) {
+					/* ...decrement alive counter. */
+					cell.regenerateGrass();
 				}
 			}
 			
@@ -188,22 +140,21 @@ public class PredPreySingle extends PredPrey {
 			stats.reset();
 			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
+			grid.reset();
+			while ((cell = grid.getNextCell()) != null) {
 
-					/* ************************** */
-					/* *** 3 - Agent actions. *** */
-					/* ************************** */
+				/* ************************** */
+				/* *** 3 - Agent actions. *** */
+				/* ************************** */
 					
-					grid[i][j].agentActions();
+				cell.agentActions();
 
-					/* ****************************** */
-					/* *** 4 - Gather statistics. *** */
-					/* ****************************** */
+				/* ****************************** */
+				/* *** 4 - Gather statistics. *** */
+				/* ****************************** */
 					
-					grid[i][j].getStats(stats);
+				cell.getStats(stats);
 					
-				}
 			}
 			
 			/* Update global stats. */
