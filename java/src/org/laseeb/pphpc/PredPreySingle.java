@@ -77,9 +77,7 @@ public class PredPreySingle extends PredPrey {
 		
 		/* Initialize statistics. */
 		this.sheepStats = new int[params.getIters() + 1];
-		this.sheepStats[0] = params.getInitSheep();
 		this.wolfStats = new int[params.getIters() + 1];
-		this.wolfStats[0] = params.getInitWolves();
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid. */
@@ -92,9 +90,6 @@ public class PredPreySingle extends PredPrey {
 				/* Add cell to current place in grid. */
 				grid[i][j] = new Cell(params.getGrassRestart(), grassInitStrategy, putAgent);
 
-				/* Update grass statistics. */
-				if (grid[i][j].isGrassAlive())
-					this.grassStats[0]++;
 			}
 		}
 		

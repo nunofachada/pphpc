@@ -44,13 +44,18 @@ public class Cell implements ICell {
 	/* Iterations for cell restart. */
 	private int grassRestart;
 		
-	/* Structure where to keep current agents. */
+	/* List where to keep agents currently being simulated. */
 	private List<IAgent> agents;
-	/* Structure where to put agents to be removed. */
+	
+	/* List where to put agents which already exist in simulation
+	 * (e.g. moving from another cell). */
 	private List<IAgent> existingAgents;	
-	/* Structure where to put future agents. */
+	
+	/* List where to put new agents. */
 	private List<IAgent> newAgents;
 	
+	/* Auxiliary list for gathering agent statistics and incorporating new 
+	 * agents in simulation. */
 	private List<IAgent> auxAgents;
 	
 	/* Grass counter. */
@@ -59,6 +64,10 @@ public class Cell implements ICell {
 	
 	/**
 	 * Constructor.
+	 * 
+	 * @param grassRestart
+	 * @param grassInitStrategy
+	 * @param putAgentsBehavior
 	 */
 	public Cell(int grassRestart,
 			CellGrassInitStrategy grassInitStrategy,
@@ -166,7 +175,6 @@ public class Cell implements ICell {
 		this.existingAgents = aux;
 		this.existingAgents.clear();
 		
-//		for (IAgent agent : this.agents) {
 		for (int i = 0; i < this.agents.size(); i++) {
 			
 			IAgent agent = this.agents.get(i);

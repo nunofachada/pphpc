@@ -58,27 +58,11 @@ public interface ICell {
 	 */
 	public int getGrassRestart();
 
-//	/**
-//	 * Remove agent from this cell.
-//	 * @param agent Agent to remove from cell.
-//	 */
-//	public void removeAgent(IAgent agent);
-
 	/**
 	 * Returns an iterator over agents in this cell.
 	 * @return Iterator for agents in this cell.
 	 */
 	public Iterable<IAgent> getAgents();
-
-//	/**
-//	 * Remove agents to be removed.
-//	 */
-//	public void removeAgentsToBeRemoved();
-//
-//	/**
-//	 * Make future agents the current agents.
-//	 */
-//	public void futureIsNow();
 
 	/**
 	 * Put new agent in this cell now.
@@ -95,12 +79,5 @@ public interface ICell {
 	public void getStats(PPStats stats);
 
 	void agentActions();
-
-//	/**
-//	 * In the future, put new agent in this cell.
-//	 * @param agent Agent to put in cell in the future.
-//	 */
-//	public void putAgentFuture(IAgent agent);
-
 
 }
