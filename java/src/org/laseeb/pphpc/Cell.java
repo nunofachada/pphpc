@@ -118,25 +118,39 @@ public class Cell implements ICell {
 		if (this.isGrassAlive())
 			stats.incGrass();
 		
-		this.agents.addAll(this.newAgents);
-		this.newAgents.clear();
-
-		/* Agents currently in cell. */
-		Iterator<IAgent> agentIter = this.agents.iterator();
-		
-		while (agentIter.hasNext()) {
+		/* Previously existing agents. */
+		for (int i = 0; i < this.agents.size(); i++) {
 			
-			IAgent agent = agentIter.next();
+			IAgent agent = this.agents.get(i);
 			
 			if (agent.isAlive()) {
 				if (agent instanceof Sheep)
 					stats.incSheep();
 				else if (agent instanceof Wolf)
 					stats.incWolves();
-			} else {
-				agentIter.remove();
+				this.existingAgents.add(agent);
 			}
 		}
+		
+		/* Newly born agents. */
+		for (int i = 0; i < this.newAgents.size(); i++) {
+
+			IAgent agent = this.newAgents.get(i);
+
+			if (agent instanceof Sheep)
+				stats.incSheep();
+			else if (agent instanceof Wolf)
+				stats.incWolves();
+			this.existingAgents.add(agent);
+
+		}
+		
+		/* Swap agents lists. */
+		List<IAgent> aux = this.agents;
+		this.agents = this.existingAgents;
+		this.existingAgents = aux;
+		this.existingAgents.clear();
+		this.newAgents.clear();
 		
 	}
 	
@@ -149,7 +163,10 @@ public class Cell implements ICell {
 		this.existingAgents = aux;
 		this.existingAgents.clear();
 		
-		for (IAgent agent : this.agents) {
+//		for (IAgent agent : this.agents) {
+		for (int i = 0; i < this.agents.size(); i++) {
+			
+			IAgent agent = this.agents.get(i);
 			if (agent.isAlive())
 				agent.doPlay(this);
 		}
