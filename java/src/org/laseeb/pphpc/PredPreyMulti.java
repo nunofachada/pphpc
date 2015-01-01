@@ -110,7 +110,7 @@ public class PredPreyMulti extends PredPrey {
 			PPStats stats = new PPStats();
 			
 			/* Initialize simulation grid cells. */
-			grid.initialize(this.offset);
+			grid.initialize();
 			
 			/* Sync. with barrier. */
 			try {
@@ -247,7 +247,6 @@ public class PredPreyMulti extends PredPrey {
 				}
 			}
 		}
-
 	}
 	
 	/**

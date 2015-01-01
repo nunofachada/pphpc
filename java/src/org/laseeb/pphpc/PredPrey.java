@@ -232,6 +232,17 @@ public abstract class PredPrey {
 		if (this.seed == null)
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
+		/* If in debug mode, ask the user to press ENTER to start. */
+		if (this.debug) {
+			System.out.println("Press ENTER to start...");
+			try {
+				System.in.read();
+			} catch (IOException e) {
+				errMessage(e);
+				return Errors.SIM.getValue();
+			}
+		}
+		
 		/* Perform simulation. */
 		try {
 			this.start();

@@ -2,7 +2,7 @@ package org.laseeb.pphpc;
 
 public interface ISimGrid {
 	
-	public void initialize(int id);
+	public void initialize();
 	
 	public ICell getNextCell();
 	

@@ -22,8 +22,8 @@ public class SimGrid implements ISimGrid {
 	
 	private ICell cells[];
 	
-	private ThreadLocal<Integer> counter;
-	private ThreadLocal<Limits> limits;
+	private int[] counter;
+	private Limits[] limits;
 	
 	private int x;
 	private int y;
@@ -32,8 +32,10 @@ public class SimGrid implements ISimGrid {
 	private Threading threading;
 	private int numThreads;
 	private int grassRestart;
+	
+	private volatile long maxTid;
 
-	private CountDownLatch latch ;
+	private CountDownLatch latch1, latch2;
 	
 	private class Limits { 
 		int first, last; 
@@ -53,23 +55,41 @@ public class SimGrid implements ISimGrid {
 		this.threading = threading;
 		this.numThreads = numThreads;
 		this.grassRestart = grassRestart;
-		this.latch = new CountDownLatch(this.numThreads);
-		this.counter = new ThreadLocal<Integer>();
-		this.limits = new ThreadLocal<Limits>();
+		this.latch1 = new CountDownLatch(this.numThreads);
+		this.latch2 = new CountDownLatch(this.numThreads);
+		this.counter = new int[numThreads];
+		this.limits = new Limits[numThreads];
+		this.maxTid = 0;
 	}
 
 	@Override
-	public void initialize(int section) {
+	public void initialize() {
 		
+		synchronized (this) {
+			this.maxTid = Math.max(this.maxTid, Thread.currentThread().getId());
+		}
 		
+		/* Signal that this thread is finished. */
+		this.latch1.countDown();
+		
+		/* Wait for remaining threads... */
+		try {
+			this.latch1.await();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e.getMessage());
+		}
+		
+		/* Determine this thread's offset. */
+		int offset = this.getOffset();
+
 		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
 		int cellsPerThread = (this.size + numThreads - 1) / numThreads;
 		
 		/* Determine start and end cell index for current thread. */
-		int startCellIdx = section * cellsPerThread; /* Inclusive */
-		int endCellIdx = Math.min((section + 1) * cellsPerThread, this.size); /* Exclusive */
+		int startCellIdx = offset * cellsPerThread; /* Inclusive */
+		int endCellIdx = Math.min((offset + 1) * cellsPerThread, this.size); /* Exclusive */
 		
-		this.limits.set(new Limits(startCellIdx, endCellIdx));
+		this.limits[offset] = new Limits(startCellIdx, endCellIdx);
 	
 		/* Initialize simulation grid cells. */
 		for (int currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
@@ -81,11 +101,11 @@ public class SimGrid implements ISimGrid {
 		}
 		
 		/* Signal that this thread is finished. */
-		this.latch.countDown();
+		this.latch2.countDown();
 		
 		/* Wait for remaining threads... */
 		try {
-			this.latch.await();
+			this.latch2.await();
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e.getMessage());
 		}
@@ -109,12 +129,15 @@ public class SimGrid implements ISimGrid {
 
 	@Override
 	public ICell getNextCell() {
-		ICell nextCell = null;
-		int count = this.counter.get();
 		
-		if (count < this.limits.get().last) {
+		int offset = this.getOffset();
+		ICell nextCell = null;
+
+		int count = this.counter[offset];
+		
+		if (count < this.limits[offset].last) {
 			nextCell = this.cells[count];
-			this.counter.set(count + 1);
+			this.counter[offset] = count + 1;
 		}
 		return nextCell;
 	}
@@ -126,7 +149,11 @@ public class SimGrid implements ISimGrid {
 
 	@Override
 	public void reset() {
-		this.counter.set(this.limits.get().first);
+		int offset = this.getOffset();
+		this.counter[offset] = this.limits[offset].first;
 	}
 
+	private int getOffset() {
+		return (int) (this.maxTid - Thread.currentThread().getId());
+	}
 }

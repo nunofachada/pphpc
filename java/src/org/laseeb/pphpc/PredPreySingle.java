@@ -84,7 +84,7 @@ public class PredPreySingle extends PredPrey {
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid cells. */
-		grid.initialize(0);
+		grid.initialize();
 		
 		/* Populate simulation grid with agents. */
 		for (int i = 0; i < params.getInitSheep(); i++) {
