@@ -31,7 +31,6 @@
 package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
-import java.util.Random;
 
 import org.uncommons.maths.random.SeedException;
 
@@ -102,9 +101,7 @@ public class PredPreySingle extends PredPrey {
 			cell.getStats(stats);
 		}
 		
-		sheepStats[0] = stats.getSheep();
-		wolfStats[0] = stats.getWolves();
-		grassStats[0] = stats.getGrass();
+		updateStats(0, stats);
 
 		/* Run simulation. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
@@ -152,9 +149,7 @@ public class PredPreySingle extends PredPrey {
 			}
 			
 			/* Update global stats. */
-			sheepStats[iter] = stats.getSheep();
-			wolfStats[iter] = stats.getWolves();
-			grassStats[iter] = stats.getGrass();
+			updateStats(iter, stats);
 			
 		}
 		
@@ -194,6 +189,13 @@ public class PredPreySingle extends PredPrey {
 			}
 
 		return 0;
+	}
+
+	@Override
+	protected void updateStats(int iter, PPStats stats) {
+		sheepStats[iter] = stats.getSheep();
+		wolfStats[iter] = stats.getWolves();
+		grassStats[iter] = stats.getGrass();
 	}
 
 //	@Override

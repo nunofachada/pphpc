@@ -32,7 +32,6 @@ package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
@@ -68,9 +67,6 @@ public class PredPreyMulti extends PredPrey {
 	/* Latch on which the main thread will wait until the simulation threads
 	 * terminate. */
 	private CountDownLatch latch;
-	
-	/* Thread-local random number generator. */
-	private ThreadLocal<Random> rng = new ThreadLocal<Random>();
 	
 	/** 
 	 * Constructor, no arguments required.
@@ -158,9 +154,7 @@ public class PredPreyMulti extends PredPrey {
 			}
 			
 			/* Update global statistics. */
-			sheepStats.addAndGet(0, stats.getSheep());
-			wolfStats.addAndGet(0, stats.getWolves());
-			grassStats.addAndGet(0, stats.getGrass());
+			updateStats(0, stats);
 
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
@@ -217,9 +211,7 @@ public class PredPreyMulti extends PredPrey {
 				}
 				
 				/* Update global statistics. */
-				sheepStats.addAndGet(iter, stats.getSheep());
-				wolfStats.addAndGet(iter, stats.getWolves());
-				grassStats.addAndGet(iter, stats.getGrass());
+				updateStats(iter, stats);
 				
 				/* Sync. with barrier. */
 				try {
@@ -331,6 +323,13 @@ public class PredPreyMulti extends PredPrey {
 				return grassStats.get(iter);
 		}
 		return 0;
+	}
+
+	@Override
+	protected void updateStats(int iter, PPStats stats) {
+		sheepStats.addAndGet(iter, stats.getSheep());
+		wolfStats.addAndGet(iter, stats.getWolves());
+		grassStats.addAndGet(iter, stats.getGrass());		
 	}
 
 //	@Override
