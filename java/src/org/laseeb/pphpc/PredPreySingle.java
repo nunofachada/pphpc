@@ -84,7 +84,7 @@ public class PredPreySingle extends PredPrey {
 		this.grassStats = new int[params.getIters() + 1];
 		
 		/* Initialize simulation grid cells. */
-		grid.initialize();
+		ISimThreadState tState = grid.initialize(0);
 		
 		/* Populate simulation grid with agents. */
 		for (int i = 0; i < params.getInitSheep(); i++) {
@@ -100,8 +100,8 @@ public class PredPreySingle extends PredPrey {
 		
 		/* Get initial statistics. */
 		stats.reset();
-		grid.reset();
-		while ((cell = grid.getNextCell()) != null) {
+		grid.reset(tState);
+		while ((cell = grid.getNextCell(tState)) != null) {
 			cell.getStats(stats);
 		}
 		
@@ -116,8 +116,8 @@ public class PredPreySingle extends PredPrey {
 				System.out.println("Iter " + iter);
 			
 			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
-			grid.reset();
-			while ((cell = grid.getNextCell()) != null) {
+			grid.reset(tState);
+			while ((cell = grid.getNextCell(tState)) != null) {
 				
 				/* ************************* */
 				/* ** 1 - Agent movement. ** */
@@ -140,8 +140,8 @@ public class PredPreySingle extends PredPrey {
 			stats.reset();
 			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-			grid.reset();
-			while ((cell = grid.getNextCell()) != null) {
+			grid.reset(tState);
+			while ((cell = grid.getNextCell(tState)) != null) {
 
 				/* ************************** */
 				/* *** 3 - Agent actions. *** */

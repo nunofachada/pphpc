@@ -22,9 +22,6 @@ public class SimGrid implements ISimGrid {
 	
 	private ICell cells[];
 	
-	private int[] counter;
-	private Limits[] limits;
-	
 	private int x;
 	private int y;
 	private int size;
@@ -33,16 +30,12 @@ public class SimGrid implements ISimGrid {
 	private int numThreads;
 	private int grassRestart;
 	
-	private volatile long maxTid;
-
-	private CountDownLatch latch1, latch2;
+	private CountDownLatch latch;
 	
-	private class Limits { 
-		int first, last; 
-		Limits(int first, int last) {
-			this.first = first;
-			this.last = last;
-		} 
+	private class SimThreadState implements ISimThreadState {
+		private int counter;
+		private int first;
+		private int last;
 	}
 	
 	public SimGrid(int x, int y, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
@@ -55,41 +48,24 @@ public class SimGrid implements ISimGrid {
 		this.threading = threading;
 		this.numThreads = numThreads;
 		this.grassRestart = grassRestart;
-		this.latch1 = new CountDownLatch(this.numThreads);
-		this.latch2 = new CountDownLatch(this.numThreads);
-		this.counter = new int[numThreads];
-		this.limits = new Limits[numThreads];
-		this.maxTid = 0;
+		this.latch = new CountDownLatch(this.numThreads);
 	}
 
 	@Override
-	public void initialize() {
+	public ISimThreadState initialize(int stId) {
 		
-		synchronized (this) {
-			this.maxTid = Math.max(this.maxTid, Thread.currentThread().getId());
-		}
+		/* Thread state object for current thread. */
+		SimThreadState tState = new SimThreadState();
 		
-		/* Signal that this thread is finished. */
-		this.latch1.countDown();
-		
-		/* Wait for remaining threads... */
-		try {
-			this.latch1.await();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e.getMessage());
-		}
-		
-		/* Determine this thread's offset. */
-		int offset = this.getOffset();
-
 		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
 		int cellsPerThread = (this.size + numThreads - 1) / numThreads;
 		
 		/* Determine start and end cell index for current thread. */
-		int startCellIdx = offset * cellsPerThread; /* Inclusive */
-		int endCellIdx = Math.min((offset + 1) * cellsPerThread, this.size); /* Exclusive */
+		int startCellIdx = stId * cellsPerThread; /* Inclusive */
+		int endCellIdx = Math.min((stId + 1) * cellsPerThread, this.size); /* Exclusive */
 		
-		this.limits[offset] = new Limits(startCellIdx, endCellIdx);
+		tState.first = startCellIdx;
+		tState.last = endCellIdx;
 	
 		/* Initialize simulation grid cells. */
 		for (int currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
@@ -101,11 +77,11 @@ public class SimGrid implements ISimGrid {
 		}
 		
 		/* Signal that this thread is finished. */
-		this.latch2.countDown();
+		this.latch.countDown();
 		
 		/* Wait for remaining threads... */
 		try {
-			this.latch2.await();
+			this.latch.await();
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e.getMessage());
 		}
@@ -125,19 +101,20 @@ public class SimGrid implements ISimGrid {
 			
 		}
 		
+		/* Return this thread's state. */
+		return tState;
+		
 	}
 
 	@Override
-	public ICell getNextCell() {
+	public ICell getNextCell(ISimThreadState istState) {
 		
-		int offset = this.getOffset();
+		SimThreadState tState = (SimThreadState) istState;
 		ICell nextCell = null;
 
-		int count = this.counter[offset];
-		
-		if (count < this.limits[offset].last) {
-			nextCell = this.cells[count];
-			this.counter[offset] = count + 1;
+		if (tState.counter < tState.last) {
+			nextCell = this.cells[tState.counter];
+			tState.counter++;
 		}
 		return nextCell;
 	}
@@ -148,12 +125,9 @@ public class SimGrid implements ISimGrid {
 	}
 
 	@Override
-	public void reset() {
-		int offset = this.getOffset();
-		this.counter[offset] = this.limits[offset].first;
+	public void reset(ISimThreadState istState) {
+		SimThreadState tState = (SimThreadState) istState;
+		tState.counter = tState.first;
 	}
 
-	private int getOffset() {
-		return (int) (this.maxTid - Thread.currentThread().getId());
-	}
 }

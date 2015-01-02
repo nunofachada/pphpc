@@ -81,14 +81,14 @@ public class PredPreyMulti extends PredPrey {
 	private class SimThread implements Runnable {
 		
 		/* Grid offset for each thread. */
-		private int offset; 
+		private int stId; 
 		
 		/* Random number generator for current thread. */
 		private Random localRng;
 		
 		/* Constructor only sets the grid offset each thread. */
-		public SimThread(int offset) {
-			this.offset = offset;
+		public SimThread(int stId) {
+			this.stId = stId;
 		}
 		
 		/* Simulate! */
@@ -99,7 +99,7 @@ public class PredPreyMulti extends PredPrey {
 
 			/* Initialize this thread's random number generator. */
 			try {
-				localRng = createRNG(Thread.currentThread().getId());
+				localRng = createRNG(stId);
 			} catch (Exception e) {
 				errMessage(e);
 				return;
@@ -110,7 +110,7 @@ public class PredPreyMulti extends PredPrey {
 			PPStats stats = new PPStats();
 			
 			/* Initialize simulation grid cells. */
-			grid.initialize();
+			ISimThreadState tState = grid.initialize(stId);
 			
 			/* Sync. with barrier. */
 			try {
@@ -129,8 +129,8 @@ public class PredPreyMulti extends PredPrey {
 			int sheepPerThread = (params.getInitSheep() + numThreads - 1) / numThreads;
 			
 			/* Determine start and end sheep index for current thread. */
-			int startSheepIdx = offset * sheepPerThread; /* Inclusive */
-			int endSheepIdx = Math.min((offset + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
+			int startSheepIdx = stId * sheepPerThread; /* Inclusive */
+			int endSheepIdx = Math.min((stId + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
 			
 			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
 				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
@@ -142,8 +142,8 @@ public class PredPreyMulti extends PredPrey {
 			int wolvesPerThread = (params.getInitWolves() + numThreads - 1) / numThreads;
 			
 			/* Determine start and end wolves index for current thread. */
-			int startWolvesIdx = offset * wolvesPerThread; /* Inclusive */
-			int endWolvesIdx = Math.min((offset + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
+			int startWolvesIdx = stId * wolvesPerThread; /* Inclusive */
+			int endWolvesIdx = Math.min((stId + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
 			
 			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
 				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
@@ -164,8 +164,8 @@ public class PredPreyMulti extends PredPrey {
 			
 			/* Get initial statistics. */
 			stats.reset();
-			grid.reset();
-			while ((cell = grid.getNextCell()) != null) {
+			grid.reset(tState);
+			while ((cell = grid.getNextCell(tState)) != null) {
 				cell.getStats(stats);
 			}
 			
@@ -177,8 +177,8 @@ public class PredPreyMulti extends PredPrey {
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 				
-				grid.reset();
-				while ((cell = grid.getNextCell()) != null) {
+				grid.reset(tState);
+				while ((cell = grid.getNextCell(tState)) != null) {
 					
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
@@ -213,8 +213,8 @@ public class PredPreyMulti extends PredPrey {
 				stats.reset();
 				
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				grid.reset();
-				while ((cell = grid.getNextCell()) != null) {
+				grid.reset(tState);
+				while ((cell = grid.getNextCell(tState)) != null) {
 					
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */

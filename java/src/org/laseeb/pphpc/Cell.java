@@ -208,11 +208,13 @@ public class Cell implements ICell {
 			/* Decrement agent energy. */
 			agent.decEnergy();
 
-			/* Choose direction. */
-			int direction = PredPrey.getInstance().getRng().nextInt(this.neighborhood.size());
-			
-			/* Move agent. */
-			this.neighborhood.get(direction).putExistingAgent(agent);
+			if (agent.isAlive()) {
+				/* Choose direction. */
+				int direction = PredPrey.getInstance().getRng().nextInt(this.neighborhood.size());
+				
+				/* Move agent. */
+				this.neighborhood.get(direction).putExistingAgent(agent);
+			}
 		}
 		
 		

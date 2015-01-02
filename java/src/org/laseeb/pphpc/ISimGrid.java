@@ -2,11 +2,11 @@ package org.laseeb.pphpc;
 
 public interface ISimGrid {
 	
-	public void initialize();
+	public ISimThreadState initialize(int stId);
 	
-	public ICell getNextCell();
+	public ICell getNextCell(ISimThreadState tState);
 	
-	public void reset();
+	public void reset(ISimThreadState tState);
 
 	public ICell getCell(int idx);
 
