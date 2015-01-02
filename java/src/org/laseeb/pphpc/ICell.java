@@ -28,6 +28,7 @@
 package org.laseeb.pphpc;
 
 import java.util.List;
+import java.util.Random;
 
 /**
  * An abstract PPHPC model cell, part of a larger simulation grid.
@@ -85,5 +86,9 @@ public interface ICell {
 	public void setNeighborhood(List<ICell> neighborhood);
 
 	public void agentsMove();
+	
+	public Random getRng();
+	
+	public void initGrass();
 
 }

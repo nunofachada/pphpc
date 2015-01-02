@@ -3,6 +3,7 @@ package org.laseeb.pphpc;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 public class SimGrid implements ISimGrid {
@@ -36,6 +37,10 @@ public class SimGrid implements ISimGrid {
 		private int counter;
 		private int first;
 		private int last;
+		private Random rng;
+		public Random getRng() {
+			return this.rng;
+		}
 	}
 	
 	public SimGrid(int x, int y, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
@@ -54,8 +59,13 @@ public class SimGrid implements ISimGrid {
 	@Override
 	public ISimThreadState initialize(int stId) {
 		
-		/* Thread state object for current thread. */
-		SimThreadState tState = new SimThreadState();
+		/* Create random number generator for current thread. */
+		Random rng;
+		try {
+			rng = PredPrey.getInstance().createRNG(stId);
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage());
+		}
 		
 		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
 		int cellsPerThread = (this.size + numThreads - 1) / numThreads;
@@ -64,15 +74,13 @@ public class SimGrid implements ISimGrid {
 		int startCellIdx = stId * cellsPerThread; /* Inclusive */
 		int endCellIdx = Math.min((stId + 1) * cellsPerThread, this.size); /* Exclusive */
 		
-		tState.first = startCellIdx;
-		tState.last = endCellIdx;
-	
 		/* Initialize simulation grid cells. */
 		for (int currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
 		
 			/* Get x and y coordinates for this cell. */
 			/* Add cell to current place in grid. */
-			this.cells[currCellIdx] = new Cell(grassRestart, this.grassInitStrategy, this.threading.putAgentBehavior);
+			this.cells[currCellIdx] = new Cell(grassRestart, rng, this.grassInitStrategy, this.threading.putAgentBehavior);
+			this.cells[currCellIdx].initGrass();
 			
 		}
 		
@@ -101,6 +109,13 @@ public class SimGrid implements ISimGrid {
 			
 		}
 		
+		/* Thread state object for current thread. */
+		SimThreadState tState = new SimThreadState();
+		
+		tState.first = startCellIdx;
+		tState.last = endCellIdx;
+		tState.rng = rng;
+	
 		/* Return this thread's state. */
 		return tState;
 		

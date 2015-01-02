@@ -83,9 +83,6 @@ public class PredPreyMulti extends PredPrey {
 		/* Grid offset for each thread. */
 		private int stId; 
 		
-		/* Random number generator for current thread. */
-		private Random localRng;
-		
 		/* Constructor only sets the grid offset each thread. */
 		public SimThread(int stId) {
 			this.stId = stId;
@@ -97,15 +94,6 @@ public class PredPreyMulti extends PredPrey {
 			/* Current cell being processed. */
 			ICell cell;
 
-			/* Initialize this thread's random number generator. */
-			try {
-				localRng = createRNG(stId);
-			} catch (Exception e) {
-				errMessage(e);
-				return;
-			}
-			rng.set(localRng);
-			
 			/* Partial statistics */
 			PPStats stats = new PPStats();
 			
@@ -133,8 +121,8 @@ public class PredPreyMulti extends PredPrey {
 			int endSheepIdx = Math.min((stId + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
 			
 			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
-				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
-				IAgent sheep = new Sheep(1 + localRng.nextInt(2 * params.getSheepGainFromFood()), params);
+				int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
+				IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
 				grid.getCell(idx).putNewAgent(sheep);
 			}
 
@@ -146,8 +134,8 @@ public class PredPreyMulti extends PredPrey {
 			int endWolvesIdx = Math.min((stId + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
 			
 			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
-				int idx = localRng.nextInt(params.getGridX() * params.getGridY());
-				IAgent wolf = new Wolf(1 + localRng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+				int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
+				IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);
 				grid.getCell(idx).putNewAgent(wolf);
 			}
 			
@@ -190,11 +178,9 @@ public class PredPreyMulti extends PredPrey {
 					/* *** 2 - Grass growth. *** */
 					/* ************************* */
 					
-					/* If grass is not alive... */
-					if (!cell.isGrassAlive()) {
-						/* ...decrement alive counter. */
-						cell.regenerateGrass();
-					}
+					/* Regenerate grass if required. */
+					cell.regenerateGrass();
+
 				}
 				
 				
@@ -347,9 +333,9 @@ public class PredPreyMulti extends PredPrey {
 		return 0;
 	}
 
-	@Override
-	protected Random getRng() {
-		return this.rng.get();
-	}
+//	@Override
+//	protected Random getRng() {
+//		return this.rng.get();
+//	}
 
 }

@@ -298,6 +298,6 @@ public abstract class PredPrey {
 		
 	}
 	
-	protected abstract Random getRng();
+//	protected abstract Random getRng();
 	
 }

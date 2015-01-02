@@ -47,7 +47,7 @@ public class PredPreySingle extends PredPrey {
 	private int[] wolfStats;
 	private int[] grassStats;
 	
-	private Random rng;
+//	private Random rng;
 	
 	/** 
 	 * Constructor, no arguments required.
@@ -67,9 +67,6 @@ public class PredPreySingle extends PredPrey {
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 
-		/* Initialize random number generator. */
-		rng = this.createRNG(0);
-		
 		PPStats stats = new PPStats();
 		
 		/* Grass initialization strategy. */
@@ -88,13 +85,13 @@ public class PredPreySingle extends PredPrey {
 		
 		/* Populate simulation grid with agents. */
 		for (int i = 0; i < params.getInitSheep(); i++) {
-			int idx = this.rng.nextInt(params.getGridX() * params.getGridY());
-			IAgent sheep = new Sheep(1 + this.rng.nextInt(2 * params.getSheepGainFromFood()), params);
+			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
+			IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
 			grid.getCell(idx).putNewAgent(sheep);
 		}
 		for (int i = 0; i < params.getInitWolves(); i++) {
-			int idx = this.rng.nextInt(params.getGridX() * params.getGridY());
-			IAgent wolf = new Wolf(1 + this.rng.nextInt(2 * params.getWolvesGainFromFood()), params);		
+			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
+			IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);		
 			grid.getCell(idx).putNewAgent(wolf);
 		}
 		
@@ -129,11 +126,8 @@ public class PredPreySingle extends PredPrey {
 				/* *** 2 - Grass growth. *** */
 				/* ************************* */
 					
-				/* If grass is not alive... */
-				if (!cell.isGrassAlive()) {
-					/* ...decrement alive counter. */
-					cell.regenerateGrass();
-				}
+				/* Regenerate grass if required. */
+				cell.regenerateGrass();
 			}
 			
 			/* Reset statistics for current iteration. */
@@ -202,10 +196,10 @@ public class PredPreySingle extends PredPrey {
 		return 0;
 	}
 
-	@Override
-	protected Random getRng() {
-		// TODO Auto-generated method stub
-		return this.rng;
-	}
+//	@Override
+//	protected Random getRng() {
+//		// TODO Auto-generated method stub
+//		return this.rng;
+//	}
 
 }

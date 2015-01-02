@@ -104,7 +104,7 @@ public abstract class Agent implements IAgent {
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {
 			/* Throw dice, see if agent reproduces. */
-			if (PredPrey.getInstance().getRng().nextInt(100) < getReproduceProbability()) {
+			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
 				/* Create new agent with half of the energy of the current agent. */
 				Agent agent = null;
 				try {

@@ -29,6 +29,7 @@ package org.laseeb.pphpc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Concrete implementation of a PPHPC model cell, part of a larger simulation grid.
@@ -40,6 +41,8 @@ public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
 	private CellPutAgentBehavior putAgentBehavior;
+	
+	private CellGrassInitStrategy grassInitStrategy;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
@@ -63,6 +66,8 @@ public class Cell implements ICell {
 	
 	/* Grass counter. */
 	private int grass;
+	
+	private Random rng;
 
 	
 	/**
@@ -72,11 +77,12 @@ public class Cell implements ICell {
 	 * @param grassInitStrategy
 	 * @param putAgentsBehavior
 	 */
-	public Cell(int grassRestart,
+	public Cell(int grassRestart, Random rng,
 			CellGrassInitStrategy grassInitStrategy,
 			CellPutAgentBehavior putAgentsBehavior) {
 		
-		this.grass = grassInitStrategy.getInitGrass(grassRestart);
+		this.rng = rng;
+		this.grassInitStrategy = grassInitStrategy;
 		this.grassRestart = grassRestart;
 		this.putAgentBehavior = putAgentsBehavior;
 		
@@ -95,12 +101,14 @@ public class Cell implements ICell {
 	
 	@Override
 	public void eatGrass() {
-		grass = this.getGrassRestart();
+		this.grass = this.getGrassRestart();
 	}
 	
 	@Override
 	public void regenerateGrass() {
-		grass--;
+		if (this.grass > 0) {
+			this.grass--;
+		}
 	}
 	
 	@Override
@@ -210,13 +218,26 @@ public class Cell implements ICell {
 
 			if (agent.isAlive()) {
 				/* Choose direction. */
-				int direction = PredPrey.getInstance().getRng().nextInt(this.neighborhood.size());
+				int direction = this.rng.nextInt(this.neighborhood.size());
 				
 				/* Move agent. */
 				this.neighborhood.get(direction).putExistingAgent(agent);
 			}
 		}
 		
+		
+	}
+
+
+	@Override
+	public Random getRng() {
+		return this.rng;
+	}
+
+
+	@Override
+	public void initGrass() {
+		this.grass = this.grassInitStrategy.getInitGrass(this);
 		
 	}
 
