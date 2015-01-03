@@ -11,13 +11,13 @@ public abstract class SimGrid implements ISimGrid {
 		MULTI(new CellPutAgentSync()), 
 		MULTI_REPEAT(new CellPutAgentSyncSort());
 		
-		private CellPutAgentBehavior putAgentBehavior;
+		private CellPutAgentStrategy putAgentBehavior;
 		
-		private Threading(CellPutAgentBehavior putAgentBehavior) {
+		private Threading(CellPutAgentStrategy putAgentBehavior) {
 			this.putAgentBehavior = putAgentBehavior;
 		}
 		
-		public CellPutAgentBehavior getPutAgentBehavior() {
+		public CellPutAgentStrategy getPutAgentBehavior() {
 			return this.putAgentBehavior;
 		}
 	}
@@ -47,12 +47,12 @@ public abstract class SimGrid implements ISimGrid {
 		this.latch = new CountDownLatch(this.numThreads);
 	}
 	
-	protected abstract ISimThreadState createCells(int stId, Random rng);
+	protected abstract ISimWorkerState createCells(int stId, Random rng);
 	
-	protected abstract void setCellNeighbors(ISimThreadState istState);
+	protected abstract void setCellNeighbors(ISimWorkerState istState);
 
 	@Override
-	public ISimThreadState initCells(int stId) {
+	public ISimWorkerState initCells(int stId) {
 		
 		/* Create random number generator for current thread. */
 		Random rng;
@@ -63,7 +63,7 @@ public abstract class SimGrid implements ISimGrid {
 		}
 		
 		/* Initialize simulation grid cells. */
-		ISimThreadState istState = this.createCells(stId, rng);
+		ISimWorkerState istState = this.createCells(stId, rng);
 		
 		/* Signal that this thread is finished. */
 		this.latch.countDown();

@@ -31,7 +31,6 @@
 package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
-import java.util.concurrent.Executors;
 
 import org.uncommons.maths.random.SeedException;
 
@@ -46,8 +45,7 @@ public class PredPreySingle extends PredPrey {
 	private int[] sheepStats;
 	private int[] wolfStats;
 	private int[] grassStats;
-	
-//	private Random rng;
+
 	
 	/** 
 	 * Constructor, no arguments required.
@@ -74,7 +72,7 @@ public class PredPreySingle extends PredPrey {
 		this.initStats();
 
 		/* Run simulation in main thread. */
-		SimThread st = new PredPrey.SimThread(0);
+		SimWorker st = new PredPrey.SimWorker(0);
 		st.run();
 		
 		/* Stop timing and show simulation time. */

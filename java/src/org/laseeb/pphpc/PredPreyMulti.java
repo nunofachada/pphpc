@@ -127,7 +127,7 @@ public class PredPreyMulti extends PredPrey {
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)
-			(new Thread(new SimThread(i))).start();
+			(new Thread(new SimWorker(i))).start();
 
 		/* Wait for simulation threads to finish. */
 		latch.await();

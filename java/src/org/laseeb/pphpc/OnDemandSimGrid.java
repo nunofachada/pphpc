@@ -8,13 +8,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class OnDemandSimGrid extends SimGrid {
 	
-	private class OnDemandThreadState extends AbstractSimThreadState {
+	private class OnDemandWorkerState extends AbstractSimWorkerState {
 
 		private int current;
 		private int last;
 		
-		public OnDemandThreadState(Random rng, int stId) {
-			super(rng, stId);
+		public OnDemandWorkerState(Random rng, int swId) {
+			super(rng, swId);
 		}
 	}
 
@@ -40,9 +40,9 @@ public class OnDemandSimGrid extends SimGrid {
 	}
 
 	@Override
-	public ICell getNextCell(ISimThreadState tState) {
+	public ICell getNextCell(ISimWorkerState tState) {
 		
-		OnDemandThreadState odtState = (OnDemandThreadState) tState;
+		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
 		
 		ICell cell = null;
 		
@@ -62,17 +62,17 @@ public class OnDemandSimGrid extends SimGrid {
 	}
 
 	@Override
-	public void reset(ISimThreadState tState) {
+	public void reset(ISimWorkerState tState) {
 		
-		OnDemandThreadState odtState = (OnDemandThreadState) tState;
-		if (odtState.getStId() == 0) {
+		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
+		if (odtState.getSimWorkerId() == 0) {
 			this.cellCounter.set(0);
 		}
 		
 	}
 
 	@Override
-	public void initAgents(ISimThreadState tState, SimParams params) {
+	public void initAgents(ISimWorkerState tState, SimParams params) {
 		
 		int numSheep = params.getInitSheep();
 		int numWolves = params.getInitWolves();
@@ -94,9 +94,9 @@ public class OnDemandSimGrid extends SimGrid {
 	}
 
 	@Override
-	protected ISimThreadState createCells(int stId, Random rng) {
+	protected ISimWorkerState createCells(int swId, Random rng) {
 		
-		OnDemandThreadState odtState = new OnDemandThreadState(rng, stId);
+		OnDemandWorkerState odtState = new OnDemandWorkerState(rng, swId);
 		
 		int currCellIdx;
 		while ((currCellIdx = this.initCellCounter.getAndIncrement()) < this.size) {
@@ -108,7 +108,7 @@ public class OnDemandSimGrid extends SimGrid {
 	}
 
 	@Override
-	protected void setCellNeighbors(ISimThreadState istState) {
+	protected void setCellNeighbors(ISimWorkerState istState) {
 		
 		int currCellIdx;
 		while ((currCellIdx = this.neighCellCounter.getAndIncrement()) < this.size) {

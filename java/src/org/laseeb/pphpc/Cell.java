@@ -40,7 +40,7 @@ import java.util.Random;
 public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
-	private CellPutAgentBehavior putAgentBehavior;
+	private CellPutAgentStrategy putAgentBehavior;
 	
 	private CellGrassInitStrategy grassInitStrategy;
 	
@@ -79,7 +79,7 @@ public class Cell implements ICell {
 	 */
 	public Cell(int grassRestart, Random rng,
 			CellGrassInitStrategy grassInitStrategy,
-			CellPutAgentBehavior putAgentsBehavior) {
+			CellPutAgentStrategy putAgentsBehavior) {
 		
 		this.rng = rng;
 		this.grassInitStrategy = grassInitStrategy;

@@ -2,9 +2,9 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
-public interface ISimThreadState {
+public interface ISimWorkerState {
 
 	public Random getRng();
 
-	int getStId();
+	int getSimWorkerId();
 }

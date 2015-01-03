@@ -38,7 +38,7 @@ import java.util.List;
  * 
  * @author Nuno Fachada
  */
-public interface CellPutAgentBehavior {
+public interface CellPutAgentStrategy {
 	
 	/**
 	 * Put an agent in a cell's internal agent list using some specific behavior.

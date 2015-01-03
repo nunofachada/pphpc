@@ -7,13 +7,13 @@ import java.util.Random;
 
 public class DivideEqualSimGrid extends SimGrid {
 
-	private class DivideEqualSimThreadState extends AbstractSimThreadState {
+	private class DivideEqualSimWorkerState extends AbstractSimWorkerState {
 
 		private int counter;
 		private int first;
 		private int last;
 		
-		public DivideEqualSimThreadState(Random rng, int stId) {
+		public DivideEqualSimWorkerState(Random rng, int stId) {
 			super(rng, stId);
 		}
 	}
@@ -27,9 +27,9 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 
 	@Override
-	public ICell getNextCell(ISimThreadState istState) {
+	public ICell getNextCell(ISimWorkerState istState) {
 		
-		DivideEqualSimThreadState tState = (DivideEqualSimThreadState) istState;
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
 		ICell nextCell = null;
 
 		if (tState.counter < tState.last) {
@@ -40,13 +40,13 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 
 	@Override
-	public void reset(ISimThreadState istState) {
-		DivideEqualSimThreadState tState = (DivideEqualSimThreadState) istState;
+	public void reset(ISimWorkerState istState) {
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
 		tState.counter = tState.first;
 	}
 
 	@Override
-	protected ISimThreadState createCells(int stId, Random rng) {
+	protected ISimWorkerState createCells(int stId, Random rng) {
 		
 		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
 		int cellsPerThread = (this.size + numThreads - 1) / numThreads;
@@ -66,7 +66,7 @@ public class DivideEqualSimGrid extends SimGrid {
 		}
 		
 		/* Thread state object for current thread. */
-		DivideEqualSimThreadState tState = new DivideEqualSimThreadState(rng, stId);
+		DivideEqualSimWorkerState tState = new DivideEqualSimWorkerState(rng, stId);
 		
 		tState.first = startCellIdx;
 		tState.last = endCellIdx;
@@ -77,9 +77,9 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 	
 	@Override
-	protected void setCellNeighbors(ISimThreadState istState) {
+	protected void setCellNeighbors(ISimWorkerState istState) {
 		
-		DivideEqualSimThreadState tState = (DivideEqualSimThreadState) istState;
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
 		
 		/* Set cell neighbors. */
 		for (int currCellIdx = tState.first; currCellIdx < tState.last; currCellIdx++) {
@@ -99,16 +99,16 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 
 	@Override
-	public void initAgents(ISimThreadState istState, SimParams params) {
+	public void initAgents(ISimWorkerState istState, SimParams params) {
 
-		DivideEqualSimThreadState tState = (DivideEqualSimThreadState) istState;
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
 		
 		/* Determine sheep per thread. The bellow operation is equivalent to ceil(numSheep/numThreads) */
 		int sheepPerThread = (params.getInitSheep() + numThreads - 1) / numThreads;
 		
 		/* Determine start and end sheep index for current thread. */
-		int startSheepIdx = tState.getStId() * sheepPerThread; /* Inclusive */
-		int endSheepIdx = Math.min((tState.getStId() + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
+		int startSheepIdx = tState.getSimWorkerId() * sheepPerThread; /* Inclusive */
+		int endSheepIdx = Math.min((tState.getSimWorkerId() + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
 		
 		for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
 			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
@@ -120,8 +120,8 @@ public class DivideEqualSimGrid extends SimGrid {
 		int wolvesPerThread = (params.getInitWolves() + numThreads - 1) / numThreads;
 		
 		/* Determine start and end wolves index for current thread. */
-		int startWolvesIdx = tState.getStId() * wolvesPerThread; /* Inclusive */
-		int endWolvesIdx = Math.min((tState.getStId() + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
+		int startWolvesIdx = tState.getSimWorkerId() * wolvesPerThread; /* Inclusive */
+		int endWolvesIdx = Math.min((tState.getSimWorkerId() + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
 		
 		for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
 			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());

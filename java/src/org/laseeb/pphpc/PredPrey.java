@@ -115,14 +115,14 @@ public abstract class PredPrey {
 	protected ISimGrid grid;
 	
 	/* A simulation thread. */
-	protected class SimThread implements Runnable {
+	protected class SimWorker implements Runnable {
 		
 		/* Grid offset for each thread. */
-		private int stId; 
+		private int swId; 
 		
 		/* Constructor only sets the grid offset each thread. */
-		public SimThread(int stId) {
-			this.stId = stId;
+		public SimWorker(int stId) {
+			this.swId = stId;
 		}
 		
 		/* Simulate! */
@@ -135,7 +135,7 @@ public abstract class PredPrey {
 			PPStats stats = new PPStats();
 			
 			/* Initialize simulation grid cells. */
-			ISimThreadState tState = grid.initCells(stId);
+			ISimWorkerState tState = grid.initCells(swId);
 			
 			/* Sync. with barrier. */
 			syncAfterInitCells();
