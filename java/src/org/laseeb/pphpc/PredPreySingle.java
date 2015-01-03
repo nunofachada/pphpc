@@ -31,6 +31,7 @@
 package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
+import java.util.concurrent.Executors;
 
 import org.uncommons.maths.random.SeedException;
 
@@ -59,15 +60,10 @@ public class PredPreySingle extends PredPrey {
 	 * @throws SeedException 
 	 */
 	public void start() throws Exception {
-
-		/* Current cell being processed. */
-		ICell cell;
 		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 
-		PPStats stats = new PPStats();
-		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
 		
@@ -76,71 +72,10 @@ public class PredPreySingle extends PredPrey {
 		
 		/* Initialize statistics. */
 		this.initStats();
-		
-		/* Initialize simulation grid cells. */
-		ISimThreadState tState = grid.initCells(0);
-		
-		/* Populate simulation grid with agents. */
-		grid.initAgents(tState, params);
-		
-		/* Get initial statistics. */
-		stats.reset();
-		grid.reset(tState);
-		while ((cell = grid.getNextCell(tState)) != null) {
-			cell.getStats(stats);
-		}
-		
-		updateStats(0, stats);
 
-		/* Run simulation. */
-		for (int iter = 1; iter <= params.getIters(); iter++) {
-			
-			if ((stepPrint > 0) && (iter % stepPrint == 0))
-				System.out.println("Iter " + iter);
-			
-			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
-			grid.reset(tState);
-			while ((cell = grid.getNextCell(tState)) != null) {
-				
-				/* ************************* */
-				/* ** 1 - Agent movement. ** */
-				/* ************************* */
-
-				cell.agentsMove();
-					
-				/* ************************* */
-				/* *** 2 - Grass growth. *** */
-				/* ************************* */
-					
-				/* Regenerate grass if required. */
-				cell.regenerateGrass();
-			}
-			
-			/* Reset statistics for current iteration. */
-			stats.reset();
-			
-			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-			grid.reset(tState);
-			while ((cell = grid.getNextCell(tState)) != null) {
-
-				/* ************************** */
-				/* *** 3 - Agent actions. *** */
-				/* ************************** */
-					
-				cell.agentActions();
-
-				/* ****************************** */
-				/* *** 4 - Gather statistics. *** */
-				/* ****************************** */
-					
-				cell.getStats(stats);
-					
-			}
-			
-			/* Update global stats. */
-			updateStats(iter, stats);
-			
-		}
+		/* Run simulation in main thread. */
+		SimThread st = new PredPrey.SimThread(0);
+		st.run();
 		
 		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
@@ -193,5 +128,17 @@ public class PredPreySingle extends PredPrey {
 		this.wolfStats = new int[params.getIters() + 1];
 		this.grassStats = new int[params.getIters() + 1];		
 	}
+
+	@Override
+	protected void syncAfterInitCells() {}
+
+	@Override
+	protected void syncAfterPopulateSim() {}
+
+	@Override
+	protected void syncHalfIteration() {}
+
+	@Override
+	protected void syncEndIteration() {}
 
 }

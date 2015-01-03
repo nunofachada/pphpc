@@ -73,134 +73,6 @@ public class PredPreyMulti extends PredPrey {
 	 */
 	private PredPreyMulti() {}
 	
-	/* A simulation thread. */
-	private class SimThread implements Runnable {
-		
-		/* Grid offset for each thread. */
-		private int stId; 
-		
-		/* Constructor only sets the grid offset each thread. */
-		public SimThread(int stId) {
-			this.stId = stId;
-		}
-		
-		/* Simulate! */
-		public void run() {
-			
-			/* Current cell being processed. */
-			ICell cell;
-
-			/* Partial statistics */
-			PPStats stats = new PPStats();
-			
-			/* Initialize simulation grid cells. */
-			ISimThreadState tState = grid.initCells(stId);
-			
-			/* Sync. with barrier. */
-			try {
-				partialBarrier.await();
-			} catch (InterruptedException e) {
-				errMessage(e);
-				return;
-			} catch (BrokenBarrierException e) {
-				errMessage(e);
-				return;
-			}
-
-			/* Populate simulation grid with agents. */
-			grid.initAgents(tState, params);
-			
-			/* Sync. with barrier. */
-			try {
-				partialBarrier.await();
-			} catch (InterruptedException e) {
-				errMessage(e);
-				return;
-			} catch (BrokenBarrierException e) {
-				errMessage(e);
-				return;
-			}
-			
-			/* Get initial statistics. */
-			stats.reset();
-			grid.reset(tState);
-			while ((cell = grid.getNextCell(tState)) != null) {
-				cell.getStats(stats);
-			}
-			
-			/* Update global statistics. */
-			updateStats(0, stats);
-
-			/* Perform simulation steps. */
-			for (int iter = 1; iter <= params.getIters(); iter++) {
-				
-				grid.reset(tState);
-				while ((cell = grid.getNextCell(tState)) != null) {
-					
-					/* ************************* */
-					/* ** 1 - Agent movement. ** */
-					/* ************************* */
-
-					cell.agentsMove();
-						
-					/* ************************* */
-					/* *** 2 - Grass growth. *** */
-					/* ************************* */
-					
-					/* Regenerate grass if required. */
-					cell.regenerateGrass();
-
-				}
-				
-				
-				/* Sync. with barrier. */
-				try {
-					partialBarrier.await();
-				} catch (InterruptedException e) {
-					errMessage(e);
-					return;
-				} catch (BrokenBarrierException e) {
-					errMessage(e);
-					return;
-				}
-				
-				/* Reset statistics for current iteration. */
-				stats.reset();
-				
-				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				grid.reset(tState);
-				while ((cell = grid.getNextCell(tState)) != null) {
-					
-					/* ************************** */
-					/* *** 3 - Agent actions. *** */
-					/* ************************** */
-
-					cell.agentActions();
-					
-					/* ****************************** */
-					/* *** 4 - Gather statistics. *** */
-					/* ****************************** */
-
-					cell.getStats(stats);
-					
-				}
-				
-				/* Update global statistics. */
-				updateStats(iter, stats);
-				
-				/* Sync. with barrier. */
-				try {
-					mainBarrier.await();
-				} catch (InterruptedException e) {
-					errMessage(e);
-					return;
-				} catch (BrokenBarrierException e) {
-					errMessage(e);
-					return;
-				}
-			}
-		}
-	}
 	
 	/**
 	 * Perform simulation.
@@ -311,6 +183,63 @@ public class PredPreyMulti extends PredPrey {
 		this.sheepStats = new AtomicIntegerArray(resetArray);
 		this.wolfStats = new AtomicIntegerArray(resetArray);
 		this.grassStats = new AtomicIntegerArray(resetArray);		
+	}
+
+
+	@Override
+	protected void syncAfterInitCells() {
+		try {
+			partialBarrier.await();
+		} catch (InterruptedException e) {
+			errMessage(e);
+			return;
+		} catch (BrokenBarrierException e) {
+			errMessage(e);
+			return;
+		}
+	}
+
+
+	@Override
+	protected void syncAfterPopulateSim() {
+		try {
+			partialBarrier.await();
+		} catch (InterruptedException e) {
+			errMessage(e);
+			return;
+		} catch (BrokenBarrierException e) {
+			errMessage(e);
+			return;
+		}
+	}
+
+
+	@Override
+	protected void syncHalfIteration() {
+		try {
+			partialBarrier.await();
+		} catch (InterruptedException e) {
+			errMessage(e);
+			return;
+		} catch (BrokenBarrierException e) {
+			errMessage(e);
+			return;
+		}
+	}
+
+
+	@Override
+	protected void syncEndIteration() {
+		try {
+			mainBarrier.await();
+		} catch (InterruptedException e) {
+			errMessage(e);
+			return;
+		} catch (BrokenBarrierException e) {
+			errMessage(e);
+			return;
+		}
+
 	}
 
 }

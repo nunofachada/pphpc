@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.Random;
+import java.util.concurrent.BrokenBarrierException;
 
 import org.uncommons.maths.random.AESCounterRNG;
 import org.uncommons.maths.random.CMWC4096RNG;
@@ -112,6 +113,105 @@ public abstract class PredPrey {
 	
 	/* Simulation grid. */
 	protected ISimGrid grid;
+	
+	/* A simulation thread. */
+	protected class SimThread implements Runnable {
+		
+		/* Grid offset for each thread. */
+		private int stId; 
+		
+		/* Constructor only sets the grid offset each thread. */
+		public SimThread(int stId) {
+			this.stId = stId;
+		}
+		
+		/* Simulate! */
+		public void run() {
+			
+			/* Current cell being processed. */
+			ICell cell;
+
+			/* Partial statistics */
+			PPStats stats = new PPStats();
+			
+			/* Initialize simulation grid cells. */
+			ISimThreadState tState = grid.initCells(stId);
+			
+			/* Sync. with barrier. */
+			syncAfterInitCells();
+			
+			/* Populate simulation grid with agents. */
+			grid.initAgents(tState, params);
+			
+			/* Sync. with barrier. */
+			syncAfterPopulateSim();
+			
+			/* Get initial statistics. */
+			stats.reset();
+			grid.reset(tState);
+			while ((cell = grid.getNextCell(tState)) != null) {
+				cell.getStats(stats);
+			}
+			
+			/* Update global statistics. */
+			updateStats(0, stats);
+
+			/* Perform simulation steps. */
+			for (int iter = 1; iter <= params.getIters(); iter++) {
+				
+				grid.reset(tState);
+				while ((cell = grid.getNextCell(tState)) != null) {
+					
+					/* ************************* */
+					/* ** 1 - Agent movement. ** */
+					/* ************************* */
+
+					cell.agentsMove();
+						
+					/* ************************* */
+					/* *** 2 - Grass growth. *** */
+					/* ************************* */
+					
+					/* Regenerate grass if required. */
+					cell.regenerateGrass();
+
+				}
+				
+				
+				/* Sync. with barrier. */
+				syncHalfIteration();
+				
+				/* Reset statistics for current iteration. */
+				stats.reset();
+				
+				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
+				grid.reset(tState);
+				while ((cell = grid.getNextCell(tState)) != null) {
+					
+					/* ************************** */
+					/* *** 3 - Agent actions. *** */
+					/* ************************** */
+
+					cell.agentActions();
+					
+					/* ****************************** */
+					/* *** 4 - Gather statistics. *** */
+					/* ****************************** */
+
+					cell.getStats(stats);
+					
+				}
+				
+				/* Update global statistics. */
+				updateStats(iter, stats);
+				
+				/* Sync. with barrier. */
+				syncEndIteration();
+				
+			}
+		}
+	}
+	
 
 	/**
 	 * Perform simulation.
@@ -133,6 +233,11 @@ public abstract class PredPrey {
 	protected abstract void updateStats(int iter, PPStats stats);
 	
 	protected abstract void initStats();
+	
+	protected abstract void syncAfterInitCells();
+	protected abstract void syncAfterPopulateSim();
+	protected abstract void syncHalfIteration();
+	protected abstract void syncEndIteration();	
 	
 	public static PredPrey getInstance() {
 		if (instance == null)
