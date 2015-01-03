@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2014, Nuno Fachada
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ *   * Neither the name of the Instituto Superior Técnico nor the
+ *     names of its contributors may be used to endorse or promote products
+ *     derived from this software without specific prior written permission.
+ *     
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package org.laseeb.pphpc;
 
 import java.util.Random;
@@ -22,11 +49,7 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 		}
 	}
 	
-	protected ICell cells[];
-	
-	protected int x;
-	protected int y;
-	protected int size;
+	protected ISimSpace space;
 	protected CellGrassInitStrategy grassInitStrategy;
 	protected Threading threading;
 	protected int numThreads;
@@ -34,12 +57,9 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	
 	protected CountDownLatch latch;
 	
-	public AbstractSimWorkProvider(int x, int y, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
+	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
 		
-		this.x = x;
-		this.y = y;
-		this.size = x * y;
-		this.cells = new ICell[this.size];
+		this.space = space;
 		this.grassInitStrategy = grassInitStrategy;
 		this.threading = threading;
 		this.numThreads = numThreads;
@@ -83,10 +103,5 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 		
 	}
 
-
-	@Override
-	public ICell getCell(int idx) {
-		return cells[idx];
-	}
 
 }

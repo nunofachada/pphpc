@@ -1,8 +1,32 @@
+/*
+ * Copyright (c) 2014, Nuno Fachada
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ *   * Neither the name of the Instituto Superior Técnico nor the
+ *     names of its contributors may be used to endorse or promote products
+ *     derived from this software without specific prior written permission.
+ *     
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 package org.laseeb.pphpc;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Random;
 
 public class EqualSimWorkProvider extends AbstractSimWorkProvider {
@@ -18,12 +42,16 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		}
 	}
 	
+	private int size;
 	
-	public EqualSimWorkProvider(int x, int y, int grassRestart,
+	public EqualSimWorkProvider(ISimSpace space, int grassRestart,
 			CellGrassInitStrategy grassInitStrategy, Threading threading,
 			int numThreads) {
-		super(x, y, grassRestart, grassInitStrategy, threading, numThreads);
-		// TODO Auto-generated constructor stub
+		
+		super(space, grassRestart, grassInitStrategy, threading, numThreads);
+	
+		this.size = space.getSize();
+
 	}
 
 	@Override
@@ -33,7 +61,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		ICell nextCell = null;
 
 		if (tState.counter < tState.last) {
-			nextCell = this.cells[tState.counter];
+			nextCell = space.getCell(tState.counter);
 			tState.counter++;
 		}
 		return nextCell;
@@ -60,8 +88,8 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		
 			/* Get x and y coordinates for this cell. */
 			/* Add cell to current place in grid. */
-			this.cells[currCellIdx] = new Cell(grassRestart, rng, this.grassInitStrategy, this.threading.getPutAgentBehavior());
-			this.cells[currCellIdx].initGrass();
+			space.setCell(currCellIdx, new Cell(grassRestart, rng, this.grassInitStrategy, this.threading.getPutAgentBehavior()));
+			space.getCell(currCellIdx).initGrass();
 			
 		}
 		
@@ -83,17 +111,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		
 		/* Set cell neighbors. */
 		for (int currCellIdx = tState.first; currCellIdx < tState.last; currCellIdx++) {
-			
-			int up = currCellIdx - this.x >= 0 ? currCellIdx - this.x : this.size - x + currCellIdx;
-			int down = currCellIdx + this.x < this.size  ? currCellIdx + this.x : currCellIdx + this.x - this.size;
-			int right = currCellIdx + 1 < this.size ? currCellIdx + 1 : 0;
-			int left = currCellIdx - 1 >= 0 ? currCellIdx - 1 : this.size - 1;
-			
-			List<ICell> neighborhood = Arrays.asList(
-					this.cells[currCellIdx], this.cells[up], this.cells[right], this.cells[down], this.cells[left]); 
-		
-			this.cells[currCellIdx].setNeighborhood(Collections.unmodifiableList(neighborhood));
-			
+			this.space.setNeighbors(currCellIdx);
 		}
 		
 	}
@@ -113,7 +131,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
 			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
 			IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
-			this.cells[idx].putNewAgent(sheep);
+			space.getCell(idx).putNewAgent(sheep);
 		}
 
 		/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
@@ -126,7 +144,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
 			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
 			IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);
-			this.cells[idx].putNewAgent(wolf);
+			space.getCell(idx).putNewAgent(wolf);
 		}
 		
 	}

@@ -27,42 +27,53 @@
 
 package org.laseeb.pphpc;
 
-public class PPStats {
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-	private int sheep;
-	private int wolves;
-	private int grass;
+public class Square2DTorusSimSpace implements ISimSpace {
 
-	public PPStats() {}
+	private int x;
+//	private int y;
+	private int size;
+	protected ICell cells[];
 	
-	public void reset() {
-		this.sheep = 0;
-		this.wolves = 0;
-		this.grass = 0;
+	public Square2DTorusSimSpace(int x, int y) {
+		this.x = x;
+//		this.y = y;
+		this.size = x * y;
+		this.cells = new ICell[size];
+	}
+
+	@Override
+	public int getSize() {
+		return this.size;
 	}
 	
-	public int getSheep() {
-		return sheep;
+
+	@Override
+	public ICell getCell(int idx) {
+		return this.cells[idx];
 	}
 
-	public void incSheep() {
-		this.sheep++;
+	@Override
+	public void setCell(int idx, Cell cell) {
+		this.cells[idx] = cell;
 	}
 
-	public int getWolves() {
-		return wolves;
+	@Override
+	public void setNeighbors(int idx) {
+		
+		int up = idx - this.x >= 0 ? idx - this.x : this.size - x + idx;
+		int down = idx + this.x < this.size  ? idx + this.x : idx + this.x - this.size;
+		int right = idx + 1 < this.size ? idx + 1 : 0;
+		int left = idx - 1 >= 0 ? idx - 1 : this.size - 1;
+		
+		List<ICell> neighborhood = Arrays.asList(
+				this.cells[idx], this.cells[up], this.cells[right], this.cells[down], this.cells[left]); 
+	
+		this.cells[idx].setNeighborhood(Collections.unmodifiableList(neighborhood));
 	}
-
-	public void incWolves() {
-		this.wolves++;
-	}
-
-	public int getGrass() {
-		return grass;
-	}
-
-	public void incGrass() {
-		this.grass++;
-	}
+	
 
 }
