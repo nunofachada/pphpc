@@ -72,25 +72,16 @@ public class PredPreySingle extends PredPrey {
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
 		
 		/* Create simulation grid. */
-		grid = new SimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, SimGrid.Threading.SINGLE, 1); 
+		grid = new DivideEqualSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, SimGrid.Threading.SINGLE, 1); 
 		
 		/* Initialize statistics. */
 		this.initStats();
 		
 		/* Initialize simulation grid cells. */
-		ISimThreadState tState = grid.initialize(0);
+		ISimThreadState tState = grid.initCells(0);
 		
 		/* Populate simulation grid with agents. */
-		for (int i = 0; i < params.getInitSheep(); i++) {
-			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
-			IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
-			grid.getCell(idx).putNewAgent(sheep);
-		}
-		for (int i = 0; i < params.getInitWolves(); i++) {
-			int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
-			IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);		
-			grid.getCell(idx).putNewAgent(wolf);
-		}
+		grid.initAgents(tState, params);
 		
 		/* Get initial statistics. */
 		stats.reset();

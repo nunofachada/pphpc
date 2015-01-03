@@ -94,7 +94,7 @@ public class PredPreyMulti extends PredPrey {
 			PPStats stats = new PPStats();
 			
 			/* Initialize simulation grid cells. */
-			ISimThreadState tState = grid.initialize(stId);
+			ISimThreadState tState = grid.initCells(stId);
 			
 			/* Sync. with barrier. */
 			try {
@@ -108,32 +108,7 @@ public class PredPreyMulti extends PredPrey {
 			}
 
 			/* Populate simulation grid with agents. */
-
-			/* Determine sheep per thread. The bellow operation is equivalent to ceil(numSheep/numThreads) */
-			int sheepPerThread = (params.getInitSheep() + numThreads - 1) / numThreads;
-			
-			/* Determine start and end sheep index for current thread. */
-			int startSheepIdx = stId * sheepPerThread; /* Inclusive */
-			int endSheepIdx = Math.min((stId + 1) * sheepPerThread, params.getInitSheep()); /* Exclusive */
-			
-			for (int sheepIdx = startSheepIdx; sheepIdx < endSheepIdx; sheepIdx++) {
-				int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
-				IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
-				grid.getCell(idx).putNewAgent(sheep);
-			}
-
-			/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
-			int wolvesPerThread = (params.getInitWolves() + numThreads - 1) / numThreads;
-			
-			/* Determine start and end wolves index for current thread. */
-			int startWolvesIdx = stId * wolvesPerThread; /* Inclusive */
-			int endWolvesIdx = Math.min((stId + 1) * wolvesPerThread, params.getInitWolves()); /* Exclusive */
-			
-			for (int wolvesIdx = startWolvesIdx; wolvesIdx < endWolvesIdx; wolvesIdx++) {
-				int idx = tState.getRng().nextInt(params.getGridX() * params.getGridY());
-				IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);
-				grid.getCell(idx).putNewAgent(wolf);
-			}
+			grid.initAgents(tState, params);
 			
 			/* Sync. with barrier. */
 			try {
@@ -275,7 +250,8 @@ public class PredPreyMulti extends PredPrey {
 		
 		/* Create simulation grid. */
 		SimGrid.Threading threading = repeatable ? SimGrid.Threading.MULTI_REPEAT : SimGrid.Threading.MULTI;
-		grid = new SimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+		grid = new DivideEqualSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+//		grid = new OnDemandSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)
