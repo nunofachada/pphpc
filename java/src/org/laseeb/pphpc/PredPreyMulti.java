@@ -268,11 +268,7 @@ public class PredPreyMulti extends PredPrey {
 		this.partialBarrier = new CyclicBarrier(numThreads);
 		
 		/* Initialize statistics arrays. */
-		int[] resetArray = new int[params.getIters() + 1];
-		Arrays.fill(resetArray, 0);
-		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.grassStats = new AtomicIntegerArray(resetArray);
+		this.initStats();
 		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
@@ -332,9 +328,13 @@ public class PredPreyMulti extends PredPrey {
 		grassStats.addAndGet(iter, stats.getGrass());		
 	}
 
-//	@Override
-//	protected Random getRng() {
-//		return this.rng.get();
-//	}
+	@Override
+	protected void initStats() {
+		int[] resetArray = new int[this.params.getIters() + 1];
+		Arrays.fill(resetArray, 0);
+		this.sheepStats = new AtomicIntegerArray(resetArray);
+		this.wolfStats = new AtomicIntegerArray(resetArray);
+		this.grassStats = new AtomicIntegerArray(resetArray);		
+	}
 
 }

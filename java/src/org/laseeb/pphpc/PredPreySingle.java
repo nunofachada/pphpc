@@ -75,9 +75,7 @@ public class PredPreySingle extends PredPrey {
 		grid = new SimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, SimGrid.Threading.SINGLE, 1); 
 		
 		/* Initialize statistics. */
-		this.sheepStats = new int[params.getIters() + 1];
-		this.wolfStats = new int[params.getIters() + 1];
-		this.grassStats = new int[params.getIters() + 1];
+		this.initStats();
 		
 		/* Initialize simulation grid cells. */
 		ISimThreadState tState = grid.initialize(0);
@@ -198,10 +196,11 @@ public class PredPreySingle extends PredPrey {
 		grassStats[iter] = stats.getGrass();
 	}
 
-//	@Override
-//	protected Random getRng() {
-//		// TODO Auto-generated method stub
-//		return this.rng;
-//	}
+	@Override
+	protected void initStats() {
+		this.sheepStats = new int[params.getIters() + 1];
+		this.wolfStats = new int[params.getIters() + 1];
+		this.grassStats = new int[params.getIters() + 1];		
+	}
 
 }

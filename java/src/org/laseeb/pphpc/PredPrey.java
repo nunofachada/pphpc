@@ -132,6 +132,8 @@ public abstract class PredPrey {
 	
 	protected abstract void updateStats(int iter, PPStats stats);
 	
+	protected abstract void initStats();
+	
 	public static PredPrey getInstance() {
 		if (instance == null)
 			throw new IllegalStateException(PredPrey.class.getSimpleName() + " instance not properly initialized.");
