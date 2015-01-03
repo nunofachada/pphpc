@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.Random;
-import java.util.concurrent.BrokenBarrierException;
 
 import org.uncommons.maths.random.AESCounterRNG;
 import org.uncommons.maths.random.CMWC4096RNG;
@@ -111,8 +110,8 @@ public abstract class PredPrey {
 	/* Simulation parameters. */
 	protected SimParams params;
 	
-	/* Simulation grid. */
-	protected ISimGrid grid;
+	/* Simulation work provider. */
+	protected ISimWorkProvider workProvider;
 	
 	/* A simulation thread. */
 	protected class SimWorker implements Runnable {
@@ -121,8 +120,8 @@ public abstract class PredPrey {
 		private int swId; 
 		
 		/* Constructor only sets the grid offset each thread. */
-		public SimWorker(int stId) {
-			this.swId = stId;
+		public SimWorker(int swId) {
+			this.swId = swId;
 		}
 		
 		/* Simulate! */
@@ -135,21 +134,21 @@ public abstract class PredPrey {
 			PPStats stats = new PPStats();
 			
 			/* Initialize simulation grid cells. */
-			ISimWorkerState tState = grid.initCells(swId);
+			ISimWorkerState tState = workProvider.initCells(swId);
 			
 			/* Sync. with barrier. */
 			syncAfterInitCells();
 			
 			/* Populate simulation grid with agents. */
-			grid.initAgents(tState, params);
+			workProvider.initAgents(tState, params);
 			
 			/* Sync. with barrier. */
 			syncAfterPopulateSim();
 			
 			/* Get initial statistics. */
 			stats.reset();
-			grid.reset(tState);
-			while ((cell = grid.getNextCell(tState)) != null) {
+			workProvider.resetNextCell(tState);
+			while ((cell = workProvider.getNextCell(tState)) != null) {
 				cell.getStats(stats);
 			}
 			
@@ -159,8 +158,8 @@ public abstract class PredPrey {
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 				
-				grid.reset(tState);
-				while ((cell = grid.getNextCell(tState)) != null) {
+				workProvider.resetNextCell(tState);
+				while ((cell = workProvider.getNextCell(tState)) != null) {
 					
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
@@ -185,8 +184,8 @@ public abstract class PredPrey {
 				stats.reset();
 				
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				grid.reset(tState);
-				while ((cell = grid.getNextCell(tState)) != null) {
+				workProvider.resetNextCell(tState);
+				while ((cell = workProvider.getNextCell(tState)) != null) {
 					
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */
@@ -406,7 +405,5 @@ public abstract class PredPrey {
 		}
 		
 	}
-	
-//	protected abstract Random getRng();
-	
+
 }

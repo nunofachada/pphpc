@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-public class DivideEqualSimGrid extends SimGrid {
+public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 
 	private class DivideEqualSimWorkerState extends AbstractSimWorkerState {
 
@@ -19,7 +19,7 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 	
 	
-	public DivideEqualSimGrid(int x, int y, int grassRestart,
+	public EqualSimWorkProvider(int x, int y, int grassRestart,
 			CellGrassInitStrategy grassInitStrategy, Threading threading,
 			int numThreads) {
 		super(x, y, grassRestart, grassInitStrategy, threading, numThreads);
@@ -40,7 +40,7 @@ public class DivideEqualSimGrid extends SimGrid {
 	}
 
 	@Override
-	public void reset(ISimWorkerState istState) {
+	public void resetNextCell(ISimWorkerState istState) {
 		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
 		tState.counter = tState.first;
 	}

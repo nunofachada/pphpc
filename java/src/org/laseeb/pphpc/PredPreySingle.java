@@ -66,7 +66,7 @@ public class PredPreySingle extends PredPrey {
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
 		
 		/* Create simulation grid. */
-		grid = new DivideEqualSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, SimGrid.Threading.SINGLE, 1); 
+		workProvider = new EqualSimWorkProvider(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, AbstractSimWorkProvider.Threading.SINGLE, 1); 
 		
 		/* Initialize statistics. */
 		this.initStats();

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class OnDemandSimGrid extends SimGrid {
+public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	
 	private class OnDemandWorkerState extends AbstractSimWorkerState {
 
@@ -26,7 +26,7 @@ public class OnDemandSimGrid extends SimGrid {
 	
 	final int block = 20;
 
-	public OnDemandSimGrid(int x, int y, int grassRestart,
+	public OnDemandSimWorkProvider(int x, int y, int grassRestart,
 			CellGrassInitStrategy grassInitStrategy, Threading threading,
 			int numThreads) {
 		super(x, y, grassRestart, grassInitStrategy, threading, numThreads);
@@ -62,7 +62,7 @@ public class OnDemandSimGrid extends SimGrid {
 	}
 
 	@Override
-	public void reset(ISimWorkerState tState) {
+	public void resetNextCell(ISimWorkerState tState) {
 		
 		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
 		if (odtState.getSimWorkerId() == 0) {

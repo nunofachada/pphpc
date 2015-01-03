@@ -3,7 +3,7 @@ package org.laseeb.pphpc;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
-public abstract class SimGrid implements ISimGrid {
+public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 
 	public static enum Threading {
 		
@@ -34,7 +34,7 @@ public abstract class SimGrid implements ISimGrid {
 	
 	protected CountDownLatch latch;
 	
-	public SimGrid(int x, int y, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
+	public AbstractSimWorkProvider(int x, int y, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
 		
 		this.x = x;
 		this.y = y;

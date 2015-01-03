@@ -1,12 +1,12 @@
 package org.laseeb.pphpc;
 
-public interface ISimGrid {
+public interface ISimWorkProvider {
 	
 	public ISimWorkerState initCells(int swId);
 	
 	public ICell getNextCell(ISimWorkerState tState);
 	
-	public void reset(ISimWorkerState tState);
+	public void resetNextCell(ISimWorkerState tState);
 
 	public ICell getCell(int idx);
 

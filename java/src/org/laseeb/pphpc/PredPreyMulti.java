@@ -121,8 +121,8 @@ public class PredPreyMulti extends PredPrey {
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
 		
 		/* Create simulation grid. */
-		SimGrid.Threading threading = repeatable ? SimGrid.Threading.MULTI_REPEAT : SimGrid.Threading.MULTI;
-		grid = new DivideEqualSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+		AbstractSimWorkProvider.Threading threading = repeatable ? AbstractSimWorkProvider.Threading.MULTI_REPEAT : AbstractSimWorkProvider.Threading.MULTI;
+		workProvider = new EqualSimWorkProvider(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
 //		grid = new OnDemandSimGrid(params.getGridX(), params.getGridY(), params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
 		
 		/* Launch simulation threads. */
