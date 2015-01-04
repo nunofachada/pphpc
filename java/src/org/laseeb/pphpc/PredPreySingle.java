@@ -74,7 +74,7 @@ public class PredPreySingle extends PredPrey {
 		this.initStats();
 
 		/* Run simulation in main thread. */
-		SimWorker st = new PredPrey.SimWorker(0);
+		SimWorker st = new SimWorker(0, workProvider, params, this);
 		st.run();
 		
 		/* Stop timing and show simulation time. */

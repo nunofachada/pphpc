@@ -43,5 +43,5 @@ public interface ISimWorkProvider extends Observable {
 	public void afterHalfIteration();
 	public void afterEndIteration();
 
-	void simFinish(ISimWorkerState wState);
+	public void simFinish(ISimWorkerState wState);
 }
