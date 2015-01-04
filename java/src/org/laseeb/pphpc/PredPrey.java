@@ -34,6 +34,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.uncommons.maths.random.AESCounterRNG;
@@ -137,13 +141,13 @@ public abstract class PredPrey {
 			ISimWorkerState tState = workProvider.initCells(swId);
 			
 			/* Sync. with barrier. */
-			syncAfterInitCells();
+			workProvider.afterInitCells();
 			
 			/* Populate simulation grid with agents. */
 			workProvider.initAgents(tState, params);
 			
 			/* Sync. with barrier. */
-			syncAfterPopulateSim();
+			workProvider.afterPopulateSim();
 			
 			/* Get initial statistics. */
 			stats.reset();
@@ -156,8 +160,7 @@ public abstract class PredPrey {
 			updateStats(0, stats);
 
 			/* Sync. with barrier. */
-			// TODO This should be syncAfterStats or something
-			syncHalfIteration();
+			workProvider.afterFirstGetStats();
 
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
@@ -182,7 +185,7 @@ public abstract class PredPrey {
 				
 				
 				/* Sync. with barrier. */
-				syncHalfIteration();
+				workProvider.afterHalfIteration();
 				
 				/* Reset statistics for current iteration. */
 				stats.reset();
@@ -209,9 +212,12 @@ public abstract class PredPrey {
 				updateStats(iter, stats);
 				
 				/* Sync. with barrier. */
-				syncEndIteration();
+				workProvider.afterEndIteration();
 				
 			}
+			
+			workProvider.simFinish(tState);
+			
 		}
 	}
 	
@@ -236,11 +242,6 @@ public abstract class PredPrey {
 	protected abstract void updateStats(int iter, PPStats stats);
 	
 	protected abstract void initStats();
-	
-	protected abstract void syncAfterInitCells();
-	protected abstract void syncAfterPopulateSim();
-	protected abstract void syncHalfIteration();
-	protected abstract void syncEndIteration();	
 	
 	public static PredPrey getInstance() {
 		if (instance == null)

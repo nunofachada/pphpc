@@ -27,7 +27,7 @@
 
 package org.laseeb.pphpc;
 
-public interface ISimWorkProvider {
+public interface ISimWorkProvider extends Observable {
 	
 	public ISimWorkerState initCells(int swId);
 	
@@ -37,4 +37,11 @@ public interface ISimWorkProvider {
 
 	public void initAgents(ISimWorkerState tState, SimParams params);
 
+	public void afterInitCells();
+	public void afterPopulateSim();
+	public void afterFirstGetStats();
+	public void afterHalfIteration();
+	public void afterEndIteration();
+
+	void simFinish(ISimWorkerState wState);
 }

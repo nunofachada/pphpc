@@ -28,6 +28,7 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
 
 public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 
@@ -43,14 +44,29 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 	
 	private int size;
+	private CellPutAgentStrategy putAgentStrategy;
+	
+	private CyclicBarrier barrier;
 	
 	public EqualSimWorkProvider(ISimSpace space, int grassRestart,
-			CellGrassInitStrategy grassInitStrategy, Threading threading,
-			int numThreads) {
+			CellGrassInitStrategy grassInitStrategy, int numThreads, boolean repeatable) {
 		
-		super(space, grassRestart, grassInitStrategy, threading, numThreads);
+		super(space, grassRestart, grassInitStrategy, numThreads);
 	
 		this.size = space.getSize();
+		
+		if (numThreads > 1) {
+			if (repeatable) {
+				this.putAgentStrategy = new CellPutAgentSyncSort();
+			} else {
+				this.putAgentStrategy = new CellPutAgentSync();
+			}
+			this.barrier = new CyclicBarrier(numThreads);
+		} else {
+			this.putAgentStrategy = new CellPutAgentAsync();
+			this.barrier = null;
+		}
+			
 
 	}
 
@@ -88,7 +104,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		
 			/* Get x and y coordinates for this cell. */
 			/* Add cell to current place in grid. */
-			space.setCell(currCellIdx, new Cell(grassRestart, rng, this.grassInitStrategy, this.threading.getPutAgentBehavior()));
+			space.setCell(currCellIdx, new Cell(grassRestart, rng, this.grassInitStrategy, this.putAgentStrategy));
 			space.getCell(currCellIdx).initGrass();
 			
 		}
@@ -147,6 +163,55 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 			space.getCell(idx).putNewAgent(wolf);
 		}
 		
+	}
+
+	@Override
+	public void afterInitCells() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterPopulateSim() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterFirstGetStats() {
+		/* No need to sync here, same thread always processes the same cells. */
+	}
+
+	@Override
+	public void afterHalfIteration() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterEndIteration() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
 	}
 	
 }

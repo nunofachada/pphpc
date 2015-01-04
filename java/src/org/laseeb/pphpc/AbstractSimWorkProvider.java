@@ -27,12 +27,16 @@
 
 package org.laseeb.pphpc;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 
-	public static enum Threading {
+	private static enum Threading {
 		
 		SINGLE(new CellPutAgentAsync()), 
 		MULTI(new CellPutAgentSync()), 
@@ -51,17 +55,18 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	
 	protected ISimSpace space;
 	protected CellGrassInitStrategy grassInitStrategy;
-	protected Threading threading;
 	protected int numThreads;
 	protected int grassRestart;
 	
 	protected CountDownLatch latch;
 	
-	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, Threading threading, int numThreads) {
+	/* Observers. */
+	private Map<SimEvent, List<Observer>> observers;
+	
+	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, int numThreads) {
 		
 		this.space = space;
 		this.grassInitStrategy = grassInitStrategy;
-		this.threading = threading;
 		this.numThreads = numThreads;
 		this.grassRestart = grassRestart;
 		this.latch = new CountDownLatch(this.numThreads);
@@ -102,6 +107,35 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 		return istState;
 		
 	}
+	
+	@Override
+	public void simFinish(ISimWorkerState wState) {
+		if (wState.getSimWorkerId() == 0) {
+			this.notifyObservers(SimEvent.AFTER_END_SIMULATION);
+		}		
+	}
 
+	@Override
+	public void registerObserver(SimEvent event, Observer observer) {
+		if (this.observers == null) {
+			this.observers = new HashMap<SimEvent, List<Observer>>();
+		}
+		if (this.observers.get(event) == null) {
+			this.observers.put(event, new ArrayList<Observer>());
+		}
+		this.observers.get(event).add(observer);
+	}
+
+	@Override
+	public void notifyObservers(SimEvent event) {
+		if (this.observers != null) {
+			if (this.observers.get(event) != null) {
+				for (Observer o : this.observers.get(event)) {
+					o.update(event, this);
+				}
+			}
+		}
+	}
+	
 
 }

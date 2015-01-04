@@ -28,6 +28,8 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
@@ -51,11 +53,13 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	private AtomicInteger wolvesCounter;
 	
 	private int block;
+	private CellPutAgentStrategy putAgentStrategy;
+	
+	private CyclicBarrier barrier;
 
 	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart,
-			CellGrassInitStrategy grassInitStrategy, Threading threading,
-			int numThreads) {
-		super(space, grassRestart, grassInitStrategy, threading, numThreads);
+			CellGrassInitStrategy grassInitStrategy, int numThreads) {
+		super(space, grassRestart, grassInitStrategy, numThreads);
 		
 		this.block = block;
 		
@@ -64,6 +68,14 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		this.wolvesCounter = new AtomicInteger(0);
 		this.initCellCounter = new AtomicInteger(0);
 		this.neighCellCounter = new AtomicInteger(0);
+		
+		if (numThreads > 1) {
+			this.putAgentStrategy = new CellPutAgentSync();
+			this.barrier = new CyclicBarrier(numThreads);
+		} else {
+			this.putAgentStrategy = new CellPutAgentAsync();
+			this.barrier = null;
+		}
 	}
 
 	@Override
@@ -127,7 +139,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		
 		int currCellIdx;
 		while ((currCellIdx = this.initCellCounter.getAndIncrement()) < this.space.getSize()) {
-			this.space.setCell(currCellIdx, new Cell(this.grassRestart, rng, this.grassInitStrategy, this.threading.getPutAgentBehavior()));
+			this.space.setCell(currCellIdx, new Cell(this.grassRestart, rng, this.grassInitStrategy, this.putAgentStrategy));
 			space.getCell(currCellIdx).initGrass();
 		}
 		
@@ -140,6 +152,61 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		int currCellIdx;
 		while ((currCellIdx = this.neighCellCounter.getAndIncrement()) < this.space.getSize()) {
 			this.space.setNeighbors(currCellIdx);
+		}
+	}
+
+	@Override
+	public void afterInitCells() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterPopulateSim() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterFirstGetStats() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterHalfIteration() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+
+	@Override
+	public void afterEndIteration() {
+		if (this.numThreads > 1) {
+			try {
+				this.barrier.await();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 

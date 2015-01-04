@@ -1,0 +1,12 @@
+package org.laseeb.pphpc;
+
+public enum SimEvent {
+	
+	AFTER_INIT_CELLS,
+	AFTER_INIT_AGENTS,
+	AFTER_FIRST_GET_STATS,
+	AFTER_HALF_ITERATION,
+	AFTER_END_ITERATION,
+	AFTER_END_SIMULATION
+
+}

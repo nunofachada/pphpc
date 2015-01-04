@@ -60,10 +60,6 @@ public class PredPreyMulti extends PredPrey {
 	private AtomicIntegerArray wolfStats;
 	private AtomicIntegerArray grassStats;
 	
-	/* Thread barrier. */
-	private CyclicBarrier mainBarrier;
-	private CyclicBarrier partialBarrier;
-	
 	/* Latch on which the main thread will wait until the simulation threads
 	 * terminate. */
 	private CountDownLatch latch;
@@ -87,51 +83,28 @@ public class PredPreyMulti extends PredPrey {
 		/* Initialize latch. */
 		latch = new CountDownLatch(1);
 
-		/* Initialize thread barriers. */
-		this.mainBarrier = new CyclicBarrier(numThreads, new Runnable() {
-			
-			/* Initial iteration is 1. */
-			int iter = 1;
-			
-			/* Method to run after each iteration. */
-			public void run() {
-				
-				/* Print current iteration, if that is the case. */
-				if ((stepPrint > 0) && (iter % stepPrint == 0))
-					System.out.println("Iter " + iter);
-				
-				/* Increment iteration count. */
-				iter++;
-				
-				/* If this is the last iteration, let main thread continue... */
-				if (iter > params.getIters()) {
-					
-					/* ...by opening the latch on which it is waiting one. */
-					latch.countDown();
-					
-				}				
-			}
-		});
-		this.partialBarrier = new CyclicBarrier(numThreads);
-		
 		/* Initialize statistics arrays. */
 		this.initStats();
 		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
 		
-		/* Create simulation grid. */
-		AbstractSimWorkProvider.Threading threading = repeatable 
-				? AbstractSimWorkProvider.Threading.MULTI_REPEAT 
-				: AbstractSimWorkProvider.Threading.MULTI;
+		ISimSpace space = new Square2DTorusSimSpace(this.params.getGridX(), this.params.getGridY());
 		
-		ISimSpace space = new Square2DTorusSimSpace(params.getGridX(), params.getGridY());
-		
-		workProvider = new EqualSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
-//		workProvider = new OnDemandSimWorkProvider(250, space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+		workProvider = new EqualSimWorkProvider(space, this.params.getGrassRestart(), grassInitStrategy, this.numThreads, this.repeatable); 
+//		workProvider = new OnDemandSimWorkProvider(100, space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+
+		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new Observer() {
+
+			@Override
+			public void update(SimEvent event, ISimWorkProvider workProvider) {
+				latch.countDown();
+			}
+			
+		});
 		
 		/* Launch simulation threads. */
-		for (int i = 0; i < numThreads; i++)
+		for (int i = 0; i < this.numThreads; i++)
 			(new Thread(new SimWorker(i))).start();
 
 		/* Wait for simulation threads to finish. */
@@ -188,63 +161,6 @@ public class PredPreyMulti extends PredPrey {
 		this.sheepStats = new AtomicIntegerArray(resetArray);
 		this.wolfStats = new AtomicIntegerArray(resetArray);
 		this.grassStats = new AtomicIntegerArray(resetArray);		
-	}
-
-
-	@Override
-	protected void syncAfterInitCells() {
-		try {
-			partialBarrier.await();
-		} catch (InterruptedException e) {
-			errMessage(e);
-			return;
-		} catch (BrokenBarrierException e) {
-			errMessage(e);
-			return;
-		}
-	}
-
-
-	@Override
-	protected void syncAfterPopulateSim() {
-		try {
-			partialBarrier.await();
-		} catch (InterruptedException e) {
-			errMessage(e);
-			return;
-		} catch (BrokenBarrierException e) {
-			errMessage(e);
-			return;
-		}
-	}
-
-
-	@Override
-	protected void syncHalfIteration() {
-		try {
-			partialBarrier.await();
-		} catch (InterruptedException e) {
-			errMessage(e);
-			return;
-		} catch (BrokenBarrierException e) {
-			errMessage(e);
-			return;
-		}
-	}
-
-
-	@Override
-	protected void syncEndIteration() {
-		try {
-			mainBarrier.await();
-		} catch (InterruptedException e) {
-			errMessage(e);
-			return;
-		} catch (BrokenBarrierException e) {
-			errMessage(e);
-			return;
-		}
-
 	}
 
 }
