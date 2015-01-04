@@ -155,6 +155,10 @@ public abstract class PredPrey {
 			/* Update global statistics. */
 			updateStats(0, stats);
 
+			/* Sync. with barrier. */
+			// TODO This should be syncAfterStats or something
+			syncHalfIteration();
+
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 				

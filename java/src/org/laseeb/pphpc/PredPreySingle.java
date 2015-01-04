@@ -68,6 +68,7 @@ public class PredPreySingle extends PredPrey {
 		/* Create simulation grid. */
 		ISimSpace space = new Square2DTorusSimSpace(params.getGridX(), params.getGridY());
 		workProvider = new EqualSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, AbstractSimWorkProvider.Threading.SINGLE, 1); 
+//		workProvider = new OnDemandSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, AbstractSimWorkProvider.Threading.SINGLE, 1); 
 		
 		/* Initialize statistics. */
 		this.initStats();

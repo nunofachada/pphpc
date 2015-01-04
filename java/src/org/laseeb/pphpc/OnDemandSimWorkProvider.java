@@ -39,6 +39,8 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		
 		public OnDemandWorkerState(Random rng, int swId) {
 			super(rng, swId);
+			this.current = 0;
+			this.last = 0;
 		}
 	}
 
@@ -48,14 +50,15 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	private AtomicInteger sheepCounter;
 	private AtomicInteger wolvesCounter;
 	
-	final int block = 20;
+	private int block;
 
-	public OnDemandSimWorkProvider(ISimSpace space, int grassRestart,
+	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart,
 			CellGrassInitStrategy grassInitStrategy, Threading threading,
 			int numThreads) {
 		super(space, grassRestart, grassInitStrategy, threading, numThreads);
 		
-
+		this.block = block;
+		
 		this.cellCounter = new AtomicInteger(0);
 		this.sheepCounter = new AtomicInteger(0);
 		this.wolvesCounter = new AtomicInteger(0);

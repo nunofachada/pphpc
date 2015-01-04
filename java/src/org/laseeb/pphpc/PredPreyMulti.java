@@ -128,7 +128,7 @@ public class PredPreyMulti extends PredPrey {
 		ISimSpace space = new Square2DTorusSimSpace(params.getGridX(), params.getGridY());
 		
 		workProvider = new EqualSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
-//		grid = new OnDemandSimGrid(space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+//		workProvider = new OnDemandSimWorkProvider(250, space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < numThreads; i++)
