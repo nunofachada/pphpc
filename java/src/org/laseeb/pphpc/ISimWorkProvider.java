@@ -29,19 +29,17 @@ package org.laseeb.pphpc;
 
 public interface ISimWorkProvider extends Observable {
 	
-	public ISimWorkerState initCells(int swId);
+	public ISimWorkerState registerWorker();
+	
+	public void initCells(ISimWorkerState tState);
+	
+	public void initAgents(ISimWorkerState tState, SimParams params);
 	
 	public ICell getNextCell(ISimWorkerState tState);
-	
-	public void resetNextCell(ISimWorkerState tState);
 
-	public void initAgents(ISimWorkerState tState, SimParams params);
+	public void syncAfterInit(ISimWorkerState swState);
+	public void syncAfterHalfIteration(ISimWorkerState swState);
+	public void syncAfterEndIteration(ISimWorkerState swState);
+	public void syncAfterSimFinish(ISimWorkerState wState);
 
-	public void afterInitCells();
-	public void afterPopulateSim();
-	public void afterFirstGetStats();
-	public void afterHalfIteration();
-	public void afterEndIteration();
-
-	public void simFinish(ISimWorkerState wState);
 }

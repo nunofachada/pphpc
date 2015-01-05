@@ -28,52 +28,111 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
-import java.util.concurrent.CyclicBarrier;
 
 public class EqualSimWorkProvider extends AbstractSimWorkProvider {
-
+	
 	private class DivideEqualSimWorkerState extends AbstractSimWorkerState {
 
 		private int counter;
 		private int first;
 		private int last;
 		
-		public DivideEqualSimWorkerState(Random rng, int stId) {
-			super(rng, stId);
+		public DivideEqualSimWorkerState(int swId, Random rng, int first, int last) {
+			super(swId, rng);
+			this.first = first;
+			this.last = last;
 		}
 	}
 	
 	private int size;
 	private CellPutAgentStrategy putAgentStrategy;
+	private int numWorkers;
+
+	private ISimSynchronizer afterCreateCellsSync;
+	private ISimSynchronizer afterAddCellNeighborsSync;
+	private ISimSynchronizer afterInitAgentsSync;
 	
-	private CyclicBarrier barrier;
-	
-	public EqualSimWorkProvider(ISimSpace space, int grassRestart,
-			CellGrassInitStrategy grassInitStrategy, int numThreads, boolean repeatable) {
+	public EqualSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
+			CellPutAgentStrategy putAgentStrategy, int numWorkers, 
+			ISimSynchronizer afterInitSync, ISimSynchronizer afterHalfIterSync, 
+			ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
 		
-		super(space, grassRestart, grassInitStrategy, numThreads);
+		super(space, grassRestart, grassInitStrategy, afterInitSync, afterHalfIterSync, afterEndIterSync, afterEndSimSync);
 	
 		this.size = space.getSize();
+		this.numWorkers = numWorkers;
+		this.putAgentStrategy = putAgentStrategy;
 		
-		if (numThreads > 1) {
-			if (repeatable) {
-				this.putAgentStrategy = new CellPutAgentSyncSort();
-			} else {
-				this.putAgentStrategy = new CellPutAgentSync();
-			}
-			this.barrier = new CyclicBarrier(numThreads);
+		if (numWorkers > 1) {
+			this.afterCreateCellsSync = new BlockingSimSynchronizer(null, numWorkers);
+			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
+			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
 		} else {
-			this.putAgentStrategy = new CellPutAgentAsync();
-			this.barrier = null;
+			this.afterCreateCellsSync = new NonBlockingSimSynchronizer(null);
+			this.afterAddCellNeighborsSync = new NonBlockingSimSynchronizer(null);
+			this.afterInitAgentsSync = new NonBlockingSimSynchronizer(null);
 		}
-			
-
+		
 	}
 
 	@Override
-	public ICell getNextCell(ISimWorkerState istState) {
+	protected ISimWorkerState doRegisterWorker(int swId) {
 		
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
+		/* Create random number generator for current thread. */
+		Random rng;
+		try {
+			rng = PredPrey.getInstance().createRNG(swId);
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage());
+		}
+		
+		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
+		int cellsPerThread = (this.size + this.numWorkers - 1) / this.numWorkers;
+		
+		/* Determine start and end cell index for current thread. */
+		int startCellIdx = swId * cellsPerThread; /* Inclusive */
+		int endCellIdx = Math.min((swId + 1) * cellsPerThread, this.size); /* Exclusive */
+
+		/* Create a worker state adequate for this work provider. */
+		DivideEqualSimWorkerState swState = new DivideEqualSimWorkerState(swId, rng, startCellIdx, endCellIdx);
+		
+		/* Return this thread's state. */
+		return swState;
+	}
+
+	@Override
+	public void initCells(ISimWorkerState swState) {
+		
+		
+		/* Set cell neighbors. */
+		DivideEqualSimWorkerState deswState = (DivideEqualSimWorkerState) swState;
+	
+		/* Initialize simulation grid cells. */
+		for (int currCellIdx = deswState.first; currCellIdx < deswState.last; currCellIdx++) {
+		
+			/* Get x and y coordinates for this cell. */
+			/* Add cell to current place in grid. */
+			space.setCell(currCellIdx, new Cell(grassRestart, swState.getRng(), this.grassInitStrategy, this.putAgentStrategy));
+			space.getCell(currCellIdx).initGrass();
+			
+		}
+		
+		this.afterCreateCellsSync.syncNotify();
+	
+		/* Set cell neighbors. */
+		for (int currCellIdx = deswState.first; currCellIdx < deswState.last; currCellIdx++) {
+			this.space.setNeighbors(currCellIdx);
+		}
+		
+		this.afterAddCellNeighborsSync.syncNotify();
+	
+		
+	}
+
+	@Override
+	public ICell getNextCell(ISimWorkerState swState) {
+		
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
 		ICell nextCell = null;
 
 		if (tState.counter < tState.last) {
@@ -83,62 +142,18 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		return nextCell;
 	}
 
-	@Override
-	public void resetNextCell(ISimWorkerState istState) {
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
+	private void resetNextCell(ISimWorkerState swState) {
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
 		tState.counter = tState.first;
 	}
-
-	@Override
-	protected ISimWorkerState createCells(int stId, Random rng) {
-		
-		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
-		int cellsPerThread = (this.size + numThreads - 1) / numThreads;
-		
-		/* Determine start and end cell index for current thread. */
-		int startCellIdx = stId * cellsPerThread; /* Inclusive */
-		int endCellIdx = Math.min((stId + 1) * cellsPerThread, this.size); /* Exclusive */
-		
-		/* Initialize simulation grid cells. */
-		for (int currCellIdx = startCellIdx; currCellIdx < endCellIdx; currCellIdx++) {
-		
-			/* Get x and y coordinates for this cell. */
-			/* Add cell to current place in grid. */
-			space.setCell(currCellIdx, new Cell(grassRestart, rng, this.grassInitStrategy, this.putAgentStrategy));
-			space.getCell(currCellIdx).initGrass();
-			
-		}
-		
-		/* Thread state object for current thread. */
-		DivideEqualSimWorkerState tState = new DivideEqualSimWorkerState(rng, stId);
-		
-		tState.first = startCellIdx;
-		tState.last = endCellIdx;
-	
-		/* Return this thread's state. */
-		return tState;
-		
-	}
 	
 	@Override
-	protected void setCellNeighbors(ISimWorkerState istState) {
-		
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
-		
-		/* Set cell neighbors. */
-		for (int currCellIdx = tState.first; currCellIdx < tState.last; currCellIdx++) {
-			this.space.setNeighbors(currCellIdx);
-		}
-		
-	}
+	public void initAgents(ISimWorkerState swState, SimParams params) {
 
-	@Override
-	public void initAgents(ISimWorkerState istState, SimParams params) {
-
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) istState;
+		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
 		
 		/* Determine sheep per thread. The bellow operation is equivalent to ceil(numSheep/numThreads) */
-		int sheepPerThread = (params.getInitSheep() + numThreads - 1) / numThreads;
+		int sheepPerThread = (params.getInitSheep() + this.numWorkers - 1) / this.numWorkers;
 		
 		/* Determine start and end sheep index for current thread. */
 		int startSheepIdx = tState.getSimWorkerId() * sheepPerThread; /* Inclusive */
@@ -151,7 +166,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		}
 
 		/* Determine wolves per thread. The bellow operation is equivalent to ceil(numWolves/numThreads) */
-		int wolvesPerThread = (params.getInitWolves() + numThreads - 1) / numThreads;
+		int wolvesPerThread = (params.getInitWolves() + this.numWorkers - 1) / this.numWorkers;
 		
 		/* Determine start and end wolves index for current thread. */
 		int startWolvesIdx = tState.getSimWorkerId() * wolvesPerThread; /* Inclusive */
@@ -163,55 +178,31 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 			space.getCell(idx).putNewAgent(wolf);
 		}
 		
+		this.resetNextCell(swState);
+		this.afterInitAgentsSync.syncNotify();
+		
+	}
+
+
+	@Override
+	protected void doSyncAfterInit(ISimWorkerState swState) {
+		this.resetNextCell(swState);
 	}
 
 	@Override
-	public void afterInitCells() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterHalfIteration(ISimWorkerState swState) {
+		this.resetNextCell(swState);
 	}
 
 	@Override
-	public void afterPopulateSim() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterEndIteration(ISimWorkerState swState) {
+		this.resetNextCell(swState);
 	}
 
 	@Override
-	public void afterFirstGetStats() {
-		/* No need to sync here, same thread always processes the same cells. */
-	}
+	protected void doSyncAfterSimFinish(ISimWorkerState swState) {}
 
-	@Override
-	public void afterHalfIteration() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
-
-	@Override
-	public void afterEndIteration() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
 	
 }
+
+

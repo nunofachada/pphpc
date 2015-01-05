@@ -59,6 +59,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 
 	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart,
 			CellGrassInitStrategy grassInitStrategy, int numThreads) {
+		
 		super(space, grassRestart, grassInitStrategy, numThreads);
 		
 		this.block = block;
@@ -100,8 +101,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		return cell;
 	}
 
-	@Override
-	public void resetNextCell(ISimWorkerState tState) {
+	private void resetNextCell(ISimWorkerState tState) {
 		
 		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
 		if (odtState.getSimWorkerId() == 0) {
@@ -146,68 +146,41 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		return odtState;
 	}
 
+
 	@Override
-	protected void setCellNeighbors(ISimWorkerState istState) {
+	public void initCells(ISimWorkerState tState) {
+		// TODO Auto-generated method stub
 		
-		int currCellIdx;
-		while ((currCellIdx = this.neighCellCounter.getAndIncrement()) < this.space.getSize()) {
-			this.space.setNeighbors(currCellIdx);
-		}
 	}
 
 	@Override
-	public void afterInitCells() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected ISimWorkerState doRegisterWorker(int swId) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	@Override
-	public void afterPopulateSim() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterInit(ISimWorkerState swState) {
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
-	public void afterFirstGetStats() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterHalfIteration(ISimWorkerState swState) {
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
-	public void afterHalfIteration() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterEndIteration(ISimWorkerState swState) {
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
-	public void afterEndIteration() {
-		if (this.numThreads > 1) {
-			try {
-				this.barrier.await();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+	protected void doSyncAfterSimFinish(ISimWorkerState swState) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

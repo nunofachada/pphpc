@@ -27,115 +27,94 @@
 
 package org.laseeb.pphpc;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
-
-	private static enum Threading {
-		
-		SINGLE(new CellPutAgentAsync()), 
-		MULTI(new CellPutAgentSync()), 
-		MULTI_REPEAT(new CellPutAgentSyncSort());
-		
-		private CellPutAgentStrategy putAgentBehavior;
-		
-		private Threading(CellPutAgentStrategy putAgentBehavior) {
-			this.putAgentBehavior = putAgentBehavior;
-		}
-		
-		public CellPutAgentStrategy getPutAgentBehavior() {
-			return this.putAgentBehavior;
-		}
-	}
 	
 	protected ISimSpace space;
 	protected CellGrassInitStrategy grassInitStrategy;
-	protected int numThreads;
 	protected int grassRestart;
+
+	private AtomicInteger swIdGenerator;
 	
-	protected CountDownLatch latch;
+	protected ISimSynchronizer afterInitSync;
+	protected ISimSynchronizer afterHalfIterSync;
+	protected ISimSynchronizer afterEndIterSync;
+	protected ISimSynchronizer afterEndSimSync;
 	
-	/* Observers. */
-	private Map<SimEvent, List<Observer>> observers;
-	
-	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, int numThreads) {
+	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
+			ISimSynchronizer afterInitSync, ISimSynchronizer afterHalfIterSync, 
+			ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
 		
 		this.space = space;
-		this.grassInitStrategy = grassInitStrategy;
-		this.numThreads = numThreads;
 		this.grassRestart = grassRestart;
-		this.latch = new CountDownLatch(this.numThreads);
+		this.grassInitStrategy = grassInitStrategy;
+	
+		this.swIdGenerator = new AtomicInteger(0);
+		
+		this.afterInitSync = afterInitSync;
+		this.afterHalfIterSync = afterHalfIterSync;
+		this.afterEndIterSync = afterEndIterSync;
+		this.afterEndSimSync = afterEndSimSync;
+		
 	}
-	
-	protected abstract ISimWorkerState createCells(int stId, Random rng);
-	
-	protected abstract void setCellNeighbors(ISimWorkerState istState);
 
-	@Override
-	public ISimWorkerState initCells(int stId) {
-		
-		/* Create random number generator for current thread. */
-		Random rng;
-		try {
-			rng = PredPrey.getInstance().createRNG(stId);
-		} catch (Exception e) {
-			throw new RuntimeException(e.getMessage());
-		}
-		
-		/* Initialize simulation grid cells. */
-		ISimWorkerState istState = this.createCells(stId, rng);
-		
-		/* Signal that this thread is finished. */
-		this.latch.countDown();
-		
-		/* Wait for remaining threads... */
-		try {
-			this.latch.await();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e.getMessage());
-		}
-		
-		/* Set cell neighbors. */
-		this.setCellNeighbors(istState);
+	protected abstract ISimWorkerState doRegisterWorker(int swId);
 	
-		/* Return this thread's state. */
-		return istState;
-		
+	protected abstract void doSyncAfterInit(ISimWorkerState swState);
+
+	protected abstract void doSyncAfterHalfIteration(ISimWorkerState swState);
+
+	protected abstract void doSyncAfterEndIteration(ISimWorkerState swState);
+
+	protected abstract void doSyncAfterSimFinish(ISimWorkerState swState);
+	
+	@Override
+	public ISimWorkerState registerWorker() {
+		return doRegisterWorker(this.swIdGenerator.getAndIncrement());
 	}
 	
 	@Override
-	public void simFinish(ISimWorkerState wState) {
-		if (wState.getSimWorkerId() == 0) {
-			this.notifyObservers(SimEvent.AFTER_END_SIMULATION);
-		}		
+	public void syncAfterInit(ISimWorkerState swState) {
+		this.doSyncAfterInit(swState);
+		this.afterInitSync.syncNotify();
 	}
-
+	
+	@Override
+	public void syncAfterHalfIteration(ISimWorkerState swState) {
+		this.doSyncAfterHalfIteration(swState);
+		this.afterHalfIterSync.syncNotify();
+	}
+	
+	@Override
+	public void syncAfterEndIteration(ISimWorkerState swState) {
+		this.doSyncAfterEndIteration(swState);
+		this.afterEndIterSync.syncNotify();
+	}
+	
+	@Override
+	public void syncAfterSimFinish(ISimWorkerState swState) {
+		this.doSyncAfterSimFinish(swState);
+		this.afterEndSimSync.syncNotify();
+	}
+	
 	@Override
 	public void registerObserver(SimEvent event, Observer observer) {
-		if (this.observers == null) {
-			this.observers = new HashMap<SimEvent, List<Observer>>();
-		}
-		if (this.observers.get(event) == null) {
-			this.observers.put(event, new ArrayList<Observer>());
-		}
-		this.observers.get(event).add(observer);
-	}
-
-	@Override
-	public void notifyObservers(SimEvent event) {
-		if (this.observers != null) {
-			if (this.observers.get(event) != null) {
-				for (Observer o : this.observers.get(event)) {
-					o.update(event, this);
-				}
-			}
+		switch (event) {
+		
+			case AFTER_INIT:
+				this.afterInitSync.registerObserver(observer);
+				break;
+			case AFTER_HALF_ITERATION:
+				this.afterHalfIterSync.registerObserver(observer);
+				break;
+			case AFTER_END_ITERATION:
+				this.afterEndIterSync.registerObserver(observer);
+				break;
+			case AFTER_END_SIMULATION:
+				this.afterEndSimSync.registerObserver(observer);
+				break;
 		}
 	}
-	
 
 }

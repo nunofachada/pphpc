@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import org.uncommons.maths.random.SeedException;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.validators.PositiveInteger;
 
 /**
  * Multi-threaded PPHPC model.
@@ -49,7 +50,7 @@ import com.beust.jcommander.Parameter;
 public class PredPreyMulti extends PredPrey {
 	
 	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors")
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
 	private int numThreads = Runtime.getRuntime().availableProcessors();
 	
 	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
@@ -86,26 +87,31 @@ public class PredPreyMulti extends PredPrey {
 		/* Initialize statistics arrays. */
 		this.initStats();
 		
-		/* Grass initialization strategy. */
-		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
-		
-		ISimSpace space = new Square2DTorusSimSpace(this.params.getGridX(), this.params.getGridY());
-		
-		workProvider = new EqualSimWorkProvider(space, this.params.getGrassRestart(), grassInitStrategy, this.numThreads, this.repeatable); 
-//		workProvider = new OnDemandSimWorkProvider(100, space, params.getGrassRestart(), grassInitStrategy, threading, numThreads); 
+		workProvider = SimWorkProviders.createWorkProvider(
+				this.repeatable ? SimWorkProviders.SimWorkType.EQUAL_REPEAT : SimWorkProviders.SimWorkType.EQUAL, 
+				params, this.numThreads);
 
 		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new Observer() {
 
 			@Override
-			public void update(SimEvent event, ISimWorkProvider workProvider) {
+			public void update(SimEvent event) {
 				latch.countDown();
 			}
 			
 		});
+//		
+//		if (this.stepPrint > 0) {
+//			workProvider.registerObserver(SimEvent.AFTER_END_ITERATION, new Observer() {
+//				@Override
+//				public void update(SimEvent event) {
+//					latch.countDown();
+//				}
+//			});
+//		}
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < this.numThreads; i++)
-			(new Thread(new SimWorker(i, workProvider, params, this))).start();
+			(new Thread(new SimWorker(workProvider, params, this))).start();
 
 		/* Wait for simulation threads to finish. */
 		latch.await();

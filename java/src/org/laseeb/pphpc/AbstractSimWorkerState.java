@@ -27,18 +27,16 @@
 
 package org.laseeb.pphpc;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 public class AbstractSimWorkerState implements ISimWorkerState {
 
-	private Random rng;
 	private int swId;
+	private Random rng;
 	
-	public AbstractSimWorkerState(Random rng, int swId) {
-		this.rng = rng;
+	public AbstractSimWorkerState(int swId, Random rng) {
 		this.swId = swId;
+		this.rng = rng;
 	}
 
 	@Override

@@ -62,19 +62,13 @@ public class PredPreySingle extends PredPrey {
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 
-		/* Grass initialization strategy. */
-		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
-		
-		/* Create simulation grid. */
-		ISimSpace space = new Square2DTorusSimSpace(params.getGridX(), params.getGridY());
-		workProvider = new EqualSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, 1, false /* irrelevant*/ ); 
-//		workProvider = new OnDemandSimWorkProvider(space, params.getGrassRestart(), grassInitStrategy, AbstractSimWorkProvider.Threading.SINGLE, 1); 
+		workProvider = SimWorkProviders.createWorkProvider(SimWorkProviders.SimWorkType.EQUAL, params, 1);
 		
 		/* Initialize statistics. */
 		this.initStats();
 
 		/* Run simulation in main thread. */
-		SimWorker st = new SimWorker(0, workProvider, params, this);
+		SimWorker st = new SimWorker(workProvider, params, this);
 		st.run();
 		
 		/* Stop timing and show simulation time. */

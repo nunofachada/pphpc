@@ -13,8 +13,7 @@ public class SimWorker implements Runnable {
 	private PredPrey pp;
 	
 	/* Constructor only sets the grid offset each thread. */
-	public SimWorker(int swId, ISimWorkProvider workProvider, SimParams params, PredPrey pp) {
-		this.swId = swId;
+	public SimWorker(ISimWorkProvider workProvider, SimParams params, PredPrey pp) {
 		this.workProvider = workProvider;
 		this.params = params;
 		this.pp = pp;
@@ -29,21 +28,19 @@ public class SimWorker implements Runnable {
 		/* Partial statistics */
 		PPStats stats = new PPStats();
 		
+		/* Register worker with work provider. */
+		ISimWorkerState tState = workProvider.registerWorker();
+
 		/* Initialize simulation grid cells. */
-		ISimWorkerState tState = workProvider.initCells(swId);
-		
-		/* Sync. with barrier. */
-		workProvider.afterInitCells();
+		workProvider.initCells(tState);
 		
 		/* Populate simulation grid with agents. */
 		workProvider.initAgents(tState, params);
 		
-		/* Sync. with barrier. */
-		workProvider.afterPopulateSim();
+//		System.out.println("Thread " + Thread.currentThread().getName() + " is going to get the stats");
 		
 		/* Get initial statistics. */
 		stats.reset();
-		workProvider.resetNextCell(tState);
 		while ((cell = workProvider.getNextCell(tState)) != null) {
 			cell.getStats(stats);
 		}
@@ -52,12 +49,11 @@ public class SimWorker implements Runnable {
 		pp.updateStats(0, stats);
 
 		/* Sync. with barrier. */
-		workProvider.afterFirstGetStats();
+		workProvider.syncAfterInit(tState);
 
 		/* Perform simulation steps. */
 		for (int iter = 1; iter <= params.getIters(); iter++) {
-			
-			workProvider.resetNextCell(tState);
+
 			while ((cell = workProvider.getNextCell(tState)) != null) {
 				
 				/* ************************* */
@@ -77,13 +73,12 @@ public class SimWorker implements Runnable {
 			
 			
 			/* Sync. with barrier. */
-			workProvider.afterHalfIteration();
+			workProvider.syncAfterHalfIteration(tState);
 			
 			/* Reset statistics for current iteration. */
 			stats.reset();
 			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-			workProvider.resetNextCell(tState);
 			while ((cell = workProvider.getNextCell(tState)) != null) {
 				
 				/* ************************** */
@@ -104,11 +99,11 @@ public class SimWorker implements Runnable {
 			pp.updateStats(iter, stats);
 			
 			/* Sync. with barrier. */
-			workProvider.afterEndIteration();
+			workProvider.syncAfterEndIteration(tState);
 			
 		}
 		
-		workProvider.simFinish(tState);
+		workProvider.syncAfterSimFinish(tState);
 		
 	}
 }
