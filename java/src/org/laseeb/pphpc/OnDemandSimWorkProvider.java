@@ -28,8 +28,6 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
@@ -75,9 +73,21 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		this.neighCellCounter = new AtomicInteger(0);
 		
 		if (numWorkers > 1) {
+
 			this.afterCreateCellsSync = new BlockingSimSynchronizer(null, numWorkers);
 			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
 			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
+
+			Observer resetCellCounter = new Observer() {
+				@Override
+				public void update(SimEvent event) { cellCounter.set(0); }
+			};
+			
+			this.afterInitSync.registerObserver(resetCellCounter);
+			this.afterEndIterSync.registerObserver(resetCellCounter);
+			this.afterHalfIterSync.registerObserver(resetCellCounter);
+
+		
 		} else {
 			this.afterCreateCellsSync = new NonBlockingSimSynchronizer(null);
 			this.afterAddCellNeighborsSync = new NonBlockingSimSynchronizer(null);
@@ -129,12 +139,14 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 
 			odtState.current = counter.getAndAdd(this.block);
 			odtState.last = Math.min(odtState.current + this.block, size);
-
+			
 		}
 		
 		if (odtState.current < size) {
+
 			nextIndex = odtState.current;
 			odtState.current++;
+			
 		}
 
 		return nextIndex;
@@ -142,14 +154,15 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	
 	@Override
 	public ICell getNextCell(ISimWorkerState swState) {
-		return space.getCell(this.getNextIndex(swState, this.cellCounter, this.space.getSize()));
+		int cellIdx = this.getNextIndex(swState, this.cellCounter, this.space.getSize());
+		return cellIdx >= 0 ? space.getCell(cellIdx) : null;
 	}
 
-	private void resetNextCell(ISimWorkerState swState) {
+	private void resetWorkerNextItem(ISimWorkerState swState) {
 		
-		if (swState.getSimWorkerId() == 0) {
-			this.cellCounter.set(0);
-		}
+		OnDemandWorkerState odtState = (OnDemandWorkerState) swState;
+		odtState.current = 0;
+		odtState.last = 0;
 		
 	}
 
@@ -177,24 +190,24 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 			
 		}
 		
-		this.resetNextCell(swState);
+		this.resetWorkerNextItem(swState);
 		this.afterInitAgentsSync.syncNotify();
 	}
 
 
 	@Override
 	protected void doSyncAfterInit(ISimWorkerState swState) {
-		this.resetNextCell(swState);
+		this.resetWorkerNextItem(swState);
 	}
 
 	@Override
 	protected void doSyncAfterHalfIteration(ISimWorkerState swState) {
-		this.resetNextCell(swState);
+		this.resetWorkerNextItem(swState);
 	}
 
 	@Override
 	protected void doSyncAfterEndIteration(ISimWorkerState swState) {
-		this.resetNextCell(swState);
+		this.resetWorkerNextItem(swState);
 	}
 
 	@Override

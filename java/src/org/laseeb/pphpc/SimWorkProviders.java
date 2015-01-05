@@ -70,7 +70,7 @@ public class SimWorkProviders {
 						afterEndSimSync);
 				break;
 			case ON_DEMAND:
-				workProvider = new OnDemandSimWorkProvider(250, space, params.getGrassRestart(), grassInitStrategy, 
+				workProvider = new OnDemandSimWorkProvider(500, space, params.getGrassRestart(), grassInitStrategy, 
 						putAgentStrategy, numWorkers, afterInitSync, afterHalfIterSync, afterEndIterSync, 
 						afterEndSimSync);
 				break;
