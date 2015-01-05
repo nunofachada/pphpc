@@ -27,32 +27,24 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
- * Sort agent list after {@link ICell#futureIsNow()} is invoked.
+ * This class defines how an agent is added to an cell's internal agent list.
+ * Strategy design pattern.
+ *  
+ * @see Cell#putAgentFuture(IAgent)
+ * @see Cell#putNewAgent(IAgent)
  * 
  * @author Nuno Fachada
  */
-public class CellFutureIsNowPostSort implements CellFutureIsNowPostBehavior {
-
+public interface CellPutAgentStrategy {
+	
 	/**
-	 * Create a new instance of this class.
-	 */
-	public CellFutureIsNowPostSort() {}
-
-	/**
-	 * Sort agent list after {@link ICell#futureIsNow()} is invoked.
+	 * Put an agent in a cell's internal agent list using some specific behavior.
 	 * 
-	 * @param agents List of agents to be sorted.
-	 * @see CellFutureIsNowPostBehavior#futureIsNowPost(List)
+	 * @param agents Agent list, internal to the cell.
+	 * @param agent Agent to put in list.
 	 */
-	@Override
-	public void futureIsNowPost(List<IAgent> agents) {
-		
-		Collections.sort(agents);
-
-	}
-
+	public void putAgent(List<IAgent> agents, IAgent agent);
 }

@@ -27,22 +27,26 @@
 
 package org.laseeb.pphpc;
 
-import java.util.List;
+import java.util.Random;
 
-/**
- * Cell behavior after {@link ICell#futureIsNow()} is invoked.
- * Strategy design pattern.
- * 
- * @author Nuno Fachada
- */
-public interface CellFutureIsNowPostBehavior {
+public class AbstractSimWorkerState implements ISimWorkerState {
+
+	private int swId;
+	private Random rng;
 	
-	/**
-	 * Perform some action on a list of agents after {@link ICell#futureIsNow()} 
-	 * is invoked.
-	 * 
-	 * @param agents List of agents on which some action will be perform.
-	 */
-	public void futureIsNowPost(List<IAgent> agents);
+	public AbstractSimWorkerState(int swId, Random rng) {
+		this.swId = swId;
+		this.rng = rng;
+	}
+
+	@Override
+	public Random getRng() {
+		return this.rng;
+	}
 	
+	@Override
+	public int getSimWorkerId() {
+		return this.swId;
+	}
+
 }

@@ -32,7 +32,12 @@ package org.laseeb.pphpc;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import org.uncommons.maths.random.AESCounterRNG;
@@ -53,6 +58,9 @@ import com.beust.jcommander.ParameterException;
  * @author Nuno Fachada
  */
 public abstract class PredPrey {
+	
+	/* There can be only one. */
+	private volatile static PredPrey instance = null;	
 	
 	/**
 	 *  Enumeration for collected simulation quantities. 
@@ -106,8 +114,10 @@ public abstract class PredPrey {
 	/* Simulation parameters. */
 	protected SimParams params;
 	
-	/* Simulation grid. */
-	protected ICell[][] grid;
+	/* Simulation work provider. */
+	protected ISimWorkProvider workProvider;
+	
+	
 
 	/**
 	 * Perform simulation.
@@ -125,6 +135,34 @@ public abstract class PredPrey {
 	 * @return The requested statistic.
 	 */
 	protected abstract int getStats(StatType st, int iter);
+	
+	protected abstract void updateStats(int iter, PPStats stats);
+	
+	protected abstract void initStats();
+	
+	public static PredPrey getInstance() {
+		if (instance == null)
+			throw new IllegalStateException(PredPrey.class.getSimpleName() + " instance not properly initialized.");
+		return instance;
+	}
+	
+	public static PredPrey getInstance(Class<? extends PredPrey> ppclass) {
+		if (instance == null) {
+			synchronized (PredPrey.class) {
+				if (instance == null) {
+					try {
+						Constructor<? extends PredPrey> constructor = ppclass.getDeclaredConstructor();
+						constructor.setAccessible(true);
+						instance = constructor.newInstance();
+					} catch (Exception e) {
+						throw new RuntimeException("Unable to get an instance of " + ppclass.getSimpleName()
+								+ " due to the following error: " + e.getMessage());
+					}
+				}
+			}
+		}
+		return instance;
+	}
 	
 	/**
 	 * Export statistics to file.
@@ -204,6 +242,17 @@ public abstract class PredPrey {
 		if (this.seed == null)
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
+		/* If in debug mode, ask the user to press ENTER to start. */
+		if (this.debug) {
+			System.out.println("Press ENTER to start...");
+			try {
+				System.in.read();
+			} catch (IOException e) {
+				errMessage(e);
+				return Errors.SIM.getValue();
+			}
+		}
+		
 		/* Perform simulation. */
 		try {
 			this.start();
@@ -258,5 +307,5 @@ public abstract class PredPrey {
 		}
 		
 	}
-	
+
 }

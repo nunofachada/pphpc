@@ -29,6 +29,7 @@ package org.laseeb.pphpc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * Concrete implementation of a PPHPC model cell, part of a larger simulation grid.
@@ -39,139 +40,205 @@ import java.util.List;
 public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
-	private CellPutAgentBehavior putAgentNowBehavior;
+	private CellPutAgentStrategy putAgentBehavior;
 	
-	private CellPutAgentBehavior putAgentFutureBehavior;
-	
-	private CellFutureIsNowPostBehavior futureIsNowBehavior;
+	private CellGrassInitStrategy grassInitStrategy;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
 		
-	/* Structure where to keep current agents. */
+	/* List where to keep agents currently being simulated. */
 	private List<IAgent> agents;
-	/* Structure where to put agents to be removed. */
-	private List<IAgent> agentsToRemove;	
-	/* Structure where to put future agents. */
-	private List<IAgent> futureAgents;
+	
+	/* List where to put agents which already exist in simulation
+	 * (e.g. moving from another cell). */
+	private List<IAgent> existingAgents;	
+	
+	/* List where to put new agents. */
+	private List<IAgent> newAgents;
+	
+	/* Auxiliary list for gathering agent statistics and incorporating new 
+	 * agents in simulation. */
+	private List<IAgent> auxAgents;
+	
+	/* This cell's neighborhood. */
+	private List<ICell> neighborhood = null;
 	
 	/* Grass counter. */
 	private int grass;
 	
+	private Random rng;
+
+	
 	/**
 	 * Constructor.
+	 * 
+	 * @param grassRestart
+	 * @param grassInitStrategy
+	 * @param putAgentsBehavior
 	 */
-	public Cell(int grassRestart, CellPutAgentBehavior putAgentsNowBehavior, 
-			CellPutAgentBehavior putAgentsFutureBehavior,
-			CellFutureIsNowPostBehavior futureIsNowBehavior) {
+	public Cell(int grassRestart, Random rng,
+			CellGrassInitStrategy grassInitStrategy,
+			CellPutAgentStrategy putAgentsBehavior) {
 		
+		this.rng = rng;
+		this.grassInitStrategy = grassInitStrategy;
 		this.grassRestart = grassRestart;
-		this.putAgentNowBehavior = putAgentsNowBehavior;
-		this.putAgentFutureBehavior = putAgentsFutureBehavior;
-		this.futureIsNowBehavior = futureIsNowBehavior;
+		this.putAgentBehavior = putAgentsBehavior;
 		
 		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<IAgent>();
-		this.futureAgents = new ArrayList<IAgent>();
-		this.agentsToRemove = new ArrayList<IAgent>();
+		this.newAgents = new ArrayList<IAgent>();
+		this.existingAgents = new ArrayList<IAgent>();
+		this.auxAgents = new ArrayList<IAgent>();
 	}
 
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getGrass()
-	 */
+
 	@Override
-	public int getGrass() {
-		return grass;
+	public boolean isGrassAlive() {
+		return this.grass == 0;
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#eatGrass()
-	 */
 	@Override
 	public void eatGrass() {
-		grass = this.getGrassRestart();
+		this.grass = this.getGrassRestart();
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#decGrass()
-	 */
 	@Override
-	public void decGrass() {
-		grass--;
+	public void regenerateGrass() {
+		if (this.grass > 0) {
+			this.grass--;
+		}
 	}
 	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#setGrass(int)
-	 */
-	@Override
-	public void setGrass(int grass) {
-		this.grass = grass;
-	}
-
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getGrassRestart()
-	 */
 	@Override
 	public int getGrassRestart() {
 		return grassRestart;
 	}
 
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#removeAgent(org.laseeb.pphpc.IAgent)
-	 */
-	@Override
-	public void removeAgent(IAgent agent) {
-		agentsToRemove.add(agent);
-	}
-
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#getAgents()
-	 */
 	@Override
 	public Iterable<IAgent> getAgents() {
-		return agents;
+		
+		return this.agents;
+		
 	}
 
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#removeAgentsToBeRemoved()
-	 */
 	@Override
-	public void removeAgentsToBeRemoved() {
-		agents.removeAll(agentsToRemove);
-		agentsToRemove.clear();
+	public void putNewAgent(IAgent agent) {
+		this.putAgentBehavior.putAgent(this.newAgents, agent);
+	}
+	
+	@Override
+	public void putExistingAgent(IAgent agent) {
+		this.putAgentBehavior.putAgent(this.existingAgents, agent);
+	}
+	
+	@Override
+	public void getStats(PPStats stats) {
+		
+		/* Grass alive or not? */
+		if (this.isGrassAlive())
+			stats.incGrass();
+		
+		this.auxAgents.clear();
+		
+		/* Previously existing agents. */
+		for (int i = 0; i < this.agents.size(); i++) {
+			
+			IAgent agent = this.agents.get(i);
+			
+			if (agent.isAlive()) {
+				if (agent instanceof Sheep)
+					stats.incSheep();
+				else if (agent instanceof Wolf)
+					stats.incWolves();
+				this.auxAgents.add(agent);
+			}
+		}
+		
+		/* Newly born agents. */
+		for (int i = 0; i < this.newAgents.size(); i++) {
+
+			IAgent agent = this.newAgents.get(i);
+
+			if (agent instanceof Sheep)
+				stats.incSheep();
+			else if (agent instanceof Wolf)
+				stats.incWolves();
+			this.auxAgents.add(agent);
+
+		}
+		this.newAgents.clear();
+		
+		/* Swap agents lists. */
+		List<IAgent> aux = this.agents;
+		this.agents = this.auxAgents;
+		this.auxAgents = aux;
+		
+	}
+	
+	@Override
+	public void agentActions() {
+		
+		List<IAgent> aux;
+		aux = this.agents;
+		this.agents = this.existingAgents;
+		this.existingAgents = aux;
+		this.existingAgents.clear();
+		
+		for (int i = 0; i < this.agents.size(); i++) {
+			
+			IAgent agent = this.agents.get(i);
+			if (agent.isAlive())
+				agent.doPlay(this);
+		}
+		
 	}
 
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#futureIsNow()
-	 */
+
 	@Override
-	public void futureIsNow() {
-		List<IAgent> aux = agents;
-		agents = futureAgents;
-		futureAgents = aux;
-		futureAgents.clear();
-		futureIsNowBehavior.futureIsNowPost(agents);
-	}	
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#putAgentNow(org.laseeb.pphpc.IAgent)
-	 */
-	@Override
-	public void putAgentNow(IAgent agent) {
-		if (agent.getEnergy() > 0)
-			this.putAgentNowBehavior.putAgent(this.agents, agent);
+	public void setNeighborhood(List<ICell> neighborhood) {
+		if (this.neighborhood == null)
+			this.neighborhood = neighborhood;
+		else
+			throw new IllegalStateException("Cell neighborhood already set!");
+		
 	}
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.ICell#putAgentFuture(org.laseeb.pphpc.IAgent)
-	 */
+
 	@Override
-	public void putAgentFuture(IAgent agent) {
-		if (agent.getEnergy() > 0)
-			this.putAgentFutureBehavior.putAgent(this.futureAgents, agent);
+	public void agentsMove() {
+			
+
+		for (int i = 0; i < this.agents.size(); i++) {
+			
+			IAgent agent = this.agents.get(i);
+
+			/* Decrement agent energy. */
+			agent.decEnergy();
+
+			if (agent.isAlive()) {
+				/* Choose direction. */
+				int direction = this.rng.nextInt(this.neighborhood.size());
+				
+				/* Move agent. */
+				this.neighborhood.get(direction).putExistingAgent(agent);
+			}
+		}
+		
+		
 	}
-	
+
+
+	@Override
+	public Random getRng() {
+		return this.rng;
+	}
+
+
+	@Override
+	public void initGrass() {
+		this.grass = this.grassInitStrategy.getInitGrass(this);
+		
+	}
+
 }

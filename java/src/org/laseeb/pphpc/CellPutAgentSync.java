@@ -34,7 +34,7 @@ import java.util.List;
  *  
  * @author Nuno Fachada
  */
-public class CellPutAgentSync implements CellPutAgentBehavior {
+public class CellPutAgentSync implements CellPutAgentStrategy {
 
 	/**
 	 * Create a new instance of this class.

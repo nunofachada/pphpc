@@ -31,7 +31,6 @@
 package org.laseeb.pphpc;
 
 import java.security.GeneralSecurityException;
-import java.util.Random;
 
 import org.uncommons.maths.random.SeedException;
 
@@ -46,11 +45,12 @@ public class PredPreySingle extends PredPrey {
 	private int[] sheepStats;
 	private int[] wolfStats;
 	private int[] grassStats;
+
 	
 	/** 
 	 * Constructor, no arguments required.
 	 */
-	public PredPreySingle() {}
+	private PredPreySingle() {}
 	
 	/**
 	 * Perform simulation.
@@ -58,168 +58,18 @@ public class PredPreySingle extends PredPrey {
 	 * @throws SeedException 
 	 */
 	public void start() throws Exception {
-
+		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
 
-		/* Initialize random number generator. */
-		Random rng = this.createRNG(0);
-		
-		/* Cell behaviors are fixed in the single-threaded case. */
-		CellFutureIsNowPostBehavior futureIsNowPost = new CellFutureIsNowPostNop();
-		CellPutAgentBehavior putAgent = new CellPutAgentAsync();
+		workProvider = SimWorkProviders.createWorkProvider(SimWorkProviders.SimWorkType.EQUAL, params, 1);
 		
 		/* Initialize statistics. */
-		this.sheepStats = new int[params.getIters() + 1];
-		this.sheepStats[0] = params.getInitSheep();
-		this.wolfStats = new int[params.getIters() + 1];
-		this.wolfStats[0] = params.getInitWolves();
-		this.grassStats = new int[params.getIters() + 1];
-		
-		/* Initialize simulation grid. */
-		grid = new ICell[params.getGridX()][params.getGridY()];
-		
-		/* Initialize simulation grid cells. */
-		for (int i = 0; i < params.getGridX(); i++) {
-			for (int j = 0; j < params.getGridY(); j++) {
-				/* Add cell to current place in grid. */
-				grid[i][j] = new Cell(params.getGrassRestart(), putAgent, putAgent, futureIsNowPost);
-				/* Grow grass in current cell. */
-				if (rng.nextBoolean()) {
-					/* Grass not alive, initialize grow timer. */
-					grid[i][j].setGrass(1 + rng.nextInt(params.getGrassRestart()));
-				} else {
-					/* Grass alive. */
-					grid[i][j].setGrass(0);
-					/* Update grass statistics. */
-					this.grassStats[0]++;
-				}
-			}
-		}
-		
-		/* Populate simulation grid with agents. */
-		for (int i = 0; i < params.getInitSheep(); i++) {
-			int x = rng.nextInt(params.getGridX());
-			int y = rng.nextInt(params.getGridY());
-			IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
-			grid[x][y].putAgentNow(sheep);
-		}
-		for (int i = 0; i < params.getInitWolves(); i++) {
-			int x = rng.nextInt(params.getGridX());
-			int y = rng.nextInt(params.getGridY());
-			IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
-			grid[x][y].putAgentNow(wolf);
-		}
-		
-		/* Run simulation. */
-		for (int iter = 1; iter <= params.getIters(); iter++) {
-			
-			if ((stepPrint > 0) && (iter % stepPrint == 0))
-				System.out.println("Iter " + iter);
-			
-			/* Cycle through cells in order to perform step 1 and 2 of simulation. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
-					
-					/* ************************* */
-					/* ** 1 - Agent movement. ** */
-					/* ************************* */
+		this.initStats();
 
-					/* Cycle through agents in current cell. */
-					for (IAgent agent : grid[i][j].getAgents()) {
-						
-						/* Decrement agent energy. */
-						agent.decEnergy();
-						
-						/* If agent energy is greater than zero... */
-						if (agent.getEnergy() > 0) {
-							
-							/* ...perform movement. */
-							int x = i; int y = j;
-							/* Choose direction, if any. */
-							int direction = rng.nextInt(5);
-							/* If agent decides to move, move him. */
-							if (direction == 1) {
-								/* Move to the right. */
-								x++;
-								if (x == params.getGridX())
-									x = 0;
-							} else if (direction == 2) {
-								/* Move to the left. */
-								x--;
-								if (x < 0)
-									x = params.getGridX() - 1;
-							} else if (direction == 3) {
-								/* Move down. */
-								y++;
-								if (y == params.getGridY())
-									y = 0;
-							} else if (direction == 4) {
-								/* Move up. */
-								y--;
-								if (y < 0)
-									y = params.getGridY() - 1;
-							}
-							/* Move agent to new cell in the future. */
-							grid[x][y].putAgentFuture(agent);
-
-						}
-					}
-					
-					/* ************************* */
-					/* *** 2 - Grass growth. *** */
-					/* ************************* */
-					
-					/* If grass is not alive... */
-					if (grid[i][j].getGrass() > 0) {
-						/* ...decrement alive counter. */
-						grid[i][j].decGrass();
-					}
-				}
-			}
-			
-			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-			for (int i = 0; i < params.getGridX(); i++) {
-				for (int j = 0; j < params.getGridY(); j++) {
-
-					/* ************************** */
-					/* *** 3 - Agent actions. *** */
-					/* ************************** */
-
-					/* The future is now (future agents are now present agents)... */
-					grid[i][j].futureIsNow();
-					
-					/* Cycle through agents in cell. */
-					for (IAgent agent : grid[i][j].getAgents()) {
-
-						/* Tell agent to act. */
-						agent.doPlay(grid[i][j], rng);
-						
-					}
-					
-					/* Remove dead agents. */
-					grid[i][j].removeAgentsToBeRemoved();
-					
-					/* ****************************** */
-					/* *** 4 - Gather statistics. *** */
-					/* ****************************** */
-
-					for (IAgent agent : grid[i][j].getAgents()) {
-						
-						if (agent instanceof Sheep)
-							sheepStats[iter]++;
-						else if (agent instanceof Wolf)
-							wolfStats[iter]++;
-						
-					}
-					
-					if (grid[i][j].getGrass() == 0)
-						grassStats[iter]++;
-					
-				}
-			}
-			
-		}
+		/* Run simulation in main thread. */
+		SimWorker st = new SimWorker(workProvider, params, this);
+		st.run();
 		
 		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
@@ -235,7 +85,8 @@ public class PredPreySingle extends PredPrey {
 	 */
 	public static void main(String[] args) {
 		
-		int status = (new PredPreySingle()).doMain(args);
+		PredPrey pp = PredPrey.getInstance(PredPreySingle.class);
+		int status = pp.doMain(args);
 		System.exit(status);
 		
 	}
@@ -257,5 +108,20 @@ public class PredPreySingle extends PredPrey {
 
 		return 0;
 	}
+
+	@Override
+	protected void updateStats(int iter, PPStats stats) {
+		sheepStats[iter] = stats.getSheep();
+		wolfStats[iter] = stats.getWolves();
+		grassStats[iter] = stats.getGrass();
+	}
+
+	@Override
+	protected void initStats() {
+		this.sheepStats = new int[params.getIters() + 1];
+		this.wolfStats = new int[params.getIters() + 1];
+		this.grassStats = new int[params.getIters() + 1];		
+	}
+
 
 }

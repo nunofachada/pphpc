@@ -30,8 +30,6 @@
  */
 package org.laseeb.pphpc;
 
-import java.util.Random;
-
 /**
  * Abstract PPHPC agent class.
  * 
@@ -88,11 +86,11 @@ public abstract class Agent implements IAgent {
 	 * @see org.laseeb.pphpc.IAgent#doPlay(org.laseeb.pphpc.Cell, java.util.Random)
 	 */
 	@Override
-	public void doPlay(ICell cell, Random rng) {
+	public void doPlay(ICell cell) {
 		/* Perform specific agent actions. */
 		play(cell);
 		/* Maybe perform reproduction. */
-		reproduce(cell, rng);
+		reproduce(cell);
 	}
 	
 	/**
@@ -101,12 +99,12 @@ public abstract class Agent implements IAgent {
 	 * @param cell Cell where agent is currently in.
 	 * @param rng Random number generator used to try reproduction.
 	 */
-	protected void reproduce(ICell cell, Random rng) {
+	protected void reproduce(ICell cell) {
 
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {
 			/* Throw dice, see if agent reproduces. */
-			if (rng.nextInt(100) < getReproduceProbability()) {
+			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
 				/* Create new agent with half of the energy of the current agent. */
 				Agent agent = null;
 				try {
@@ -118,7 +116,7 @@ public abstract class Agent implements IAgent {
 					e.printStackTrace();
 				}
 				/* Put new agent in current cell. */
-				cell.putAgentFuture(agent);
+				cell.putNewAgent(agent);
 			}
 		}
 	}
@@ -160,6 +158,10 @@ public abstract class Agent implements IAgent {
 		 * order to make ordering as "random" as possible). */
 		return h1 != h2 ? h1 - h2 : p1 - p2;
 
-	}	
+	}
 	
+	public boolean isAlive() {
+		return this.energy > 0;
+	}
+
 }

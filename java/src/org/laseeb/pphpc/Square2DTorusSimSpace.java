@@ -27,68 +27,53 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
-/**
- * An abstract PPHPC model cell, part of a larger simulation grid.
- * 
- * @author Nuno Fachada
- *
- */
-public interface ICell {
+public class Square2DTorusSimSpace implements ISimSpace {
 
-
-	/**
-	 * Is grass alive?
-	 * 
-	 * @return True if grass is alive, false otherwise.
-	 */
-	public boolean isGrassAlive();
-
-	/**
-	 * Eat grass.
-	 */
-	public void eatGrass();
-
-	/**
-	 * Decrement grass counter.
-	 */
-	public void regenerateGrass();
-
-	/**
-	 * @return the grassRestart
-	 */
-	public int getGrassRestart();
-
-	/**
-	 * Returns an iterator over agents in this cell.
-	 * @return Iterator for agents in this cell.
-	 */
-	public Iterable<IAgent> getAgents();
-
-	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
-	 */
-	public void putNewAgent(IAgent agent);
+	private int x;
+//	private int y;
+	private int size;
+	protected ICell cells[];
 	
-	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
-	 */
-	public void putExistingAgent(IAgent agent);	
-	
-	public void getStats(PPStats stats);
+	public Square2DTorusSimSpace(int x, int y) {
+		this.x = x;
+//		this.y = y;
+		this.size = x * y;
+		this.cells = new ICell[size];
+	}
 
-	public void agentActions();
-
-	public void setNeighborhood(List<ICell> neighborhood);
-
-	public void agentsMove();
+	@Override
+	public int getSize() {
+		return this.size;
+	}
 	
-	public Random getRng();
+
+	@Override
+	public ICell getCell(int idx) {
+		return this.cells[idx];
+	}
+
+	@Override
+	public void setCell(int idx, Cell cell) {
+		this.cells[idx] = cell;
+	}
+
+	@Override
+	public void setNeighbors(int idx) {
+		
+		int up = idx - this.x >= 0 ? idx - this.x : this.size - x + idx;
+		int down = idx + this.x < this.size  ? idx + this.x : idx + this.x - this.size;
+		int right = idx + 1 < this.size ? idx + 1 : 0;
+		int left = idx - 1 >= 0 ? idx - 1 : this.size - 1;
+		
+		List<ICell> neighborhood = Arrays.asList(
+				this.cells[idx], this.cells[up], this.cells[right], this.cells[down], this.cells[left]); 
 	
-	public void initGrass();
+		this.cells[idx].setNeighborhood(Collections.unmodifiableList(neighborhood));
+	}
+	
 
 }

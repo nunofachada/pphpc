@@ -59,7 +59,7 @@ public class Wolf extends Agent {
 				if (agent.getEnergy() > 0) {
 					
 					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-					cell.removeAgent(agent);
+//					cell.removeAgent(agent);
 					agent.setEnergy(0);
 					break;
 					
