@@ -31,13 +31,13 @@ import java.util.Random;
 
 public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	
-	private class DivideEqualSimWorkerState extends AbstractSimWorkerState {
+	private class EqualSimWorkerState extends AbstractSimWorkerState {
 
 		private int counter;
 		private int first;
 		private int last;
 		
-		public DivideEqualSimWorkerState(int swId, Random rng, int first, int last) {
+		public EqualSimWorkerState(int swId, Random rng, int first, int last) {
 			super(swId, rng);
 			this.first = first;
 			this.last = last;
@@ -76,15 +76,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 
 	@Override
-	protected ISimWorkerState doRegisterWorker(int swId) {
-		
-		/* Create random number generator for current thread. */
-		Random rng;
-		try {
-			rng = PredPrey.getInstance().createRNG(swId);
-		} catch (Exception e) {
-			throw new RuntimeException(e.getMessage());
-		}
+	protected ISimWorkerState doRegisterWorker(int swId, Random rng) {
 		
 		/* Determine cells per thread. The bellow operation is equivalent to ceil(gridsize/numThreads) */
 		int cellsPerThread = (this.size + this.numWorkers - 1) / this.numWorkers;
@@ -94,7 +86,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		int endCellIdx = Math.min((swId + 1) * cellsPerThread, this.size); /* Exclusive */
 
 		/* Create a worker state adequate for this work provider. */
-		DivideEqualSimWorkerState swState = new DivideEqualSimWorkerState(swId, rng, startCellIdx, endCellIdx);
+		EqualSimWorkerState swState = new EqualSimWorkerState(swId, rng, startCellIdx, endCellIdx);
 		
 		/* Return this thread's state. */
 		return swState;
@@ -105,7 +97,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 		
 		
 		/* Set cell neighbors. */
-		DivideEqualSimWorkerState deswState = (DivideEqualSimWorkerState) swState;
+		EqualSimWorkerState deswState = (EqualSimWorkerState) swState;
 	
 		/* Initialize simulation grid cells. */
 		for (int currCellIdx = deswState.first; currCellIdx < deswState.last; currCellIdx++) {
@@ -132,7 +124,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	@Override
 	public ICell getNextCell(ISimWorkerState swState) {
 		
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
+		EqualSimWorkerState tState = (EqualSimWorkerState) swState;
 		ICell nextCell = null;
 
 		if (tState.counter < tState.last) {
@@ -143,14 +135,14 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 
 	private void resetNextCell(ISimWorkerState swState) {
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
+		EqualSimWorkerState tState = (EqualSimWorkerState) swState;
 		tState.counter = tState.first;
 	}
 	
 	@Override
 	public void initAgents(ISimWorkerState swState, SimParams params) {
 
-		DivideEqualSimWorkerState tState = (DivideEqualSimWorkerState) swState;
+		EqualSimWorkerState tState = (EqualSimWorkerState) swState;
 		
 		/* Determine sheep per thread. The bellow operation is equivalent to ceil(numSheep/numThreads) */
 		int sheepPerThread = (params.getInitSheep() + this.numWorkers - 1) / this.numWorkers;

@@ -134,7 +134,7 @@ public class Cell implements ICell {
 	}
 	
 	@Override
-	public void getStats(PPStats stats) {
+	public void getStats(IterationStats stats) {
 		
 		/* Grass alive or not? */
 		if (this.isGrassAlive())

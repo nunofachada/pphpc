@@ -27,13 +27,13 @@
 
 package org.laseeb.pphpc;
 
-public class PPStats {
+public class IterationStats {
 
 	private int sheep;
 	private int wolves;
 	private int grass;
 
-	public PPStats() {}
+	public IterationStats() {}
 	
 	public void reset() {
 		this.sheep = 0;

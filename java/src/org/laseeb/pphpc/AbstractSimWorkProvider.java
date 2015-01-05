@@ -27,6 +27,7 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
@@ -59,7 +60,7 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 		
 	}
 
-	protected abstract ISimWorkerState doRegisterWorker(int swId);
+	protected abstract ISimWorkerState doRegisterWorker(int swId, Random rng);
 	
 	protected abstract void doSyncAfterInit(ISimWorkerState swState);
 
@@ -71,7 +72,20 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	
 	@Override
 	public ISimWorkerState registerWorker() {
-		return doRegisterWorker(this.swIdGenerator.getAndIncrement());
+
+		/* Determine unique worker ID. */
+		int swId = this.swIdGenerator.getAndIncrement();
+		
+		/* Create random number generator for current thread. */
+		Random rng;
+		try {
+			rng = PredPrey.getInstance().createRNG(swId);
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage());
+		}
+		
+		/* Perform specific work provider registering. */
+		return doRegisterWorker(swId, rng);
 	}
 	
 	@Override

@@ -3,20 +3,17 @@ package org.laseeb.pphpc;
 /* A simulation thread. */
 public class SimWorker implements Runnable {
 	
-	/* Grid offset for each thread. */
-	private int swId; 
-	
 	private ISimWorkProvider workProvider;
 	
 	private SimParams params;
 	
-	private PredPrey pp;
+	private IGlobalStats globalStats;
 	
 	/* Constructor only sets the grid offset each thread. */
-	public SimWorker(ISimWorkProvider workProvider, SimParams params, PredPrey pp) {
+	public SimWorker(ISimWorkProvider workProvider, SimParams params, IGlobalStats globalStats) {
 		this.workProvider = workProvider;
 		this.params = params;
-		this.pp = pp;
+		this.globalStats = globalStats;
 	}
 	
 	/* Simulate! */
@@ -26,7 +23,7 @@ public class SimWorker implements Runnable {
 		ICell cell;
 
 		/* Partial statistics */
-		PPStats stats = new PPStats();
+		IterationStats iterStats = new IterationStats();
 		
 		/* Register worker with work provider. */
 		ISimWorkerState tState = workProvider.registerWorker();
@@ -37,16 +34,14 @@ public class SimWorker implements Runnable {
 		/* Populate simulation grid with agents. */
 		workProvider.initAgents(tState, params);
 		
-//		System.out.println("Thread " + Thread.currentThread().getName() + " is going to get the stats");
-		
 		/* Get initial statistics. */
-		stats.reset();
+		iterStats.reset();
 		while ((cell = workProvider.getNextCell(tState)) != null) {
-			cell.getStats(stats);
+			cell.getStats(iterStats);
 		}
 		
 		/* Update global statistics. */
-		pp.updateStats(0, stats);
+		globalStats.updateStats(0, iterStats);
 
 		/* Sync. with barrier. */
 		workProvider.syncAfterInit(tState);
@@ -76,7 +71,7 @@ public class SimWorker implements Runnable {
 			workProvider.syncAfterHalfIteration(tState);
 			
 			/* Reset statistics for current iteration. */
-			stats.reset();
+			iterStats.reset();
 			
 			/* Cycle through cells in order to perform step 3 and 4 of simulation. */
 			while ((cell = workProvider.getNextCell(tState)) != null) {
@@ -91,12 +86,12 @@ public class SimWorker implements Runnable {
 				/* *** 4 - Gather statistics. *** */
 				/* ****************************** */
 
-				cell.getStats(stats);
+				cell.getStats(iterStats);
 				
 			}
 			
 			/* Update global statistics. */
-			pp.updateStats(iter, stats);
+			globalStats.updateStats(iter, iterStats);
 			
 			/* Sync. with barrier. */
 			workProvider.syncAfterEndIteration(tState);

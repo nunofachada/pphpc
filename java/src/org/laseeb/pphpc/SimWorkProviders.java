@@ -2,8 +2,6 @@ package org.laseeb.pphpc;
 
 public class SimWorkProviders {
 
-	public enum SimWorkType { EQUAL, EQUAL_REPEAT, ON_DEMAND }
-
 	public static ISimWorkProvider createWorkProvider(SimWorkType workType, SimParams params, int numWorkers) {
 		
 		/* Grass initialization strategy. */
@@ -72,7 +70,10 @@ public class SimWorkProviders {
 						afterEndSimSync);
 				break;
 			case ON_DEMAND:
-				throw new RuntimeException("Not implemented");
+				workProvider = new OnDemandSimWorkProvider(250, space, params.getGrassRestart(), grassInitStrategy, 
+						putAgentStrategy, numWorkers, afterInitSync, afterHalfIterSync, afterEndIterSync, 
+						afterEndSimSync);
+				break;
 					
 			default:
 				throw new RuntimeException("Unknown error.");

@@ -39,8 +39,8 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		private int current;
 		private int last;
 		
-		public OnDemandWorkerState(Random rng, int swId) {
-			super(rng, swId);
+		public OnDemandWorkerState(int swId, Random rng) {
+			super(swId, rng);
 			this.current = 0;
 			this.last = 0;
 		}
@@ -55,14 +55,18 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	private int block;
 	private CellPutAgentStrategy putAgentStrategy;
 	
-	private CyclicBarrier barrier;
+	private ISimSynchronizer afterCreateCellsSync;
+	private ISimSynchronizer afterAddCellNeighborsSync;
+	private ISimSynchronizer afterInitAgentsSync;
 
-	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart,
-			CellGrassInitStrategy grassInitStrategy, int numThreads) {
-		
-		super(space, grassRestart, grassInitStrategy, numThreads);
-		
+	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
+			CellPutAgentStrategy putAgentStrategy, int numWorkers, ISimSynchronizer afterInitSync, 
+			ISimSynchronizer afterHalfIterSync, ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
+
+		super(space, grassRestart, grassInitStrategy, afterInitSync, afterHalfIterSync, afterEndIterSync, afterEndSimSync);
+	
 		this.block = block;
+		this.putAgentStrategy = putAgentStrategy;
 		
 		this.cellCounter = new AtomicInteger(0);
 		this.sheepCounter = new AtomicInteger(0);
@@ -70,117 +74,130 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		this.initCellCounter = new AtomicInteger(0);
 		this.neighCellCounter = new AtomicInteger(0);
 		
-		if (numThreads > 1) {
-			this.putAgentStrategy = new CellPutAgentSync();
-			this.barrier = new CyclicBarrier(numThreads);
+		if (numWorkers > 1) {
+			this.afterCreateCellsSync = new BlockingSimSynchronizer(null, numWorkers);
+			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
+			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
 		} else {
-			this.putAgentStrategy = new CellPutAgentAsync();
-			this.barrier = null;
+			this.afterCreateCellsSync = new NonBlockingSimSynchronizer(null);
+			this.afterAddCellNeighborsSync = new NonBlockingSimSynchronizer(null);
+			this.afterInitAgentsSync = new NonBlockingSimSynchronizer(null);
 		}
+
+	}
+	
+	@Override
+	protected ISimWorkerState doRegisterWorker(int swId, Random rng) {
+		
+		OnDemandWorkerState odwState = new OnDemandWorkerState(swId, rng);
+		return odwState;
 	}
 
 	@Override
-	public ICell getNextCell(ISimWorkerState tState) {
+	public void initCells(ISimWorkerState swState) {
 		
-		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
+		/* Initialize simulation grid cells. */
+		int currCellIdx;
+		while ((currCellIdx = getNextIndex(swState, this.initCellCounter, this.space.getSize())) >= 0) {
 		
-		ICell cell = null;
+			/* Add cell to current place in grid. */
+			this.space.setCell(currCellIdx, 
+					new Cell(grassRestart, swState.getRng(), this.grassInitStrategy, this.putAgentStrategy));
+			this.space.getCell(currCellIdx).initGrass();
+			
+		}
+		
+		this.afterCreateCellsSync.syncNotify();
+	
+		/* Set cell neighbors. */
+		while ((currCellIdx = getNextIndex(swState, this.neighCellCounter, this.space.getSize())) >= 0) {
+			this.space.setNeighbors(currCellIdx);
+		}
+		
+		this.afterAddCellNeighborsSync.syncNotify();
+	
+		
+	}
+
+	private int getNextIndex(ISimWorkerState swState, AtomicInteger counter, int size) {
+		
+		OnDemandWorkerState odtState = (OnDemandWorkerState) swState;
+		
+		int nextIndex = -1;
 		
 		if (odtState.current >= odtState.last) {
 
-			odtState.current = this.cellCounter.getAndAdd(this.block);
-			odtState.last = Math.min(odtState.current + this.block, this.space.getSize());
+			odtState.current = counter.getAndAdd(this.block);
+			odtState.last = Math.min(odtState.current + this.block, size);
 
 		}
 		
-		if (odtState.current < this.space.getSize()) {
-			cell = space.getCell(odtState.current);
+		if (odtState.current < size) {
+			nextIndex = odtState.current;
 			odtState.current++;
 		}
 
-		return cell;
+		return nextIndex;
+	}
+	
+	@Override
+	public ICell getNextCell(ISimWorkerState swState) {
+		return space.getCell(this.getNextIndex(swState, this.cellCounter, this.space.getSize()));
 	}
 
-	private void resetNextCell(ISimWorkerState tState) {
+	private void resetNextCell(ISimWorkerState swState) {
 		
-		OnDemandWorkerState odtState = (OnDemandWorkerState) tState;
-		if (odtState.getSimWorkerId() == 0) {
+		if (swState.getSimWorkerId() == 0) {
 			this.cellCounter.set(0);
 		}
 		
 	}
 
 	@Override
-	public void initAgents(ISimWorkerState tState, SimParams params) {
+	public void initAgents(ISimWorkerState swState, SimParams params) {
 		
 		int numSheep = params.getInitSheep();
 		int numWolves = params.getInitWolves();
 		
 		/* Create sheep. */
-		while (sheepCounter.getAndIncrement() < numSheep) {
-			int idx = tState.getRng().nextInt(this.space.getSize());
-			IAgent sheep = new Sheep(1 + tState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
-			space.getCell(idx).putNewAgent(sheep);			
+		while (getNextIndex(swState, this.sheepCounter, numSheep) >= 0) {
+			
+			int cellIdx = swState.getRng().nextInt(this.space.getSize());
+			IAgent sheep = new Sheep(1 + swState.getRng().nextInt(2 * params.getSheepGainFromFood()), params);
+			space.getCell(cellIdx).putNewAgent(sheep);
+			
 		}
 		
 		/* Create wolves. */
-		while (wolvesCounter.getAndIncrement() < numWolves) {
-			int idx = tState.getRng().nextInt(this.space.getSize());
-			IAgent wolf = new Wolf(1 + tState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);
-			space.getCell(idx).putNewAgent(wolf);
+		while (getNextIndex(swState, this.wolvesCounter, numWolves) >= 0) {
+			
+			int cellIdx = swState.getRng().nextInt(this.space.getSize());
+			IAgent wolf = new Wolf(1 + swState.getRng().nextInt(2 * params.getWolvesGainFromFood()), params);
+			space.getCell(cellIdx).putNewAgent(wolf);
+			
 		}
 		
+		this.resetNextCell(swState);
+		this.afterInitAgentsSync.syncNotify();
 	}
 
-	@Override
-	protected ISimWorkerState createCells(int swId, Random rng) {
-		
-		OnDemandWorkerState odtState = new OnDemandWorkerState(rng, swId);
-		
-		int currCellIdx;
-		while ((currCellIdx = this.initCellCounter.getAndIncrement()) < this.space.getSize()) {
-			this.space.setCell(currCellIdx, new Cell(this.grassRestart, rng, this.grassInitStrategy, this.putAgentStrategy));
-			space.getCell(currCellIdx).initGrass();
-		}
-		
-		return odtState;
-	}
-
-
-	@Override
-	public void initCells(ISimWorkerState tState) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	protected ISimWorkerState doRegisterWorker(int swId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	@Override
 	protected void doSyncAfterInit(ISimWorkerState swState) {
-		// TODO Auto-generated method stub
-		
+		this.resetNextCell(swState);
 	}
 
 	@Override
 	protected void doSyncAfterHalfIteration(ISimWorkerState swState) {
-		// TODO Auto-generated method stub
-		
+		this.resetNextCell(swState);
 	}
 
 	@Override
 	protected void doSyncAfterEndIteration(ISimWorkerState swState) {
-		// TODO Auto-generated method stub
-		
+		this.resetNextCell(swState);
 	}
 
 	@Override
-	protected void doSyncAfterSimFinish(ISimWorkerState swState) {
-		// TODO Auto-generated method stub
-		
-	}
+	protected void doSyncAfterSimFinish(ISimWorkerState swState) {}
 
 }

@@ -34,11 +34,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 
 import org.uncommons.maths.random.AESCounterRNG;
 import org.uncommons.maths.random.CMWC4096RNG;
@@ -51,21 +48,17 @@ import org.uncommons.maths.random.XORShiftRNG;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.validators.PositiveInteger;
 
 /**
  * Abstract PPHPC model.
  * 
  * @author Nuno Fachada
  */
-public abstract class PredPrey {
+public class PredPrey {
 	
 	/* There can be only one. */
 	private volatile static PredPrey instance = null;	
-	
-	/**
-	 *  Enumeration for collected simulation quantities. 
-	 * */
-	protected enum StatType { SHEEP, WOLVES, GRASS }
 	
 	/* Enumeration containing program errors. */
 	private enum Errors {
@@ -103,6 +96,14 @@ public abstract class PredPrey {
 			converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
 	
+	/* Work provider strategy. */
+	@Parameter(names = "-w", description = "Work type (EQUAL, EQUAL_REPEAT or ON_DEMAND)", converter = SimWorkTypeConverter.class)
+	private SimWorkType workType = SimWorkType.EQUAL;
+	
+	/* Number of threads. */
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
+	private int numThreads = Runtime.getRuntime().availableProcessors();
+
 	/* Debug mode. */
 	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)
 	private boolean debug = false;
@@ -117,6 +118,18 @@ public abstract class PredPrey {
 	/* Simulation work provider. */
 	protected ISimWorkProvider workProvider;
 	
+	private PredPrey() {}
+	
+	public static PredPrey getInstance() {
+		if (instance == null) {
+			synchronized (PredPrey.class) {
+				if (instance == null) {
+					instance = new PredPrey();
+				}
+			}
+		}
+		return instance;
+	}
 	
 
 	/**
@@ -125,60 +138,64 @@ public abstract class PredPrey {
 	 * @throws Exception Any exception which may occur during the course of
 	 * a simulation run.
 	 */
-	protected abstract void start() throws Exception;
-	
-	/**
-	 * Get statistics.
-	 * 
-	 * @param st Type of statistic (number of sheep or wolves, or quantity of grass).
-	 * @param iter Iteration.
-	 * @return The requested statistic.
-	 */
-	protected abstract int getStats(StatType st, int iter);
-	
-	protected abstract void updateStats(int iter, PPStats stats);
-	
-	protected abstract void initStats();
-	
-	public static PredPrey getInstance() {
-		if (instance == null)
-			throw new IllegalStateException(PredPrey.class.getSimpleName() + " instance not properly initialized.");
-		return instance;
-	}
-	
-	public static PredPrey getInstance(Class<? extends PredPrey> ppclass) {
-		if (instance == null) {
-			synchronized (PredPrey.class) {
-				if (instance == null) {
-					try {
-						Constructor<? extends PredPrey> constructor = ppclass.getDeclaredConstructor();
-						constructor.setAccessible(true);
-						instance = constructor.newInstance();
-					} catch (Exception e) {
-						throw new RuntimeException("Unable to get an instance of " + ppclass.getSimpleName()
-								+ " due to the following error: " + e.getMessage());
-					}
-				}
+	private IGlobalStats start() throws Exception {
+		
+		/* Start timing. */
+		long startTime = System.currentTimeMillis();
+		
+		/* Initialize latch. */
+		final CountDownLatch latch = new CountDownLatch(1);
+
+		/* Initialize statistics arrays. */
+		IGlobalStats globalStats;
+		if (this.numThreads > 1)
+			globalStats = new ThreadSafeGlobalStats(this.params.getIters());
+		else
+			globalStats = new SimpleGlobalStats(this.params.getIters());
+		
+		
+		workProvider = SimWorkProviders.createWorkProvider(this.workType, params, this.numThreads);
+
+		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new Observer() {
+
+			@Override
+			public void update(SimEvent event) {
+				latch.countDown();
 			}
-		}
-		return instance;
+			
+		});
+		
+		/* Launch simulation threads. */
+		for (int i = 0; i < this.numThreads; i++)
+			(new Thread(new SimWorker(workProvider, params, globalStats))).start();
+
+		/* Wait for simulation threads to finish. */
+		latch.await();
+
+		/* Stop timing and show simulation time. */
+		long endTime = System.currentTimeMillis();
+		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
+		System.out.println("Total simulation time: " + timeInSeconds + "\n");
+		
+		return globalStats;
+		
 	}
-	
+
 	/**
 	 * Export statistics to file.
 	 * @param str Statistics filename.
 	 * @throws IOException 
 	 */
-	private void export() throws IOException {
+	private void export(IGlobalStats stats) throws IOException {
 		
 		FileWriter out = null;
 
 		out = new FileWriter(this.statsFile);
 		
 		for (int i = 0; i <= params.getIters() ; i++) {
-			out.write(this.getStats(StatType.SHEEP, i) + "\t"
-					+ this.getStats(StatType.WOLVES, i) + "\t"
-					+ this.getStats(StatType.GRASS, i) + "\n");
+			out.write(stats.getStats(StatType.SHEEP, i) + "\t"
+					+ stats.getStats(StatType.WOLVES, i) + "\t"
+					+ stats.getStats(StatType.GRASS, i) + "\n");
 		}
 		
 		if (out != null) {
@@ -209,10 +226,12 @@ public abstract class PredPrey {
 	 */
 	public int doMain(String[] args) {
 		
+		IGlobalStats stats;
+		
 		/* Setup command line options parser. */
 		JCommander parser = new JCommander(this);
 		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
-				+ PredPreyMulti.class.getName());
+				+ PredPrey.class.getName());
 		
 		/* Parse command line options. */
 		try {
@@ -255,7 +274,7 @@ public abstract class PredPrey {
 		
 		/* Perform simulation. */
 		try {
-			this.start();
+			stats = this.start();
 		} catch (Exception e) {
 			errMessage(e);
 			return Errors.SIM.getValue();
@@ -263,7 +282,7 @@ public abstract class PredPrey {
 		
 		/* Export simulation results. */
 		try {
-			this.export();
+			this.export(stats);
 		} catch (IOException e) {
 			errMessage(e);
 			return Errors.EXPORT.getValue();
@@ -308,4 +327,16 @@ public abstract class PredPrey {
 		
 	}
 
+	/**
+	 * Main function.
+	 * 
+	 * @param args Command line arguments.
+	 */
+	public static void main(String[] args) {
+		
+		PredPrey pp = PredPrey.getInstance();
+		int status = pp.doMain(args);
+		System.exit(status);
+		
+	}
 }

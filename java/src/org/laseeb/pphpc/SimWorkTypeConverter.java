@@ -27,68 +27,27 @@
 
 package org.laseeb.pphpc;
 
-import java.util.List;
-import java.util.Random;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 
 /**
- * An abstract PPHPC model cell, part of a larger simulation grid.
+ * This class provides a String to SimWorkType converter, which allows the 
+ * work type as a command line option.
  * 
  * @author Nuno Fachada
- *
  */
-public interface ICell {
-
-
-	/**
-	 * Is grass alive?
-	 * 
-	 * @return True if grass is alive, false otherwise.
-	 */
-	public boolean isGrassAlive();
-
-	/**
-	 * Eat grass.
-	 */
-	public void eatGrass();
-
-	/**
-	 * Decrement grass counter.
-	 */
-	public void regenerateGrass();
-
-	/**
-	 * @return the grassRestart
-	 */
-	public int getGrassRestart();
-
-	/**
-	 * Returns an iterator over agents in this cell.
-	 * @return Iterator for agents in this cell.
-	 */
-	public Iterable<IAgent> getAgents();
-
-	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
-	 */
-	public void putNewAgent(IAgent agent);
+public class SimWorkTypeConverter implements IStringConverter<SimWorkType> {
 	
-	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
-	 */
-	public void putExistingAgent(IAgent agent);	
-	
-	public void getStats(IterationStats stats);
-
-	public void agentActions();
-
-	public void setNeighborhood(List<ICell> neighborhood);
-
-	public void agentsMove();
-	
-	public Random getRng();
-	
-	public void initGrass();
+	@Override
+	public SimWorkType convert(String value) {
+		SimWorkType type;
+		try {
+			type = SimWorkType.valueOf(value.toUpperCase());
+		} catch (Exception e) {
+			throw new ParameterException("Unknown work type '" + value + "'");
+		}
+		return type;
+		
+	}
 
 }
