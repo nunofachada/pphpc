@@ -2,7 +2,7 @@ package org.laseeb.pphpc;
 
 public class SimWorkProviders {
 
-	public static ISimWorkProvider createWorkProvider(SimWorkType workType, SimParams params, int numWorkers) {
+	public static ISimWorkProvider createWorkProvider(SimWorkType workType, SimParams params, int numWorkers, int blockSize) {
 		
 		/* Grass initialization strategy. */
 		CellGrassInitStrategy grassInitStrategy = new CellGrassInitCoinRandCounter();
@@ -70,7 +70,7 @@ public class SimWorkProviders {
 						afterEndSimSync);
 				break;
 			case ON_DEMAND:
-				workProvider = new OnDemandSimWorkProvider(500, space, params.getGrassRestart(), grassInitStrategy, 
+				workProvider = new OnDemandSimWorkProvider(blockSize, space, params.getGrassRestart(), grassInitStrategy, 
 						putAgentStrategy, numWorkers, afterInitSync, afterHalfIterSync, afterEndIterSync, 
 						afterEndSimSync);
 				break;

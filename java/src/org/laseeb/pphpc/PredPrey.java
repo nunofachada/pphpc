@@ -98,6 +98,10 @@ public class PredPrey {
 	/* Work provider strategy. */
 	@Parameter(names = "-w", description = "Work type (EQUAL, EQUAL_REPEAT or ON_DEMAND)", converter = SimWorkTypeConverter.class)
 	private SimWorkType workType = SimWorkType.EQUAL;
+
+	/* Block size for ON_DEMAND work type. */
+	@Parameter(names = "-b", description = "Block size for ON_DEMAND work type, ignored otherwise", validateWith = PositiveInteger.class)
+	private Integer blockSize = 100;
 	
 	/* Number of threads. */
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
@@ -153,7 +157,7 @@ public class PredPrey {
 			globalStats = new SimpleGlobalStats(this.params.getIters());
 		
 		
-		workProvider = SimWorkProviders.createWorkProvider(this.workType, params, this.numThreads);
+		workProvider = SimWorkProviders.createWorkProvider(this.workType, this.params, this.numThreads, this.blockSize);
 
 		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new Observer() {
 
