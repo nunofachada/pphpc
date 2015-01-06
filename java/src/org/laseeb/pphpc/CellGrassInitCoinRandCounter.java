@@ -34,10 +34,9 @@ public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
 	public CellGrassInitCoinRandCounter() {}
 
 	@Override
-	public int getInitGrass(ICell cell) {
+	public int getInitGrass(ICell cell, Random rng) {
 
 		int grassState;
-		Random rng = cell.getRng();
 		
 		/* Grow grass in current cell. */
 		if (rng.nextBoolean()) {

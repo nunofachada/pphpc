@@ -178,7 +178,7 @@ public class Cell implements ICell {
 	}
 	
 	@Override
-	public void agentActions() {
+	public void agentActions(Random rng) {
 		
 		List<IAgent> aux;
 		aux = this.agents;
@@ -190,11 +190,10 @@ public class Cell implements ICell {
 			
 			IAgent agent = this.agents.get(i);
 			if (agent.isAlive())
-				agent.act(this);
+				agent.act(this, rng);
 		}
 		
 	}
-
 
 	@Override
 	public void setNeighborhood(List<ICell> neighborhood) {
@@ -228,17 +227,9 @@ public class Cell implements ICell {
 		
 	}
 
-
 	@Override
-	public Random getRng() {
-		return this.rng;
-	}
-
-
-	@Override
-	public void initGrass() {
-		this.grass = this.grassInitStrategy.getInitGrass(this);
-		
+	public void initGrass(Random rng) {
+		this.grass = this.grassInitStrategy.getInitGrass(this, rng);
 	}
 
 }

@@ -27,6 +27,8 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 /**
  * Abstract PPHPC agent class.
  * 
@@ -87,13 +89,13 @@ public abstract class AbstractAgent implements IAgent {
 	 * @see org.laseeb.pphpc.IAgent#act(org.laseeb.pphpc.ICell)
 	 */
 	@Override
-	public void act(ICell cell) {
+	public void act(ICell cell, Random rng) {
 		
 		/* Maybe eat something. */
 		tryEat(cell);
 		
 		/* Maybe perform reproduction. */
-		tryReproduce(cell);
+		tryReproduce(cell, rng);
 	}
 	
 	/**
@@ -148,13 +150,13 @@ public abstract class AbstractAgent implements IAgent {
 	 * @param cell Cell where agent is currently in.
 	 * @param rng Random number generator used to try reproduction.
 	 */
-	private void tryReproduce(ICell cell) {
+	private void tryReproduce(ICell cell, Random rng) {
 
 		/* Energy needs to be above threshold in order for agents to reproduce. */
 		if (energy > getReproduceThreshold()) {
 			
 			/* Throw dice, see if agent reproduces. */
-			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
+			if (rng.nextInt(100) < getReproduceProbability()) {
 				
 				/* Create new agent with half of the energy of the current agent. */
 				AbstractAgent agent = null;

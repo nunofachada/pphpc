@@ -111,7 +111,7 @@ public class SimWorker implements Runnable {
 					/* *** 3 - Agent actions. *** */
 					/* ************************** */
 	
-					cell.agentActions();
+					cell.agentActions(tState.getRng());
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */

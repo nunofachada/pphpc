@@ -28,17 +28,37 @@
 package org.laseeb.pphpc;
 
 /**
- * A simulation work provider provides work for simulation workers to perform. In
- * other words, simulation workers fetch work from a simulation work provider.
+ * A simulation work provider provides work for simulation workers to perform. Simulation 
+ * workers fetch work from a simulation work provider, which in turn implement some specific
+ * strategy for providing work.
  * 
  * @author Nuno Fachada
  */
 public interface ISimWorkProvider {
 	
+	/**
+	 * Register a simulation worker with the work provider and return a work provider-dependent
+	 * simulation worker state object.
+	 * 
+	 * @return A work provider-dependent simulation worker state object.
+	 * */
 	public ISimWorkerState registerWorker();
 	
+	/**
+	 * Perform cell initialization.
+	 * 
+	 * @param tState The simulation worker state.
+	 * @throws SimWorkerException If a problem occurs during cell initialization.
+	 */
 	public void initCells(ISimWorkerState tState) throws SimWorkerException;
 	
+	/**
+	 * Perform agent initialization.
+	 * 
+	 * @param tState
+	 * @param params
+	 * @throws SimWorkerException
+	 */
 	public void initAgents(ISimWorkerState tState, SimParams params) throws SimWorkerException;
 	
 	public ICell getNextCell(ISimWorkerState tState);

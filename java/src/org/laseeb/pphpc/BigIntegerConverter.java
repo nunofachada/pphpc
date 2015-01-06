@@ -40,10 +40,18 @@ import com.beust.jcommander.converters.BaseConverter;
  */
 public class BigIntegerConverter extends BaseConverter<BigInteger> {
 
+	/**
+	 * Create a new BigInteger converter.
+	 * 
+	 * @param optionName Name of command-line option which accepting a BigInteger.
+	 */
 	public BigIntegerConverter(String optionName) {
 		super(optionName);
 	}
 
+	/**
+	 * @see com.beust.jcommander.converters.BaseConverter#convert(String)
+	 */
 	@Override
 	public BigInteger convert(String value) {
 		try {

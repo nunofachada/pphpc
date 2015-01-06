@@ -113,7 +113,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 			/* Add cell to current place in grid. */
 			this.space.setCell(currCellIdx, 
 					new Cell(grassRestart, swState.getRng(), this.grassInitStrategy, this.putAgentStrategy));
-			this.space.getCell(currCellIdx).initGrass();
+			this.space.getCell(currCellIdx).initGrass(swState.getRng());
 			
 		}
 		

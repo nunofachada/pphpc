@@ -95,7 +95,6 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	@Override
 	public void initCells(ISimWorkerState swState) throws SimWorkerException {
 		
-		
 		/* Set cell neighbors. */
 		EqualSimWorkerState deswState = (EqualSimWorkerState) swState;
 	
@@ -105,7 +104,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 			/* Get x and y coordinates for this cell. */
 			/* Add cell to current place in grid. */
 			space.setCell(currCellIdx, new Cell(grassRestart, swState.getRng(), this.grassInitStrategy, this.putAgentStrategy));
-			space.getCell(currCellIdx).initGrass();
+			space.getCell(currCellIdx).initGrass(swState.getRng());
 			
 		}
 		

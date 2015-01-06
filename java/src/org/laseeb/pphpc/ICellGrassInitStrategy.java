@@ -27,8 +27,10 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 public interface ICellGrassInitStrategy {
 	
-	public int getInitGrass(ICell cell);
+	public int getInitGrass(ICell cell, Random rng);
 
 }
