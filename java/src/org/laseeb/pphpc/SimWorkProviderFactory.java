@@ -49,10 +49,10 @@ public class SimWorkProviderFactory {
 		if (numWorkers == 1) {
 			
 			/* Setup strategies and synchronizers for single threaded execution. */
-			afterInitSync =  new NonBlockingSimSynchronizer(SimEvent.AFTER_INIT);
-			afterHalfIterSync = new NonBlockingSimSynchronizer(SimEvent.AFTER_HALF_ITERATION);
-			afterEndIterSync = new NonBlockingSimSynchronizer(SimEvent.AFTER_END_ITERATION);
-			afterEndSimSync = new NonBlockingSimSynchronizer(SimEvent.AFTER_END_SIMULATION);
+			afterInitSync =  new BasicSimSynchronizer(SimEvent.AFTER_INIT);
+			afterHalfIterSync = new BasicSimSynchronizer(SimEvent.AFTER_HALF_ITERATION);
+			afterEndIterSync = new BasicSimSynchronizer(SimEvent.AFTER_END_ITERATION);
+			afterEndSimSync = new BasicSimSynchronizer(SimEvent.AFTER_END_SIMULATION);
 			putAgentStrategy = new CellPutAgentAsync();
 			
 		} else {
@@ -60,14 +60,14 @@ public class SimWorkProviderFactory {
 			/* Setup strategies and synchronizers for multi threaded execution. */
 			switch (workType) {
 				case EQUAL:
-					afterInitSync =  new NonBlockingSimSynchronizer(SimEvent.AFTER_INIT);
+					afterInitSync =  new BasicSimSynchronizer(SimEvent.AFTER_INIT);
 					afterHalfIterSync = new BlockingSimSynchronizer(SimEvent.AFTER_HALF_ITERATION, numWorkers);
 					afterEndIterSync = new BlockingSimSynchronizer(SimEvent.AFTER_END_ITERATION, numWorkers);
 					afterEndSimSync = new BlockingSimSynchronizer(SimEvent.AFTER_END_SIMULATION, numWorkers);
 					putAgentStrategy = new CellPutAgentSync();
 					break;
 				case EQUAL_REPEAT:
-					afterInitSync =  new NonBlockingSimSynchronizer(SimEvent.AFTER_INIT);
+					afterInitSync =  new BasicSimSynchronizer(SimEvent.AFTER_INIT);
 					afterHalfIterSync = new BlockingSimSynchronizer(SimEvent.AFTER_HALF_ITERATION, numWorkers);
 					afterEndIterSync = new BlockingSimSynchronizer(SimEvent.AFTER_END_ITERATION, numWorkers);
 					afterEndSimSync = new BlockingSimSynchronizer(SimEvent.AFTER_END_SIMULATION, numWorkers);

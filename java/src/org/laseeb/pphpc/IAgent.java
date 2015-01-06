@@ -35,41 +35,51 @@ package org.laseeb.pphpc;
 public interface IAgent extends Cloneable, Comparable<IAgent> {
 
 	/**
-	 * Returns the agents' energy.
-	 * @return The agent's energy.
+	 * Returns the agent energy.
+	 * 
+	 * @return The agent energy.
 	 */
 	public int getEnergy();
 
 	/**
 	 * Sets the agent energy.
-	 * @param energy Value to which set the agents' energy-
+	 * 
+	 * @param energy Agent energy to set.
 	 */
 	public void setEnergy(int energy);
+
+	/**
+	 * Decrements the agent energy.
+	 */
+	public void decEnergy();
 	
+	/**
+	 * Is the agent alive?
+	 * 
+	 * @return True if agent is alive, false otherwise.
+	 */
 	public boolean isAlive();
 
 	/**
-	 * Decrements the agent's energy.
-	 */
-	public void decEnergy();
-
-	/**
 	 * Generic agent actions, consisting of:
-	 * - Specific agent actions.
-	 * - Reproduction.
+	 * 
+	 * * Try to eat.
+	 * * Try to reproduce.
+	 * 
 	 * @param cell Cell where agent is currently in.
 	 */
-	public void doPlay(ICell cell);
-
+	public void act(ICell cell);
 
 	/**
 	 * Returns the agent-specific reproduction threshold.
+	 * 
 	 * @return Agent-specific reproduction threshold.
 	 */
 	public int getReproduceThreshold();
 	
 	/**
 	 * Returns the agent-specific reproduction probability.
+	 * 
 	 * @return Agent-specific reproduction probability.
 	 */
 	public int getReproduceProbability();

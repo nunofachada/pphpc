@@ -29,21 +29,44 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Basic implementation of the simulation worker state which handles the unique ID 
+ * and random number generator associated with the simulation worker. Used as a
+ * base for concrete implementations provided by simulation work providers.
+ * 
+ * @author Nuno Fachada
+ *
+ */
 public class AbstractSimWorkerState implements ISimWorkerState {
 
+	/* Unique simulation worker ID. */
 	private int swId;
+	
+	/* Random number generator. */
 	private Random rng;
 	
+	/**
+	 * Super constructor for the basic simulation worker state.
+	 * 
+	 * @param swId Unique simulation worker ID.
+	 * @param rng Random number generator.
+	 */
 	public AbstractSimWorkerState(int swId, Random rng) {
 		this.swId = swId;
 		this.rng = rng;
 	}
 
+	/**
+	 * @see ISimWorkerState#getRng()
+	 */
 	@Override
 	public Random getRng() {
 		return this.rng;
 	}
 	
+	/**
+	 * @see ISimWorkerState#getSimWorkerId()
+	 */
 	@Override
 	public int getSimWorkerId() {
 		return this.swId;

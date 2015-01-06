@@ -27,7 +27,13 @@
 
 package org.laseeb.pphpc;
 
-public interface ISimWorkProvider extends IObservable {
+/**
+ * A simulation work provider provides work for simulation workers to perform. In
+ * other words, simulation workers fetch work from a simulation work provider.
+ * 
+ * @author Nuno Fachada
+ */
+public interface ISimWorkProvider {
 	
 	public ISimWorkerState registerWorker();
 	
@@ -36,6 +42,8 @@ public interface ISimWorkProvider extends IObservable {
 	public void initAgents(ISimWorkerState tState, SimParams params) throws SimWorkerException;
 	
 	public ICell getNextCell(ISimWorkerState tState);
+	
+	public void registerSimEventObserver(SimEvent event, IObserver observer);
 
 	public void syncAfterInit(ISimWorkerState swState) throws SimWorkerException;
 	public void syncAfterHalfIteration(ISimWorkerState swState) throws SimWorkerException;

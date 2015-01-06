@@ -42,14 +42,16 @@ public abstract class AbstractAgent implements IAgent {
 	
 	/**
 	 * Constructor.
-	 * @param energy Initial agents' energy.
+	 * 
+	 * @param energy Initial agent energy.
+	 * @param params Simulation parameters.
 	 */
 	public AbstractAgent(int energy, SimParams params) {
 		this.energy = energy;
 		this.params = params;
 	}
 	
-	/* (non-Javadoc)
+	/** 
 	 * @see org.laseeb.pphpc.IAgent#getEnergy()
 	 */
 	@Override
@@ -57,7 +59,7 @@ public abstract class AbstractAgent implements IAgent {
 		return energy;
 	}
 
-	/* (non-Javadoc)
+	/**
 	 * @see org.laseeb.pphpc.IAgent#setEnergy(int)
 	 */
 	@Override
@@ -65,7 +67,7 @@ public abstract class AbstractAgent implements IAgent {
 		this.energy = energy;
 	}
 
-	/* (non-Javadoc)
+	/**
 	 * @see org.laseeb.pphpc.IAgent#decEnergy()
 	 */
 	@Override
@@ -74,48 +76,24 @@ public abstract class AbstractAgent implements IAgent {
 	}
 	
 	/**
-	 * Agent-specific actions.
-	 * @param cell Cell where agent is currently in.
-	 */
-	protected abstract void play(ICell cell);
-	
-	/* (non-Javadoc)
-	 * @see org.laseeb.pphpc.IAgent#doPlay(org.laseeb.pphpc.Cell, java.util.Random)
+	 * @see org.laseeb.pphpc.IAgent#isAlive()
 	 */
 	@Override
-	public void doPlay(ICell cell) {
-		/* Perform specific agent actions. */
-		play(cell);
-		/* Maybe perform reproduction. */
-		reproduce(cell);
+	public boolean isAlive() {
+		return this.energy > 0;
 	}
-	
-	/**
-	 * Try to reproduce the agent.
-	 * 
-	 * @param cell Cell where agent is currently in.
-	 * @param rng Random number generator used to try reproduction.
-	 */
-	protected void reproduce(ICell cell) {
 
-		/* Energy needs to be above threshold in order for agents to reproduce. */
-		if (energy > getReproduceThreshold()) {
-			/* Throw dice, see if agent reproduces. */
-			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
-				/* Create new agent with half of the energy of the current agent. */
-				AbstractAgent agent = null;
-				try {
-					agent = (AbstractAgent) this.clone();
-					agent.energy = this.energy / 2;
-					this.energy = this.energy - agent.energy;
-				} catch (CloneNotSupportedException e) {
-					/* This should never be reached. */
-					e.printStackTrace();
-				}
-				/* Put new agent in current cell. */
-				cell.putNewAgent(agent);
-			}
-		}
+	/**
+	 * @see org.laseeb.pphpc.IAgent#act(org.laseeb.pphpc.ICell)
+	 */
+	@Override
+	public void act(ICell cell) {
+		
+		/* Maybe eat something. */
+		tryEat(cell);
+		
+		/* Maybe perform reproduction. */
+		tryReproduce(cell);
 	}
 	
 	/**
@@ -156,9 +134,48 @@ public abstract class AbstractAgent implements IAgent {
 		return h1 != h2 ? h1 - h2 : p1 - p2;
 
 	}
+
+	/**
+	 * Try to eat available food in current cell.
+	 * 
+	 * @param cell Cell where agent is currently in.
+	 */
+	protected abstract void tryEat(ICell cell);
 	
-	public boolean isAlive() {
-		return this.energy > 0;
+	/**
+	 * Try to reproduce the agent.
+	 * 
+	 * @param cell Cell where agent is currently in.
+	 * @param rng Random number generator used to try reproduction.
+	 */
+	private void tryReproduce(ICell cell) {
+
+		/* Energy needs to be above threshold in order for agents to reproduce. */
+		if (energy > getReproduceThreshold()) {
+			
+			/* Throw dice, see if agent reproduces. */
+			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
+				
+				/* Create new agent with half of the energy of the current agent. */
+				AbstractAgent agent = null;
+				
+				try {
+				
+					agent = (AbstractAgent) this.clone();
+					agent.energy = this.energy / 2;
+					this.energy = this.energy - agent.energy;
+					
+				} catch (CloneNotSupportedException e) {
+					
+					/* This should never be reached. */
+					e.printStackTrace();
+					
+				}
+				
+				/* Put new agent in current cell. */
+				cell.putNewAgent(agent);
+			}
+		}
 	}
 
 }

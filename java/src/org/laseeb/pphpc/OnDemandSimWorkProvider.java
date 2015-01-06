@@ -89,9 +89,9 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 
 		
 		} else {
-			this.afterCreateCellsSync = new NonBlockingSimSynchronizer(null);
-			this.afterAddCellNeighborsSync = new NonBlockingSimSynchronizer(null);
-			this.afterInitAgentsSync = new NonBlockingSimSynchronizer(null);
+			this.afterCreateCellsSync = new BasicSimSynchronizer(null);
+			this.afterAddCellNeighborsSync = new BasicSimSynchronizer(null);
+			this.afterInitAgentsSync = new BasicSimSynchronizer(null);
 		}
 
 	}

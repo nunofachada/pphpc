@@ -68,9 +68,9 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
 			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
 		} else {
-			this.afterCreateCellsSync = new NonBlockingSimSynchronizer(null);
-			this.afterAddCellNeighborsSync = new NonBlockingSimSynchronizer(null);
-			this.afterInitAgentsSync = new NonBlockingSimSynchronizer(null);
+			this.afterCreateCellsSync = new BasicSimSynchronizer(null);
+			this.afterAddCellNeighborsSync = new BasicSimSynchronizer(null);
+			this.afterInitAgentsSync = new BasicSimSynchronizer(null);
 		}
 		
 	}

@@ -29,9 +29,27 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Simulation worker state, held by the simulation worker but managed by the
+ * work provider.
+ * 
+ * @author Nuno Fachada
+ */
 public interface ISimWorkerState {
 
+	/**
+	 * Return the random number generator associated with the simulation worker
+	 * to which this state belong to.
+	 * 
+	 * @return The random number generator associated with the simulation worker.
+	 * to which this state belong to.
+	 */
 	public Random getRng();
 
+	/**
+	 * Return unique simulation worker ID.
+	 * 
+	 * @return Unique simulation worker ID.
+	 */
 	int getSimWorkerId();
 }

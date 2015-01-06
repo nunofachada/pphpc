@@ -113,7 +113,7 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	}
 	
 	@Override
-	public void registerObserver(SimEvent event, IObserver observer) {
+	public void registerSimEventObserver(SimEvent event, IObserver observer) {
 		switch (event) {
 		
 			case AFTER_INIT:

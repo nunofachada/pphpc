@@ -30,23 +30,43 @@ package org.laseeb.pphpc;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Abstract simulation synchronizer which implements the IObservable
+ * interface.
+ * 
+ * @author Nuno Fachada
+ */
 public abstract class AbstractSimSynchronizer implements ISimSynchronizer {
 
+	/* List of observers. */
 	List<IObserver> observers;
+	
+	/* Simulation event associated with this synchronizer. */
 	SimEvent event;
 	
+	/**
+	 * Constructor called by concrete implementations.
+	 * 
+	 * @param event Simulation event to associate with this simulation
+	 * synchronizer. 
+	 */
 	public AbstractSimSynchronizer(SimEvent event) {
 		this.event = event;
 		this.observers = new ArrayList<IObserver>();
 	}
 	
+	/**
+	 * @see IObservable#registerObserver(IObserver)
+	 */
 	@Override
 	public void registerObserver(IObserver observer) {
 		this.observers.add(observer);
 	}
 
-	@Override
-	public void notifyObservers() {
+	/**
+	 * Helper method which notifies the registered observers.
+	 */
+	protected void notifyObservers() {
 		for (IObserver o : this.observers) {
 			o.update(event);
 		}

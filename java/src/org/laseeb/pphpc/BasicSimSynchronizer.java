@@ -27,12 +27,27 @@
 
 package org.laseeb.pphpc;
 
-public class NonBlockingSimSynchronizer extends AbstractSimSynchronizer {
+/**
+ * A very simple non-blocking simulation synchronizer which only supports 
+ * one thread for observer notification purposes. It works for multiple 
+ * threads if no observers are registered.
+ * 
+ * @author Nuno Fachada
+ */
+public class BasicSimSynchronizer extends AbstractSimSynchronizer {
 
-	public NonBlockingSimSynchronizer(SimEvent event) {
+	/**
+	 * Create a new basic simulation synchronizer.
+	 * 
+	 * @param event Simulation event to associate with this synchronizer.
+	 */
+	public BasicSimSynchronizer(SimEvent event) {
 		super(event);
 	}
 
+	/**
+	 * @see ISimSynchronizer#syncNotify()
+	 */
 	@Override
 	public void syncNotify() {
 		this.notifyObservers();

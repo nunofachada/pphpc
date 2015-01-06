@@ -190,7 +190,7 @@ public class Cell implements ICell {
 			
 			IAgent agent = this.agents.get(i);
 			if (agent.isAlive())
-				agent.doPlay(this);
+				agent.act(this);
 		}
 		
 	}

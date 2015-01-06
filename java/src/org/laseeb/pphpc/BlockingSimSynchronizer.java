@@ -29,22 +29,44 @@ package org.laseeb.pphpc;
 
 import java.util.concurrent.CyclicBarrier;
 
+/**
+ * A blocking simulation synchronizer. Waits for all simulation workers to
+ * reach this synchronization point before it lets them continue. Registered 
+ * observers to be executed serially before simulation workers are released. 
+ * 
+ * @author Nuno Fachada
+ */
 public class BlockingSimSynchronizer extends AbstractSimSynchronizer {
 
+	/* Used as a blocking synchronizer. */
 	private CyclicBarrier barrier;
 	
+	/**
+	 * Create a new blocking simulation synchronizer.
+	 * 
+	 * @param event Simulation event to associate with this synchronizer.
+	 * @param numThreads Number of simulation workers in current simulation.
+	 */
 	public BlockingSimSynchronizer(final SimEvent event, int numThreads) {
 		
+		/* Call the super constructor. */
 		super(event);
 
+		/* Create synchronization barrier, which will notify observers when 
+		 * all simulation workers have reached it. */
 		this.barrier = new CyclicBarrier(numThreads, new Runnable() {
 			@Override public void run() { notifyObservers(); }
 		});
 
 	}
 
+	/**
+	 * @see ISimSynchronizer#syncNotify()
+	 */
 	@Override
 	public void syncNotify() throws SimWorkerException {
+
+		/* Perform synchronization. */
 		try {
 			this.barrier.await();
 		} catch (Exception e) {

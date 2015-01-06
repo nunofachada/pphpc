@@ -27,11 +27,27 @@
 
 package org.laseeb.pphpc;
 
-public interface ISimSynchronizer {
+/**
+ * Simulation synchronizer objects are used by {@link ISimWorkProvider}
+ * implementations to provide synchronization points to the simulation
+ * workers. 
+ * 
+ * They also follow the observer design pattern (as observable
+ * or subject), allowing code to register observers which are
+ * updated (in a serial fashion) when the synchronization point
+ * is reached by all simulation workers.
+ * 
+ * @author Nuno Fachada
+ */
+public interface ISimSynchronizer extends IObservable {
 	
+	/**
+	 * Notify simulation synchronizer that a simulation worker has reached
+	 * this stage.
+	 * 
+	 * @throws SimWorkerException if synchronization was unexpectedly
+	 * interrupted.
+	 */
 	public void syncNotify() throws SimWorkerException;
 	
-	public void registerObserver(IObserver observer);
-
-	public void notifyObservers();
 }

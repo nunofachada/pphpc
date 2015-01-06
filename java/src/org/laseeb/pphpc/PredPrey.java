@@ -163,7 +163,7 @@ public class PredPrey {
 		
 		workProvider = SimWorkProviderFactory.createWorkProvider(this.workType, this.params, this.numThreads, this.blockSize);
 
-		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
+		workProvider.registerSimEventObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
 
 			@Override
 			public void update(SimEvent event) {

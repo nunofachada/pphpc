@@ -29,7 +29,6 @@ package org.laseeb.pphpc;
 
 public interface IObservable {
 
-	public void registerObserver(SimEvent event, IObserver observer);
-	
-	
+	public void registerObserver(IObserver observer);
+
 }
