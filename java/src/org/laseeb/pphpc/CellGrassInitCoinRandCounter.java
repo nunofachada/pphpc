@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
-public class CellGrassInitCoinRandCounter implements CellGrassInitStrategy {
+public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
 
 	public CellGrassInitCoinRandCounter() {}
 

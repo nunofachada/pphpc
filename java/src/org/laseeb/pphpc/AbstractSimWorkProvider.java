@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	
 	protected ISimSpace space;
-	protected CellGrassInitStrategy grassInitStrategy;
+	protected ICellGrassInitStrategy grassInitStrategy;
 	protected int grassRestart;
 
 	private AtomicInteger swIdGenerator;
@@ -43,7 +43,7 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	protected ISimSynchronizer afterEndIterSync;
 	protected ISimSynchronizer afterEndSimSync;
 	
-	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
+	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, ICellGrassInitStrategy grassInitStrategy, 
 			ISimSynchronizer afterInitSync, ISimSynchronizer afterHalfIterSync, 
 			ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
 		
@@ -89,31 +89,31 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 	}
 	
 	@Override
-	public void syncAfterInit(ISimWorkerState swState) {
+	public void syncAfterInit(ISimWorkerState swState) throws SimWorkerException {
 		this.doSyncAfterInit(swState);
 		this.afterInitSync.syncNotify();
 	}
 	
 	@Override
-	public void syncAfterHalfIteration(ISimWorkerState swState) {
+	public void syncAfterHalfIteration(ISimWorkerState swState) throws SimWorkerException {
 		this.doSyncAfterHalfIteration(swState);
 		this.afterHalfIterSync.syncNotify();
 	}
 	
 	@Override
-	public void syncAfterEndIteration(ISimWorkerState swState) {
+	public void syncAfterEndIteration(ISimWorkerState swState) throws SimWorkerException {
 		this.doSyncAfterEndIteration(swState);
 		this.afterEndIterSync.syncNotify();
 	}
 	
 	@Override
-	public void syncAfterSimFinish(ISimWorkerState swState) {
+	public void syncAfterSimFinish(ISimWorkerState swState) throws SimWorkerException {
 		this.doSyncAfterSimFinish(swState);
 		this.afterEndSimSync.syncNotify();
 	}
 	
 	@Override
-	public void registerObserver(SimEvent event, Observer observer) {
+	public void registerObserver(SimEvent event, IObserver observer) {
 		switch (event) {
 		
 			case AFTER_INIT:

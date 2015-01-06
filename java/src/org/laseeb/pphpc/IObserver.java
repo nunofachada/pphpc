@@ -27,16 +27,8 @@
 
 package org.laseeb.pphpc;
 
-public class NonBlockingSimSynchronizer extends AbstractSimSynchronizer {
+public interface IObserver {
 
-	public NonBlockingSimSynchronizer(SimEvent event) {
-		super(event);
-	}
-
-	@Override
-	public void syncNotify() {
-		this.notifyObservers();
-	}
-
-
+	public void update(SimEvent event);
+	
 }

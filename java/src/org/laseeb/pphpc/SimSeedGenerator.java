@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@ import org.uncommons.maths.random.SeedGenerator;
  * 
  * @author Nuno Fachada
  */
-public class PPSeedGenerator implements SeedGenerator {
+public class SimSeedGenerator implements SeedGenerator {
 	
 	/* Different threads should pass different modifiers, so that each
 	 * gets a "different" stream from the RNG. */
@@ -61,7 +61,7 @@ public class PPSeedGenerator implements SeedGenerator {
 	 * one thread is used, pass zero.
 	 * @param seed Base seed for this seed generator.
 	 */
-	public PPSeedGenerator(long modifier, BigInteger seed) {
+	public SimSeedGenerator(long modifier, BigInteger seed) {
 		this.modifier = modifier;
 		this.seed = seed;
 	}

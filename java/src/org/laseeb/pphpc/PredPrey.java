@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@ package org.laseeb.pphpc;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
@@ -61,7 +63,7 @@ public class PredPrey {
 	
 	/* Enumeration containing program errors. */
 	private enum Errors {
-		NONE(0), ARGS(-1), PARAMS(-2), SIM(-3), EXPORT(-4);
+		NONE(0), ARGS(-1), PARAMS(-2), PRESIM(-3), SIM(-4), EXPORT(-5);
 		private int value;
 		private Errors(int value) { this.value = value; }
 		public int getValue() { return this.value; }
@@ -137,11 +139,13 @@ public class PredPrey {
 
 	/**
 	 * Perform simulation.
+	 * @throws SimWorkerException 
+	 * @throws InterruptedException 
 	 * 
 	 * @throws Exception Any exception which may occur during the course of
 	 * a simulation run.
 	 */
-	private IGlobalStats start() throws Exception {
+	private IGlobalStats start() throws CompositeException, InterruptedException {
 		
 		/* Start timing. */
 		long startTime = System.currentTimeMillis();
@@ -157,9 +161,9 @@ public class PredPrey {
 			globalStats = new SimpleGlobalStats(this.params.getIters());
 		
 		
-		workProvider = SimWorkProviders.createWorkProvider(this.workType, this.params, this.numThreads, this.blockSize);
+		workProvider = SimWorkProviderFactory.createWorkProvider(this.workType, this.params, this.numThreads, this.blockSize);
 
-		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new Observer() {
+		workProvider.registerObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
 
 			@Override
 			public void update(SimEvent event) {
@@ -168,10 +172,25 @@ public class PredPrey {
 			
 		});
 		
+		final Map<String, Throwable> threadExceptions = new HashMap<String, Throwable>();
+		
 		/* Launch simulation threads. */
-		for (int i = 0; i < this.numThreads; i++)
-			(new Thread(new SimWorker(workProvider, params, globalStats))).start();
-
+		for (int i = 0; i < this.numThreads; i++) {
+			Thread simThread = new Thread(new SimWorker(workProvider, params, globalStats));
+			simThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+				
+				@Override
+				public void uncaughtException(Thread thread, Throwable throwable) {
+					threadExceptions.put(thread.getName(), throwable);
+				}
+			});
+			simThread.start();
+		}
+		
+		if (threadExceptions.size() > 0) {
+			throw new CompositeException(threadExceptions);
+		}
+		
 		/* Wait for simulation threads to finish. */
 		latch.await();
 
@@ -209,16 +228,17 @@ public class PredPrey {
 	/**
 	 * Show error message or stack trace, depending on debug parameter.
 	 * 
-	 * @param e Exception which caused the error.
+	 * @param throwable Exception which caused the error.
 	 */
-	protected void errMessage(Exception e) {
+	protected void errMessage(String threadName, Throwable throwable) {
 		
-		if (this.debug)
-			e.printStackTrace();
-		else
-			System.err.println("An error ocurred in thread " 
-					+ Thread.currentThread().getName() + ": " + e.getMessage());
-		
+		if (this.debug) {
+			System.err.println("In thread " + threadName);
+			throwable.printStackTrace();
+		} else {
+			System.err.println("An error ocurred in thread " + threadName
+					+ throwable.getMessage());
+		}
 	}
 	
 	/**
@@ -241,7 +261,7 @@ public class PredPrey {
 			parser.parse(args);
 		} catch (ParameterException pe) {
 			/* On parsing error, show usage and return. */
-			errMessage(pe);
+			errMessage(Thread.currentThread().getName(), pe);
 			parser.usage();
 			return Errors.ARGS.getValue();
 		}
@@ -256,7 +276,7 @@ public class PredPrey {
 		try {
 			this.params = new SimParams(this.paramsFile);
 		} catch (IOException ioe) {
-			errMessage(ioe);
+			errMessage(Thread.currentThread().getName(), ioe);
 			return Errors.PARAMS.getValue();
 		}
 		
@@ -270,24 +290,29 @@ public class PredPrey {
 			try {
 				System.in.read();
 			} catch (IOException e) {
-				errMessage(e);
-				return Errors.SIM.getValue();
+				errMessage(Thread.currentThread().getName(), e);
+				return Errors.PRESIM.getValue();
 			}
 		}
 		
 		/* Perform simulation. */
 		try {
 			stats = this.start();
-		} catch (Exception e) {
-			errMessage(e);
+		} catch (InterruptedException ie) {
+			errMessage(Thread.currentThread().getName(), ie);
+			return Errors.SIM.getValue();
+		} catch (CompositeException swe) {
+			for (Map.Entry<String, Throwable> entry : swe) {
+				errMessage(entry.getKey(), entry.getValue());
+			}
 			return Errors.SIM.getValue();
 		}
 		
 		/* Export simulation results. */
 		try {
 			this.export(stats);
-		} catch (IOException e) {
-			errMessage(e);
+		} catch (IOException ioe) {
+			errMessage(Thread.currentThread().getName(), ioe);
 			return Errors.EXPORT.getValue();
 		}
 		
@@ -309,7 +334,7 @@ public class PredPrey {
 	 */
 	protected Random createRNG(long modifier) throws Exception {
 		
-		SeedGenerator seedGen = new PPSeedGenerator(modifier, this.seed);
+		SeedGenerator seedGen = new SimSeedGenerator(modifier, this.seed);
 
 		switch (this.rngType) {
 			case AES:

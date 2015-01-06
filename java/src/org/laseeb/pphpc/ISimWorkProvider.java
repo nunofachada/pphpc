@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -27,19 +27,19 @@
 
 package org.laseeb.pphpc;
 
-public interface ISimWorkProvider extends Observable {
+public interface ISimWorkProvider extends IObservable {
 	
 	public ISimWorkerState registerWorker();
 	
-	public void initCells(ISimWorkerState tState);
+	public void initCells(ISimWorkerState tState) throws SimWorkerException;
 	
-	public void initAgents(ISimWorkerState tState, SimParams params);
+	public void initAgents(ISimWorkerState tState, SimParams params) throws SimWorkerException;
 	
 	public ICell getNextCell(ISimWorkerState tState);
 
-	public void syncAfterInit(ISimWorkerState swState);
-	public void syncAfterHalfIteration(ISimWorkerState swState);
-	public void syncAfterEndIteration(ISimWorkerState swState);
-	public void syncAfterSimFinish(ISimWorkerState wState);
+	public void syncAfterInit(ISimWorkerState swState) throws SimWorkerException;
+	public void syncAfterHalfIteration(ISimWorkerState swState) throws SimWorkerException;
+	public void syncAfterEndIteration(ISimWorkerState swState) throws SimWorkerException;
+	public void syncAfterSimFinish(ISimWorkerState wState) throws SimWorkerException;
 
 }

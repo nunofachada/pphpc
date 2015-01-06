@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -27,8 +27,12 @@
 
 package org.laseeb.pphpc;
 
-public interface CellGrassInitStrategy {
-	
-	public int getInitGrass(ICell cell);
+public class SimWorkerException extends Exception {
+
+	public SimWorkerException(Exception e) {
+		super(e);
+	}
+
+	private static final long serialVersionUID = 8794949523016130569L;
 
 }

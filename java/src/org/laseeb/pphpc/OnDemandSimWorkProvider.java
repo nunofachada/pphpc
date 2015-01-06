@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -51,14 +51,14 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	private AtomicInteger wolvesCounter;
 	
 	private int block;
-	private CellPutAgentStrategy putAgentStrategy;
+	private ICellPutAgentStrategy putAgentStrategy;
 	
 	private ISimSynchronizer afterCreateCellsSync;
 	private ISimSynchronizer afterAddCellNeighborsSync;
 	private ISimSynchronizer afterInitAgentsSync;
 
-	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
-			CellPutAgentStrategy putAgentStrategy, int numWorkers, ISimSynchronizer afterInitSync, 
+	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart, ICellGrassInitStrategy grassInitStrategy, 
+			ICellPutAgentStrategy putAgentStrategy, int numWorkers, ISimSynchronizer afterInitSync, 
 			ISimSynchronizer afterHalfIterSync, ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
 
 		super(space, grassRestart, grassInitStrategy, afterInitSync, afterHalfIterSync, afterEndIterSync, afterEndSimSync);
@@ -78,7 +78,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
 			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
 
-			Observer resetCellCounter = new Observer() {
+			IObserver resetCellCounter = new IObserver() {
 				@Override
 				public void update(SimEvent event) { cellCounter.set(0); }
 			};
@@ -104,7 +104,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	}
 
 	@Override
-	public void initCells(ISimWorkerState swState) {
+	public void initCells(ISimWorkerState swState) throws SimWorkerException {
 		
 		/* Initialize simulation grid cells. */
 		int currCellIdx;
@@ -167,7 +167,7 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	}
 
 	@Override
-	public void initAgents(ISimWorkerState swState, SimParams params) {
+	public void initAgents(ISimWorkerState swState, SimParams params) throws SimWorkerException {
 		
 		int numSheep = params.getInitSheep();
 		int numWolves = params.getInitWolves();

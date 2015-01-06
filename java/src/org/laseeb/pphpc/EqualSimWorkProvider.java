@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -45,15 +45,15 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 	
 	private int size;
-	private CellPutAgentStrategy putAgentStrategy;
+	private ICellPutAgentStrategy putAgentStrategy;
 	private int numWorkers;
 
 	private ISimSynchronizer afterCreateCellsSync;
 	private ISimSynchronizer afterAddCellNeighborsSync;
 	private ISimSynchronizer afterInitAgentsSync;
 	
-	public EqualSimWorkProvider(ISimSpace space, int grassRestart, CellGrassInitStrategy grassInitStrategy, 
-			CellPutAgentStrategy putAgentStrategy, int numWorkers, 
+	public EqualSimWorkProvider(ISimSpace space, int grassRestart, ICellGrassInitStrategy grassInitStrategy, 
+			ICellPutAgentStrategy putAgentStrategy, int numWorkers, 
 			ISimSynchronizer afterInitSync, ISimSynchronizer afterHalfIterSync, 
 			ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
 		
@@ -93,7 +93,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 
 	@Override
-	public void initCells(ISimWorkerState swState) {
+	public void initCells(ISimWorkerState swState) throws SimWorkerException {
 		
 		
 		/* Set cell neighbors. */
@@ -140,7 +140,7 @@ public class EqualSimWorkProvider extends AbstractSimWorkProvider {
 	}
 	
 	@Override
-	public void initAgents(ISimWorkerState swState, SimParams params) {
+	public void initAgents(ISimWorkerState swState, SimParams params) throws SimWorkerException {
 
 		EqualSimWorkerState tState = (EqualSimWorkerState) swState;
 		

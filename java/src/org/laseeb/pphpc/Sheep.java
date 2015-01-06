@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,7 +33,7 @@ package org.laseeb.pphpc;
  * @author Nuno Fachada
  *
  */
-public class Sheep extends Agent {
+public class Sheep extends AbstractAgent {
 
 	/**
 	 * Create a sheep agent.
@@ -45,7 +45,7 @@ public class Sheep extends Agent {
 	}
 	
 	/**
-	 * @see Agent#play(ICell)
+	 * @see AbstractAgent#play(ICell)
 	 */
 	@Override
 	protected void play(ICell cell) {

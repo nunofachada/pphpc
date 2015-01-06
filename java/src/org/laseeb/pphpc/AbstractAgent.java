@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -25,9 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * 
- */
 package org.laseeb.pphpc;
 
 /**
@@ -35,7 +32,7 @@ package org.laseeb.pphpc;
  * 
  * @author Nuno Fachada
  */
-public abstract class Agent implements IAgent {
+public abstract class AbstractAgent implements IAgent {
 	
 	/* Agent energy. */
 	protected int energy;
@@ -47,7 +44,7 @@ public abstract class Agent implements IAgent {
 	 * Constructor.
 	 * @param energy Initial agents' energy.
 	 */
-	public Agent(int energy, SimParams params) {
+	public AbstractAgent(int energy, SimParams params) {
 		this.energy = energy;
 		this.params = params;
 	}
@@ -106,9 +103,9 @@ public abstract class Agent implements IAgent {
 			/* Throw dice, see if agent reproduces. */
 			if (cell.getRng().nextInt(100) < getReproduceProbability()) {
 				/* Create new agent with half of the energy of the current agent. */
-				Agent agent = null;
+				AbstractAgent agent = null;
 				try {
-					agent = (Agent) this.clone();
+					agent = (AbstractAgent) this.clone();
 					agent.energy = this.energy / 2;
 					this.energy = this.energy - agent.energy;
 				} catch (CloneNotSupportedException e) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ import java.util.List;
  * 
  * @author Nuno Fachada
  */
-public interface CellPutAgentStrategy {
+public interface ICellPutAgentStrategy {
 	
 	/**
 	 * Put an agent in a cell's internal agent list using some specific behavior.

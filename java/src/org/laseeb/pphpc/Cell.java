@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -40,9 +40,9 @@ import java.util.Random;
 public class Cell implements ICell {
 	
 	/* Put agents now behavior. */
-	private CellPutAgentStrategy putAgentBehavior;
+	private ICellPutAgentStrategy putAgentBehavior;
 	
-	private CellGrassInitStrategy grassInitStrategy;
+	private ICellGrassInitStrategy grassInitStrategy;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
@@ -78,8 +78,8 @@ public class Cell implements ICell {
 	 * @param putAgentsBehavior
 	 */
 	public Cell(int grassRestart, Random rng,
-			CellGrassInitStrategy grassInitStrategy,
-			CellPutAgentStrategy putAgentsBehavior) {
+			ICellGrassInitStrategy grassInitStrategy,
+			ICellPutAgentStrategy putAgentsBehavior) {
 		
 		this.rng = rng;
 		this.grassInitStrategy = grassInitStrategy;

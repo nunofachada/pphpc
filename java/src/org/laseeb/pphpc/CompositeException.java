@@ -27,15 +27,23 @@
 
 package org.laseeb.pphpc;
 
-public class NonBlockingSimSynchronizer extends AbstractSimSynchronizer {
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
-	public NonBlockingSimSynchronizer(SimEvent event) {
-		super(event);
+public class CompositeException extends Exception implements Iterable<Map.Entry<String, Throwable>> {
+
+	private static final long serialVersionUID = -2495897554335209716L;
+
+	private Map<String, Throwable> threadExceptions;
+	
+	public CompositeException(Map<String, Throwable> threadExceptions) {
+		this.threadExceptions = threadExceptions;
 	}
 
 	@Override
-	public void syncNotify() {
-		this.notifyObservers();
+	public Iterator<Entry<String, Throwable>> iterator() {
+		return this.threadExceptions.entrySet().iterator();
 	}
 
 

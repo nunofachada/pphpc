@@ -27,16 +27,28 @@
 
 package org.laseeb.pphpc;
 
-public class NonBlockingSimSynchronizer extends AbstractSimSynchronizer {
+import java.util.ArrayList;
+import java.util.List;
 
-	public NonBlockingSimSynchronizer(SimEvent event) {
-		super(event);
+public abstract class AbstractSimSynchronizer implements ISimSynchronizer {
+
+	List<IObserver> observers;
+	SimEvent event;
+	
+	public AbstractSimSynchronizer(SimEvent event) {
+		this.event = event;
+		this.observers = new ArrayList<IObserver>();
+	}
+	
+	@Override
+	public void registerObserver(IObserver observer) {
+		this.observers.add(observer);
 	}
 
 	@Override
-	public void syncNotify() {
-		this.notifyObservers();
+	public void notifyObservers() {
+		for (IObserver o : this.observers) {
+			o.update(event);
+		}
 	}
-
-
 }
