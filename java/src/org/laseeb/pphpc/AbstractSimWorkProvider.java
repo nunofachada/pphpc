@@ -38,14 +38,14 @@ public abstract class AbstractSimWorkProvider implements ISimWorkProvider {
 
 	private AtomicInteger swIdGenerator;
 	
-	protected ISimSynchronizer afterInitSync;
-	protected ISimSynchronizer afterHalfIterSync;
-	protected ISimSynchronizer afterEndIterSync;
-	protected ISimSynchronizer afterEndSimSync;
+	protected ISynchronizer afterInitSync;
+	protected ISynchronizer afterHalfIterSync;
+	protected ISynchronizer afterEndIterSync;
+	protected ISynchronizer afterEndSimSync;
 	
 	public AbstractSimWorkProvider(ISimSpace space, int grassRestart, ICellGrassInitStrategy grassInitStrategy, 
-			ISimSynchronizer afterInitSync, ISimSynchronizer afterHalfIterSync, 
-			ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
+			ISynchronizer afterInitSync, ISynchronizer afterHalfIterSync, 
+			ISynchronizer afterEndIterSync, ISynchronizer afterEndSimSync) {
 		
 		this.space = space;
 		this.grassRestart = grassRestart;

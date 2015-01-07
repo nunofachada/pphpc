@@ -67,9 +67,6 @@ public class Cell implements ICell {
 	/* Grass counter. */
 	private int grass;
 	
-	private Random rng;
-
-	
 	/**
 	 * Constructor.
 	 * 
@@ -81,7 +78,6 @@ public class Cell implements ICell {
 			ICellGrassInitStrategy grassInitStrategy,
 			ICellPutAgentStrategy putAgentsBehavior) {
 		
-		this.rng = rng;
 		this.grassInitStrategy = grassInitStrategy;
 		this.grassRestart = grassRestart;
 		this.putAgentBehavior = putAgentsBehavior;
@@ -205,7 +201,7 @@ public class Cell implements ICell {
 	}
 
 	@Override
-	public void agentsMove() {
+	public void agentsMove(Random rng) {
 			
 
 		for (int i = 0; i < this.agents.size(); i++) {
@@ -217,7 +213,7 @@ public class Cell implements ICell {
 
 			if (agent.isAlive()) {
 				/* Choose direction. */
-				int direction = this.rng.nextInt(this.neighborhood.size());
+				int direction = rng.nextInt(this.neighborhood.size());
 				
 				/* Move agent. */
 				this.neighborhood.get(direction).putExistingAgent(agent);

@@ -27,52 +27,29 @@
 
 package org.laseeb.pphpc;
 
-import java.util.concurrent.CyclicBarrier;
-
 /**
- * A blocking simulation synchronizer. Waits for all simulation workers to
- * reach this synchronization point before it lets them continue. Registered 
- * observers to be executed serially before simulation workers are released. 
+ * Simulation synchronizer objects are used by {@link ISimWorkProvider}
+ * implementations to provide synchronization points to the simulation
+ * workers. 
+ * 
+ * They also follow the observer design pattern (as observable
+ * or subject), allowing code to register observers which are
+ * updated (in a serial fashion) when the synchronization point
+ * is reached by all simulation workers.
  * 
  * @author Nuno Fachada
  */
-public class BlockingSimSynchronizer extends AbstractSimSynchronizer {
-
-	/* Used as a blocking synchronizer. */
-	private CyclicBarrier barrier;
+public interface ISynchronizer extends IObservable {
 	
 	/**
-	 * Create a new blocking simulation synchronizer.
+	 * Notify simulation synchronizer that a simulation worker has reached
+	 * this stage.
 	 * 
-	 * @param event Simulation event to associate with this synchronizer.
-	 * @param numThreads Number of simulation workers in current simulation.
+	 * @throws WorkException if synchronization was unexpectedly
+	 * interrupted.
 	 */
-	public BlockingSimSynchronizer(final SimEvent event, int numThreads) {
-		
-		/* Call the super constructor. */
-		super(event);
+	public void syncNotify(IModel model) throws WorkException;
 
-		/* Create synchronization barrier, which will notify observers when 
-		 * all simulation workers have reached it. */
-		this.barrier = new CyclicBarrier(numThreads, new Runnable() {
-			@Override public void run() { notifyObservers(); }
-		});
-
-	}
-
-	/**
-	 * @see ISimSynchronizer#syncNotify()
-	 */
-	@Override
-	public void syncNotify() throws SimWorkerException {
-
-		/* Perform synchronization. */
-		try {
-			this.barrier.await();
-		} catch (Exception e) {
-			throw new SimWorkerException(e);
-		}
-	}
-
-
+	public void notifyTermination();
+	
 }

@@ -104,10 +104,6 @@ public class PredPrey {
 	/* Block size for ON_DEMAND work type. */
 	@Parameter(names = "-b", description = "Block size for ON_DEMAND work type, ignored otherwise", validateWith = PositiveInteger.class)
 	private Integer blockSize = 100;
-	
-	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
-	private int numThreads = Runtime.getRuntime().availableProcessors();
 
 	/* Debug mode. */
 	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)

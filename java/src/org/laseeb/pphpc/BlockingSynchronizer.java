@@ -27,27 +27,69 @@
 
 package org.laseeb.pphpc;
 
+import java.util.concurrent.CyclicBarrier;
+
 /**
- * Simulation synchronizer objects are used by {@link ISimWorkProvider}
- * implementations to provide synchronization points to the simulation
- * workers. 
- * 
- * They also follow the observer design pattern (as observable
- * or subject), allowing code to register observers which are
- * updated (in a serial fashion) when the synchronization point
- * is reached by all simulation workers.
+ * A blocking simulation synchronizer. Waits for all simulation workers to
+ * reach this synchronization point before it lets them continue. Registered 
+ * observers to be executed serially before simulation workers are released. 
  * 
  * @author Nuno Fachada
  */
-public interface ISimSynchronizer extends IObservable {
+public class BlockingSynchronizer extends AbstractSynchronizer {
+
+	/* Used as a blocking synchronizer. */
+	private volatile CyclicBarrier barrier;
+	
+	private int numWorkers;
 	
 	/**
-	 * Notify simulation synchronizer that a simulation worker has reached
-	 * this stage.
+	 * Create a new blocking simulation synchronizer.
 	 * 
-	 * @throws SimWorkerException if synchronization was unexpectedly
-	 * interrupted.
+	 * @param event Simulation event to associate with this synchronizer.
+	 * @param numThreads Number of simulation workers in current simulation.
 	 */
-	public void syncNotify() throws SimWorkerException;
-	
+	public BlockingSynchronizer(final SimEvent event, int numWorkers) {
+		
+		/* Call the super constructor. */
+		super(event);
+		
+		this.numWorkers = numWorkers;
+		
+	}
+
+	/**
+	 * @see ISynchronizer#syncNotify(IModel model)
+	 */
+	@Override
+	public void syncNotify(final IModel model) throws WorkException {
+		
+		/* Instantiate barrier if required. Use double-checked locking to avoid thread
+		 * synchronization after initialization. */
+		if (this.barrier == null) {
+			synchronized(this.barrier) {
+				if (this.barrier == null) {
+					this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
+						@Override public void run() { notifyObservers(model); }
+					});
+				}
+			}
+		}
+
+		/* Perform synchronization. */
+		try {
+			this.barrier.await();
+		} catch (Exception e) {
+			throw new WorkException(e);
+		}
+	}
+
+	@Override
+	public void notifyTermination() {
+		if (this.barrier != null) {
+			this.barrier.reset();
+		}
+	}
+
+
 }

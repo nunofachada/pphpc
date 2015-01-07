@@ -36,7 +36,7 @@ import java.util.List;
  * 
  * @author Nuno Fachada
  */
-public abstract class AbstractSimSynchronizer implements ISimSynchronizer {
+public abstract class AbstractSynchronizer implements ISynchronizer {
 
 	/* List of observers. */
 	List<IObserver> observers;
@@ -50,7 +50,7 @@ public abstract class AbstractSimSynchronizer implements ISimSynchronizer {
 	 * @param event Simulation event to associate with this simulation
 	 * synchronizer. 
 	 */
-	public AbstractSimSynchronizer(SimEvent event) {
+	public AbstractSynchronizer(SimEvent event) {
 		this.event = event;
 		this.observers = new ArrayList<IObserver>();
 	}
@@ -66,9 +66,9 @@ public abstract class AbstractSimSynchronizer implements ISimSynchronizer {
 	/**
 	 * Helper method which notifies the registered observers.
 	 */
-	protected void notifyObservers() {
+	protected void notifyObservers(IModel model) {
 		for (IObserver o : this.observers) {
-			o.update(event);
+			o.update(event, model);
 		}
 	}
 }

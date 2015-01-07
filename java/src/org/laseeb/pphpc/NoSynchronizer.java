@@ -34,24 +34,27 @@ package org.laseeb.pphpc;
  * 
  * @author Nuno Fachada
  */
-public class BasicSimSynchronizer extends AbstractSimSynchronizer {
+public class NoSynchronizer extends AbstractSynchronizer {
 
 	/**
 	 * Create a new basic simulation synchronizer.
 	 * 
 	 * @param event Simulation event to associate with this synchronizer.
 	 */
-	public BasicSimSynchronizer(SimEvent event) {
+	public NoSynchronizer(SimEvent event) {
 		super(event);
 	}
 
 	/**
-	 * @see ISimSynchronizer#syncNotify()
+	 * @see ISynchronizer#syncNotify(IModel model)
 	 */
 	@Override
-	public void syncNotify() {
-		this.notifyObservers();
+	public void syncNotify(IModel model) {
+		this.notifyObservers(model);
 	}
+
+	@Override
+	public void notifyTermination() {}
 
 
 }

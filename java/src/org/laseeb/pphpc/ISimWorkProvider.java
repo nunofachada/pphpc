@@ -64,7 +64,6 @@ public interface ISimWorkProvider {
 	public ICell getNextCell(ISimWorkerState tState);
 	
 	public void registerSimEventObserver(SimEvent event, IObserver observer);
-
 	public void syncAfterInit(ISimWorkerState swState) throws SimWorkerException;
 	public void syncAfterHalfIteration(ISimWorkerState swState) throws SimWorkerException;
 	public void syncAfterEndIteration(ISimWorkerState swState) throws SimWorkerException;

@@ -53,13 +53,13 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 	private int block;
 	private ICellPutAgentStrategy putAgentStrategy;
 	
-	private ISimSynchronizer afterCreateCellsSync;
-	private ISimSynchronizer afterAddCellNeighborsSync;
-	private ISimSynchronizer afterInitAgentsSync;
+	private ISynchronizer afterCreateCellsSync;
+	private ISynchronizer afterAddCellNeighborsSync;
+	private ISynchronizer afterInitAgentsSync;
 
 	public OnDemandSimWorkProvider(int block, ISimSpace space, int grassRestart, ICellGrassInitStrategy grassInitStrategy, 
-			ICellPutAgentStrategy putAgentStrategy, int numWorkers, ISimSynchronizer afterInitSync, 
-			ISimSynchronizer afterHalfIterSync, ISimSynchronizer afterEndIterSync, ISimSynchronizer afterEndSimSync) {
+			ICellPutAgentStrategy putAgentStrategy, int numWorkers, ISynchronizer afterInitSync, 
+			ISynchronizer afterHalfIterSync, ISynchronizer afterEndIterSync, ISynchronizer afterEndSimSync) {
 
 		super(space, grassRestart, grassInitStrategy, afterInitSync, afterHalfIterSync, afterEndIterSync, afterEndSimSync);
 	
@@ -74,9 +74,9 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 		
 		if (numWorkers > 1) {
 
-			this.afterCreateCellsSync = new BlockingSimSynchronizer(null, numWorkers);
-			this.afterAddCellNeighborsSync = new BlockingSimSynchronizer(null, numWorkers);
-			this.afterInitAgentsSync = new BlockingSimSynchronizer(null, numWorkers);
+			this.afterCreateCellsSync = new BlockingSynchronizer(null, numWorkers);
+			this.afterAddCellNeighborsSync = new BlockingSynchronizer(null, numWorkers);
+			this.afterInitAgentsSync = new BlockingSynchronizer(null, numWorkers);
 
 			IObserver resetCellCounter = new IObserver() {
 				@Override
@@ -89,9 +89,9 @@ public class OnDemandSimWorkProvider extends AbstractSimWorkProvider {
 
 		
 		} else {
-			this.afterCreateCellsSync = new BasicSimSynchronizer(null);
-			this.afterAddCellNeighborsSync = new BasicSimSynchronizer(null);
-			this.afterInitAgentsSync = new BasicSimSynchronizer(null);
+			this.afterCreateCellsSync = new NoSynchronizer(null);
+			this.afterAddCellNeighborsSync = new NoSynchronizer(null);
+			this.afterInitAgentsSync = new NoSynchronizer(null);
 		}
 
 	}

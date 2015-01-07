@@ -27,14 +27,18 @@
 
 package org.laseeb.pphpc;
 
-public enum SimEvent {
-	
-	AFTER_INIT_CELLS,
-	AFTER_CELLS_ADD_NEIGHBORS,
-	AFTER_INIT_AGENTS,
-	AFTER_FIRST_STATS,
-	AFTER_HALF_ITERATION,
-	AFTER_END_ITERATION,
-	AFTER_END_SIMULATION
+/**
+ * Simulation work state, associated with a simulation worker but managed by the
+ * work provider.
+ * 
+ * @author Nuno Fachada
+ */
+public interface IWork {
 
+	/**
+	 * Return unique ID of simulation worker associated with this work state.
+	 * 
+	 * @return Unique ID of simulation worker associated with this work state.
+	 */
+	int getWorkerId();
 }

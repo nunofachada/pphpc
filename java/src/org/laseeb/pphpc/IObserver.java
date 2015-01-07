@@ -29,6 +29,6 @@ package org.laseeb.pphpc;
 
 public interface IObserver {
 
-	public void update(SimEvent event);
+	public void update(SimEvent event, IModel model);
 	
 }

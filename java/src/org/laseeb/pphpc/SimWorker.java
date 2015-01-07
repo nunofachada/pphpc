@@ -27,61 +27,103 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 /**
  *  A simulation worker. 
  *  */
 public class SimWorker implements Runnable {
 	
-	private ISimWorkProvider workProvider;
-	
+	private int swId;
+	private IWorkProvider workProvider;
 	private SimParams params;
-	
 	private IGlobalStats globalStats;
+	private IModel model;
+	private IController controller;
 	
-	/* Constructor only sets the grid offset each thread. */
-	public SimWorker(ISimWorkProvider workProvider, SimParams params, IGlobalStats globalStats) {
+	public SimWorker(int swId, IWorkProvider workProvider, IModel model, IController controller) {
+		this.swId = swId;
 		this.workProvider = workProvider;
-		this.params = params;
-		this.globalStats = globalStats;
+		this.params = model.getParams();
+		this.globalStats = model.getGlobalStats();
+		this.model = model;
+		this.controller = controller;
 	}
 	
 	/* Simulate! */
 	public void run() {
 		
-		/* Current cell being processed. */
-		ICell cell;
+		/* Random number generator for current worker. */
+		Random rng;
 
 		/* Partial statistics */
 		IterationStats iterStats = new IterationStats();
 		
-		/* Register worker with work provider. */
-		ISimWorkerState tState = workProvider.registerWorker();
+		/* A work token. */
+		int token;
 		
+		/* Get cells work with work provider. */
+		IWork cellsWork = workProvider.newWork(model.getSize());
+		
+		/* Get initial agent creation work. */
+		IWork sheepWork = workProvider.newWork(params.getInitSheep());
+		IWork wolvesWork = workProvider.newWork(params.getInitWolves());
+	
 		try {
 
-			/* Initialize simulation grid cells. */
-			workProvider.initCells(tState);
+			/* Create random number generator for current worker. */
+			rng = PredPrey.getInstance().createRNG(swId);
 			
+			/* Initialize simulation grid cells. */
+			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+				model.setCellAt(token);
+			}
+			
+			controller.syncAfterInitCells();
+			
+			workProvider.resetWork(cellsWork);
+			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+				model.setCellNeighbors(token);
+			}
+			
+			controller.syncAfterCellsAddNeighbors();
+						
 			/* Populate simulation grid with agents. */
-			workProvider.initAgents(tState, params);
+			while ((token = workProvider.getNextToken(sheepWork)) >= 0) {
+				int idx = rng.nextInt(model.getSize());
+				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
+				model.getCell(idx).putNewAgent(sheep);
+			}
+
+			while ((token = workProvider.getNextToken(wolvesWork)) >= 0) {
+				int idx = rng.nextInt(model.getSize());
+				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
+				model.getCell(idx).putNewAgent(wolf);
+			}
+			
+			controller.syncAfterInitAgents();
 			
 			/* Get initial statistics. */
 			iterStats.reset();
-			while ((cell = workProvider.getNextCell(tState)) != null) {
-				cell.getStats(iterStats);
+			workProvider.resetWork(cellsWork);
+			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+				model.getCell(token).getStats(iterStats);
 			}
 			
 			/* Update global statistics. */
 			globalStats.updateStats(0, iterStats);
 	
 			/* Sync. with barrier. */
-			workProvider.syncAfterInit(tState);
+			controller.syncAfterFirstStats();
 	
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 	
 				while ((cell = workProvider.getNextCell(tState)) != null) {
 					
+					/* Current cell being processed. */
+					ICell cell;
+
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
 					/* ************************* */
@@ -131,10 +173,12 @@ public class SimWorker implements Runnable {
 			
 			workProvider.syncAfterSimFinish(tState);
 			
-		} catch (SimWorkerException swe) {
+		} catch (WorkException we) {
+			
+			this.controller.notifyTermination();
 			
 			/* Throw runtime exception to be handled by uncaught exception handler. */
-			throw new RuntimeException(swe);
+			throw new RuntimeException(we);
 			
 		}
 	}
