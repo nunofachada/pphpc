@@ -34,7 +34,7 @@ public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
 	public CellGrassInitCoinRandCounter() {}
 
 	@Override
-	public int getInitGrass(ICell cell, Random rng) {
+	public int getInitGrass(int grassRestart, Random rng) {
 
 		int grassState;
 		
@@ -42,7 +42,7 @@ public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
 		if (rng.nextBoolean()) {
 		
 			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(cell.getGrassRestart());
+			grassState = 1 + rng.nextInt(grassRestart);
 			
 		} else {
 			

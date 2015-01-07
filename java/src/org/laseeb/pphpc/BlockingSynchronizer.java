@@ -67,7 +67,7 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 		/* Instantiate barrier if required. Use double-checked locking to avoid thread
 		 * synchronization after initialization. */
 		if (this.barrier == null) {
-			synchronized(this.barrier) {
+			synchronized(this) {
 				if (this.barrier == null) {
 					this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
 						@Override public void run() { notifyObservers(model); }

@@ -31,6 +31,6 @@ import java.util.Random;
 
 public interface ICellGrassInitStrategy {
 	
-	public int getInitGrass(ICell cell, Random rng);
+	public int getInitGrass(int grassRestart, Random rng);
 
 }

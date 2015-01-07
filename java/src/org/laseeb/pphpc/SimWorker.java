@@ -28,6 +28,7 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
 
 /**
  *  A simulation worker. 
@@ -40,6 +41,8 @@ public class SimWorker implements Runnable {
 	private IGlobalStats globalStats;
 	private IModel model;
 	private IController controller;
+	
+	private static CyclicBarrier barrier = new CyclicBarrier(8);
 	
 	public SimWorker(int swId, IWorkProvider workProvider, IModel model, IController controller) {
 		this.swId = swId;
@@ -54,7 +57,7 @@ public class SimWorker implements Runnable {
 	public void run() {
 		
 		/* Random number generator for current worker. */
-		Random rng;
+		Random rng; // TODO Maybe pass rng from outside? Or be part of the model (but then it must be thread local..)? think...
 
 		/* Partial statistics */
 		IterationStats iterStats = new IterationStats();
@@ -63,11 +66,11 @@ public class SimWorker implements Runnable {
 		int token;
 		
 		/* Get cells work with work provider. */
-		IWork cellsWork = workProvider.newWork(model.getSize());
+		IWork cellsWork = workProvider.newWork(this.swId, model.getSize());
 		
 		/* Get initial agent creation work. */
-		IWork sheepWork = workProvider.newWork(params.getInitSheep());
-		IWork wolvesWork = workProvider.newWork(params.getInitWolves());
+		IWork sheepWork = workProvider.newWork(this.swId, params.getInitSheep());
+		IWork wolvesWork = workProvider.newWork(this.swId, params.getInitWolves());
 	
 		try {
 
@@ -76,7 +79,7 @@ public class SimWorker implements Runnable {
 			
 			/* Initialize simulation grid cells. */
 			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
-				model.setCellAt(token);
+				model.setCellAt(token, rng);
 			}
 			
 			controller.syncAfterInitCells();
@@ -87,19 +90,26 @@ public class SimWorker implements Runnable {
 			}
 			
 			controller.syncAfterCellsAddNeighbors();
-						
+			
+			int agentCount = 0;
+			
 			/* Populate simulation grid with agents. */
 			while ((token = workProvider.getNextToken(sheepWork)) >= 0) {
+				agentCount++;
 				int idx = rng.nextInt(model.getSize());
 				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
 				model.getCell(idx).putNewAgent(sheep);
+//				System.err.println(Thread.currentThread().getName() + " put " + token + " sheep");
 			}
-
+			System.out.println(Thread.currentThread().getName() + " put " + agentCount + " sheep");
+			agentCount = 0;
 			while ((token = workProvider.getNextToken(wolvesWork)) >= 0) {
+				agentCount++;
 				int idx = rng.nextInt(model.getSize());
 				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
 				model.getCell(idx).putNewAgent(wolf);
 			}
+			System.out.println(Thread.currentThread().getName() + " put " + agentCount + " wolves");
 			
 			controller.syncAfterInitAgents();
 			
@@ -110,25 +120,39 @@ public class SimWorker implements Runnable {
 				model.getCell(token).getStats(iterStats);
 			}
 			
+			System.out.println(Thread.currentThread().getName() + " counts " + iterStats.getSheep() + " sheep, " + iterStats.getWolves()+ " wolves and " +iterStats.getGrass() + " grass");
+			
+//			barrier.await();
+//			IterationStats tmpStats = new IterationStats();
+//			if (swId == 0) {
+//				for (int i = 0; i < model.getSize(); i++)
+//					model.getCell(i).getStats(tmpStats);
+//				System.out.println("\n --- TOTAL COUNT: " + tmpStats.getSheep() + " sheep, " + tmpStats.getWolves()+ " wolves and " + tmpStats.getGrass() + " grass");
+//			}
+//			
+//			barrier.await();
+			
 			/* Update global statistics. */
 			globalStats.updateStats(0, iterStats);
-	
+//			System.out.println(Thread.currentThread().getName() + " will enter!");
 			/* Sync. with barrier. */
 			controller.syncAfterFirstStats();
-	
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
-	
-				while ((cell = workProvider.getNextCell(tState)) != null) {
-					
+//				if (this.swId == 0) System.out.println("==== " + iter);
+//				barrier.await();
+				workProvider.resetWork(cellsWork);
+//				int count = 0;
+				while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+//					count++;
 					/* Current cell being processed. */
-					ICell cell;
+					ICell cell = model.getCell(token);
 
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
 					/* ************************* */
 	
-					cell.agentsMove();
+					cell.agentsMove(rng);
 						
 					/* ************************* */
 					/* *** 2 - Grass growth. *** */
@@ -138,22 +162,28 @@ public class SimWorker implements Runnable {
 					cell.regenerateGrass();
 	
 				}
-				
+//				System.out.println(Thread.currentThread().getName() + " processed " + count + " cells (1)!");
+				workProvider.resetWork(cellsWork);
 				
 				/* Sync. with barrier. */
-				workProvider.syncAfterHalfIteration(tState);
+				controller.syncAfterHalfIteration();
 				
 				/* Reset statistics for current iteration. */
 				iterStats.reset();
-				
+//				if (this.swId == 0) System.out.println("---");
+//				barrier.await();
+//				count=0;
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				while ((cell = workProvider.getNextCell(tState)) != null) {
-					
+				while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+//					count++;
+					/* Current cell being processed. */
+					ICell cell = model.getCell(token);
+
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */
 					/* ************************** */
 	
-					cell.agentActions(tState.getRng());
+					cell.agentActions(rng);
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */
@@ -162,18 +192,19 @@ public class SimWorker implements Runnable {
 					cell.getStats(iterStats);
 					
 				}
+//				System.out.println(Thread.currentThread().getName() + " processed " + count + " cells (2)!");
 				
 				/* Update global statistics. */
 				globalStats.updateStats(iter, iterStats);
 				
 				/* Sync. with barrier. */
-				workProvider.syncAfterEndIteration(tState);
+				controller.syncAfterEndIteration();
 				
 			}
 			
-			workProvider.syncAfterSimFinish(tState);
+			controller.syncAfterSimFinish();
 			
-		} catch (WorkException we) {
+		} catch (Exception we) {
 			
 			this.controller.notifyTermination();
 			

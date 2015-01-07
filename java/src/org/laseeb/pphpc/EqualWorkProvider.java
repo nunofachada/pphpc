@@ -1,6 +1,6 @@
 package org.laseeb.pphpc;
 
-public class EqualWorkProvider extends AbstractWorkProvider {
+public class EqualWorkProvider implements IWorkProvider {
 
 	private class EqualWork extends AbstractWorkState {
 
@@ -12,30 +12,31 @@ public class EqualWorkProvider extends AbstractWorkProvider {
 			super(wId);
 			this.startToken = startToken;
 			this.endToken = endToken;
+			this.counter = startToken;
 		}
 		
 	}
 	
-	private int workSize;
 	private int numWorkers;
 	
-	public EqualWorkProvider(int workSize, int numWorkers) {
-		this.workSize = workSize;
+	public EqualWorkProvider(int numWorkers) {
 		this.numWorkers = numWorkers;
 	}
 	
 	@Override
-	protected IWork doRegisterWork(int wId) {
+	public IWork newWork(int wId, int workSize) {
 		
 		/* Determine tokens per worker. The bellow operation is equivalent to ceil(workSize/numWorkers) */
-		int tokensPerWorker = (this.workSize + this.numWorkers - 1) / this.numWorkers;
+		int tokensPerWorker = (workSize + this.numWorkers - 1) / this.numWorkers;
 		
 		/* Determine start and end tokens for current worker. */
 		int startToken = wId * tokensPerWorker; /* Inclusive */
-		int endToken = Math.min((wId + 1) * tokensPerWorker, this.workSize); /* Exclusive */
+		int endToken = Math.min((wId + 1) * tokensPerWorker, workSize); /* Exclusive */
 
 		/* Create a work state adequate for this work provider. */
 		EqualWork eWork = new EqualWork(wId, startToken, endToken);
+		if (workSize < 1000)
+			System.out.println("[" + workSize + "] " + Thread.currentThread().getName() + "(wId="+wId+") got work from " + startToken + " to " + endToken);
 		
 		/* Return the work state. */
 		return eWork;
@@ -61,5 +62,6 @@ public class EqualWorkProvider extends AbstractWorkProvider {
 		EqualWork eWork = (EqualWork) work;
 		eWork.counter = eWork.startToken;
 	}
+
 
 }

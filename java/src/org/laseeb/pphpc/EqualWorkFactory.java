@@ -4,16 +4,18 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.beust.jcommander.validators.PositiveInteger;
 
-@Parameters(commandDescription = "Equal work command")
+@Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
 public class EqualWorkFactory implements IWorkFactory {
 	
+	final private String commandName = "equal";
+
 	/* Number of threads. */
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
 	private int numThreads = Runtime.getRuntime().availableProcessors();
 
 	@Override
-	public IWorkProvider createWorkProvider(int workSize) {
-		return new EqualWorkProvider(workSize, this.numThreads);
+	public IWorkProvider createWorkProvider() {
+		return new EqualWorkProvider(this.numThreads);
 	}
 
 	@Override
@@ -39,8 +41,17 @@ public class EqualWorkFactory implements IWorkFactory {
 	}
 
 	@Override
-	public IGlobalStats createGlobalStats() {
-		return new ThreadSafeGlobalStats(this.numThreads);
+	public IGlobalStats createGlobalStats(int iters) {
+		return new ThreadSafeGlobalStats(iters);
 	}
 
+	@Override
+	public int getNumWorkers() {
+		return this.numThreads;
+	}
+
+	@Override
+	public String getCommandName() {
+		return this.commandName;
+	}
 }

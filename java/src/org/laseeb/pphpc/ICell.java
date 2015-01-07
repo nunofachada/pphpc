@@ -114,13 +114,5 @@ public interface ICell {
 	 * @param A random number generator so that the agents move randomly.
 	 */
 	public void agentsMove(Random rng);
-	
-	/**
-	 * Initialize grass in this cell.
-	 * 
-	 * @param A random number generator so that the initial grass is at different
-	 * growth levels.
-	 */
-	public void initGrass(Random rng);
 
 }

@@ -35,8 +35,11 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.uncommons.maths.random.AESCounterRNG;
 import org.uncommons.maths.random.CMWC4096RNG;
@@ -63,7 +66,7 @@ public class PredPrey {
 	
 	/* Enumeration containing program errors. */
 	private enum Errors {
-		NONE(0), ARGS(-1), PARAMS(-2), PRESIM(-3), SIM(-4), EXPORT(-5);
+		NONE(0), ARGS(-1), PARAMS(-2), PRESIM(-3), SIM(-4), EXPORT(-5), UNKNOWN(-6);
 		private int value;
 		private Errors(int value) { this.value = value; }
 		public int getValue() { return this.value; }
@@ -77,7 +80,7 @@ public class PredPrey {
 	
 	/* Interval to print current iteration. */
 	@Parameter(names = "-i", description = "Interval of iterations to print current iteration")
-	protected long stepPrint = 0;
+	private long stepPrint = 0;
 	
 	/* File containing simulation parameters. */
 	@Parameter(names = "-p", description = "File containing simulation parameters")
@@ -114,10 +117,15 @@ public class PredPrey {
 	private boolean help;
 
 	/* Simulation parameters. */
-	protected SimParams params;
+	private SimParams params;
 	
-	/* Simulation work provider. */
-	protected ISimWorkProvider workProvider;
+	/* Work factory. */
+	private IWorkFactory workFactory;
+	
+	/* Known work factories. */
+	private String[] knownWorkFactoryNames = {"EqualWorkFactory"};
+
+	private Map<String, IWorkFactory> knownWorkFactories;
 	
 	private PredPrey() {}
 	
@@ -132,6 +140,21 @@ public class PredPrey {
 		return instance;
 	}
 	
+	private void initWorkFactories() throws Exception {
+		
+		this.knownWorkFactories = new HashMap<String, IWorkFactory>();
+		
+		for (String factoryName : this.knownWorkFactoryNames) {
+			
+			Class<? extends IWorkFactory> factoryClass = 
+					Class.forName("org.laseeb.pphpc." + factoryName).asSubclass(IWorkFactory.class);
+			
+			IWorkFactory factoryObject = factoryClass.newInstance();
+			
+			this.knownWorkFactories.put(factoryObject.getCommandName(), factoryObject);
+			
+		}
+	}
 
 	/**
 	 * Perform simulation.
@@ -149,30 +172,25 @@ public class PredPrey {
 		/* Initialize latch. */
 		final CountDownLatch latch = new CountDownLatch(1);
 
-		/* Initialize statistics arrays. */
-		IGlobalStats globalStats;
-		if (this.numThreads > 1)
-			globalStats = new ThreadSafeGlobalStats(this.params.getIters());
-		else
-			globalStats = new SimpleGlobalStats(this.params.getIters());
+		IModel model = new Model(this.params, this.workFactory);
+		IController controller = this.workFactory.createSimController(model);
 		
-		
-		workProvider = SimWorkProviderFactory.createWorkProvider(this.workType, this.params, this.numThreads, this.blockSize);
+		IWorkProvider workProvider = this.workFactory.createWorkProvider();
 
-		workProvider.registerSimEventObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
+		controller.registerSimEventObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
 
 			@Override
-			public void update(SimEvent event) {
+			public void update(SimEvent event, IModel model) {
 				latch.countDown();
 			}
 			
 		});
 		
-		final Map<String, Throwable> threadExceptions = new HashMap<String, Throwable>();
+		final Map<String, Throwable> threadExceptions = new ConcurrentHashMap<String, Throwable>();
 		
 		/* Launch simulation threads. */
-		for (int i = 0; i < this.numThreads; i++) {
-			Thread simThread = new Thread(new SimWorker(workProvider, params, globalStats));
+		for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
+			Thread simThread = new Thread(new SimWorker(i, workProvider, model, controller));
 			simThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 				
 				@Override
@@ -183,19 +201,21 @@ public class PredPrey {
 			simThread.start();
 		}
 		
-		if (threadExceptions.size() > 0) {
-			throw new CompositeException(threadExceptions);
-		}
 		
 		/* Wait for simulation threads to finish. */
-		latch.await();
+//		latch.await();
+		while (!latch.await(10, TimeUnit.SECONDS)) {
+			if (threadExceptions.size() > 0) {
+				throw new CompositeException(threadExceptions);
+			}
+		}
 
 		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
 		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
 		System.out.println("Total simulation time: " + timeInSeconds + "\n");
 		
-		return globalStats;
+		return model.getGlobalStats();
 		
 	}
 
@@ -226,14 +246,14 @@ public class PredPrey {
 	 * 
 	 * @param throwable Exception which caused the error.
 	 */
-	protected void errMessage(String threadName, Throwable throwable) {
+	private void errMessage(String threadName, Throwable throwable) {
 		
 		if (this.debug) {
 			System.err.println("In thread " + threadName);
 			throwable.printStackTrace();
 		} else {
 			System.err.println("An error ocurred in thread " + threadName
-					+ throwable.getMessage());
+					+ ": " + throwable.getMessage());
 		}
 	}
 	
@@ -245,12 +265,26 @@ public class PredPrey {
 	 */
 	public int doMain(String[] args) {
 		
+		/* Final simulation stats. */
 		IGlobalStats stats;
+		
+		/* Initialize know work factories. */
+		try {
+			this.initWorkFactories();
+		} catch (Exception e) {
+			errMessage(Thread.currentThread().getName(), e);
+			return Errors.UNKNOWN.getValue();
+		}
 		
 		/* Setup command line options parser. */
 		JCommander parser = new JCommander(this);
 		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
 				+ PredPrey.class.getName());
+		
+		/* Add available work factories to parser. */
+		for (Entry<String, IWorkFactory> entry : this.knownWorkFactories.entrySet()) {
+			parser.addCommand(entry.getKey(), entry.getValue());
+		}
 		
 		/* Parse command line options. */
 		try {
@@ -261,6 +295,10 @@ public class PredPrey {
 			parser.usage();
 			return Errors.ARGS.getValue();
 		}
+		
+		/* Get the work factory which corresponds to the command specified
+		 * in the command line. */
+		this.workFactory = this.knownWorkFactories.get(parser.getParsedCommand());
 		
 		/* If help option was passed, show help and quit. */
 		if (this.help) {
@@ -328,7 +366,7 @@ public class PredPrey {
 	 * @return A new random number generator.
 	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
 	 */
-	protected Random createRNG(long modifier) throws Exception {
+	public Random createRNG(long modifier) throws Exception {
 		
 		SeedGenerator seedGen = new SimSeedGenerator(modifier, this.seed);
 

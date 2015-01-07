@@ -1,5 +1,7 @@
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 public class Model implements IModel {
 	
 	private int size;
@@ -8,11 +10,17 @@ public class Model implements IModel {
 	private int currentIteration;
 	private IGlobalStats globalStats;
 	private ISpace space;
+	private ICellPutAgentStrategy putNewAgentStrategy;
+	private ICellPutAgentStrategy putExistingAgentStrategy;
+	private ICellGrassInitStrategy grassInitStrategy;
 	
-	public Model(SimParams params, ISpace space, IGlobalStats globalStats) {
+	public Model(SimParams params, IWorkFactory wFactory) {
 		this.params = params;
-		this.space = space;
-		this.globalStats = globalStats;
+		this.space = new Square2DTorusSpace(params.getGridX(), params.getGridY());
+		this.globalStats = wFactory.createGlobalStats(params.getIters());
+		this.putNewAgentStrategy = wFactory.createPutNewAgentStrategy();
+		this.putExistingAgentStrategy = wFactory.createPutExistingAgentStrategy();
+		this.grassInitStrategy = new CellGrassInitCoinRandCounter();
 		this.currentIteration = 0;
 		this.size = space.getSize();
 		this.cells = new ICell[this.size];
@@ -56,6 +64,14 @@ public class Model implements IModel {
 	@Override
 	public IGlobalStats getGlobalStats() {
 		return this.globalStats;
+	}
+
+	@Override
+	public void setCellAt(int idx, Random rng) {
+		this.cells[idx] = new Cell(params.getGrassRestart(), 
+				this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
+				this.putNewAgentStrategy, this.putExistingAgentStrategy);
+		
 	}
 
 }

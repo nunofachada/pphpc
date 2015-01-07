@@ -5,7 +5,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 public abstract class AbstractWorkProvider implements IWorkProvider {
 
 	private AtomicInteger wIdGenerator;
+	
+	public AbstractWorkProvider() {
+		this.wIdGenerator = new AtomicInteger(0);
+	}
 
+	DELETE THIS?
+	
 	@Override
 	public IWork newWork(int workSize) {
 
@@ -13,10 +19,10 @@ public abstract class AbstractWorkProvider implements IWorkProvider {
 		int wId = this.wIdGenerator.getAndIncrement();
 		
 		/* Perform specific work provider initialization. */
-		return doRegisterWork(wId);
+		return doRegisterWork(wId, workSize);
 	}
 
-	protected abstract IWork doRegisterWork(int wId);
+	protected abstract IWork doRegisterWork(int wId, int workSize);
 
 
 }

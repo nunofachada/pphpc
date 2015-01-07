@@ -1,5 +1,7 @@
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 public interface IModel {
 	
 	public int getSize();
@@ -17,4 +19,6 @@ public interface IModel {
 	public void incrementIteration();
 	
 	public IGlobalStats getGlobalStats();
+
+	public void setCellAt(int idx, Random rng);
 }

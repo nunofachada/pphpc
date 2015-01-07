@@ -39,10 +39,9 @@ import java.util.Random;
  */
 public class Cell implements ICell {
 	
-	/* Put agents now behavior. */
-	private ICellPutAgentStrategy putAgentBehavior;
-	
-	private ICellGrassInitStrategy grassInitStrategy;
+	/* Put agent strategies. */
+	private ICellPutAgentStrategy putNewAgentStrategy;
+	private ICellPutAgentStrategy putExistingAgentStrategy;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
@@ -74,13 +73,15 @@ public class Cell implements ICell {
 	 * @param grassInitStrategy
 	 * @param putAgentsBehavior
 	 */
-	public Cell(int grassRestart, Random rng,
-			ICellGrassInitStrategy grassInitStrategy,
-			ICellPutAgentStrategy putAgentsBehavior) {
+	public Cell(int grassRestart,
+			int initialGrass,
+			ICellPutAgentStrategy putNewAgentsStrategy,
+			ICellPutAgentStrategy putExistingAgentStrategy) {
 		
-		this.grassInitStrategy = grassInitStrategy;
 		this.grassRestart = grassRestart;
-		this.putAgentBehavior = putAgentsBehavior;
+		this.grass = initialGrass;
+		this.putNewAgentStrategy = putNewAgentsStrategy;
+		this.putExistingAgentStrategy = putExistingAgentStrategy;
 		
 		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<IAgent>();
@@ -121,12 +122,12 @@ public class Cell implements ICell {
 
 	@Override
 	public void putNewAgent(IAgent agent) {
-		this.putAgentBehavior.putAgent(this.newAgents, agent);
+		this.putNewAgentStrategy.putAgent(this.newAgents, agent);
 	}
 	
 	@Override
 	public void putExistingAgent(IAgent agent) {
-		this.putAgentBehavior.putAgent(this.existingAgents, agent);
+		this.putExistingAgentStrategy.putAgent(this.existingAgents, agent);
 	}
 	
 	@Override
@@ -221,11 +222,6 @@ public class Cell implements ICell {
 		}
 		
 		
-	}
-
-	@Override
-	public void initGrass(Random rng) {
-		this.grass = this.grassInitStrategy.getInitGrass(this, rng);
 	}
 
 }
