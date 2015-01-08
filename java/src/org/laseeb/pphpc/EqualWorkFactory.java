@@ -27,12 +27,16 @@
 
 package org.laseeb.pphpc;
 
+import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
 @Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
-public class EqualWorkFactory extends AbstractEqualWorkFactory {
+public class EqualWorkFactory extends AbstractThreadedWorkFactory {
 	
 	final private String commandName = "equal";
+
+	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
+	private boolean repeatable = false;
 
 	@Override
 	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
@@ -41,12 +45,35 @@ public class EqualWorkFactory extends AbstractEqualWorkFactory {
 
 	@Override
 	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		return new CellPutAgentSync();
+		if (this.repeatable)
+			return new CellPutAgentSyncSort();
+		else
+			return new CellPutAgentSync();
 	}
 
 	@Override
 	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
-		return new CellPutAgentSync();
+		if (this.repeatable)
+			return new CellPutAgentSyncSort();
+		else
+			return new CellPutAgentSync();
+	}
+
+	@Override
+	public IController createSimController(IModel model) {
+		return new Controller(model,
+				new BlockingSynchronizer(SimEvent.AFTER_INIT_CELLS, model, this.numThreads), 
+				new NoSynchronizer(SimEvent.AFTER_CELLS_ADD_NEIGHBORS), 
+				new BlockingSynchronizer(SimEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
+				new NoSynchronizer(SimEvent.AFTER_FIRST_STATS), 
+				new BlockingSynchronizer(SimEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
+				new BlockingSynchronizer(SimEvent.AFTER_END_ITERATION, model, this.numThreads), 
+				new NoSynchronizer(SimEvent.AFTER_END_SIMULATION));
+	}
+
+	@Override
+	public IGlobalStats createGlobalStats(int iters) {
+		return new ThreadSafeGlobalStats(iters);
 	}
 
 	@Override

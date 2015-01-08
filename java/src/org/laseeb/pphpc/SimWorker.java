@@ -28,7 +28,6 @@
 package org.laseeb.pphpc;
 
 import java.util.Random;
-import java.util.concurrent.CyclicBarrier;
 
 /**
  *  A simulation worker. 

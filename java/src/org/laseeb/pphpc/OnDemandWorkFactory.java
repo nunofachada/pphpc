@@ -32,13 +32,9 @@ import com.beust.jcommander.Parameters;
 import com.beust.jcommander.validators.PositiveInteger;
 
 @Parameters(commandNames = {"on_demand"}, commandDescription = "On-demand work command")
-public class OnDemandWorkFactory extends AbstractWorkFactory {
+public class OnDemandWorkFactory extends AbstractThreadedWorkFactory {
 
 	final private String commandName = "on_demand";
-
-	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
-	private int numThreads = Runtime.getRuntime().availableProcessors();
 
 	/* Block size for ON_DEMAND work type. */
 	@Parameter(names = "-b", description = "Block size", validateWith = PositiveInteger.class)
@@ -89,11 +85,6 @@ public class OnDemandWorkFactory extends AbstractWorkFactory {
 	@Override
 	public IGlobalStats createGlobalStats(int iters) {
 		return new ThreadSafeGlobalStats(iters);
-	}
-
-	@Override
-	public int getNumWorkers() {
-		return this.numThreads;
 	}
 
 	@Override
