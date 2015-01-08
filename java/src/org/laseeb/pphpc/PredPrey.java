@@ -39,7 +39,6 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.uncommons.maths.random.AESCounterRNG;
 import org.uncommons.maths.random.CMWC4096RNG;
@@ -118,6 +117,8 @@ public class PredPrey {
 
 	private Map<String, IWorkFactory> knownWorkFactories;
 	
+	private CountDownLatch mainLatch;
+	
 	private PredPrey() {}
 	
 	public static PredPrey getInstance() {
@@ -161,19 +162,10 @@ public class PredPrey {
 		long startTime = System.currentTimeMillis();
 		
 		/* Initialize latch. */
-		final CountDownLatch latch = new CountDownLatch(1);
+		this.mainLatch = new CountDownLatch(1);
 
 		IModel model = new Model(this.params, this.workFactory);
 		IController controller = this.workFactory.createSimController(model);
-		
-		controller.registerSimEventObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
-
-			@Override
-			public void update(SimEvent event, IModel model) {
-				latch.countDown();
-			}
-			
-		});
 		
 		final Map<String, Throwable> threadExceptions = new ConcurrentHashMap<String, Throwable>();
 		
@@ -192,22 +184,25 @@ public class PredPrey {
 		
 		
 		/* Wait for simulation threads to finish. */
-//		latch.await();
-		while (!latch.await(10, TimeUnit.SECONDS)) {
-			if (threadExceptions.size() > 0) {
-				throw new CompositeException(threadExceptions);
-			}
-		}
+		this.mainLatch.await();
 
 		/* Stop timing and show simulation time. */
 		long endTime = System.currentTimeMillis();
 		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
 		System.out.println("Total simulation time: " + timeInSeconds + "\n");
-		
+
+		if (threadExceptions.size() > 0) {
+			throw new CompositeException(threadExceptions);
+		}
+
 		return model.getGlobalStats();
 		
 	}
 
+	public void signalTermination() {
+		this.mainLatch.countDown();
+	}
+	
 	/**
 	 * Export statistics to file.
 	 * @param str Statistics filename.

@@ -44,6 +44,9 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	/* Simulation event associated with this synchronizer. */
 	private SimEvent event;
 	
+	/* Was the simulation interrupted? */
+	protected volatile boolean interrupted;
+	
 	/**
 	 * Constructor called by concrete implementations.
 	 * 
@@ -53,6 +56,7 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	public AbstractSynchronizer(SimEvent event) {
 		this.event = event;
 		this.observers = new ArrayList<IObserver>();
+		this.interrupted = false;
 	}
 	
 	/**
@@ -62,9 +66,39 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	public void registerObserver(IObserver observer) {
 		this.observers.add(observer);
 	}
+	
+	@Override
+	public void notifyTermination() {
+		this.interrupted = true;
+	}
+
+	/**
+	 * 
+	 * 
+	 * @see ISynchronizer#syncNotify(IModel model)
+	 */
+	@Override
+	public void syncNotify(IModel model) throws WorkException {
+		
+		if (this.interrupted)
+			throw new WorkException("Interrupted by another thread.");
+		
+		/* Perform synchronization. */
+		this.doSyncNotify(model);
+	}
+	
+	/**
+	 * Perform proper synchronization. Implementations of this method must invoke
+	 * {@link #notifyObservers(IModel)}.
+	 * 
+	 * @param model The simulation model.
+	 */
+	protected abstract void doSyncNotify(IModel model) throws WorkException;
 
 	/**
 	 * Helper method which notifies the registered observers.
+	 * 
+	 * @param model The simulation model.
 	 */
 	protected void notifyObservers(IModel model) {
 		for (IObserver o : this.observers) {

@@ -61,16 +61,12 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 				notifyObservers(model); 
 			}
 		});
-	
 		
 	}
 
-	/**
-	 * @see ISynchronizer#syncNotify(IModel model)
-	 */
 	@Override
-	public void syncNotify(final IModel model) throws WorkException {
-		
+	protected void doSyncNotify(IModel model) throws WorkException {
+
 		/* Perform synchronization. */
 		try {
 			this.barrier.await();
@@ -81,9 +77,8 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 
 	@Override
 	public void notifyTermination() {
-		if (this.barrier != null) {
-			this.barrier.reset();
-		}
+		super.notifyTermination();
+		this.barrier.reset();
 	}
 
 

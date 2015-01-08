@@ -45,16 +45,10 @@ public class NoSynchronizer extends AbstractSynchronizer {
 		super(event);
 	}
 
-	/**
-	 * @see ISynchronizer#syncNotify(IModel model)
-	 */
 	@Override
-	public void syncNotify(IModel model) {
+	public void doSyncNotify(IModel model) {
 		this.notifyObservers(model);
 	}
-
-	@Override
-	public void notifyTermination() {}
 
 
 }

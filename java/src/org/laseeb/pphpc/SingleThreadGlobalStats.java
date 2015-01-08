@@ -27,13 +27,13 @@
 
 package org.laseeb.pphpc;
 
-public class SimpleGlobalStats implements IGlobalStats {
+public class SingleThreadGlobalStats implements IGlobalStats {
 
 	private int[] sheepStats;
 	private int[] wolfStats;
 	private int[] grassStats;
 	
-	public SimpleGlobalStats(int iters) {
+	public SingleThreadGlobalStats(int iters) {
 		this.sheepStats = new int[iters + 1];
 		this.wolfStats = new int[iters + 1];
 		this.grassStats = new int[iters + 1];		

@@ -190,6 +190,12 @@ public class SimWorker implements Runnable {
 			/* Throw runtime exception to be handled by uncaught exception handler. */
 			throw new RuntimeException(we);
 			
+		} finally {
+			
+			if (this.swId == 0) {
+				PredPrey.getInstance().signalTermination();
+			}
+			
 		}
 	}
 }

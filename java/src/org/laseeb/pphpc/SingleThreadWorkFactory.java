@@ -63,7 +63,7 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 
 	@Override
 	public IGlobalStats createGlobalStats(int iters) {
-		return new SimpleGlobalStats(iters);
+		return new SingleThreadGlobalStats(iters);
 	}
 
 	@Override
