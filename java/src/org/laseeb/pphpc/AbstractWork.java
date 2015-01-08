@@ -1,10 +1,10 @@
 package org.laseeb.pphpc;
 
-public class AbstractWorkState implements IWork {
+public class AbstractWork implements IWork {
 	
 	private int wId;
 	
-	public AbstractWorkState(int wId) {
+	public AbstractWork(int wId) {
 		this.wId = wId;
 	}
 

@@ -68,10 +68,13 @@ public class Model implements IModel {
 
 	@Override
 	public void setCellAt(int idx, Random rng) {
-		this.cells[idx] = new Cell(params.getGrassRestart(), 
-				this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
-				this.putNewAgentStrategy, this.putExistingAgentStrategy);
-		
+		if (this.cells[idx] == null) {
+			this.cells[idx] = new Cell(params.getGrassRestart(), 
+					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
+					this.putNewAgentStrategy, this.putExistingAgentStrategy);
+		} else {
+			throw new IllegalStateException("Cell " + idx + " already set!");
+		}
 	}
 
 }

@@ -2,7 +2,7 @@ package org.laseeb.pphpc;
 
 public class EqualWorkProvider implements IWorkProvider {
 
-	private class EqualWork extends AbstractWorkState {
+	private class EqualWork extends AbstractWork {
 
 		private int startToken;
 		private int endToken;
@@ -18,20 +18,22 @@ public class EqualWorkProvider implements IWorkProvider {
 	}
 	
 	private int numWorkers;
+	private int workSize;
 	
-	public EqualWorkProvider(int numWorkers) {
+	public EqualWorkProvider(int numWorkers, int workSize) {
 		this.numWorkers = numWorkers;
+		this.workSize = workSize;
 	}
 	
 	@Override
-	public IWork newWork(int wId, int workSize) {
+	public IWork newWork(int wId) {
 		
 		/* Determine tokens per worker. The bellow operation is equivalent to ceil(workSize/numWorkers) */
-		int tokensPerWorker = (workSize + this.numWorkers - 1) / this.numWorkers;
+		int tokensPerWorker = (this.workSize + this.numWorkers - 1) / this.numWorkers;
 		
 		/* Determine start and end tokens for current worker. */
 		int startToken = wId * tokensPerWorker; /* Inclusive */
-		int endToken = Math.min((wId + 1) * tokensPerWorker, workSize); /* Exclusive */
+		int endToken = Math.min((wId + 1) * tokensPerWorker, this.workSize); /* Exclusive */
 
 		/* Create a work state adequate for this work provider. */
 		EqualWork eWork = new EqualWork(wId, startToken, endToken);

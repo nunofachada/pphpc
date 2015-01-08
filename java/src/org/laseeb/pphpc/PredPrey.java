@@ -52,7 +52,6 @@ import org.uncommons.maths.random.XORShiftRNG;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.validators.PositiveInteger;
 
 /**
  * Abstract PPHPC model.
@@ -99,14 +98,6 @@ public class PredPrey {
 	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT or XORSHIFT)", 
 			converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
-	
-	/* Work provider strategy. */
-	@Parameter(names = "-w", description = "Work type (EQUAL, EQUAL_REPEAT or ON_DEMAND)", converter = SimWorkTypeConverter.class)
-	private SimWorkType workType = SimWorkType.EQUAL;
-
-	/* Block size for ON_DEMAND work type. */
-	@Parameter(names = "-b", description = "Block size for ON_DEMAND work type, ignored otherwise", validateWith = PositiveInteger.class)
-	private Integer blockSize = 100;
 
 	/* Debug mode. */
 	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)
@@ -123,7 +114,7 @@ public class PredPrey {
 	private IWorkFactory workFactory;
 	
 	/* Known work factories. */
-	private String[] knownWorkFactoryNames = {"EqualWorkFactory"};
+	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "OnDemandWorkFactory"};
 
 	private Map<String, IWorkFactory> knownWorkFactories;
 	
@@ -175,8 +166,6 @@ public class PredPrey {
 		IModel model = new Model(this.params, this.workFactory);
 		IController controller = this.workFactory.createSimController(model);
 		
-		IWorkProvider workProvider = this.workFactory.createWorkProvider();
-
 		controller.registerSimEventObserver(SimEvent.AFTER_END_SIMULATION, new IObserver() {
 
 			@Override
@@ -190,7 +179,7 @@ public class PredPrey {
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
-			Thread simThread = new Thread(new SimWorker(i, workProvider, model, controller));
+			Thread simThread = new Thread(new SimWorker(i, this.workFactory, model, controller));
 			simThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 				
 				@Override

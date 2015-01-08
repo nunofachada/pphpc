@@ -49,12 +49,19 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 	 * @param event Simulation event to associate with this synchronizer.
 	 * @param numThreads Number of simulation workers in current simulation.
 	 */
-	public BlockingSynchronizer(final SimEvent event, int numWorkers) {
+	public BlockingSynchronizer(SimEvent event, final IModel model, int numWorkers) {
 		
 		/* Call the super constructor. */
 		super(event);
 		
 		this.numWorkers = numWorkers;
+	
+		this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
+			@Override public void run() {
+				notifyObservers(model); 
+			}
+		});
+	
 		
 	}
 
@@ -64,22 +71,27 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 	@Override
 	public void syncNotify(final IModel model) throws WorkException {
 		
-		/* Instantiate barrier if required. Use double-checked locking to avoid thread
-		 * synchronization after initialization. */
-		if (this.barrier == null) {
-			synchronized(this) {
-				if (this.barrier == null) {
-					this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
-						@Override public void run() { notifyObservers(model); }
-					});
-				}
-			}
-		}
-
+//		/* Instantiate barrier if required. Use double-checked locking to avoid thread
+//		 * synchronization after initialization. */
+//		if (this.barrier == null) {
+//			synchronized(this) {
+//				if (this.barrier == null) {
+//					this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
+//						@Override public void run() { notifyObservers(model); }
+//					});
+//				}
+//			}
+//		}
+		
 		/* Perform synchronization. */
 		try {
 			this.barrier.await();
 		} catch (Exception e) {
+//			System.out.println("====\nIs barrier null? " + (this.barrier == null ? "YES!" : "No..."));
+//			if (this.barrier != null)
+//				System.out.println("Barrier toString: " + barrier);
+//			System.out.println("Exception message: " + e.getMessage());
+//			System.exit(-1);
 			throw new WorkException(e);
 		}
 	}

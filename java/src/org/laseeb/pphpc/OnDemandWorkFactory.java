@@ -4,18 +4,37 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.beust.jcommander.validators.PositiveInteger;
 
-@Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
-public class EqualWorkFactory extends AbstractWorkFactory {
-	
-	final private String commandName = "equal";
+@Parameters(commandNames = {"on_demand"}, commandDescription = "On-demand work command")
+public class OnDemandWorkFactory extends AbstractWorkFactory {
+
+	final private String commandName = "on_demand";
 
 	/* Number of threads. */
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
 	private int numThreads = Runtime.getRuntime().availableProcessors();
 
+	/* Block size for ON_DEMAND work type. */
+	@Parameter(names = "-b", description = "Block size", validateWith = PositiveInteger.class)
+	private Integer blockSize = 100;
+
 	@Override
-	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
-		return new EqualWorkProvider(this.numThreads, workSize);
+	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);
+		IObserver resetCellCounter = new IObserver() {
+
+			@Override
+			public void update(SimEvent event, IModel model) {
+				workProvider.resetWorkCounter();
+			}
+		};
+		
+		controller.registerSimEventObserver(SimEvent.AFTER_INIT_CELLS, resetCellCounter);
+		controller.registerSimEventObserver(SimEvent.AFTER_INIT_AGENTS, resetCellCounter);
+		controller.registerSimEventObserver(SimEvent.AFTER_FIRST_STATS, resetCellCounter);
+		controller.registerSimEventObserver(SimEvent.AFTER_HALF_ITERATION, resetCellCounter);
+		controller.registerSimEventObserver(SimEvent.AFTER_END_ITERATION, resetCellCounter);
+		
+		return workProvider;
 	}
 
 	@Override
@@ -34,7 +53,7 @@ public class EqualWorkFactory extends AbstractWorkFactory {
 				new BlockingSynchronizer(SimEvent.AFTER_INIT_CELLS, model, this.numThreads), 
 				new NoSynchronizer(SimEvent.AFTER_CELLS_ADD_NEIGHBORS), 
 				new BlockingSynchronizer(SimEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
-				new NoSynchronizer(SimEvent.AFTER_FIRST_STATS), 
+				new BlockingSynchronizer(SimEvent.AFTER_FIRST_STATS, model, this.numThreads), 
 				new BlockingSynchronizer(SimEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
 				new BlockingSynchronizer(SimEvent.AFTER_END_ITERATION, model, this.numThreads), 
 				new NoSynchronizer(SimEvent.AFTER_END_SIMULATION));
@@ -54,4 +73,5 @@ public class EqualWorkFactory extends AbstractWorkFactory {
 	public String getCommandName() {
 		return this.commandName;
 	}
+
 }

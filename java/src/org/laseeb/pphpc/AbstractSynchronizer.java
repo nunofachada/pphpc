@@ -39,10 +39,10 @@ import java.util.List;
 public abstract class AbstractSynchronizer implements ISynchronizer {
 
 	/* List of observers. */
-	List<IObserver> observers;
+	private List<IObserver> observers;
 	
 	/* Simulation event associated with this synchronizer. */
-	SimEvent event;
+	private SimEvent event;
 	
 	/**
 	 * Constructor called by concrete implementations.
@@ -68,7 +68,7 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	 */
 	protected void notifyObservers(IModel model) {
 		for (IObserver o : this.observers) {
-			o.update(event, model);
+			o.update(this.event, model);
 		}
 	}
 }

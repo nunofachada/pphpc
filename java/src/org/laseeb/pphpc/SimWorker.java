@@ -36,7 +36,7 @@ import java.util.concurrent.CyclicBarrier;
 public class SimWorker implements Runnable {
 	
 	private int swId;
-	private IWorkProvider workProvider;
+	private IWorkFactory workFactory;
 	private SimParams params;
 	private IGlobalStats globalStats;
 	private IModel model;
@@ -44,9 +44,9 @@ public class SimWorker implements Runnable {
 	
 	private static CyclicBarrier barrier = new CyclicBarrier(8);
 	
-	public SimWorker(int swId, IWorkProvider workProvider, IModel model, IController controller) {
+	public SimWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
 		this.swId = swId;
-		this.workProvider = workProvider;
+		this.workFactory = workFactory;
 		this.params = model.getParams();
 		this.globalStats = model.getGlobalStats();
 		this.model = model;
@@ -65,36 +65,56 @@ public class SimWorker implements Runnable {
 		/* A work token. */
 		int token;
 		
-		/* Get cells work with work provider. */
-		IWork cellsWork = workProvider.newWork(this.swId, model.getSize());
+		/* Get cells work provider. */
+		IWorkProvider cellsWorkProvider = workFactory.getWorkProvider(model.getSize(), this.controller);
 		
-		/* Get initial agent creation work. */
-		IWork sheepWork = workProvider.newWork(this.swId, params.getInitSheep());
-		IWork wolvesWork = workProvider.newWork(this.swId, params.getInitWolves());
+		/* Get initial agent creation work providers. */
+		IWorkProvider sheepWorkProvider = workFactory.getWorkProvider(params.getInitSheep(), this.controller);
+		IWorkProvider wolvesWorkProvider = workFactory.getWorkProvider(params.getInitWolves(), this.controller);
 	
+		/* Get thread-local work. */
+		IWork cellsWork = cellsWorkProvider.newWork(swId);
+		IWork sheepWork = sheepWorkProvider.newWork(swId);
+		IWork wolvesWork = wolvesWorkProvider.newWork(swId);
+		
 		try {
 
 			/* Create random number generator for current worker. */
 			rng = PredPrey.getInstance().createRNG(swId);
 			
 			/* Initialize simulation grid cells. */
-			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				model.setCellAt(token, rng);
 			}
 			
 			controller.syncAfterInitCells();
+			barrier.await();
 			
-			workProvider.resetWork(cellsWork);
-			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
-				model.setCellNeighbors(token);
+			cellsWorkProvider.resetWork(cellsWork);
+			
+			int cCt = 0;
+			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
+				cCt++;
+				try {
+					model.setCellNeighbors(token);
+				} catch (Exception e) {
+					System.out.println(Thread.currentThread().getName() + " failed to neigh cell " + token);
+					throw new WorkException(e);
+				}
+//				System.err.format("%05d %s\n", token, Thread.currentThread().getName());
+				
 			}
+//			barrier.await();
+			System.out.println(Thread.currentThread().getName() + " neighed " + cCt + " cells");
+//			barrier.await();
+			
 			
 			controller.syncAfterCellsAddNeighbors();
 			
 			int agentCount = 0;
 			
 			/* Populate simulation grid with agents. */
-			while ((token = workProvider.getNextToken(sheepWork)) >= 0) {
+			while ((token = sheepWorkProvider.getNextToken(sheepWork)) >= 0) {
 				agentCount++;
 				int idx = rng.nextInt(model.getSize());
 				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
@@ -103,24 +123,24 @@ public class SimWorker implements Runnable {
 			}
 			System.out.println(Thread.currentThread().getName() + " put " + agentCount + " sheep");
 			agentCount = 0;
-			while ((token = workProvider.getNextToken(wolvesWork)) >= 0) {
+			while ((token = wolvesWorkProvider.getNextToken(wolvesWork)) >= 0) {
 				agentCount++;
 				int idx = rng.nextInt(model.getSize());
 				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
 				model.getCell(idx).putNewAgent(wolf);
 			}
-			System.out.println(Thread.currentThread().getName() + " put " + agentCount + " wolves");
+//			System.out.println(Thread.currentThread().getName() + " put " + agentCount + " wolves");
 			
 			controller.syncAfterInitAgents();
 			
 			/* Get initial statistics. */
 			iterStats.reset();
-			workProvider.resetWork(cellsWork);
-			while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+			cellsWorkProvider.resetWork(cellsWork);
+			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				model.getCell(token).getStats(iterStats);
 			}
 			
-			System.out.println(Thread.currentThread().getName() + " counts " + iterStats.getSheep() + " sheep, " + iterStats.getWolves()+ " wolves and " +iterStats.getGrass() + " grass");
+//			System.out.println(Thread.currentThread().getName() + " counts " + iterStats.getSheep() + " sheep, " + iterStats.getWolves()+ " wolves and " +iterStats.getGrass() + " grass");
 			
 //			barrier.await();
 //			IterationStats tmpStats = new IterationStats();
@@ -141,9 +161,9 @@ public class SimWorker implements Runnable {
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 //				if (this.swId == 0) System.out.println("==== " + iter);
 //				barrier.await();
-				workProvider.resetWork(cellsWork);
+				cellsWorkProvider.resetWork(cellsWork);
 //				int count = 0;
-				while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 //					count++;
 					/* Current cell being processed. */
 					ICell cell = model.getCell(token);
@@ -163,7 +183,7 @@ public class SimWorker implements Runnable {
 	
 				}
 //				System.out.println(Thread.currentThread().getName() + " processed " + count + " cells (1)!");
-				workProvider.resetWork(cellsWork);
+				cellsWorkProvider.resetWork(cellsWork);
 				
 				/* Sync. with barrier. */
 				controller.syncAfterHalfIteration();
@@ -174,7 +194,7 @@ public class SimWorker implements Runnable {
 //				barrier.await();
 //				count=0;
 				/* Cycle through cells in order to perform step 3 and 4 of simulation. */
-				while ((token = workProvider.getNextToken(cellsWork)) >= 0) {
+				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 //					count++;
 					/* Current cell being processed. */
 					ICell cell = model.getCell(token);

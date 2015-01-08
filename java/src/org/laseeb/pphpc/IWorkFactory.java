@@ -2,7 +2,7 @@ package org.laseeb.pphpc;
 
 public interface IWorkFactory {
 
-	public IWorkProvider createWorkProvider();
+	public IWorkProvider getWorkProvider(int workSize, IController controller);
 	
 	public ICellPutAgentStrategy createPutNewAgentStrategy();
 

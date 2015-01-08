@@ -8,4 +8,8 @@ public class WorkException extends Exception {
 	public WorkException(Exception e) {
 		super(e);
 	}
+
+	public WorkException(String message) {
+		super(message);
+	}
 }
