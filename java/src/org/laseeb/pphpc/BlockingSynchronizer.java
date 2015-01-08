@@ -39,7 +39,7 @@ import java.util.concurrent.CyclicBarrier;
 public class BlockingSynchronizer extends AbstractSynchronizer {
 
 	/* Used as a blocking synchronizer. */
-	private volatile CyclicBarrier barrier;
+	private CyclicBarrier barrier;
 	
 	private int numWorkers;
 	
@@ -71,27 +71,10 @@ public class BlockingSynchronizer extends AbstractSynchronizer {
 	@Override
 	public void syncNotify(final IModel model) throws WorkException {
 		
-//		/* Instantiate barrier if required. Use double-checked locking to avoid thread
-//		 * synchronization after initialization. */
-//		if (this.barrier == null) {
-//			synchronized(this) {
-//				if (this.barrier == null) {
-//					this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
-//						@Override public void run() { notifyObservers(model); }
-//					});
-//				}
-//			}
-//		}
-		
 		/* Perform synchronization. */
 		try {
 			this.barrier.await();
 		} catch (Exception e) {
-//			System.out.println("====\nIs barrier null? " + (this.barrier == null ? "YES!" : "No..."));
-//			if (this.barrier != null)
-//				System.out.println("Barrier toString: " + barrier);
-//			System.out.println("Exception message: " + e.getMessage());
-//			System.exit(-1);
 			throw new WorkException(e);
 		}
 	}

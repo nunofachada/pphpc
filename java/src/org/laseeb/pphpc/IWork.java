@@ -40,5 +40,5 @@ public interface IWork {
 	 * 
 	 * @return Unique ID of simulation worker associated with this work state.
 	 */
-	int getWorkerId();
+	int getWorkId();
 }
