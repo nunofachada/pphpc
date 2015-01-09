@@ -27,23 +27,29 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.validators.PositiveInteger;
+/**
+ * Simulation synchronizer objects are used by {@link ISimWorkProvider}
+ * implementations to provide synchronization points to the simulation
+ * workers. 
+ * 
+ * They also follow the observer design pattern (as observable
+ * or subject), allowing code to register observers which are
+ * updated (in a serial fashion) when the synchronization point
+ * is reached by all simulation workers.
+ * 
+ * @author Nuno Fachada
+ */
+public interface ISyncPoint extends IObservable {
+	
+	/**
+	 * Notify simulation synchronizer that a simulation worker has reached
+	 * this stage.
+	 * 
+	 * @throws WorkException if synchronization was unexpectedly
+	 * interrupted.
+	 */
+	public void syncNotify(IModelState model) throws WorkException;
 
-public abstract class AbstractThreadedWorkFactory extends AbstractWorkFactory {
-
-	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
-	protected int numThreads = Runtime.getRuntime().availableProcessors();
-
-	@Override
-	public IGlobalStats createGlobalStats(int iters) {
-		return new ThreadSafeGlobalStats(iters);
-	}
-
-	@Override
-	public int getNumWorkers() {
-		return this.numThreads;
-	}
-
+	public void notifyTermination();
+	
 }

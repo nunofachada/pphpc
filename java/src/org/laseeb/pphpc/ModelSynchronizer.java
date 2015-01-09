@@ -27,26 +27,26 @@
 
 package org.laseeb.pphpc;
 
-public class Controller implements IController {
+public class ModelSynchronizer implements IModelSynchronizer {
 	
-	private IModel model;
+	private IModelState model;
 
-	private ISynchronizer afterInitCellsSync;
-	private ISynchronizer afterAddCellsNeighsSync;
-	private ISynchronizer afterAddAgentsSync;
-	private ISynchronizer afterFirstStatsSync;
-	private ISynchronizer afterHalfIterSync;
-	private ISynchronizer afterEndIterSync;
-	private ISynchronizer afterEndSimSync;
+	private ISyncPoint afterInitCellsSync;
+	private ISyncPoint afterAddCellsNeighsSync;
+	private ISyncPoint afterAddAgentsSync;
+	private ISyncPoint afterFirstStatsSync;
+	private ISyncPoint afterHalfIterSync;
+	private ISyncPoint afterEndIterSync;
+	private ISyncPoint afterEndSimSync;
 	
-	public Controller(IModel model,
-			ISynchronizer afterInitCellsSync,
-			ISynchronizer afterAddCellsNeighsSync,
-			ISynchronizer afterAddAgentsSync,
-			ISynchronizer afterFirstStatsSync,
-			ISynchronizer afterHalfIterSync,
-			ISynchronizer afterEndIterSync,
-			ISynchronizer afterEndSimSync) {
+	public ModelSynchronizer(IModelState model,
+			ISyncPoint afterInitCellsSync,
+			ISyncPoint afterAddCellsNeighsSync,
+			ISyncPoint afterAddAgentsSync,
+			ISyncPoint afterFirstStatsSync,
+			ISyncPoint afterHalfIterSync,
+			ISyncPoint afterEndIterSync,
+			ISyncPoint afterEndSimSync) {
 		
 		this.afterInitCellsSync = afterInitCellsSync; 
 		this.afterAddCellsNeighsSync = afterAddCellsNeighsSync;
@@ -55,10 +55,12 @@ public class Controller implements IController {
 		this.afterHalfIterSync = afterHalfIterSync;
 		this.afterEndIterSync = afterEndIterSync;
 		this.afterEndSimSync = afterEndSimSync;
+		
+		this.model.setStatus(ModelStatus.STOPPED);
 	}
 
 	@Override
-	public void registerSimEventObserver(SimEvent event, IObserver observer) {
+	public void registerSimEventObserver(ModelEvent event, IObserver observer) {
 		switch (event) {
 			case AFTER_INIT_CELLS:
 				this.afterInitCellsSync.registerObserver(observer);
@@ -120,7 +122,7 @@ public class Controller implements IController {
 	}
 
 	@Override
-	public void notifyTermination() {
+	public void stopNow() {
 		this.afterInitCellsSync.notifyTermination(); 
 		this.afterAddCellsNeighsSync.notifyTermination();
 		this.afterAddAgentsSync.notifyTermination();
@@ -128,6 +130,30 @@ public class Controller implements IController {
 		this.afterHalfIterSync.notifyTermination();
 		this.afterEndIterSync.notifyTermination();
 		this.afterEndSimSync.notifyTermination();
+	}
+
+	@Override
+	public void start() {
+		if (this.model.getStatus() == ModelStatus.PAUSED) {
+			// TODO Unpause model
+			// TODO Notify observers of unpause/continue
+		} else if (this.model.getStatus() == ModelStatus.STOPPED) {
+			// TODO Launch model
+			// TODO Notify observers of start
+		}
+
+	}
+
+	@Override
+	public void pause() {
+		// TODO Pause model
+		// TODO Notify observers of pause
+	}
+
+	@Override
+	public void stop() {
+		// TODO Stop model
+		// TODO Notify observers of stop
 	}
 
 

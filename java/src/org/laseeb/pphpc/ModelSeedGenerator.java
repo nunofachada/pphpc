@@ -44,7 +44,7 @@ import org.uncommons.maths.random.SeedGenerator;
  * 
  * @author Nuno Fachada
  */
-public class SimSeedGenerator implements SeedGenerator {
+public class ModelSeedGenerator implements SeedGenerator {
 	
 	/* Different threads should pass different modifiers, so that each
 	 * gets a "different" stream from the RNG. */
@@ -61,7 +61,7 @@ public class SimSeedGenerator implements SeedGenerator {
 	 * one thread is used, pass zero.
 	 * @param seed Base seed for this seed generator.
 	 */
-	public SimSeedGenerator(long modifier, BigInteger seed) {
+	public ModelSeedGenerator(long modifier, BigInteger seed) {
 		this.modifier = modifier;
 		this.seed = seed;
 	}

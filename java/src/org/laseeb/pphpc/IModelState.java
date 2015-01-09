@@ -27,59 +27,36 @@
 
 package org.laseeb.pphpc;
 
-import java.util.concurrent.CyclicBarrier;
+import java.util.Random;
 
-/**
- * A blocking simulation synchronizer. Waits for all simulation workers to
- * reach this synchronization point before it lets them continue. Registered 
- * observers to be executed serially before simulation workers are released. 
- * 
- * @author Nuno Fachada
- */
-public class BlockingSynchronizer extends AbstractSynchronizer {
-
-	/* Used as a blocking synchronizer. */
-	private CyclicBarrier barrier;
+public interface IModelState {
 	
-	private int numWorkers;
+	public int getSize();
+
+	public ICell getCell(int idx);
+
+	public void setCell(int idx, Cell cell);
 	
-	/**
-	 * Create a new blocking simulation synchronizer.
-	 * 
-	 * @param event Simulation event to associate with this synchronizer.
-	 * @param numThreads Number of simulation workers in current simulation.
-	 */
-	public BlockingSynchronizer(SimEvent event, final IModel model, int numWorkers) {
-		
-		/* Call the super constructor. */
-		super(event);
-		
-		this.numWorkers = numWorkers;
+	public void setCellNeighbors(int idx);
 	
-		this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
-			@Override public void run() {
-				notifyObservers(model); 
-			}
-		});
-		
-	}
+	public ModelParams getParams();
+	
+	public int getCurrentIteration();
+	
+	public void incrementIteration();
+	
+	public IGlobalStats getGlobalStats();
 
-	@Override
-	protected void doSyncNotify(IModel model) throws WorkException {
+	public void setCellAt(int idx, Random rng);
 
-		/* Perform synchronization. */
-		try {
-			this.barrier.await();
-		} catch (Exception e) {
-			throw new WorkException(e);
-		}
-	}
+	public ModelStatus getStatus();
 
-	@Override
-	public void notifyTermination() {
-		super.notifyTermination();
-		this.barrier.reset();
-	}
+	public void setStatus(ModelStatus status);
+	
+	public boolean isRunning();
 
-
+	public boolean isStopped();
+	
+	public boolean isPaused();
+	
 }

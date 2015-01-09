@@ -36,13 +36,13 @@ import java.util.List;
  * 
  * @author Nuno Fachada
  */
-public abstract class AbstractSynchronizer implements ISynchronizer {
+public abstract class AbstractSyncPoint implements ISyncPoint {
 
 	/* List of observers. */
 	private List<IObserver> observers;
 	
 	/* Simulation event associated with this synchronizer. */
-	private SimEvent event;
+	private ModelEvent event;
 	
 	/* Was the simulation interrupted? */
 	protected volatile boolean interrupted;
@@ -53,7 +53,7 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	 * @param event Simulation event to associate with this simulation
 	 * synchronizer. 
 	 */
-	public AbstractSynchronizer(SimEvent event) {
+	public AbstractSyncPoint(ModelEvent event) {
 		this.event = event;
 		this.observers = new ArrayList<IObserver>();
 		this.interrupted = false;
@@ -75,10 +75,10 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	/**
 	 * 
 	 * 
-	 * @see ISynchronizer#syncNotify(IModel model)
+	 * @see ISyncPoint#syncNotify(IModelState model)
 	 */
 	@Override
-	public void syncNotify(IModel model) throws WorkException {
+	public void syncNotify(IModelState model) throws WorkException {
 		
 		if (this.interrupted)
 			throw new WorkException("Interrupted by another thread.");
@@ -89,18 +89,18 @@ public abstract class AbstractSynchronizer implements ISynchronizer {
 	
 	/**
 	 * Perform proper synchronization. Implementations of this method must invoke
-	 * {@link #notifyObservers(IModel)}.
+	 * {@link #notifyObservers(IModelState)}.
 	 * 
 	 * @param model The simulation model.
 	 */
-	protected abstract void doSyncNotify(IModel model) throws WorkException;
+	protected abstract void doSyncNotify(IModelState model) throws WorkException;
 
 	/**
 	 * Helper method which notifies the registered observers.
 	 * 
 	 * @param model The simulation model.
 	 */
-	protected void notifyObservers(IModel model) {
+	protected void notifyObservers(IModelState model) {
 		for (IObserver o : this.observers) {
 			o.update(this.event, model);
 		}

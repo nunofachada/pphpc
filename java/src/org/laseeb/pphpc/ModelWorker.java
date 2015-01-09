@@ -32,16 +32,16 @@ import java.util.Random;
 /**
  *  A simulation worker. 
  *  */
-public class SimWorker implements Runnable {
+public class ModelWorker implements Runnable {
 	
 	private int swId;
 	private IWorkFactory workFactory;
-	private SimParams params;
+	private ModelParams params;
 	private IGlobalStats globalStats;
-	private IModel model;
-	private IController controller;
+	private IModelState model;
+	private IModelSynchronizer controller;
 	
-	public SimWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
+	public ModelWorker(int swId, IWorkFactory workFactory, IModelState model, IModelSynchronizer controller) {
 		this.swId = swId;
 		this.workFactory = workFactory;
 		this.params = model.getParams();
@@ -185,7 +185,7 @@ public class SimWorker implements Runnable {
 			
 		} catch (Exception we) {
 			
-			this.controller.notifyTermination();
+			this.controller.stopNow();
 			
 			/* Throw runtime exception to be handled by uncaught exception handler. */
 			throw new RuntimeException(we);

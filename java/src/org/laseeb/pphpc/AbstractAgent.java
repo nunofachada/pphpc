@@ -40,7 +40,7 @@ public abstract class AbstractAgent implements IAgent {
 	protected int energy;
 	
 	/* Simulation parameters. */
-	protected SimParams params;
+	protected ModelParams params;
 	
 	/**
 	 * Constructor.
@@ -48,7 +48,7 @@ public abstract class AbstractAgent implements IAgent {
 	 * @param energy Initial agent energy.
 	 * @param params Simulation parameters.
 	 */
-	public AbstractAgent(int energy, SimParams params) {
+	public AbstractAgent(int energy, ModelParams params) {
 		this.energy = energy;
 		this.params = params;
 	}

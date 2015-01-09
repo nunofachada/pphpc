@@ -40,7 +40,7 @@ public class Wolf extends AbstractAgent {
 	 * @param energy Initial wolf energy.
 	 * @param Simulation parameters.
 	 */
-	public Wolf(int energy, SimParams params) {
+	public Wolf(int energy, ModelParams params) {
 		super(energy, params);
 	}
 

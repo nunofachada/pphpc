@@ -36,7 +36,7 @@ import java.util.Properties;
  * 
  * @author Nuno Fachada
  */
-public class SimParams {
+public class ModelParams {
 	/*
 	 * Model parameters.
 	 */
@@ -60,7 +60,7 @@ public class SimParams {
 	 * @param paramsFile Parameters file.
 	 * @throws IOException If it wasn't possible to open the given parameters file.
 	 */
-	public SimParams(String paramsFile) throws IOException {
+	public ModelParams(String paramsFile) throws IOException {
 		
 		Properties properties = new Properties();
 		FileReader in = null;

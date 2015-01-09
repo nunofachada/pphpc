@@ -107,7 +107,7 @@ public class PredPrey {
 	private boolean help;
 
 	/* Simulation parameters. */
-	private SimParams params;
+	private ModelParams params;
 	
 	/* Work factory. */
 	private IWorkFactory workFactory;
@@ -164,14 +164,14 @@ public class PredPrey {
 		/* Initialize latch. */
 		this.mainLatch = new CountDownLatch(1);
 
-		IModel model = new Model(this.params, this.workFactory);
-		IController controller = this.workFactory.createSimController(model);
+		IModelState model = new ModelState(this.params, this.workFactory);
+		IModelSynchronizer controller = this.workFactory.createSimController(model);
 		
 		final Map<String, Throwable> threadExceptions = new ConcurrentHashMap<String, Throwable>();
 		
 		/* Launch simulation threads. */
 		for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
-			Thread simThread = new Thread(new SimWorker(i, this.workFactory, model, controller));
+			Thread simThread = new Thread(new ModelWorker(i, this.workFactory, model, controller));
 			simThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
 				
 				@Override
@@ -292,7 +292,7 @@ public class PredPrey {
 		
 		/* Read parameters file. */
 		try {
-			this.params = new SimParams(this.paramsFile);
+			this.params = new ModelParams(this.paramsFile);
 		} catch (IOException ioe) {
 			errMessage(Thread.currentThread().getName(), ioe);
 			return Errors.PARAMS.getValue();
@@ -352,7 +352,7 @@ public class PredPrey {
 	 */
 	public Random createRNG(long modifier) throws Exception {
 		
-		SeedGenerator seedGen = new SimSeedGenerator(modifier, this.seed);
+		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
 
 		switch (this.rngType) {
 			case AES:

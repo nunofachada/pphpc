@@ -27,7 +27,7 @@
 
 package org.laseeb.pphpc;
 
-public enum SimEvent {
+public enum ModelEvent {
 	
 	AFTER_INIT_CELLS,
 	AFTER_CELLS_ADD_NEIGHBORS,

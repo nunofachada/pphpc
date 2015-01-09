@@ -27,28 +27,30 @@
 
 package org.laseeb.pphpc;
 
-/**
- * A very simple non-blocking simulation synchronizer which only supports 
- * one thread for observer notification purposes. It works for multiple 
- * threads if no observers are registered.
- * 
- * @author Nuno Fachada
- */
-public class NoSynchronizer extends AbstractSynchronizer {
+public interface IModelSynchronizer {
 
-	/**
-	 * Create a new basic simulation synchronizer.
-	 * 
-	 * @param event Simulation event to associate with this synchronizer.
-	 */
-	public NoSynchronizer(SimEvent event) {
-		super(event);
-	}
+	public void registerSimEventObserver(ModelEvent event, IObserver observer);
 
-	@Override
-	public void doSyncNotify(IModel model) {
-		this.notifyObservers(model);
-	}
+	public void syncAfterInitCells() throws WorkException;
 
+	public void syncAfterCellsAddNeighbors() throws WorkException;
+
+	public void syncAfterInitAgents() throws WorkException;
+
+	public void syncAfterFirstStats() throws WorkException;
+
+	public void syncAfterHalfIteration() throws WorkException;
+
+	public void syncAfterEndIteration() throws WorkException;
+
+	public void syncAfterSimFinish() throws WorkException;
+
+	public void stopNow();
+	
+	public void stop();
+	
+	public void start();
+	
+	public void pause();
 
 }

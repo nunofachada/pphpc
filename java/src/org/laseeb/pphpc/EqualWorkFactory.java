@@ -31,7 +31,7 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
 @Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
-public class EqualWorkFactory extends AbstractThreadedWorkFactory {
+public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	
 	final private String commandName = "equal";
 
@@ -39,7 +39,7 @@ public class EqualWorkFactory extends AbstractThreadedWorkFactory {
 	private boolean repeatable = false;
 
 	@Override
-	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+	public IWorkProvider doGetWorkProvider(int workSize, IModelSynchronizer controller) {
 		return new EqualWorkProvider(this.numThreads, workSize);
 	}
 
@@ -60,15 +60,15 @@ public class EqualWorkFactory extends AbstractThreadedWorkFactory {
 	}
 
 	@Override
-	public IController createSimController(IModel model) {
-		return new Controller(model,
-				new BlockingSynchronizer(SimEvent.AFTER_INIT_CELLS, model, this.numThreads), 
-				new NoSynchronizer(SimEvent.AFTER_CELLS_ADD_NEIGHBORS), 
-				new BlockingSynchronizer(SimEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
-				new NoSynchronizer(SimEvent.AFTER_FIRST_STATS), 
-				new BlockingSynchronizer(SimEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
-				new BlockingSynchronizer(SimEvent.AFTER_END_ITERATION, model, this.numThreads), 
-				new NoSynchronizer(SimEvent.AFTER_END_SIMULATION));
+	public IModelSynchronizer createSimController(IModelState model) {
+		return new ModelSynchronizer(model,
+				new BlockingSyncPoint(ModelEvent.AFTER_INIT_CELLS, model, this.numThreads), 
+				new SingleThreadSyncPoint(ModelEvent.AFTER_CELLS_ADD_NEIGHBORS), 
+				new BlockingSyncPoint(ModelEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
+				new SingleThreadSyncPoint(ModelEvent.AFTER_FIRST_STATS), 
+				new BlockingSyncPoint(ModelEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
+				new BlockingSyncPoint(ModelEvent.AFTER_END_ITERATION, model, this.numThreads), 
+				new SingleThreadSyncPoint(ModelEvent.AFTER_END_SIMULATION));
 	}
 
 	@Override

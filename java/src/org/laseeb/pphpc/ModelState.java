@@ -29,10 +29,10 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
-public class Model implements IModel {
+public class ModelState implements IModelState {
 	
 	private int size;
-	private SimParams params;
+	private ModelParams params;
 	private ICell cells[];
 	private int currentIteration;
 	private IGlobalStats globalStats;
@@ -40,8 +40,9 @@ public class Model implements IModel {
 	private ICellPutAgentStrategy putNewAgentStrategy;
 	private ICellPutAgentStrategy putExistingAgentStrategy;
 	private ICellGrassInitStrategy grassInitStrategy;
+	private ModelStatus status; 
 	
-	public Model(SimParams params, IWorkFactory wFactory) {
+	public ModelState(ModelParams params, IWorkFactory wFactory) {
 		this.params = params;
 		this.space = new Square2DTorusSpace(params.getGridX(), params.getGridY());
 		this.globalStats = wFactory.createGlobalStats(params.getIters());
@@ -74,7 +75,7 @@ public class Model implements IModel {
 	}
 
 	@Override
-	public SimParams getParams() {
+	public ModelParams getParams() {
 		return this.params;
 	}
 
@@ -102,6 +103,37 @@ public class Model implements IModel {
 		} else {
 			throw new IllegalStateException("Cell " + idx + " already set!");
 		}
+	}
+
+	/**
+	 * @return the status
+	 */
+	@Override
+	public ModelStatus getStatus() {
+		return status;
+	}
+
+	/**
+	 * @param status the status to set
+	 */
+	@Override
+	public void setStatus(ModelStatus status) {
+		this.status = status;
+	}
+
+	@Override
+	public boolean isRunning() {
+		return this.status == ModelStatus.RUNNING;
+	}
+
+	@Override
+	public boolean isStopped() {
+		return this.status == ModelStatus.STOPPED;
+	}
+
+	@Override
+	public boolean isPaused() {
+		return this.status == ModelStatus.PAUSED;
 	}
 
 }

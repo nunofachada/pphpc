@@ -40,7 +40,7 @@ public class Sheep extends AbstractAgent {
 	 * @param energy Initial sheep energy.
 	 * @param Simulation parameters.
 	 */
-	public Sheep(int energy, SimParams params) {
+	public Sheep(int energy, ModelParams params) {
 		super(energy, params);
 	}
 	

@@ -28,28 +28,27 @@
 package org.laseeb.pphpc;
 
 /**
- * Simulation synchronizer objects are used by {@link ISimWorkProvider}
- * implementations to provide synchronization points to the simulation
- * workers. 
- * 
- * They also follow the observer design pattern (as observable
- * or subject), allowing code to register observers which are
- * updated (in a serial fashion) when the synchronization point
- * is reached by all simulation workers.
+ * A very simple non-blocking simulation synchronizer which only supports 
+ * one thread for observer notification purposes. It works for multiple 
+ * threads if no observers are registered.
  * 
  * @author Nuno Fachada
  */
-public interface ISynchronizer extends IObservable {
-	
-	/**
-	 * Notify simulation synchronizer that a simulation worker has reached
-	 * this stage.
-	 * 
-	 * @throws WorkException if synchronization was unexpectedly
-	 * interrupted.
-	 */
-	public void syncNotify(IModel model) throws WorkException;
+public class SingleThreadSyncPoint extends AbstractSyncPoint {
 
-	public void notifyTermination();
-	
+	/**
+	 * Create a new basic simulation synchronizer.
+	 * 
+	 * @param event Simulation event to associate with this synchronizer.
+	 */
+	public SingleThreadSyncPoint(ModelEvent event) {
+		super(event);
+	}
+
+	@Override
+	public void doSyncNotify(IModelState model) {
+		this.notifyObservers(model);
+	}
+
+
 }

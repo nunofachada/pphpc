@@ -27,24 +27,23 @@
 
 package org.laseeb.pphpc;
 
-public interface IController {
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.validators.PositiveInteger;
 
-	public void registerSimEventObserver(SimEvent event, IObserver observer);
+public abstract class AbstractMultiThreadWorkFactory extends AbstractWorkFactory {
 
-	public void syncAfterInitCells() throws WorkException;
+	/* Number of threads. */
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
+	protected int numThreads = Runtime.getRuntime().availableProcessors();
 
-	public void syncAfterCellsAddNeighbors() throws WorkException;
+	@Override
+	public IGlobalStats createGlobalStats(int iters) {
+		return new ThreadSafeGlobalStats(iters);
+	}
 
-	public void syncAfterInitAgents() throws WorkException;
-
-	public void syncAfterFirstStats() throws WorkException;
-
-	public void syncAfterHalfIteration() throws WorkException;
-
-	public void syncAfterEndIteration() throws WorkException;
-
-	public void syncAfterSimFinish() throws WorkException;
-
-	public void notifyTermination();
+	@Override
+	public int getNumWorkers() {
+		return this.numThreads;
+	}
 
 }
