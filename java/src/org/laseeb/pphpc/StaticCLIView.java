@@ -1,17 +1,20 @@
 package org.laseeb.pphpc;
 
-public class StaticCLIView implements IView {
+public class StaticCLIView extends AbstractModelEventObserver implements IView {
 	
 	private IModel model;
 	private IController controller;
 	private String statsFile;
+	private long timming;
 	
 	public StaticCLIView(IModel model, IController controller, String statsFile) {
 		this.model = model;
 		this.controller = controller;
 		this.statsFile = statsFile;
 		
-		model.registerObserver(null, this);
+		model.registerObserver(ModelEvent.START, this);
+		model.registerObserver(ModelEvent.STOP, this);
+		model.registerObserver(ModelEvent.EXCEPTION, this);
 		
 	}
 	
@@ -28,29 +31,22 @@ public class StaticCLIView implements IView {
 	}
 
 	@Override
-	public void update(ModelEvent event) {
-		switch (event) {
-			case START:
-				System.out.println("Started!");
-				break;
-			case CONTINUE:
-				System.out.println("Continue!");
-				break;
-			case NEW_ITERATION:
-//				System.out.println("New iteration!");
-				break;
-			case PAUSE:
-				System.out.println("Pause!");
-				break;
-			case STOP:
-				System.out.println("Stop!");
-				this.controller.export(this.statsFile);
-				break;
-			case EXCEPTION:
-				System.err.println(this.model.getLastThrowable().getMessage());
-				System.exit(PredPrey.Errors.SIM.getValue());
-				break;
-		}
+	protected void updateOnStart() {
+		System.out.println("Started simulation with " + this.controller.getNumWorkers() + " threads...");
+		this.timming = System.currentTimeMillis();
+	}
+
+	@Override
+	protected void updateOnStop() {
+		System.out.println("Total simulation time: " + ((System.currentTimeMillis() - this.timming) / 1000.0f) + "\n");
+		this.controller.export(this.statsFile);
+		System.exit(PredPrey.Errors.NONE.getValue());
+	}
+
+	@Override
+	protected void updateOnException() {
+		System.err.println(this.model.getLastThrowable().getMessage());
+		System.exit(PredPrey.Errors.SIM.getValue());
 	}
 
 }

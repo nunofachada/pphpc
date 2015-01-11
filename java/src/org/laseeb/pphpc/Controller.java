@@ -186,5 +186,10 @@ public class Controller implements IController {
 		this.model.export(filename);
 	}
 
+	@Override
+	public int getNumWorkers() {
+		return this.workFactory.getNumWorkers();
+	}
+
 
 }

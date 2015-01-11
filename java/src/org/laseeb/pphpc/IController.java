@@ -60,4 +60,6 @@ public interface IController {
 
 	public void export(String filename);
 
+	public int getNumWorkers();
+
 }
