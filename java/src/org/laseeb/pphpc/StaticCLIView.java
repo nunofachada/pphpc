@@ -4,23 +4,27 @@ public class StaticCLIView extends AbstractModelEventObserver implements IView {
 	
 	private IModel model;
 	private IController controller;
-	private String statsFile;
+	private PredPrey pp;
+	
 	private long timming;
 	
-	public StaticCLIView(IModel model, IController controller, String statsFile) {
-		this.model = model;
-		this.controller = controller;
-		this.statsFile = statsFile;
-		
-		model.registerObserver(ModelEvent.START, this);
-		model.registerObserver(ModelEvent.STOP, this);
-		model.registerObserver(ModelEvent.EXCEPTION, this);
+	public StaticCLIView() {
 		
 	}
 	
 	@Override
-	public void init() {
-    	new Thread(new Runnable() {
+	public void init(IModel model, final IController controller, PredPrey pp) {
+
+		this.model = model;
+		this.controller = controller;
+		this.pp = pp;
+		
+		model.registerObserver(ModelEvent.START, this);
+		model.registerObserver(ModelEvent.STOP, this);
+		model.registerObserver(ModelEvent.EXCEPTION, this);
+
+		
+		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
@@ -39,13 +43,14 @@ public class StaticCLIView extends AbstractModelEventObserver implements IView {
 	@Override
 	protected void updateOnStop() {
 		System.out.println("Total simulation time: " + ((System.currentTimeMillis() - this.timming) / 1000.0f) + "\n");
-		this.controller.export(this.statsFile);
+		this.controller.export(this.pp.getStatsFile());
 		System.exit(PredPrey.Errors.NONE.getValue());
 	}
 
 	@Override
 	protected void updateOnException() {
-		System.err.println("And the winner is... " + this.model.getLastThrowable().getMessage());
+		String msg = this.pp.errMessage(this.model.getLastThrowable());
+		System.err.println(msg);
 		System.exit(PredPrey.Errors.SIM.getValue());
 	}
 

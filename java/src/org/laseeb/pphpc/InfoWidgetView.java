@@ -34,20 +34,22 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 		frame.setVisible(true);
 	}
 
-	public InfoWidgetView(IModel model) {
+	public InfoWidgetView() {}
+
+	@Override
+	public void init(IModel model, IController controller, PredPrey pp) {
+
 		this.model = model;
 		model.registerObserver(ModelEvent.START, this);
 		model.registerObserver(ModelEvent.STOP, this);
 		model.registerObserver(ModelEvent.NEW_ITERATION, this);
-	}
-
-	@Override
-	public void init() {
+		
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
 				createAndShowGUI();
 			}
 		});
+		
 	}
 
 	@Override

@@ -30,8 +30,9 @@
  */
 package org.laseeb.pphpc;
 
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,9 +48,6 @@ import com.beust.jcommander.ParameterException;
  * @author Nuno Fachada
  */
 public class PredPrey {
-	
-	/* There can be only one. */
-	private volatile static PredPrey instance = null;	
 	
 	/* Enumeration containing program errors. */
 	public enum Errors {
@@ -127,17 +125,21 @@ public class PredPrey {
 	/**
 	 * Show error message or stack trace, depending on debug parameter.
 	 * 
-	 * @param throwable Exception which caused the error.
+	 * @param t Exception which caused the error.
 	 */
-	private void errMessage(String threadName, Throwable throwable) {
+	public String errMessage(Throwable t) {
+		
+		String errMessage;
 		
 		if (this.debug) {
-			System.err.println("In thread " + threadName);
-			throwable.printStackTrace();
+			StringWriter sw = new StringWriter();
+			t.printStackTrace(new PrintWriter(sw));
+			errMessage = sw.toString();
 		} else {
-			System.err.println("An error ocurred in thread " + threadName
-					+ ": " + throwable.getMessage());
+			errMessage = t.getMessage();
 		}
+		
+		return errMessage;
 	}
 	
 	/**
@@ -147,14 +149,11 @@ public class PredPrey {
 	 */
 	public void doMain(String[] args) {
 		
-		/* Final simulation stats. */
-		IGlobalStats stats;
-		
 		/* Initialize know work factories. */
 		try {
 			this.initWorkFactories();
 		} catch (Exception e) {
-			errMessage(Thread.currentThread().getName(), e);
+			System.err.println(errMessage(e));
 			System.exit(Errors.UNKNOWN.getValue());
 		}
 		
@@ -173,7 +172,7 @@ public class PredPrey {
 			parser.parse(args);
 		} catch (ParameterException pe) {
 			/* On parsing error, show usage and return. */
-			errMessage(Thread.currentThread().getName(), pe);
+			System.err.println(errMessage(pe));
 			parser.usage();
 			System.exit(Errors.ARGS.getValue());
 		}
@@ -192,7 +191,7 @@ public class PredPrey {
 		try {
 			this.params = new ModelParams(this.paramsFile);
 		} catch (IOException ioe) {
-			errMessage(Thread.currentThread().getName(), ioe);
+			System.err.println(errMessage(ioe));
 			System.exit(Errors.PARAMS.getValue());
 		}
 		
@@ -205,8 +204,8 @@ public class PredPrey {
 			System.out.println("Press ENTER to start...");
 			try {
 				System.in.read();
-			} catch (IOException e) {
-				errMessage(Thread.currentThread().getName(), e);
+			} catch (IOException ioe) {
+				System.err.println(errMessage(ioe));
 				System.exit(Errors.PRESIM.getValue());
 			}
 		}
@@ -216,11 +215,11 @@ public class PredPrey {
 		IController controller = this.workFactory.createSimController(model);
 		
 		/* Initialize the views. */
-		IView viewMaster = new StaticCLIView(model, controller, this.statsFile);
-		IView viewWidget = new InfoWidgetView(model);
+		IView viewMaster = new StaticCLIView();
+		IView viewWidget = new InfoWidgetView();
 		
-		viewWidget.init();
-		viewMaster.init();
+		viewWidget.init(model, controller, this);
+		viewMaster.init(model, controller, this);
 		
 	}
 	
@@ -234,5 +233,9 @@ public class PredPrey {
 		
 		new PredPrey().doMain(args);
 		
+	}
+
+	public String getStatsFile() {
+		return this.statsFile;
 	}
 }
