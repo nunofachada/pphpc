@@ -27,8 +27,51 @@
 
 package org.laseeb.pphpc;
 
-public interface IObserver {
+import java.io.IOException;
+import java.util.Random;
 
-	public void update(ModelEvent event, IModelState model);
+public interface IModel extends IModelEventObservable {
+	
+	public int getSize();
+
+	public ICell getCell(int idx);
+
+	public void setCell(int idx, Cell cell);
+	
+	public void setCellNeighbors(int idx);
+	
+	public ModelParams getParams();
+	
+	public int getCurrentIteration();
+	
+	public void incrementIteration();
+	
+	public IGlobalStats getGlobalStats();
+
+	public void setCellAt(int idx, Random rng);
+
+	public ModelStatus getStatus();
+
+	public void setStatus(ModelStatus status);
+	
+	public boolean isRunning();
+
+	public boolean isStopped();
+	
+	public boolean isPaused();
+
+	/**
+	 * Export statistics to file.
+	 * @param str Statistics filename.
+	 * @throws Exception 
+	 * @throws IOException 
+	 */
+	public void export(String filename);
+	
+	public void registerException(Throwable t);
+
+	public Throwable getLastThrowable();
+
+	public Random createRNG(long modifier) throws Exception;
 	
 }

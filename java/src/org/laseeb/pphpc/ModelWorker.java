@@ -38,10 +38,10 @@ public class ModelWorker implements Runnable {
 	private IWorkFactory workFactory;
 	private ModelParams params;
 	private IGlobalStats globalStats;
-	private IModelState model;
-	private IModelSynchronizer controller;
+	private IModel model;
+	private IController controller;
 	
-	public ModelWorker(int swId, IWorkFactory workFactory, IModelState model, IModelSynchronizer controller) {
+	public ModelWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
 		this.swId = swId;
 		this.workFactory = workFactory;
 		this.params = model.getParams();
@@ -54,7 +54,7 @@ public class ModelWorker implements Runnable {
 	public void run() {
 		
 		/* Random number generator for current worker. */
-		Random rng; // TODO Maybe pass rng from outside? Or be part of the model (but then it must be thread local..)? think...
+		Random rng;
 
 		/* Partial statistics */
 		IterationStats iterStats = new IterationStats();
@@ -77,14 +77,14 @@ public class ModelWorker implements Runnable {
 		try {
 
 			/* Create random number generator for current worker. */
-			rng = PredPrey.getInstance().createRNG(swId);
+			rng = model.createRNG(swId);
 			
 			/* Initialize simulation grid cells. */
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				model.setCellAt(token, rng);
 			}
 			
-			controller.syncAfterInitCells();
+			controller.workerNotifyInitCells();
 			
 			cellsWorkProvider.resetWork(cellsWork);
 			
@@ -92,7 +92,7 @@ public class ModelWorker implements Runnable {
 				model.setCellNeighbors(token);
 			}
 			
-			controller.syncAfterCellsAddNeighbors();
+			controller.workerNotifyCellsAddNeighbors();
 			
 			/* Populate simulation grid with agents. */
 			while ((token = sheepWorkProvider.getNextToken(sheepWork)) >= 0) {
@@ -107,7 +107,7 @@ public class ModelWorker implements Runnable {
 				model.getCell(idx).putNewAgent(wolf);
 			}
 			
-			controller.syncAfterInitAgents();
+			controller.workerNotifyInitAgents();
 			
 			/* Get initial statistics. */
 			iterStats.reset();
@@ -120,7 +120,7 @@ public class ModelWorker implements Runnable {
 			globalStats.updateStats(0, iterStats);
 
 			/* Sync. with barrier. */
-			controller.syncAfterFirstStats();
+			controller.workerNotifyFirstStats();
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 
@@ -148,7 +148,7 @@ public class ModelWorker implements Runnable {
 				cellsWorkProvider.resetWork(cellsWork);
 				
 				/* Sync. with barrier. */
-				controller.syncAfterHalfIteration();
+				controller.workerNotifyHalfIteration();
 				
 				/* Reset statistics for current iteration. */
 				iterStats.reset();
@@ -177,24 +177,21 @@ public class ModelWorker implements Runnable {
 				globalStats.updateStats(iter, iterStats);
 				
 				/* Sync. with barrier. */
-				controller.syncAfterEndIteration();
+				controller.workerNotifyEndIteration();
 				
 			}
 			
-			controller.syncAfterSimFinish();
+			controller.workerNotifySimFinish();
 			
-		} catch (Exception we) {
+		} catch (InterruptedWorkException iwe) {
+
+			/* Thread interrupted by request of another thread. Do nothing, just
+			 * let thread finish by its own. */
+		} catch (Exception e) {
 			
+			/* Some other unexpected exception. Notify controller to stop all other
+			 * threads immediately. */
 			this.controller.stopNow();
-			
-			/* Throw runtime exception to be handled by uncaught exception handler. */
-			throw new RuntimeException(we);
-			
-		} finally {
-			
-			if (this.swId == 0) {
-				PredPrey.getInstance().signalTermination();
-			}
 			
 		}
 	}

@@ -36,17 +36,6 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-
-import org.uncommons.maths.random.AESCounterRNG;
-import org.uncommons.maths.random.CMWC4096RNG;
-import org.uncommons.maths.random.CellularAutomatonRNG;
-import org.uncommons.maths.random.JavaRNG;
-import org.uncommons.maths.random.MersenneTwisterRNG;
-import org.uncommons.maths.random.SeedGenerator;
-import org.uncommons.maths.random.XORShiftRNG;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.JCommander;
@@ -63,7 +52,7 @@ public class PredPrey {
 	private volatile static PredPrey instance = null;	
 	
 	/* Enumeration containing program errors. */
-	private enum Errors {
+	public enum Errors {
 		NONE(0), ARGS(-1), PARAMS(-2), PRESIM(-3), SIM(-4), EXPORT(-5), UNKNOWN(-6);
 		private int value;
 		private Errors(int value) { this.value = value; }
@@ -117,20 +106,7 @@ public class PredPrey {
 
 	private Map<String, IWorkFactory> knownWorkFactories;
 	
-	private CountDownLatch mainLatch;
-	
 	private PredPrey() {}
-	
-	public static PredPrey getInstance() {
-		if (instance == null) {
-			synchronized (PredPrey.class) {
-				if (instance == null) {
-					instance = new PredPrey();
-				}
-			}
-		}
-		return instance;
-	}
 	
 	private void initWorkFactories() throws Exception {
 		
@@ -148,83 +124,6 @@ public class PredPrey {
 		}
 	}
 
-	/**
-	 * Perform simulation.
-	 * @throws SimWorkerException 
-	 * @throws InterruptedException 
-	 * 
-	 * @throws Exception Any exception which may occur during the course of
-	 * a simulation run.
-	 */
-	private IGlobalStats start() throws CompositeException, InterruptedException {
-		
-		/* Start timing. */
-		long startTime = System.currentTimeMillis();
-		
-		/* Initialize latch. */
-		this.mainLatch = new CountDownLatch(1);
-
-		IModelState model = new ModelState(this.params, this.workFactory);
-		IModelSynchronizer controller = this.workFactory.createSimController(model);
-		
-		final Map<String, Throwable> threadExceptions = new ConcurrentHashMap<String, Throwable>();
-		
-		/* Launch simulation threads. */
-		for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
-			Thread simThread = new Thread(new ModelWorker(i, this.workFactory, model, controller));
-			simThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-				
-				@Override
-				public void uncaughtException(Thread thread, Throwable throwable) {
-					threadExceptions.put(thread.getName(), throwable);
-				}
-			});
-			simThread.start();
-		}
-		
-		
-		/* Wait for simulation threads to finish. */
-		this.mainLatch.await();
-
-		/* Stop timing and show simulation time. */
-		long endTime = System.currentTimeMillis();
-		float timeInSeconds = (float) (endTime - startTime) / 1000.0f;
-		System.out.println("Total simulation time: " + timeInSeconds + "\n");
-
-		if (threadExceptions.size() > 0) {
-			throw new CompositeException(threadExceptions);
-		}
-
-		return model.getGlobalStats();
-		
-	}
-
-	public void signalTermination() {
-		this.mainLatch.countDown();
-	}
-	
-	/**
-	 * Export statistics to file.
-	 * @param str Statistics filename.
-	 * @throws IOException 
-	 */
-	private void export(IGlobalStats stats) throws IOException {
-		
-		FileWriter out = null;
-
-		out = new FileWriter(this.statsFile);
-		
-		for (int i = 0; i <= params.getIters() ; i++) {
-			out.write(stats.getStats(StatType.SHEEP, i) + "\t"
-					+ stats.getStats(StatType.WOLVES, i) + "\t"
-					+ stats.getStats(StatType.GRASS, i) + "\n");
-		}
-		
-		if (out != null) {
-			out.close();
-		}
-	}
-	
 	/**
 	 * Show error message or stack trace, depending on debug parameter.
 	 * 
@@ -245,9 +144,8 @@ public class PredPrey {
 	 * Run program.
 	 * 
 	 * @param args Command line arguments.
-	 * @return Error code.
 	 */
-	public int doMain(String[] args) {
+	public void doMain(String[] args) {
 		
 		/* Final simulation stats. */
 		IGlobalStats stats;
@@ -257,7 +155,7 @@ public class PredPrey {
 			this.initWorkFactories();
 		} catch (Exception e) {
 			errMessage(Thread.currentThread().getName(), e);
-			return Errors.UNKNOWN.getValue();
+			System.exit(Errors.UNKNOWN.getValue());
 		}
 		
 		/* Setup command line options parser. */
@@ -277,7 +175,7 @@ public class PredPrey {
 			/* On parsing error, show usage and return. */
 			errMessage(Thread.currentThread().getName(), pe);
 			parser.usage();
-			return Errors.ARGS.getValue();
+			System.exit(Errors.ARGS.getValue());
 		}
 		
 		/* Get the work factory which corresponds to the command specified
@@ -287,7 +185,7 @@ public class PredPrey {
 		/* If help option was passed, show help and quit. */
 		if (this.help) {
 			parser.usage();
-			return Errors.NONE.getValue();
+			System.exit(Errors.NONE.getValue());
 		}
 		
 		/* Read parameters file. */
@@ -295,7 +193,7 @@ public class PredPrey {
 			this.params = new ModelParams(this.paramsFile);
 		} catch (IOException ioe) {
 			errMessage(Thread.currentThread().getName(), ioe);
-			return Errors.PARAMS.getValue();
+			System.exit(Errors.PARAMS.getValue());
 		}
 		
 		/* Setup seed for random number generator. */
@@ -309,69 +207,21 @@ public class PredPrey {
 				System.in.read();
 			} catch (IOException e) {
 				errMessage(Thread.currentThread().getName(), e);
-				return Errors.PRESIM.getValue();
+				System.exit(Errors.PRESIM.getValue());
 			}
 		}
 		
 		/* Perform simulation. */
-		try {
-			stats = this.start();
-		} catch (InterruptedException ie) {
-			errMessage(Thread.currentThread().getName(), ie);
-			return Errors.SIM.getValue();
-		} catch (CompositeException swe) {
-			for (Map.Entry<String, Throwable> entry : swe) {
-				errMessage(entry.getKey(), entry.getValue());
-			}
-			return Errors.SIM.getValue();
-		}
+		IModel model = new Model(this.params, this.workFactory, this.rngType, this.seed);
+		IController controller = this.workFactory.createSimController(model);
 		
-		/* Export simulation results. */
-		try {
-			this.export(stats);
-		} catch (IOException ioe) {
-			errMessage(Thread.currentThread().getName(), ioe);
-			return Errors.EXPORT.getValue();
-		}
+		/* Initialize the views. */
+		IView view = new StaticCLIView(model, controller, this.statsFile);
 		
-		/* Terminate with no errors. */
-		return Errors.NONE.getValue();
+		view.init();
 		
 	}
 	
-	/**
-	 * Create a random number generator of the type and with the seed specified as 
-	 * the command line arguments.
-	 * 
-	 * @param modifier Seed modifier, such as a thread ID, so that each thread
-	 * can instantiate an independent random number generator (not really
-	 * independent, but good enough for the purpose).
-	 * 
-	 * @return A new random number generator.
-	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
-	 */
-	public Random createRNG(long modifier) throws Exception {
-		
-		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
-
-		switch (this.rngType) {
-			case AES:
-				return new AESCounterRNG(seedGen);
-			case CA:
-				return new CellularAutomatonRNG(seedGen);
-			case CMWC:
-				return new CMWC4096RNG(seedGen);
-			case JAVA:
-				return new JavaRNG(seedGen);
-			case MT:
-				return new MersenneTwisterRNG(seedGen);
-			case XORSHIFT: 
-				return new XORShiftRNG(seedGen);
-			default:
-				throw new RuntimeException("Don't know this random number generator.");
-		}
-		
-	}
 
 	/**
 	 * Main function.
@@ -380,9 +230,7 @@ public class PredPrey {
 	 */
 	public static void main(String[] args) {
 		
-		PredPrey pp = PredPrey.getInstance();
-		int status = pp.doMain(args);
-		System.exit(status);
+		new PredPrey().doMain(args);
 		
 	}
 }

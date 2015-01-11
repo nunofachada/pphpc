@@ -39,10 +39,10 @@ import java.util.List;
 public abstract class AbstractSyncPoint implements ISyncPoint {
 
 	/* List of observers. */
-	private List<IObserver> observers;
+	private List<IControlEventObserver> observers;
 	
 	/* Simulation event associated with this synchronizer. */
-	private ModelEvent event;
+	private ControlEvent event;
 	
 	/* Was the simulation interrupted? */
 	protected volatile boolean interrupted;
@@ -53,56 +53,57 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	 * @param event Simulation event to associate with this simulation
 	 * synchronizer. 
 	 */
-	public AbstractSyncPoint(ModelEvent event) {
+	public AbstractSyncPoint(ControlEvent event) {
 		this.event = event;
-		this.observers = new ArrayList<IObserver>();
+		this.observers = new ArrayList<IControlEventObserver>();
 		this.interrupted = false;
 	}
 	
 	/**
-	 * @see IObservable#registerObserver(IObserver)
+	 * @see IControlEventObservable#registerObserver(IControlEventObserver)
 	 */
 	@Override
-	public void registerObserver(IObserver observer) {
+	public void registerObserver(IControlEventObserver observer) {
 		this.observers.add(observer);
 	}
 	
 	@Override
-	public void notifyTermination() {
+	public void stopNow() {
 		this.interrupted = true;
 	}
 
 	/**
 	 * 
 	 * 
-	 * @see ISyncPoint#syncNotify(IModelState model)
+	 * @see ISyncPoint#syncNotify(IModel model)
 	 */
 	@Override
-	public void syncNotify(IModelState model) throws WorkException {
+	public void syncNotify(IController controller) throws InterruptedWorkException {
 		
+		/* Stop thread if it was interrupted. */
 		if (this.interrupted)
-			throw new WorkException("Interrupted by another thread.");
+			throw new InterruptedWorkException("Interrupted by another thread.");
 		
 		/* Perform synchronization. */
-		this.doSyncNotify(model);
+		this.doSyncNotify(controller);
 	}
 	
 	/**
 	 * Perform proper synchronization. Implementations of this method must invoke
-	 * {@link #notifyObservers(IModelState)}.
+	 * {@link #notifyObservers(IModel)}.
 	 * 
 	 * @param model The simulation model.
 	 */
-	protected abstract void doSyncNotify(IModelState model) throws WorkException;
+	protected abstract void doSyncNotify(IController controller) throws InterruptedWorkException;
 
 	/**
 	 * Helper method which notifies the registered observers.
 	 * 
 	 * @param model The simulation model.
 	 */
-	protected void notifyObservers(IModelState model) {
-		for (IObserver o : this.observers) {
-			o.update(this.event, model);
+	protected void notifyObservers(IController controller) {
+		for (IControlEventObserver o : this.observers) {
+			o.update(this.event, controller);
 		}
 	}
 }

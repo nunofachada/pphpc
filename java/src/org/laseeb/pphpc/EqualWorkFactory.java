@@ -39,7 +39,7 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	private boolean repeatable = false;
 
 	@Override
-	public IWorkProvider doGetWorkProvider(int workSize, IModelSynchronizer controller) {
+	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
 		return new EqualWorkProvider(this.numThreads, workSize);
 	}
 
@@ -60,15 +60,16 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	@Override
-	public IModelSynchronizer createSimController(IModelState model) {
-		return new ModelSynchronizer(model,
-				new BlockingSyncPoint(ModelEvent.AFTER_INIT_CELLS, model, this.numThreads), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_CELLS_ADD_NEIGHBORS), 
-				new BlockingSyncPoint(ModelEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_FIRST_STATS), 
-				new BlockingSyncPoint(ModelEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
-				new BlockingSyncPoint(ModelEvent.AFTER_END_ITERATION, model, this.numThreads), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_END_SIMULATION));
+	public IController createSimController(IModel model) {
+		IController controller = new Controller(model, this);
+		controller.setWorkerSynchronizers(new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+		return controller;
 	}
 
 	@Override

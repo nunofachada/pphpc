@@ -27,16 +27,14 @@
 
 package org.laseeb.pphpc;
 
-public class WorkException extends Exception {
-
-	/* Generated serial version UID. */
-	private static final long serialVersionUID = -6623499019918946590L;
+public enum ControlEvent {
 	
-	public WorkException(Exception e) {
-		super(e);
-	}
+	AFTER_INIT_CELLS,
+	AFTER_CELLS_ADD_NEIGHBORS,
+	AFTER_INIT_AGENTS,
+	AFTER_FIRST_STATS,
+	AFTER_HALF_ITERATION,
+	AFTER_END_ITERATION,
+	AFTER_END_SIMULATION
 
-	public WorkException(String message) {
-		super(message);
-	}
 }

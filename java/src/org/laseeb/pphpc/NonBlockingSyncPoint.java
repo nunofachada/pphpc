@@ -27,28 +27,38 @@
 
 package org.laseeb.pphpc;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
- * A very simple non-blocking simulation synchronizer which only supports 
- * one thread for observer notification purposes. It works for multiple 
- * threads if no observers are registered.
+ * TO DO
  * 
  * @author Nuno Fachada
  */
-public class SingleThreadSyncPoint extends AbstractSyncPoint {
+public class NonBlockingSyncPoint extends AbstractSyncPoint {
 
-	/**
-	 * Create a new basic simulation synchronizer.
-	 * 
-	 * @param event Simulation event to associate with this synchronizer.
-	 */
-	public SingleThreadSyncPoint(ControlEvent event) {
+	private AtomicInteger workersCount;
+	
+	private int numWorkers;
+	
+	public NonBlockingSyncPoint(ControlEvent event, int numWorkers) {
+		
+		/* Call the super constructor. */
 		super(event);
+		
+		this.numWorkers = numWorkers;
+		this.workersCount = new AtomicInteger(numWorkers);
+	
 	}
 
 	@Override
-	public void doSyncNotify(IController controller) {
-		this.notifyObservers(controller);
-	}
+	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
+		int count = this.workersCount.decrementAndGet();
+		
+		if (count == 0) {
+			this.notifyObservers(controller);
+			this.workersCount.set(this.numWorkers);
+		}
+	}
 
 }

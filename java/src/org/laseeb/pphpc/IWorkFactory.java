@@ -29,13 +29,13 @@ package org.laseeb.pphpc;
 
 public interface IWorkFactory {
 
-	public IWorkProvider getWorkProvider(int workSize, IModelSynchronizer controller);
+	public IWorkProvider getWorkProvider(int workSize, IController controller);
 	
 	public ICellPutAgentStrategy createPutNewAgentStrategy();
 
 	public ICellPutAgentStrategy createPutExistingAgentStrategy();
 	
-	public IModelSynchronizer createSimController(IModelState model);
+	public IController createSimController(IModel model);
 
 	public IGlobalStats createGlobalStats(int iters);
 	

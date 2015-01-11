@@ -39,7 +39,7 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 	}
 	
 	@Override
-	public IWorkProvider getWorkProvider(int workSize, IModelSynchronizer controller) {
+	public IWorkProvider getWorkProvider(int workSize, IController controller) {
 
 		/* Instantiate work provider if required. Use double-checked locking to avoid thread
 		 * synchronization after initialization. */
@@ -55,6 +55,6 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 		return this.workProviders.get(workSize);
 	}
 
-	protected abstract IWorkProvider doGetWorkProvider(int workSize, IModelSynchronizer controller);
+	protected abstract IWorkProvider doGetWorkProvider(int workSize, IController controller);
 
 }

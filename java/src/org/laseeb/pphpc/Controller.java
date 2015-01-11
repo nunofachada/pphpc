@@ -27,9 +27,11 @@
 
 package org.laseeb.pphpc;
 
-public class ModelSynchronizer implements IModelSynchronizer {
+public class Controller implements IController {
 	
-	private IModelState model;
+	private IModel model;
+	
+	private IWorkFactory workFactory;
 
 	private ISyncPoint afterInitCellsSync;
 	private ISyncPoint afterAddCellsNeighsSync;
@@ -39,15 +41,16 @@ public class ModelSynchronizer implements IModelSynchronizer {
 	private ISyncPoint afterEndIterSync;
 	private ISyncPoint afterEndSimSync;
 	
-	public ModelSynchronizer(IModelState model,
-			ISyncPoint afterInitCellsSync,
-			ISyncPoint afterAddCellsNeighsSync,
-			ISyncPoint afterAddAgentsSync,
-			ISyncPoint afterFirstStatsSync,
-			ISyncPoint afterHalfIterSync,
-			ISyncPoint afterEndIterSync,
-			ISyncPoint afterEndSimSync) {
-		
+	public Controller(IModel model, IWorkFactory workFactory) {
+		this.model = model;
+		this.workFactory = workFactory;
+	}
+
+	@Override
+	public void setWorkerSynchronizers(ISyncPoint afterInitCellsSync, ISyncPoint afterAddCellsNeighsSync,
+			ISyncPoint afterAddAgentsSync, ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
+			ISyncPoint afterEndIterSync,ISyncPoint afterEndSimSync) {
+
 		this.afterInitCellsSync = afterInitCellsSync; 
 		this.afterAddCellsNeighsSync = afterAddCellsNeighsSync;
 		this.afterAddAgentsSync = afterAddAgentsSync;
@@ -56,11 +59,27 @@ public class ModelSynchronizer implements IModelSynchronizer {
 		this.afterEndIterSync = afterEndIterSync;
 		this.afterEndSimSync = afterEndSimSync;
 		
-		this.model.setStatus(ModelStatus.STOPPED);
+		IControlEventObserver updateModelIteration = new IControlEventObserver() {
+			@Override
+			public void update(ControlEvent event, IController controller) {
+				model.incrementIteration();
+			}
+		};
+		
+		IControlEventObserver stopModel = new IControlEventObserver() {
+			@Override
+			public void update(ControlEvent event, IController controller) {
+				model.setStatus(ModelStatus.STOPPED);
+			}
+		};
+		
+		this.afterFirstStatsSync.registerObserver(updateModelIteration);
+		this.afterEndIterSync.registerObserver(updateModelIteration);
+		this.afterEndSimSync.registerObserver(stopModel);
 	}
-
+	
 	@Override
-	public void registerSimEventObserver(ModelEvent event, IObserver observer) {
+	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer) {
 		switch (event) {
 			case AFTER_INIT_CELLS:
 				this.afterInitCellsSync.registerObserver(observer);
@@ -87,73 +106,84 @@ public class ModelSynchronizer implements IModelSynchronizer {
 	}
 
 	@Override
-	public void syncAfterInitCells() throws WorkException {
-		this.afterInitCellsSync.syncNotify(this.model);
+	public void workerNotifyInitCells() throws InterruptedWorkException {
+		this.afterInitCellsSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterCellsAddNeighbors() throws WorkException {
-		this.afterAddCellsNeighsSync.syncNotify(this.model);
+	public void workerNotifyCellsAddNeighbors() throws InterruptedWorkException {
+		this.afterAddCellsNeighsSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterInitAgents() throws WorkException {
-		this.afterAddAgentsSync.syncNotify(this.model);
+	public void workerNotifyInitAgents() throws InterruptedWorkException {
+		this.afterAddAgentsSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterFirstStats() throws WorkException {
-		this.afterFirstStatsSync.syncNotify(this.model);
+	public void workerNotifyFirstStats() throws InterruptedWorkException {
+		this.afterFirstStatsSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterHalfIteration() throws WorkException {
-		this.afterHalfIterSync.syncNotify(this.model);
+	public void workerNotifyHalfIteration() throws InterruptedWorkException {
+		this.afterHalfIterSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterEndIteration() throws WorkException {
-		this.afterEndIterSync.syncNotify(this.model);
+	public void workerNotifyEndIteration() throws InterruptedWorkException {
+		this.afterEndIterSync.syncNotify(this);
 	}
 
 	@Override
-	public void syncAfterSimFinish() throws WorkException {
-		this.afterEndSimSync.syncNotify(this.model);
+	public void workerNotifySimFinish() throws InterruptedWorkException {
+		this.afterEndSimSync.syncNotify(this);
 	}
 
 	@Override
 	public void stopNow() {
-		this.afterInitCellsSync.notifyTermination(); 
-		this.afterAddCellsNeighsSync.notifyTermination();
-		this.afterAddAgentsSync.notifyTermination();
-		this.afterFirstStatsSync.notifyTermination();
-		this.afterHalfIterSync.notifyTermination();
-		this.afterEndIterSync.notifyTermination();
-		this.afterEndSimSync.notifyTermination();
+		this.afterInitCellsSync.stopNow(); 
+		this.afterAddCellsNeighsSync.stopNow();
+		this.afterAddAgentsSync.stopNow();
+		this.afterFirstStatsSync.stopNow();
+		this.afterHalfIterSync.stopNow();
+		this.afterEndIterSync.stopNow();
+		this.afterEndSimSync.stopNow();
+		
+		this.model.setStatus(ModelStatus.STOPPED);
 	}
 
 	@Override
 	public void start() {
-		if (this.model.getStatus() == ModelStatus.PAUSED) {
-			// TODO Unpause model
-			// TODO Notify observers of unpause/continue
-		} else if (this.model.getStatus() == ModelStatus.STOPPED) {
-			// TODO Launch model
-			// TODO Notify observers of start
+		
+		ModelStatus previousStatus = this.model.getStatus();
+		
+		this.model.setStatus(ModelStatus.RUNNING);
+		
+		if (previousStatus == ModelStatus.STOPPED) {
+			
+			/* Model was stopped, launch simulation threads. */
+			for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
+				new Thread(new ModelWorker(i, this.workFactory, this.model, this)).start();
+			}
+			
 		}
 
 	}
 
 	@Override
 	public void pause() {
-		// TODO Pause model
-		// TODO Notify observers of pause
+		this.model.setStatus(ModelStatus.PAUSED);
 	}
 
 	@Override
 	public void stop() {
-		// TODO Stop model
-		// TODO Notify observers of stop
+		this.model.setStatus(ModelStatus.STOPPED);
+	}
+
+	@Override
+	public void export(String filename) {
+		this.model.export(filename);
 	}
 
 

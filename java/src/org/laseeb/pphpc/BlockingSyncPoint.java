@@ -49,7 +49,7 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 	 * @param event Simulation event to associate with this synchronizer.
 	 * @param numThreads Number of simulation workers in current simulation.
 	 */
-	public BlockingSyncPoint(ModelEvent event, final IModelState model, int numWorkers) {
+	public BlockingSyncPoint(ControlEvent event, final IController controller, int numWorkers) {
 		
 		/* Call the super constructor. */
 		super(event);
@@ -58,26 +58,26 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 	
 		this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
 			@Override public void run() {
-				notifyObservers(model); 
+				notifyObservers(controller); 
 			}
 		});
 		
 	}
 
 	@Override
-	protected void doSyncNotify(IModelState model) throws WorkException {
+	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
 		/* Perform synchronization. */
 		try {
 			this.barrier.await();
 		} catch (Exception e) {
-			throw new WorkException(e);
+			throw new InterruptedWorkException(e);
 		}
 	}
 
 	@Override
-	public void notifyTermination() {
-		super.notifyTermination();
+	public void stopNow() {
+		super.stopNow();
 		this.barrier.reset();
 	}
 

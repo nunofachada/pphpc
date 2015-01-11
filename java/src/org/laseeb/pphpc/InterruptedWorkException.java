@@ -27,30 +27,16 @@
 
 package org.laseeb.pphpc;
 
-public interface IModelSynchronizer {
+public class InterruptedWorkException extends Exception {
 
-	public void registerSimEventObserver(ModelEvent event, IObserver observer);
-
-	public void syncAfterInitCells() throws WorkException;
-
-	public void syncAfterCellsAddNeighbors() throws WorkException;
-
-	public void syncAfterInitAgents() throws WorkException;
-
-	public void syncAfterFirstStats() throws WorkException;
-
-	public void syncAfterHalfIteration() throws WorkException;
-
-	public void syncAfterEndIteration() throws WorkException;
-
-	public void syncAfterSimFinish() throws WorkException;
-
-	public void stopNow();
+	/* Generated serial version UID. */
+	private static final long serialVersionUID = -6623499019918946590L;
 	
-	public void stop();
-	
-	public void start();
-	
-	public void pause();
+	public InterruptedWorkException(Exception e) {
+		super(e);
+	}
 
+	public InterruptedWorkException(String message) {
+		super(message);
+	}
 }

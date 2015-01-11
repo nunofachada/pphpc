@@ -27,36 +27,37 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public interface IController {
 
-public interface IModelState {
-	
-	public int getSize();
+	public void setWorkerSynchronizers(ISyncPoint afterInitCellsSync,
+			ISyncPoint afterAddCellsNeighsSync, ISyncPoint afterAddAgentsSync,
+			ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
+			ISyncPoint afterEndIterSync, ISyncPoint afterEndSimSync);
 
-	public ICell getCell(int idx);
+	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer);
 
-	public void setCell(int idx, Cell cell);
-	
-	public void setCellNeighbors(int idx);
-	
-	public ModelParams getParams();
-	
-	public int getCurrentIteration();
-	
-	public void incrementIteration();
-	
-	public IGlobalStats getGlobalStats();
+	public void workerNotifyInitCells() throws InterruptedWorkException;
 
-	public void setCellAt(int idx, Random rng);
+	public void workerNotifyCellsAddNeighbors() throws InterruptedWorkException;
 
-	public ModelStatus getStatus();
+	public void workerNotifyInitAgents() throws InterruptedWorkException;
 
-	public void setStatus(ModelStatus status);
-	
-	public boolean isRunning();
+	public void workerNotifyFirstStats() throws InterruptedWorkException;
 
-	public boolean isStopped();
+	public void workerNotifyHalfIteration() throws InterruptedWorkException;
+
+	public void workerNotifyEndIteration() throws InterruptedWorkException;
+
+	public void workerNotifySimFinish() throws InterruptedWorkException;
+
+	public void stopNow();
 	
-	public boolean isPaused();
+	public void stop();
 	
+	public void start();
+	
+	public void pause();
+
+	public void export(String filename);
+
 }

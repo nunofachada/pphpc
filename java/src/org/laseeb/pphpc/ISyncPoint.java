@@ -39,17 +39,17 @@ package org.laseeb.pphpc;
  * 
  * @author Nuno Fachada
  */
-public interface ISyncPoint extends IObservable {
+public interface ISyncPoint extends IControlEventObservable {
 	
 	/**
 	 * Notify simulation synchronizer that a simulation worker has reached
 	 * this stage.
 	 * 
-	 * @throws WorkException if synchronization was unexpectedly
+	 * @throws InterruptedWorkException if synchronization was unexpectedly
 	 * interrupted.
 	 */
-	public void syncNotify(IModelState model) throws WorkException;
+	public void syncNotify(IController controller) throws InterruptedWorkException;
 
-	public void notifyTermination();
+	public void stopNow();
 	
 }

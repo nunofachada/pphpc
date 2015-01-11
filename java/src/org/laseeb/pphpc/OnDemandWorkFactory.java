@@ -41,21 +41,21 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	private Integer blockSize = 100;
 
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IModelSynchronizer controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
 		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);
-		IObserver resetCellCounter = new IObserver() {
+		IControlEventObserver resetCellCounter = new IControlEventObserver() {
 
 			@Override
-			public void update(ModelEvent event, IModelState model) {
+			public void update(ControlEvent event, IController controller) {
 				workProvider.resetWorkCounter();
 			}
 		};
 		
-		controller.registerSimEventObserver(ModelEvent.AFTER_INIT_CELLS, resetCellCounter);
-		controller.registerSimEventObserver(ModelEvent.AFTER_INIT_AGENTS, resetCellCounter);
-		controller.registerSimEventObserver(ModelEvent.AFTER_FIRST_STATS, resetCellCounter);
-		controller.registerSimEventObserver(ModelEvent.AFTER_HALF_ITERATION, resetCellCounter);
-		controller.registerSimEventObserver(ModelEvent.AFTER_END_ITERATION, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_CELLS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_AGENTS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_FIRST_STATS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_HALF_ITERATION, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_END_ITERATION, resetCellCounter);
 		
 		return workProvider;
 	}
@@ -71,15 +71,16 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	@Override
-	public IModelSynchronizer createSimController(IModelState model) {
-		return new ModelSynchronizer(model,
-				new BlockingSyncPoint(ModelEvent.AFTER_INIT_CELLS, model, this.numThreads), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_CELLS_ADD_NEIGHBORS), 
-				new BlockingSyncPoint(ModelEvent.AFTER_INIT_AGENTS, model, this.numThreads), 
-				new BlockingSyncPoint(ModelEvent.AFTER_FIRST_STATS, model, this.numThreads), 
-				new BlockingSyncPoint(ModelEvent.AFTER_HALF_ITERATION, model, this.numThreads), 
-				new BlockingSyncPoint(ModelEvent.AFTER_END_ITERATION, model, this.numThreads), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_END_SIMULATION));
+	public IController createSimController(IModel model) {
+		IController controller = new Controller(model, this);
+		controller.setWorkerSynchronizers(new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS,controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+		return controller;
 	}
 
 	@Override

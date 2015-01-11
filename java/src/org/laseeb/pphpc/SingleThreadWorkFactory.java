@@ -35,7 +35,7 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	private String commandName = "st";
 
 	@Override
-	public IWorkProvider getWorkProvider(int workSize, IModelSynchronizer controller) {
+	public IWorkProvider getWorkProvider(int workSize, IController controller) {
 		return new SingleThreadWorkProvider(workSize);
 	}
 
@@ -50,15 +50,16 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	}
 
 	@Override
-	public IModelSynchronizer createSimController(IModelState model) {
-		return new ModelSynchronizer(model,
-				new SingleThreadSyncPoint(ModelEvent.AFTER_INIT_CELLS), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_CELLS_ADD_NEIGHBORS), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_INIT_AGENTS), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_FIRST_STATS), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_HALF_ITERATION), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_END_ITERATION), 
-				new SingleThreadSyncPoint(ModelEvent.AFTER_END_SIMULATION));
+	public IController createSimController(IModel model) {
+		IController controller = new Controller(model, this);
+		controller.setWorkerSynchronizers(new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_AGENTS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_FIRST_STATS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_HALF_ITERATION), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_END_ITERATION), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_END_SIMULATION));
+		return controller;
 	}
 
 	@Override
