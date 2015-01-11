@@ -45,7 +45,7 @@ public class StaticCLIView extends AbstractModelEventObserver implements IView {
 
 	@Override
 	protected void updateOnException() {
-		System.err.println(this.model.getLastThrowable().getMessage());
+		System.err.println("And the winner is... " + this.model.getLastThrowable().getMessage());
 		System.exit(PredPrey.Errors.SIM.getValue());
 	}
 

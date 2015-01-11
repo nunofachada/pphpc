@@ -200,8 +200,10 @@ public class Model implements IModel {
 	}
 
 	@Override
-	public synchronized void registerException(Throwable t) {
-		this.lastThrowable = t;
+	public void registerException(Throwable t) {
+		synchronized (this) {
+			this.lastThrowable = t;
+		}
 		this.updateObservers(ModelEvent.EXCEPTION);
 	}
 

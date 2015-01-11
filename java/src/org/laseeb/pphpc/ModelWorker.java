@@ -189,6 +189,9 @@ public class ModelWorker implements Runnable {
 			 * let thread finish by its own. */
 		} catch (Exception e) {
 			
+			/* Notify model of exception. */
+			this.model.registerException(e);
+			
 			/* Some other unexpected exception. Notify controller to stop all other
 			 * threads immediately. */
 			this.controller.stopNow();
