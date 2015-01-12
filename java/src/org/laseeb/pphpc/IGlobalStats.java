@@ -27,31 +27,22 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public interface IGlobalStats {
+	
+	
+	/**
+	 * Get statistics.
+	 * 
+	 * @param st Type of statistic (number of sheep or wolves, or quantity of grass).
+	 * @param iter Iteration.
+	 * @return The requested statistic.
+	 */
+	public int getStats(StatType st, int iter);
+	
+	public IterationStats getStats(int iter);
+	
+	public void updateStats(int iter, IterationStats stats);
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
+	public void reset();
 
 }

@@ -27,31 +27,20 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public interface IWorkFactory {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+	public IWorkProvider getWorkProvider(int workSize, IController controller);
+	
+	public ICellPutAgentStrategy createPutNewAgentStrategy();
 
-	public CellGrassInitCoinRandCounter() {}
+	public ICellPutAgentStrategy createPutExistingAgentStrategy();
+	
+	public IController createSimController(IModel model);
 
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
-
+	public IGlobalStats createGlobalStats(int iters);
+	
+	public int getNumWorkers();
+	
+	public String getCommandName();
+	
 }

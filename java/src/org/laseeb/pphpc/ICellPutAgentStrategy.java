@@ -27,31 +27,24 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.List;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
-
+/**
+ * This class defines how an agent is added to an cell's internal agent list.
+ * Strategy design pattern.
+ *  
+ * @see Cell#putAgentFuture(IAgent)
+ * @see Cell#putNewAgent(IAgent)
+ * 
+ * @author Nuno Fachada
+ */
+public interface ICellPutAgentStrategy {
+	
+	/**
+	 * Put an agent in a cell's internal agent list using some specific behavior.
+	 * 
+	 * @param agents Agent list, internal to the cell.
+	 * @param agent Agent to put in list.
+	 */
+	public void putAgent(List<IAgent> agents, IAgent agent);
 }

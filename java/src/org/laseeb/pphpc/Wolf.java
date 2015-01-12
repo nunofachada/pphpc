@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,26 +28,27 @@
 package org.laseeb.pphpc;
 
 /**
- * Wolf class.
+ * Wolf agent.
+ * 
  * @author Nuno Fachada
- *
  */
-public class Wolf extends Agent {
+public class Wolf extends AbstractAgent {
 	
 	/**
 	 * Create a wolf agent.
 	 * 
-	 * @param energy Initial agents' energy.
+	 * @param energy Initial wolf energy.
+	 * @param Simulation parameters.
 	 */
-	public Wolf(int energy, SimParams params) {
+	public Wolf(int energy, ModelParams params) {
 		super(energy, params);
 	}
 
 	/**
-	 * @see Agent#play(ICell)
+	 * @see AbstractAgent#tryEat(ICell)
 	 */
 	@Override
-	protected void play(ICell cell) {
+	protected void tryEat(ICell cell) {
 		
 		/* Iterate over agents in this cell. */
 		for (IAgent agent : cell.getAgents()) {
@@ -55,12 +56,16 @@ public class Wolf extends Agent {
 			/* Check if agent is sheep. */
 			if (agent instanceof Sheep) {
 				
-				/* Eat sheep (only one please). */
+				/* Check if sheep is alive (otherwise another wolf got to the sheep first). */
 				if (agent.getEnergy() > 0) {
 					
-					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-//					cell.removeAgent(agent);
+					/* Eat sheep... */
 					agent.setEnergy(0);
+
+					/* ...and gain energy from it. */
+					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
+					
+					/* I can only eat one sheep, so get out of here. */
 					break;
 					
 				}

@@ -27,31 +27,71 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+public class OnDemandWorkProvider implements IWorkProvider {
 
-	public CellGrassInitCoinRandCounter() {}
+	private class OnDemandWork extends AbstractWork {
+
+		private int current;
+		private int last;
+		
+		public OnDemandWork(int wId) {
+			super(wId);
+			this.current = 0;
+			this.last = 0;
+		}
+	}
+	
+	private AtomicInteger counter;
+	private int blockSize;
+	private int workSize;
+
+	public OnDemandWorkProvider(int blockSize, int workSize) {
+		this.counter = new AtomicInteger(0);
+		this.blockSize = blockSize;
+		this.workSize = workSize;
+	}
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public IWork newWork(int wId) {
+		return new OnDemandWork(wId);
+	}
 
-		int grassState;
+	@Override
+	public int getNextToken(IWork work) {
 		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
+		OnDemandWork odWork = (OnDemandWork) work;
 		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
+		int nextIndex = -1;
+		
+		if (odWork.current >= odWork.last) {
+
+			odWork.current = this.counter.getAndAdd(this.blockSize);
+			odWork.last = Math.min(odWork.current + this.blockSize, this.workSize);
 			
 		}
 		
-		return grassState;
+		if (odWork.current < this.workSize) {
+
+			nextIndex = odWork.current;
+			odWork.current++;
+			
+		}
+
+		return nextIndex;
 	}
 
+	@Override
+	public void resetWork(IWork work) {
+		
+		OnDemandWork odWork = (OnDemandWork) work;
+		odWork.current = 0;
+		odWork.last = 0;
+
+	}
+
+	void resetWorkCounter() {
+		this.counter.set(0);
+	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -28,32 +28,42 @@
 package org.laseeb.pphpc;
 
 /**
- * Sheep class.
+ * Sheep agent.
  * 
  * @author Nuno Fachada
- *
  */
-public class Sheep extends Agent {
+public class Sheep extends AbstractAgent {
 
 	/**
 	 * Create a sheep agent.
 	 * 
-	 * @param energy Initial agents' energy.
+	 * @param energy Initial sheep energy.
+	 * @param Simulation parameters.
 	 */
-	public Sheep(int energy, SimParams params) {
+	public Sheep(int energy, ModelParams params) {
 		super(energy, params);
 	}
 	
 	/**
-	 * @see Agent#play(ICell)
+	 * @see AbstractAgent#tryEat(ICell)
 	 */
 	@Override
-	protected void play(ICell cell) {
+	protected void tryEat(ICell cell) {
+		
+		/* Only try to eat grass if I'm alive. */
 		if (this.isAlive()) {
+			
+			/* Check if grass is alive. */
 			if (cell.isGrassAlive()) {
+				
+				/* Grass is alive, eat it... */
 				cell.eatGrass();
+				
+				/* ...and gain energy from it. */
 				this.setEnergy(this.getEnergy() + params.getSheepGainFromFood());
+				
 			}
+			
 		}
 	}
 

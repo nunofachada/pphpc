@@ -27,31 +27,38 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+/**
+ * TO DO
+ * 
+ * @author Nuno Fachada
+ */
+public class NonBlockingSyncPoint extends AbstractSyncPoint {
 
-	public CellGrassInitCoinRandCounter() {}
+	private AtomicInteger workersCount;
+	
+	private int numWorkers;
+	
+	public NonBlockingSyncPoint(ControlEvent event, int numWorkers) {
+		
+		/* Call the super constructor. */
+		super(event);
+		
+		this.numWorkers = numWorkers;
+		this.workersCount = new AtomicInteger(numWorkers);
+	
+	}
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
-		int grassState;
+		int count = this.workersCount.decrementAndGet();
 		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
+		if (count == 0) {
+			this.notifyObservers(controller);
+			this.workersCount.set(this.numWorkers);
 		}
-		
-		return grassState;
 	}
 
 }

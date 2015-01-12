@@ -27,31 +27,18 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+/**
+ * Simulation work state, associated with a simulation worker but managed by the
+ * work provider.
+ * 
+ * @author Nuno Fachada
+ */
+public interface IWork {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
-
+	/**
+	 * Return unique ID of simulation worker associated with this work state.
+	 * 
+	 * @return Unique ID of simulation worker associated with this work state.
+	 */
+	int getWorkId();
 }

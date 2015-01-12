@@ -27,31 +27,45 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public class SingleThreadWorkProvider implements IWorkProvider {
+	
+	private class SingleThreadWork extends AbstractWork {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
+		int counter;
 		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
+		public SingleThreadWork(int wId) {
+			super(wId);
+			this.counter = 0;
 		}
 		
-		return grassState;
+	}
+	
+	private int workSize;
+
+	public SingleThreadWorkProvider(int workSize) {
+		this.workSize = workSize;
+	}
+
+	@Override
+	public IWork newWork(int wId) {
+		return new SingleThreadWork(wId);
+	}
+
+	@Override
+	public int getNextToken(IWork work) {
+		int token = -1;
+		SingleThreadWork stWork = (SingleThreadWork) work;
+		if (stWork.counter < this.workSize) {
+			token = stWork.counter;
+			stWork.counter++;
+		}
+		return token;
+	}
+
+	@Override
+	public void resetWork(IWork work) {
+		SingleThreadWork stWork = (SingleThreadWork) work;
+		stWork.counter = 0;
 	}
 
 }

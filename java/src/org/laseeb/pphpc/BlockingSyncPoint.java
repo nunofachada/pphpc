@@ -27,31 +27,59 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+/**
+ * A blocking simulation synchronizer. Waits for all simulation workers to
+ * reach this synchronization point before it lets them continue. Registered 
+ * observers to be executed serially before simulation workers are released. 
+ * 
+ * @author Nuno Fachada
+ */
+public class BlockingSyncPoint extends AbstractSyncPoint {
 
-	public CellGrassInitCoinRandCounter() {}
+	/* Used as a blocking synchronizer. */
+	private CyclicBarrier barrier;
+	
+	private int numWorkers;
+	
+	/**
+	 * Create a new blocking simulation synchronizer.
+	 * 
+	 * @param event Simulation event to associate with this synchronizer.
+	 * @param numThreads Number of simulation workers in current simulation.
+	 */
+	public BlockingSyncPoint(ControlEvent event, final IController controller, int numWorkers) {
+		
+		/* Call the super constructor. */
+		super(event);
+		
+		this.numWorkers = numWorkers;
+	
+		this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
+			@Override public void run() {
+				notifyObservers(controller); 
+			}
+		});
+		
+	}
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
+		/* Perform synchronization. */
+		try {
+			this.barrier.await();
+		} catch (Exception e) {
+			throw new InterruptedWorkException(e);
 		}
-		
-		return grassState;
 	}
+
+	@Override
+	public void stopNow() {
+		super.stopNow();
+		this.barrier.reset();
+	}
+
 
 }

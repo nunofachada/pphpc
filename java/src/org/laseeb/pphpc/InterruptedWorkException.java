@@ -27,31 +27,16 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public class InterruptedWorkException extends Exception {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+	/* Generated serial version UID. */
+	private static final long serialVersionUID = -6623499019918946590L;
+	
+	public InterruptedWorkException(Exception e) {
+		super(e);
 	}
 
+	public InterruptedWorkException(String message) {
+		super(message);
+	}
 }

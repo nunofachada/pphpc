@@ -27,31 +27,28 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+/**
+ * A very simple non-blocking simulation synchronizer which only supports 
+ * one thread for observer notification purposes. It works for multiple 
+ * threads if no observers are registered.
+ * 
+ * @author Nuno Fachada
+ */
+public class SingleThreadSyncPoint extends AbstractSyncPoint {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
+	/**
+	 * Create a new basic simulation synchronizer.
+	 * 
+	 * @param event Simulation event to associate with this synchronizer.
+	 */
+	public SingleThreadSyncPoint(ControlEvent event) {
+		super(event);
+	}
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+	public void doSyncNotify(IController controller) {
+		this.notifyObservers(controller);
 	}
+
 
 }

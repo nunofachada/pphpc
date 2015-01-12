@@ -27,31 +27,52 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.Arrays;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+public class SingleThreadGlobalStats implements IGlobalStats {
 
-	public CellGrassInitCoinRandCounter() {}
-
+	private int[] sheepStats;
+	private int[] wolfStats;
+	private int[] grassStats;
+	
+	public SingleThreadGlobalStats(int iters) {
+		this.sheepStats = new int[iters + 1];
+		this.wolfStats = new int[iters + 1];
+		this.grassStats = new int[iters + 1];
+		this.reset();
+	}
+	
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public int getStats(StatType st, int iter) {
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+		switch (st) {
+			case SHEEP:
+				return sheepStats[iter];
+			case WOLVES:
+				return wolfStats[iter];
+			case GRASS:
+				return grassStats[iter];
+			}
+
+		return 0;
 	}
 
+	@Override
+	public void updateStats(int iter, IterationStats stats) {
+		this.sheepStats[iter] = stats.getSheep();
+		this.wolfStats[iter] = stats.getWolves();
+		this.grassStats[iter] = stats.getGrass();
+	}
+
+	@Override
+	public IterationStats getStats(int iter) {
+		return new IterationStats(this.sheepStats[iter], this.wolfStats[iter], this.grassStats[iter]);
+	}
+
+	@Override
+	public void reset() {
+		Arrays.fill(this.sheepStats, 0);
+		Arrays.fill(this.wolfStats, 0);
+		Arrays.fill(this.grassStats, 0);
+	}
 }

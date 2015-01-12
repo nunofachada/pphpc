@@ -27,31 +27,52 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public class IterationStats {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+	private int sheep;
+	private int wolves;
+	private int grass;
 
-	public CellGrassInitCoinRandCounter() {}
+	public IterationStats() {
+		this.sheep = 0;
+		this.wolves = 0;
+		this.grass = 0;
+	}
+	
+	public IterationStats(int sheep, int wolves, int grass) {
+		this.sheep = sheep;
+		this.wolves = wolves;
+		this.grass = grass;
+	}
+	
+	public void reset() {
+		this.sheep = 0;
+		this.wolves = 0;
+		this.grass = 0;
+	}
+	
+	public int getSheep() {
+		return sheep;
+	}
 
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public void incSheep() {
+		this.sheep++;
+	}
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+	public int getWolves() {
+		return wolves;
+	}
+
+	public void incWolves() {
+		this.wolves++;
+	}
+
+	public int getGrass() {
+		return grass;
+	}
+
+	public void incGrass() {
+		this.grass++;
 	}
 
 }

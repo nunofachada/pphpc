@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -31,13 +31,11 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * An abstract PPHPC model cell, part of a larger simulation grid.
+ * A PPHPC model cell, part of a larger simulation grid.
  * 
  * @author Nuno Fachada
- *
  */
 public interface ICell {
-
 
 	/**
 	 * Is grass alive?
@@ -57,38 +55,64 @@ public interface ICell {
 	public void regenerateGrass();
 
 	/**
-	 * @return the grassRestart
+	 * Return the grass restart simulation parameter.
+	 * 
+	 * @return The grass restart simulation parameter.
 	 */
 	public int getGrassRestart();
 
 	/**
-	 * Returns an iterator over agents in this cell.
-	 * @return Iterator for agents in this cell.
+	 * This method allows the cell to be used in a "foreach" statement,
+	 * returning an agent in each iteration.
+	 * 
+	 * @return An iterable collection for agents in this cell.
 	 */
 	public Iterable<IAgent> getAgents();
 
 	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
+	 * Put a new agent in this cell. A new agent is an agent which does not yet
+	 * exist in the simulation, e.g. a newly-born agent or an initial agent.
+	 * 
+	 * @param agent New agent to put in cell.
 	 */
 	public void putNewAgent(IAgent agent);
 	
 	/**
-	 * Put new agent in this cell now.
-	 * @param agent Agent to put in cell now.
+	 * Put an existing agent in this cell. An existing agent is one that already
+	 * exists in the simulation, e.g. an agent which moved in from another cell.
+	 * 
+	 * @param agent Existing agent to put in cell.
 	 */
 	public void putExistingAgent(IAgent agent);	
 	
-	public void getStats(PPStats stats);
+	/**
+	 * Get agent and grass statistics for this cell.
+	 * 
+	 * @param stats Statistics object to be populated.
+	 */
+	public void getStats(IterationStats stats);
 
-	public void agentActions();
+	/**
+	 * Perform actions for the agents in this cell.
+	 * 
+	 * @param rng A random number generator for the agent to perform its actions
+	 * stochastically.
+	 */
+	public void agentActions(Random rng);
 
+	/**
+	 * Set the neighborhood for this cell.
+	 * 
+	 * @param neighborhood A list of cells which correspond to the neighborhood
+	 * of the current cell.
+	 */
 	public void setNeighborhood(List<ICell> neighborhood);
 
-	public void agentsMove();
-	
-	public Random getRng();
-	
-	public void initGrass();
+	/**
+	 * Perform agent movement for the agents in this cell.
+	 * 
+	 * @param A random number generator so that the agents move randomly.
+	 */
+	public void agentsMove(Random rng);
 
 }

@@ -27,31 +27,31 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+/**
+ * Simulation synchronizer objects are used by {@link ISimWorkProvider}
+ * implementations to provide synchronization points to the simulation
+ * workers. 
+ * 
+ * They also follow the observer design pattern (as observable
+ * or subject), allowing code to register observers which are
+ * updated (in a serial fashion) when the synchronization point
+ * is reached by all simulation workers.
+ * 
+ * @author Nuno Fachada
+ */
+public interface ISyncPoint extends IControlEventObservable {
+	
+	/**
+	 * Notify simulation synchronizer that a simulation worker has reached
+	 * this stage.
+	 * 
+	 * @throws InterruptedWorkException if synchronization was unexpectedly
+	 * interrupted.
+	 */
+	public void syncNotify(IController controller) throws InterruptedWorkException;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
-
-	public CellGrassInitCoinRandCounter() {}
-
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
-
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
-
+	public void stopNow();
+	
+	public void reset();
+	
 }

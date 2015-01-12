@@ -27,31 +27,56 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import com.beust.jcommander.Parameters;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+@Parameters(commandNames = {"st"}, commandDescription = "Single-threaded work command")
+public class SingleThreadWorkFactory implements IWorkFactory {
 
-	public CellGrassInitCoinRandCounter() {}
+	private String commandName = "st";
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public IWorkProvider getWorkProvider(int workSize, IController controller) {
+		return new SingleThreadWorkProvider(workSize);
+	}
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+	@Override
+	public ICellPutAgentStrategy createPutNewAgentStrategy() {
+		return new CellPutAgentAsync();
+	}
+
+	@Override
+	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
+		return new CellPutAgentAsync();
+	}
+
+	@Override
+	public IController createSimController(IModel model) {
+		IController controller = new Controller(model, this);
+		controller.setWorkerSynchronizers(
+				new SingleThreadSyncPoint(ControlEvent.BEFORE_INIT_CELLS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_AGENTS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_FIRST_STATS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_HALF_ITERATION), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_END_ITERATION), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_END_SIMULATION));
+		return controller;
+	}
+
+	@Override
+	public IGlobalStats createGlobalStats(int iters) {
+		return new SingleThreadGlobalStats(iters);
+	}
+
+	@Override
+	public int getNumWorkers() {
+		return 1;
+	}
+
+	@Override
+	public String getCommandName() {
+		return this.commandName ;
 	}
 
 }

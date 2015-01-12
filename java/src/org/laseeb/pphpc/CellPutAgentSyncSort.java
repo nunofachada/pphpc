@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@ import java.util.List;
  *  
  * @author Nuno Fachada
  */
-public class CellPutAgentSyncSort implements CellPutAgentStrategy {
+public class CellPutAgentSyncSort implements ICellPutAgentStrategy {
 
 	/**
 	 * Create a new instance of this class.

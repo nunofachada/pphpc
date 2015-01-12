@@ -27,31 +27,34 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import java.util.HashMap;
+import java.util.Map;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+public abstract class AbstractWorkFactory implements IWorkFactory {
 
-	public CellGrassInitCoinRandCounter() {}
-
+	private Map<Integer, IWorkProvider> workProviders;
+	
+	public AbstractWorkFactory() {
+		this.workProviders = new HashMap<Integer, IWorkProvider>();
+	}
+	
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public IWorkProvider getWorkProvider(int workSize, IController controller) {
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
+		/* Instantiate work provider if required. Use double-checked locking to avoid thread
+		 * synchronization after initialization. */
+		if (!this.workProviders.containsKey(workSize)) {
+			synchronized (this) {
+				if (!this.workProviders.containsKey(workSize)) {
+					IWorkProvider workProvider = this.doGetWorkProvider(workSize, controller);
+					this.workProviders.put(workSize, workProvider);
+				}
+			}
 		}
 		
-		return grassState;
+		return this.workProviders.get(workSize);
 	}
+
+	protected abstract IWorkProvider doGetWorkProvider(int workSize, IController controller);
 
 }

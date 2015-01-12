@@ -27,31 +27,44 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+public interface IController {
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+	public void setWorkerSynchronizers(ISyncPoint beforeInitCellsSync,
+			ISyncPoint afterInitCellsSync,
+			ISyncPoint afterAddCellsNeighsSync, ISyncPoint afterAddAgentsSync,
+			ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
+			ISyncPoint afterEndIterSync, ISyncPoint afterEndSimSync);
 
-	public CellGrassInitCoinRandCounter() {}
+	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer);
 
-	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public void workerNotifyBeforeInitCells() throws InterruptedWorkException;
+	
+	public void workerNotifyInitCells() throws InterruptedWorkException;
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
-	}
+	public void workerNotifyCellsAddNeighbors() throws InterruptedWorkException;
+
+	public void workerNotifyInitAgents() throws InterruptedWorkException;
+
+	public void workerNotifyFirstStats() throws InterruptedWorkException;
+
+	public void workerNotifyHalfIteration() throws InterruptedWorkException;
+
+	public void workerNotifyEndIteration() throws InterruptedWorkException;
+
+	public void workerNotifySimFinish() throws InterruptedWorkException;
+
+	public void stopNow();
+	
+	public void stop();
+	
+	public void start();
+	
+	public void pause();
+
+	public void unpause();
+
+	public void export(String filename);
+
+	public int getNumWorkers();
 
 }

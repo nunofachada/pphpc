@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,8 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
 /**
  * Interface for PPHPC agent implementations.
  * 
@@ -35,41 +37,52 @@ package org.laseeb.pphpc;
 public interface IAgent extends Cloneable, Comparable<IAgent> {
 
 	/**
-	 * Returns the agents' energy.
-	 * @return The agent's energy.
+	 * Returns the agent energy.
+	 * 
+	 * @return The agent energy.
 	 */
 	public int getEnergy();
 
 	/**
 	 * Sets the agent energy.
-	 * @param energy Value to which set the agents' energy-
+	 * 
+	 * @param energy Agent energy to set.
 	 */
 	public void setEnergy(int energy);
+
+	/**
+	 * Decrements the agent energy.
+	 */
+	public void decEnergy();
 	
+	/**
+	 * Is the agent alive?
+	 * 
+	 * @return True if agent is alive, false otherwise.
+	 */
 	public boolean isAlive();
 
 	/**
-	 * Decrements the agent's energy.
-	 */
-	public void decEnergy();
-
-	/**
 	 * Generic agent actions, consisting of:
-	 * - Specific agent actions.
-	 * - Reproduction.
+	 * 
+	 * * Try to eat.
+	 * * Try to reproduce.
+	 * 
 	 * @param cell Cell where agent is currently in.
+	 * @param rng A random number generator for the agent to use.
 	 */
-	public void doPlay(ICell cell);
-
+	public void act(ICell cell, Random rng);
 
 	/**
 	 * Returns the agent-specific reproduction threshold.
+	 * 
 	 * @return Agent-specific reproduction threshold.
 	 */
 	public int getReproduceThreshold();
 	
 	/**
 	 * Returns the agent-specific reproduction probability.
+	 * 
 	 * @return Agent-specific reproduction probability.
 	 */
 	public int getReproduceProbability();

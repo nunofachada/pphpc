@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Nuno Fachada
+ * Copyright (c) 2015, Nuno Fachada
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -39,10 +39,9 @@ import java.util.Random;
  */
 public class Cell implements ICell {
 	
-	/* Put agents now behavior. */
-	private CellPutAgentStrategy putAgentBehavior;
-	
-	private CellGrassInitStrategy grassInitStrategy;
+	/* Put agent strategies. */
+	private ICellPutAgentStrategy putNewAgentStrategy;
+	private ICellPutAgentStrategy putExistingAgentStrategy;
 	
 	/* Iterations for cell restart. */
 	private int grassRestart;
@@ -67,9 +66,6 @@ public class Cell implements ICell {
 	/* Grass counter. */
 	private int grass;
 	
-	private Random rng;
-
-	
 	/**
 	 * Constructor.
 	 * 
@@ -77,14 +73,15 @@ public class Cell implements ICell {
 	 * @param grassInitStrategy
 	 * @param putAgentsBehavior
 	 */
-	public Cell(int grassRestart, Random rng,
-			CellGrassInitStrategy grassInitStrategy,
-			CellPutAgentStrategy putAgentsBehavior) {
+	public Cell(int grassRestart,
+			int initialGrass,
+			ICellPutAgentStrategy putNewAgentsStrategy,
+			ICellPutAgentStrategy putExistingAgentStrategy) {
 		
-		this.rng = rng;
-		this.grassInitStrategy = grassInitStrategy;
 		this.grassRestart = grassRestart;
-		this.putAgentBehavior = putAgentsBehavior;
+		this.grass = initialGrass;
+		this.putNewAgentStrategy = putNewAgentsStrategy;
+		this.putExistingAgentStrategy = putExistingAgentStrategy;
 		
 		/* Initialize agent keeping structures. */
 		this.agents = new ArrayList<IAgent>();
@@ -125,16 +122,16 @@ public class Cell implements ICell {
 
 	@Override
 	public void putNewAgent(IAgent agent) {
-		this.putAgentBehavior.putAgent(this.newAgents, agent);
+		this.putNewAgentStrategy.putAgent(this.newAgents, agent);
 	}
 	
 	@Override
 	public void putExistingAgent(IAgent agent) {
-		this.putAgentBehavior.putAgent(this.existingAgents, agent);
+		this.putExistingAgentStrategy.putAgent(this.existingAgents, agent);
 	}
 	
 	@Override
-	public void getStats(PPStats stats) {
+	public void getStats(IterationStats stats) {
 		
 		/* Grass alive or not? */
 		if (this.isGrassAlive())
@@ -178,7 +175,7 @@ public class Cell implements ICell {
 	}
 	
 	@Override
-	public void agentActions() {
+	public void agentActions(Random rng) {
 		
 		List<IAgent> aux;
 		aux = this.agents;
@@ -190,11 +187,10 @@ public class Cell implements ICell {
 			
 			IAgent agent = this.agents.get(i);
 			if (agent.isAlive())
-				agent.doPlay(this);
+				agent.act(this, rng);
 		}
 		
 	}
-
 
 	@Override
 	public void setNeighborhood(List<ICell> neighborhood) {
@@ -206,7 +202,7 @@ public class Cell implements ICell {
 	}
 
 	@Override
-	public void agentsMove() {
+	public void agentsMove(Random rng) {
 			
 
 		for (int i = 0; i < this.agents.size(); i++) {
@@ -218,26 +214,13 @@ public class Cell implements ICell {
 
 			if (agent.isAlive()) {
 				/* Choose direction. */
-				int direction = this.rng.nextInt(this.neighborhood.size());
+				int direction = rng.nextInt(this.neighborhood.size());
 				
 				/* Move agent. */
 				this.neighborhood.get(direction).putExistingAgent(agent);
 			}
 		}
 		
-		
-	}
-
-
-	@Override
-	public Random getRng() {
-		return this.rng;
-	}
-
-
-	@Override
-	public void initGrass() {
-		this.grass = this.grassInitStrategy.getInitGrass(this);
 		
 	}
 

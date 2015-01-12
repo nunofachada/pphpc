@@ -27,31 +27,23 @@
 
 package org.laseeb.pphpc;
 
-import java.util.Random;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.validators.PositiveInteger;
 
-public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
+public abstract class AbstractMultiThreadWorkFactory extends AbstractWorkFactory {
 
-	public CellGrassInitCoinRandCounter() {}
+	/* Number of threads. */
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
+	protected int numThreads = Runtime.getRuntime().availableProcessors();
 
 	@Override
-	public int getInitGrass(int grassRestart, Random rng) {
+	public IGlobalStats createGlobalStats(int iters) {
+		return new ThreadSafeGlobalStats(iters);
+	}
 
-		int grassState;
-		
-		/* Grow grass in current cell. */
-		if (rng.nextBoolean()) {
-		
-			/* Grass not alive, initialize grow timer. */
-			grassState = 1 + rng.nextInt(grassRestart);
-			
-		} else {
-			
-			/* Grass alive. */
-			grassState = 0;
-			
-		}
-		
-		return grassState;
+	@Override
+	public int getNumWorkers() {
+		return this.numThreads;
 	}
 
 }
