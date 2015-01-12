@@ -29,6 +29,7 @@ package org.laseeb.pphpc;
 
 public enum ControlEvent {
 	
+	BEFORE_INIT_CELLS,
 	AFTER_INIT_CELLS,
 	AFTER_CELLS_ADD_NEIGHBORS,
 	AFTER_INIT_AGENTS,

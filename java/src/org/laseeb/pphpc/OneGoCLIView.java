@@ -1,19 +1,19 @@
 package org.laseeb.pphpc;
 
-public class StaticCLIView extends AbstractModelEventObserver implements IView {
+public class OneGoCLIView extends AbstractModelEventObserver implements IView {
 	
-	private IModel model;
+	private IModelQuerier model;
 	private IController controller;
 	private PredPrey pp;
 	
 	private long timming;
 	
-	public StaticCLIView() {
+	public OneGoCLIView() {
 		
 	}
 	
 	@Override
-	public void init(IModel model, final IController controller, PredPrey pp) {
+	public void init(IModelQuerier model, final IController controller, PredPrey pp) {
 
 		this.model = model;
 		this.controller = controller;

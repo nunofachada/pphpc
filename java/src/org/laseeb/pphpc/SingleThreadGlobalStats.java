@@ -27,6 +27,8 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Arrays;
+
 public class SingleThreadGlobalStats implements IGlobalStats {
 
 	private int[] sheepStats;
@@ -36,7 +38,8 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 	public SingleThreadGlobalStats(int iters) {
 		this.sheepStats = new int[iters + 1];
 		this.wolfStats = new int[iters + 1];
-		this.grassStats = new int[iters + 1];		
+		this.grassStats = new int[iters + 1];
+		this.reset();
 	}
 	
 	@Override
@@ -56,10 +59,20 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
-		sheepStats[iter] = stats.getSheep();
-		wolfStats[iter] = stats.getWolves();
-		grassStats[iter] = stats.getGrass();
+		this.sheepStats[iter] = stats.getSheep();
+		this.wolfStats[iter] = stats.getWolves();
+		this.grassStats[iter] = stats.getGrass();
 	}
 
+	@Override
+	public IterationStats getStats(int iter) {
+		return new IterationStats(this.sheepStats[iter], this.wolfStats[iter], this.grassStats[iter]);
+	}
 
+	@Override
+	public void reset() {
+		Arrays.fill(this.sheepStats, 0);
+		Arrays.fill(this.wolfStats, 0);
+		Arrays.fill(this.grassStats, 0);
+	}
 }

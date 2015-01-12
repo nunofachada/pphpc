@@ -62,7 +62,9 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	@Override
 	public IController createSimController(IModel model) {
 		IController controller = new Controller(model, this);
-		controller.setWorkerSynchronizers(new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
+		controller.setWorkerSynchronizers(
+				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads),
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 

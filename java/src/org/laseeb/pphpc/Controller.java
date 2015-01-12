@@ -27,12 +27,16 @@
 
 package org.laseeb.pphpc;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Controller implements IController {
 	
 	private IModel model;
 	
 	private IWorkFactory workFactory;
 
+	private ISyncPoint beforeInitCellsSync;
 	private ISyncPoint afterInitCellsSync;
 	private ISyncPoint afterAddCellsNeighsSync;
 	private ISyncPoint afterAddAgentsSync;
@@ -41,16 +45,28 @@ public class Controller implements IController {
 	private ISyncPoint afterEndIterSync;
 	private ISyncPoint afterEndSimSync;
 	
+	private ModelStatus simStatus;
+	
+	private List<Thread> modelWorkers;
+	
 	public Controller(IModel model, IWorkFactory workFactory) {
 		this.model = model;
 		this.workFactory = workFactory;
+		this.simStatus = ModelStatus.STOPPED;
 	}
 
 	@Override
-	public void setWorkerSynchronizers(ISyncPoint afterInitCellsSync, ISyncPoint afterAddCellsNeighsSync,
-			ISyncPoint afterAddAgentsSync, ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
-			ISyncPoint afterEndIterSync,ISyncPoint afterEndSimSync) {
+	public void setWorkerSynchronizers(
+			ISyncPoint beforeInitCellsSync, 
+			ISyncPoint afterInitCellsSync, 
+			ISyncPoint afterAddCellsNeighsSync,
+			ISyncPoint afterAddAgentsSync, 
+			ISyncPoint afterFirstStatsSync, 
+			ISyncPoint afterHalfIterSync,
+			ISyncPoint afterEndIterSync,
+			ISyncPoint afterEndSimSync) {
 
+		this.beforeInitCellsSync = beforeInitCellsSync; 
 		this.afterInitCellsSync = afterInitCellsSync; 
 		this.afterAddCellsNeighsSync = afterAddCellsNeighsSync;
 		this.afterAddAgentsSync = afterAddAgentsSync;
@@ -66,21 +82,34 @@ public class Controller implements IController {
 			}
 		};
 		
-		IControlEventObserver stopModel = new IControlEventObserver() {
+		IControlEventObserver stopSim = new IControlEventObserver() {
 			@Override
 			public void update(ControlEvent event, IController controller) {
-				model.setStatus(ModelStatus.STOPPED);
+				
+				/* The controller stop method must be called asynchronously because it waits
+				 * for all simulations to finish before marking the model as stopped. Otherwise
+				 * there would be a deadlock. */
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						stop();
+						
+					}
+				}).start();
 			}
 		};
 		
 		this.afterFirstStatsSync.registerObserver(updateModelIteration);
 		this.afterEndIterSync.registerObserver(updateModelIteration);
-		this.afterEndSimSync.registerObserver(stopModel);
+		this.afterEndSimSync.registerObserver(stopSim);
 	}
 	
 	@Override
 	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer) {
 		switch (event) {
+			case BEFORE_INIT_CELLS:
+				this.beforeInitCellsSync.registerObserver(observer);
+				break;
 			case AFTER_INIT_CELLS:
 				this.afterInitCellsSync.registerObserver(observer);
 				break;
@@ -103,6 +132,11 @@ public class Controller implements IController {
 				this.afterEndSimSync.registerObserver(observer);
 				break;
 		}
+	}
+
+	@Override
+	public void workerNotifyBeforeInitCells() throws InterruptedWorkException {
+		this.beforeInitCellsSync.syncNotify(this);
 	}
 
 	@Override
@@ -142,6 +176,7 @@ public class Controller implements IController {
 
 	@Override
 	public void stopNow() {
+		this.beforeInitCellsSync.stopNow(); 
 		this.afterInitCellsSync.stopNow(); 
 		this.afterAddCellsNeighsSync.stopNow();
 		this.afterAddAgentsSync.stopNow();
@@ -150,39 +185,85 @@ public class Controller implements IController {
 		this.afterEndIterSync.stopNow();
 		this.afterEndSimSync.stopNow();
 		
-		this.model.setStatus(ModelStatus.STOPPED);
+//		this.model.setStatus(ModelStatus.STOPPED);
 	}
 
 	@Override
-	public void start() {
+	public synchronized void start() {
 		
-		ModelStatus previousStatus = this.model.getStatus();
-		
-		this.model.setStatus(ModelStatus.RUNNING);
-		
-		if (previousStatus == ModelStatus.STOPPED) {
+//		ModelStatus previousStatus = this.simStatus; 
+//				//this.model.getStatus();
+//		
+		if (this.simStatus == ModelStatus.STOPPED) {
+			
+			this.beforeInitCellsSync.reset(); 
+			this.afterInitCellsSync.reset(); 
+			this.afterAddCellsNeighsSync.reset();
+			this.afterAddAgentsSync.reset();
+			this.afterFirstStatsSync.reset();
+			this.afterHalfIterSync.reset();
+			this.afterEndIterSync.reset();
+			this.afterEndSimSync.reset();
+
+			this.model.reset();
+			this.model.start();
+			this.modelWorkers = new ArrayList<Thread>();
 			
 			/* Model was stopped, launch simulation threads. */
 			for (int i = 0; i < this.workFactory.getNumWorkers(); i++) {
-				new Thread(new ModelWorker(i, this.workFactory, this.model, this)).start();
+				
+				Thread modelWorker = new Thread(new ModelWorker(i, this.workFactory, this.model, this));
+				this.modelWorkers.add(modelWorker);
+				modelWorker.start();
 			}
+			
+			this.simStatus = ModelStatus.RUNNING;
 			
 		}
 
 	}
 
 	@Override
-	public void pause() {
-		this.model.setStatus(ModelStatus.PAUSED);
+	public synchronized void pause() {
+
+		if (this.simStatus == ModelStatus.RUNNING) {
+			
+			this.model.pause();
+			this.simStatus = ModelStatus.PAUSED;
+			
+		}
 	}
 
 	@Override
-	public void stop() {
-		this.model.setStatus(ModelStatus.STOPPED);
+	public synchronized void unpause() {
+
+		if (this.simStatus == ModelStatus.PAUSED) {
+			
+			this.model.unpause();
+			this.simStatus = ModelStatus.RUNNING;
+			
+		}
+	}
+	
+	@Override
+	public synchronized void stop() {
+		
+		if (this.simStatus == ModelStatus.RUNNING) {
+			
+			this.afterEndIterSync.stopNow();
+			for (Thread modelWorker : this.modelWorkers) {
+				try {
+					modelWorker.join();
+				} catch (InterruptedException e) {}
+			}
+			this.model.stop();
+			this.simStatus = ModelStatus.STOPPED;
+			
+		}
 	}
 
 	@Override
-	public void export(String filename) {
+	public synchronized void export(String filename) {
 		this.model.export(filename);
 	}
 

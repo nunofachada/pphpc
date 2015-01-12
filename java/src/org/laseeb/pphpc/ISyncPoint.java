@@ -52,4 +52,6 @@ public interface ISyncPoint extends IControlEventObservable {
 
 	public void stopNow();
 	
+	public void reset();
+	
 }

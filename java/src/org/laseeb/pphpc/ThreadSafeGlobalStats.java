@@ -36,13 +36,12 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 	private AtomicIntegerArray wolfStats;
 	private AtomicIntegerArray grassStats;
 	
+	private int iters;
+	
 	public ThreadSafeGlobalStats(int iters) {
-		int[] resetArray = new int[iters + 1];
-		Arrays.fill(resetArray, 0);
-		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.grassStats = new AtomicIntegerArray(resetArray);		
 		
+		this.iters = iters;
+		this.reset();
 	}
 	
 	@Override
@@ -61,9 +60,24 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
-		sheepStats.addAndGet(iter, stats.getSheep());
-		wolfStats.addAndGet(iter, stats.getWolves());
-		grassStats.addAndGet(iter, stats.getGrass());		
+		this.sheepStats.addAndGet(iter, stats.getSheep());
+		this.wolfStats.addAndGet(iter, stats.getWolves());
+		this.grassStats.addAndGet(iter, stats.getGrass());		
+	}
+
+	@Override
+	public IterationStats getStats(int iter) {
+		return new IterationStats(
+				this.sheepStats.get(iter), this.wolfStats.get(iter), this.sheepStats.get(iter));
+	}
+
+	@Override
+	public void reset() {
+		int[] resetArray = new int[this.iters + 1];
+		Arrays.fill(resetArray, 0);
+		this.sheepStats = new AtomicIntegerArray(resetArray);
+		this.wolfStats = new AtomicIntegerArray(resetArray);
+		this.grassStats = new AtomicIntegerArray(resetArray);		
 	}
 
 

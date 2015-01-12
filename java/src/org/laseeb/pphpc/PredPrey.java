@@ -215,7 +215,8 @@ public class PredPrey {
 		IController controller = this.workFactory.createSimController(model);
 		
 		/* Initialize the views. */
-		IView viewMaster = new StaticCLIView();
+		IView viewMaster = new OneGoCLIView();
+//		IView viewMaster = new InteractiveCLIView();
 		IView viewWidget = new InfoWidgetView();
 		
 		viewWidget.init(model, controller, this);

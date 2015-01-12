@@ -27,52 +27,24 @@
 
 package org.laseeb.pphpc;
 
-public class IterationStats {
+import java.util.Random;
 
-	private int sheep;
-	private int wolves;
-	private int grass;
-
-	public IterationStats() {
-		this.sheep = 0;
-		this.wolves = 0;
-		this.grass = 0;
-	}
+public interface IModelQuerier extends IModelEventObservable {
 	
-	public IterationStats(int sheep, int wolves, int grass) {
-		this.sheep = sheep;
-		this.wolves = wolves;
-		this.grass = grass;
-	}
+	public int getSize();
 	
-	public void reset() {
-		this.sheep = 0;
-		this.wolves = 0;
-		this.grass = 0;
-	}
+	public ModelParams getParams();
 	
-	public int getSheep() {
-		return sheep;
-	}
+	public int getCurrentIteration();
+	
+	public IterationStats getStats(int iteration);
+	
+	public IterationStats getLatestStats();
 
-	public void incSheep() {
-		this.sheep++;
-	}
+	public void registerException(Throwable t);
 
-	public int getWolves() {
-		return wolves;
-	}
+	public Throwable getLastThrowable();
 
-	public void incWolves() {
-		this.wolves++;
-	}
-
-	public int getGrass() {
-		return grass;
-	}
-
-	public void incGrass() {
-		this.grass++;
-	}
-
+	public Random createRNG(long modifier) throws Exception;
+	
 }

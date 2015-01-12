@@ -52,7 +52,9 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	@Override
 	public IController createSimController(IModel model) {
 		IController controller = new Controller(model, this);
-		controller.setWorkerSynchronizers(new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
+		controller.setWorkerSynchronizers(
+				new SingleThreadSyncPoint(ControlEvent.BEFORE_INIT_CELLS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_AGENTS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_FIRST_STATS), 

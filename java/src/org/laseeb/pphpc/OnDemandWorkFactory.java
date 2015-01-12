@@ -51,6 +51,7 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 			}
 		};
 		
+		controller.registerControlEventObserver(ControlEvent.BEFORE_INIT_CELLS, resetCellCounter);
 		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_CELLS, resetCellCounter);
 		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_AGENTS, resetCellCounter);
 		controller.registerControlEventObserver(ControlEvent.AFTER_FIRST_STATS, resetCellCounter);
@@ -73,7 +74,9 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	@Override
 	public IController createSimController(IModel model) {
 		IController controller = new Controller(model, this);
-		controller.setWorkerSynchronizers(new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
+		controller.setWorkerSynchronizers(
+				new BlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS,controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, controller, this.numThreads), 

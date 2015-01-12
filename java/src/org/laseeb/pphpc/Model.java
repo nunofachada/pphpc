@@ -28,9 +28,9 @@
 package org.laseeb.pphpc;
 
 import java.io.FileWriter;
-import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,7 @@ public class Model implements IModel {
 	private ICellPutAgentStrategy putNewAgentStrategy;
 	private ICellPutAgentStrategy putExistingAgentStrategy;
 	private ICellGrassInitStrategy grassInitStrategy;
-	private ModelStatus status; 
+//	private ModelStatus status; 
 	private Throwable lastThrowable;
 	private Map<ModelEvent, List<IModelEventObserver>> observers = null;
 	private RNGType rngType;
@@ -73,7 +73,7 @@ public class Model implements IModel {
 		this.cells = new ICell[this.size];
 		this.rngType = rngType;
 		this.seed = seed;
-		this.status = ModelStatus.STOPPED;
+//		this.status = ModelStatus.STOPPED;
 	}
 	
 	@Override
@@ -113,11 +113,6 @@ public class Model implements IModel {
 	}
 
 	@Override
-	public IGlobalStats getGlobalStats() {
-		return this.globalStats;
-	}
-
-	@Override
 	public void setCellAt(int idx, Random rng) {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
@@ -127,56 +122,90 @@ public class Model implements IModel {
 			throw new IllegalStateException("Cell " + idx + " already set!");
 		}
 	}
-
-	/**
-	 * @return the status
-	 */
+	
 	@Override
-	public ModelStatus getStatus() {
-		return status;
+	public void reset() {
+		Arrays.fill(this.cells, null);
+		this.globalStats.reset();
+		this.currentIteration = 0;
 	}
 
-	/**
-	 * @param status the status to set
-	 */
+//	/**
+//	 * @return the status
+//	 */
+//	@Override
+//	public ModelStatus getStatus() {
+//		return status;
+//	}
+
+//	public void start() {}
+//	public void pauseContinue() {}
+//	public void start() {}
+//	public void start() {}
+//	
+//	/**
+//	 * @param status the status to set
+//	 */
+//	@Override
+//	public void setStatus(ModelStatus status) {
+//			
+//		ModelEvent event;
+//		
+//		if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.PAUSED)) {
+//			event = ModelEvent.PAUSE;
+//		} else if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.STOPPED)) {
+//			event = ModelEvent.STOP;
+//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.RUNNING)) {
+//			event = ModelEvent.CONTINUE;
+//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.STOPPED)) {
+//			event = ModelEvent.STOP;
+//		} else if ((this.status == ModelStatus.STOPPED) && (status == ModelStatus.RUNNING)) {
+//			event = ModelEvent.START;
+//		} else {
+//			return;
+//		}
+//			
+//		this.status = status;
+//		
+//		this.updateObservers(event);
+//	}
+	
 	@Override
-	public void setStatus(ModelStatus status) {
-			
-		ModelEvent event;
-		
-		if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.PAUSED)) {
-			event = ModelEvent.PAUSE;
-		} else if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.STOPPED)) {
-			event = ModelEvent.STOP;
-		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.RUNNING)) {
-			event = ModelEvent.CONTINUE;
-		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.STOPPED)) {
-			event = ModelEvent.STOP;
-		} else if ((this.status == ModelStatus.STOPPED) && (status == ModelStatus.RUNNING)) {
-			event = ModelEvent.START;
-		} else {
-			return;
-		}
-			
-		this.status = status;
-		
-		this.updateObservers(event);
+	public void start() {
+		this.updateObservers(ModelEvent.START);
 	}
+	
+	@Override
+	public void stop() {
+		this.updateObservers(ModelEvent.STOP);
+	}
+	
+	@Override
+	public void pause() {
+		this.updateObservers(ModelEvent.PAUSE);
+	}	
 
 	@Override
-	public boolean isRunning() {
-		return this.status == ModelStatus.RUNNING;
-	}
-
-	@Override
-	public boolean isStopped() {
-		return this.status == ModelStatus.STOPPED;
-	}
-
-	@Override
-	public boolean isPaused() {
-		return this.status == ModelStatus.PAUSED;
-	}
+	public void unpause() {
+		this.updateObservers(ModelEvent.CONTINUE);
+	}	
+	
+	
+//
+//	@Override
+//	public boolean isRunning() {
+//		return this.status == ModelStatus.RUNNING;
+//	}
+//
+//	@Override
+//	public boolean isStopped() {
+//		return this.status == ModelStatus.STOPPED;
+//	}
+//
+//	@Override
+//	public boolean isPaused() {
+//		return this.status == ModelStatus.PAUSED;
+//	}
 	
 	@Override
 	public void export(String filename) {
@@ -276,6 +305,21 @@ public class Model implements IModel {
 		} else {
 			this.observers.get(event).add(observer);
 		}
+	}
+
+	@Override
+	public IterationStats getStats(int iteration) {
+		return this.globalStats.getStats(iteration);
+	}
+
+	@Override
+	public IterationStats getLatestStats() {
+		return this.globalStats.getStats(this.currentIteration - 1);
+	}
+
+	@Override
+	public void updateStats(int iter, IterationStats iterStats) {
+		this.globalStats.updateStats(iter, iterStats);
 	}
 
 }

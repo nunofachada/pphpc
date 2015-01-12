@@ -10,7 +10,7 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 
 	private JLabel label;
 	private JProgressBar progressBar;
-	private IModel model;
+	private IModelQuerier model;
 
 	private void createAndShowGUI() {
 		
@@ -37,7 +37,7 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 	public InfoWidgetView() {}
 
 	@Override
-	public void init(IModel model, IController controller, PredPrey pp) {
+	public void init(IModelQuerier model, IController controller, PredPrey pp) {
 
 		this.model = model;
 		model.registerObserver(ModelEvent.START, this);

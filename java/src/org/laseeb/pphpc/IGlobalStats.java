@@ -39,6 +39,10 @@ public interface IGlobalStats {
 	 */
 	public int getStats(StatType st, int iter);
 	
+	public IterationStats getStats(int iter);
+	
 	public void updateStats(int iter, IterationStats stats);
+
+	public void reset();
 
 }

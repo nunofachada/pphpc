@@ -37,7 +37,6 @@ public class ModelWorker implements Runnable {
 	private int swId;
 	private IWorkFactory workFactory;
 	private ModelParams params;
-	private IGlobalStats globalStats;
 	private IModel model;
 	private IController controller;
 	
@@ -45,7 +44,6 @@ public class ModelWorker implements Runnable {
 		this.swId = swId;
 		this.workFactory = workFactory;
 		this.params = model.getParams();
-		this.globalStats = model.getGlobalStats();
 		this.model = model;
 		this.controller = controller;
 	}
@@ -79,13 +77,15 @@ public class ModelWorker implements Runnable {
 			/* Create random number generator for current worker. */
 			rng = model.createRNG(swId);
 			
+			controller.workerNotifyBeforeInitCells();
+			
 			/* Initialize simulation grid cells. */
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				model.setCellAt(token, rng);
 			}
-			
+
 			controller.workerNotifyInitCells();
-			
+
 			cellsWorkProvider.resetWork(cellsWork);
 			
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
@@ -117,7 +117,7 @@ public class ModelWorker implements Runnable {
 			}
 			
 			/* Update global statistics. */
-			globalStats.updateStats(0, iterStats);
+			model.updateStats(0, iterStats);
 
 			/* Sync. with barrier. */
 			controller.workerNotifyFirstStats();
@@ -174,7 +174,7 @@ public class ModelWorker implements Runnable {
 				}
 				
 				/* Update global statistics. */
-				globalStats.updateStats(iter, iterStats);
+				model.updateStats(iter, iterStats);
 				
 				/* Sync. with barrier. */
 				controller.workerNotifyEndIteration();

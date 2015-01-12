@@ -42,7 +42,7 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	private List<IControlEventObserver> observers;
 	
 	/* Simulation event associated with this synchronizer. */
-	private ControlEvent event;
+	protected ControlEvent event;
 	
 	/* Was the simulation interrupted? */
 	protected volatile boolean interrupted;
@@ -56,7 +56,7 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	public AbstractSyncPoint(ControlEvent event) {
 		this.event = event;
 		this.observers = new ArrayList<IControlEventObserver>();
-		this.interrupted = false;
+		this.reset();
 	}
 	
 	/**
@@ -72,6 +72,11 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 		this.interrupted = true;
 	}
 
+	@Override
+	public void reset() {
+		this.interrupted = false;
+	}
+	
 	/**
 	 * 
 	 * 

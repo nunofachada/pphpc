@@ -29,13 +29,16 @@ package org.laseeb.pphpc;
 
 public interface IController {
 
-	public void setWorkerSynchronizers(ISyncPoint afterInitCellsSync,
+	public void setWorkerSynchronizers(ISyncPoint beforeInitCellsSync,
+			ISyncPoint afterInitCellsSync,
 			ISyncPoint afterAddCellsNeighsSync, ISyncPoint afterAddAgentsSync,
 			ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
 			ISyncPoint afterEndIterSync, ISyncPoint afterEndSimSync);
 
 	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer);
 
+	public void workerNotifyBeforeInitCells() throws InterruptedWorkException;
+	
 	public void workerNotifyInitCells() throws InterruptedWorkException;
 
 	public void workerNotifyCellsAddNeighbors() throws InterruptedWorkException;
@@ -57,6 +60,8 @@ public interface IController {
 	public void start();
 	
 	public void pause();
+
+	public void unpause();
 
 	public void export(String filename);
 
