@@ -28,7 +28,11 @@ public class OneGoCLIView extends AbstractModelEventObserver implements IView {
 
 			@Override
 			public void run() {
-				controller.start();
+				try {
+					controller.start();
+				} catch (IllegalSimStateException e) {
+					throw new RuntimeException("Impossible situation. It's a bug then.");
+				}
 			}
 
     	}).start();

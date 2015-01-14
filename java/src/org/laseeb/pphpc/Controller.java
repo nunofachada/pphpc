@@ -95,8 +95,12 @@ public class Controller implements IController {
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
-						stop();
-						
+						try {
+							stop();
+						} catch (IllegalSimStateException isse) {
+							throw new RuntimeException(
+									"Somebody stopped the simulation at an impossible time. It's a bug then.");
+						}
 					}
 				}).start();
 			}
@@ -186,7 +190,7 @@ public class Controller implements IController {
 	}
 
 	@Override
-	public void stopNow() {
+	public synchronized void stopNow() {
 		this.beforeInitCellsSync.stopNow(); 
 		this.afterInitCellsSync.stopNow(); 
 		this.afterAddCellsNeighsSync.stopNow();
@@ -196,15 +200,16 @@ public class Controller implements IController {
 		this.afterEndIterSync.stopNow();
 		this.afterEndSimSync.stopNow();
 		
+		if (this.isPaused()) {
+			this.pauseLatch.countDown();
+		}
+		
 //		this.model.setStatus(ModelStatus.STOPPED);
 	}
 
 	@Override
-	public synchronized void start() {
+	public synchronized void start() throws IllegalSimStateException {
 		
-//		ModelStatus previousStatus = this.simStatus; 
-//				//this.model.getStatus();
-//		
 		if (this.simStatus == SimStatus.STOPPED) {
 			
 			this.beforeInitCellsSync.reset(); 
@@ -230,12 +235,16 @@ public class Controller implements IController {
 			
 			this.simStatus = SimStatus.RUNNING;
 			
+		} else {
+			
+			throw new IllegalSimStateException("Simulation can only be started if status == " + SimStatus.STOPPED);
+			
 		}
 
 	}
 
 	@Override
-	public synchronized void pauseContinue() {
+	public synchronized void pauseContinue() throws IllegalSimStateException {
 
 		if (this.simStatus == SimStatus.RUNNING) {
 			
@@ -249,24 +258,17 @@ public class Controller implements IController {
 			this.simStatus = SimStatus.RUNNING;
 			this.pauseLatch.countDown();
 			
+		} else {
+			
+			throw new IllegalSimStateException("Simulation can only be paused/continued if status != " + SimStatus.STOPPED);
+			
 		}
+
 
 	}
 
-//	@Override
-//	public synchronized void unpause() {
-//
-//		if (this.simStatus == ModelStatus.PAUSED) {
-//			
-//			this.model.unpause();
-//			this.simStatus = ModelStatus.RUNNING;
-//			this.pauseLatch.countDown();
-//			
-//		}
-//	}
-	
 	@Override
-	public synchronized void stop() {
+	public synchronized void stop() throws IllegalSimStateException {
 		
 		if (this.simStatus == SimStatus.PAUSED) {
 			this.pauseContinue();
@@ -283,9 +285,17 @@ public class Controller implements IController {
 			this.model.stop();
 			this.simStatus = SimStatus.STOPPED;
 			
+		} else {
+			
+			throw new IllegalSimStateException("Simulation can't be stopped if status == " + SimStatus.STOPPED);
+			
 		}
 	}
 
+	/**
+	 * Exporting can be done at any time because it is synchronized. Worst case scenario, you export
+	 * all zeros.
+	 */
 	@Override
 	public synchronized void export(String filename) {
 		this.model.export(filename);

@@ -55,13 +55,11 @@ public interface IController {
 
 	public void stopNow();
 	
-	public void stop();
+	public void stop() throws IllegalSimStateException;
 	
-	public void start();
+	public void start() throws IllegalSimStateException;
 	
-	public void pauseContinue();
-
-//	public void unpause();
+	public void pauseContinue() throws IllegalSimStateException;
 
 	public void export(String filename);
 

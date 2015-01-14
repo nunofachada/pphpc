@@ -129,46 +129,6 @@ public class Model implements IModel {
 		this.globalStats.reset();
 		this.currentIteration = 0;
 	}
-
-//	/**
-//	 * @return the status
-//	 */
-//	@Override
-//	public ModelStatus getStatus() {
-//		return status;
-//	}
-
-//	public void start() {}
-//	public void pauseContinue() {}
-//	public void start() {}
-//	public void start() {}
-//	
-//	/**
-//	 * @param status the status to set
-//	 */
-//	@Override
-//	public void setStatus(ModelStatus status) {
-//			
-//		ModelEvent event;
-//		
-//		if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.PAUSED)) {
-//			event = ModelEvent.PAUSE;
-//		} else if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.STOPPED)) {
-//			event = ModelEvent.STOP;
-//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.RUNNING)) {
-//			event = ModelEvent.CONTINUE;
-//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.STOPPED)) {
-//			event = ModelEvent.STOP;
-//		} else if ((this.status == ModelStatus.STOPPED) && (status == ModelStatus.RUNNING)) {
-//			event = ModelEvent.START;
-//		} else {
-//			return;
-//		}
-//			
-//		this.status = status;
-//		
-//		this.updateObservers(event);
-//	}
 	
 	@Override
 	public void start() {
@@ -189,23 +149,6 @@ public class Model implements IModel {
 	public void unpause() {
 		this.updateObservers(ModelEvent.CONTINUE);
 	}	
-	
-	
-//
-//	@Override
-//	public boolean isRunning() {
-//		return this.status == ModelStatus.RUNNING;
-//	}
-//
-//	@Override
-//	public boolean isStopped() {
-//		return this.status == ModelStatus.STOPPED;
-//	}
-//
-//	@Override
-//	public boolean isPaused() {
-//		return this.status == ModelStatus.PAUSED;
-//	}
 	
 	@Override
 	public void export(String filename) {

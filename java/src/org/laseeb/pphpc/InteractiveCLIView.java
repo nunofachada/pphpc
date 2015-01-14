@@ -46,13 +46,25 @@ IView {
 					command = s.nextLine().toLowerCase().charAt(0);
 					switch (command) {
 					case 's':
-						controller.start();
+						try {
+							controller.start();
+						} catch (IllegalSimStateException e) {
+							System.out.println(e.getMessage());
+						}
 						break;
 					case 'p':
-						controller.pauseContinue();
+						try {
+							controller.pauseContinue();
+						} catch (IllegalSimStateException e) {
+							System.out.println(e.getMessage());
+						}
 						break;
 					case 'o':
-						controller.stop();
+						try {
+							controller.stop();
+						} catch (IllegalSimStateException e) {
+							System.out.println(e.getMessage());
+						}
 						break;
 					case 'i':
 						if (controller.isPaused()) {
