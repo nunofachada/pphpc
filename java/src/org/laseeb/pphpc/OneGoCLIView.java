@@ -58,4 +58,9 @@ public class OneGoCLIView extends AbstractModelEventObserver implements IView {
 		System.exit(PredPrey.Errors.SIM.getValue());
 	}
 
+	@Override
+	public ViewType getType() {
+		return ViewType.ACTIVE_EXCLUSIVE;
+	}
+
 }

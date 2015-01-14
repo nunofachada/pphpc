@@ -34,7 +34,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -88,6 +90,10 @@ public class PredPrey {
 	/* Debug mode. */
 	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)
 	private boolean debug = false;
+
+	/* List of MVC views to use. */
+	@Parameter(names = {"-v", "--views"}, description = "Simulation views: OneGoCLI (default), InteractiveCLI, InfoWidget", variableArity = true)
+	private List<String> views = new ArrayList<String>();
 	
 	/* Help option. */
 	@Parameter(names = {"--help", "-h", "-?"}, description = "Show options", help = true)
@@ -199,31 +205,79 @@ public class PredPrey {
 		if (this.seed == null)
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
-		/* If in debug mode, ask the user to press ENTER to start. */
-		if (this.debug) {
-			System.out.println("Press ENTER to start...");
-			try {
-				System.in.read();
-			} catch (IOException ioe) {
-				System.err.println(errMessage(ioe));
-				System.exit(Errors.PRESIM.getValue());
-			}
-		}
-		
 		/* Perform simulation. */
 		IModel model = new Model(this.params, this.workFactory, this.rngType, this.seed);
 		IController controller = this.workFactory.createSimController(model);
 		
-		/* Initialize the views. */
-//		IView viewMaster = new OneGoCLIView();
-		IView viewMaster = new InteractiveCLIView();
-		IView viewWidget = new InfoWidgetView();
+		/* Create the views. */
+		List<IView> viewObjs = null;
+		try {
+			viewObjs = this.createViews();
+		} catch (Exception e) {
+			System.err.println("Unable to create instance of view: " + errMessage(e));
+			System.exit(Errors.PARAMS.getValue());			
+		}
 		
-		viewWidget.init(model, controller, this);
-		viewMaster.init(model, controller, this);
+		/* Initialize the views. */
+		try {
+			this.initViews(viewObjs, model, controller);
+		} catch (Exception e) {
+			System.err.println("Invalid selection of views: " + errMessage(e));
+			System.exit(Errors.PARAMS.getValue());			
+		}
 		
 	}
 	
+	private List<IView> createViews() 
+			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+		
+		List<IView> viewObjs = new ArrayList<IView>();
+		
+		for (String viewName : this.views) {
+		
+			Class<? extends IView> viewClass = 
+					Class.forName("org.laseeb.pphpc." + viewName + "View").asSubclass(IView.class);
+			
+			viewObjs.add(viewClass.newInstance());
+			
+		}
+		
+		return viewObjs;
+	}
+	
+	private void initViews(List<IView> viewObjs, IModel model, IController controller) throws Exception {
+
+		if (viewObjs.size() == 0) {
+			
+			viewObjs.add(new OneGoCLIView());
+			
+		} else {
+			
+			int exclusiveCount = 0;
+			int activeCount = 0;
+			for (IView view : viewObjs) {
+				if (view.getType() == ViewType.ACTIVE_EXCLUSIVE) {
+					exclusiveCount++;
+				} else if (view.getType() == ViewType.ACTIVE) {
+					activeCount++;
+				}
+			}
+			if (exclusiveCount > 1) {
+				throw new Exception("There can be at most one exclusive view.");
+			}
+			if ((exclusiveCount == 1) && (activeCount > 0)) {
+				throw new Exception("An exclusive view does not allow for additional active views.");
+			}
+			if (activeCount + exclusiveCount == 0) {
+				throw new Exception("No active views specified.");
+			}
+		}
+		
+		for (IView view : viewObjs) {
+			view.init(model, controller, this);
+		}
+		
+	}
 
 	/**
 	 * Main function.

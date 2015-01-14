@@ -125,4 +125,9 @@ IView {
 	@Override
 	protected void updateOnPause() {}
 
+	@Override
+	public ViewType getType() {
+		return ViewType.ACTIVE;
+	}
+
 }

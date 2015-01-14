@@ -66,5 +66,10 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 		});
 	}
 
+	@Override
+	public ViewType getType() {
+		return ViewType.PASSIVE;
+	}
+
 
 }
