@@ -15,6 +15,16 @@ IView {
 	private final String commandQuery = "(s)Start (p)Pause/Continue (o)Stop (i)Info (q)Quit\n> ";
 	
 	public InteractiveCLIView() {}
+	
+	private void showInfo() {
+		IterationStats stats = this.model.getLatestStats();
+		String info = "\nCurrent iteration: " + this.model.getCurrentIteration() + 
+				"\nNumber of sheep: " + stats.getSheep() +
+				"\nNumber of wolves: " + stats.getWolves() +
+				"\nQuantity of grass: " + stats.getGrass();
+		System.out.println(info);
+		System.out.print(commandQuery);
+	}
 
 	@Override
 	public void init(IModelQuerier model, final IController controller, PredPrey pp) {
@@ -39,13 +49,17 @@ IView {
 						controller.start();
 						break;
 					case 'p':
-						System.out.println("Not implemented");
+						controller.pauseContinue();
 						break;
 					case 'o':
 						controller.stop();
 						break;
 					case 'i':
-						showInfo = true;
+						if (controller.isPaused()) {
+							showInfo();
+						} else {
+							showInfo = true;
+						}
 						break;
 					case 'q':
 						s.close();
@@ -92,13 +106,7 @@ IView {
 	protected void updateOnNewIteration() {
 		if (this.showInfo) {
 			this.showInfo = false;
-			IterationStats stats = this.model.getLatestStats();
-			String info = "\nCurrent iteration: " + this.model.getCurrentIteration() + 
-					"\nNumber of sheep: " + stats.getSheep() +
-					"\nNumber of wolves: " + stats.getWolves() +
-					"\nQuantity of grass: " + stats.getGrass();
-			System.out.println(info);
-			System.out.print(commandQuery);
+			this.showInfo();
 		}
 	}
 	

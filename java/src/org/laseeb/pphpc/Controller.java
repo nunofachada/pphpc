@@ -29,6 +29,7 @@ package org.laseeb.pphpc;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 public class Controller implements IController {
 	
@@ -45,14 +46,16 @@ public class Controller implements IController {
 	private ISyncPoint afterEndIterSync;
 	private ISyncPoint afterEndSimSync;
 	
-	private ModelStatus simStatus;
+	private SimStatus simStatus;
 	
 	private List<Thread> modelWorkers;
+	
+	private CountDownLatch pauseLatch;
 	
 	public Controller(IModel model, IWorkFactory workFactory) {
 		this.model = model;
 		this.workFactory = workFactory;
-		this.simStatus = ModelStatus.STOPPED;
+		this.simStatus = SimStatus.STOPPED;
 	}
 
 	@Override
@@ -167,6 +170,14 @@ public class Controller implements IController {
 	@Override
 	public void workerNotifyEndIteration() throws InterruptedWorkException {
 		this.afterEndIterSync.syncNotify(this);
+		
+		if (this.simStatus == SimStatus.PAUSED) {
+			try {
+				this.pauseLatch.await();
+			} catch (InterruptedException e) {
+				throw new InterruptedWorkException("Paused thread was interrupted.");
+			}
+		}
 	}
 
 	@Override
@@ -194,7 +205,7 @@ public class Controller implements IController {
 //		ModelStatus previousStatus = this.simStatus; 
 //				//this.model.getStatus();
 //		
-		if (this.simStatus == ModelStatus.STOPPED) {
+		if (this.simStatus == SimStatus.STOPPED) {
 			
 			this.beforeInitCellsSync.reset(); 
 			this.afterInitCellsSync.reset(); 
@@ -217,38 +228,51 @@ public class Controller implements IController {
 				modelWorker.start();
 			}
 			
-			this.simStatus = ModelStatus.RUNNING;
+			this.simStatus = SimStatus.RUNNING;
 			
 		}
 
 	}
 
 	@Override
-	public synchronized void pause() {
+	public synchronized void pauseContinue() {
 
-		if (this.simStatus == ModelStatus.RUNNING) {
+		if (this.simStatus == SimStatus.RUNNING) {
 			
 			this.model.pause();
-			this.simStatus = ModelStatus.PAUSED;
+			this.simStatus = SimStatus.PAUSED;
+			this.pauseLatch = new CountDownLatch(1);
 			
-		}
-	}
-
-	@Override
-	public synchronized void unpause() {
-
-		if (this.simStatus == ModelStatus.PAUSED) {
+		} else if (this.simStatus == SimStatus.PAUSED) {
 			
 			this.model.unpause();
-			this.simStatus = ModelStatus.RUNNING;
+			this.simStatus = SimStatus.RUNNING;
+			this.pauseLatch.countDown();
 			
 		}
+
 	}
+
+//	@Override
+//	public synchronized void unpause() {
+//
+//		if (this.simStatus == ModelStatus.PAUSED) {
+//			
+//			this.model.unpause();
+//			this.simStatus = ModelStatus.RUNNING;
+//			this.pauseLatch.countDown();
+//			
+//		}
+//	}
 	
 	@Override
 	public synchronized void stop() {
 		
-		if (this.simStatus == ModelStatus.RUNNING) {
+		if (this.simStatus == SimStatus.PAUSED) {
+			this.pauseContinue();
+		}
+		
+		if (this.simStatus == SimStatus.RUNNING) {
 			
 			this.afterEndIterSync.stopNow();
 			for (Thread modelWorker : this.modelWorkers) {
@@ -257,7 +281,7 @@ public class Controller implements IController {
 				} catch (InterruptedException e) {}
 			}
 			this.model.stop();
-			this.simStatus = ModelStatus.STOPPED;
+			this.simStatus = SimStatus.STOPPED;
 			
 		}
 	}
@@ -270,6 +294,21 @@ public class Controller implements IController {
 	@Override
 	public int getNumWorkers() {
 		return this.workFactory.getNumWorkers();
+	}
+
+	@Override
+	public boolean isRunning() {
+		return this.simStatus == SimStatus.RUNNING;
+	}
+
+	@Override
+	public boolean isPaused() {
+		return this.simStatus == SimStatus.PAUSED;
+	}
+
+	@Override
+	public boolean isStopped() {
+		return this.simStatus == SimStatus.STOPPED;
 	}
 
 

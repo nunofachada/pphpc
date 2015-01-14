@@ -59,12 +59,18 @@ public interface IController {
 	
 	public void start();
 	
-	public void pause();
+	public void pauseContinue();
 
-	public void unpause();
+//	public void unpause();
 
 	public void export(String filename);
 
 	public int getNumWorkers();
+
+	public boolean isRunning();
+	
+	public boolean isPaused();
+	
+	public boolean isStopped();
 
 }
