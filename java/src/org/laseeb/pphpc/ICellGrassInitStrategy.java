@@ -29,8 +29,21 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Grass initialization strategy.
+ * 
+ * @author Nuno Fachada
+ */
 public interface ICellGrassInitStrategy {
 	
+	/**
+	 * Get initial grass state.
+	 * 
+	 * @param grassRestart Grass restart simulation parameter.
+	 * @param rng Random number generator, which may be required by specific grass
+	 * initialization strategies.
+	 * @return The initial grass state.
+	 */
 	public int getInitGrass(int grassRestart, Random rng);
 
 }

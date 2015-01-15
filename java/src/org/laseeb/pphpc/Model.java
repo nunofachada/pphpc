@@ -147,7 +147,7 @@ public class Model implements IModel {
 
 	@Override
 	public void unpause() {
-		this.updateObservers(ModelEvent.CONTINUE);
+		this.updateObservers(ModelEvent.UNPAUSE);
 	}	
 	
 	@Override

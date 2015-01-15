@@ -30,14 +30,29 @@ package org.laseeb.pphpc;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * An abstract work factory which produces work providers for a given work size. 
+ * Maintains a map of work sizes and work provider implementations. 
+ * 
+ * @author Nuno Fachada
+ */
 public abstract class AbstractWorkFactory implements IWorkFactory {
 
+	/* Map of work sizes and work provider implementations. */
 	private Map<Integer, IWorkProvider> workProviders;
 	
+	/**
+	 * Create a new abstract work factory.
+	 */
 	public AbstractWorkFactory() {
+		
+		/* Initialize map of work sizes and work provider implementations. */
 		this.workProviders = new HashMap<Integer, IWorkProvider>();
 	}
 	
+	/**
+	 * @see IWorkFactory#getWorkProvider(int, IController)
+	 */
 	@Override
 	public IWorkProvider getWorkProvider(int workSize, IController controller) {
 
@@ -46,8 +61,14 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 		if (!this.workProviders.containsKey(workSize)) {
 			synchronized (this) {
 				if (!this.workProviders.containsKey(workSize)) {
+					
+					/* If the work provider for the given work size hasn't yet been created, 
+					 * delegate creation to the concrete work factory. */
 					IWorkProvider workProvider = this.doGetWorkProvider(workSize, controller);
+					
+					/* Put new work provider in map, associated with the given work size. */
 					this.workProviders.put(workSize, workProvider);
+					
 				}
 			}
 		}
@@ -55,6 +76,13 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 		return this.workProviders.get(workSize);
 	}
 
+	/**
+	 * Create concrete work provider.
+	 * 
+	 * @param workSize Size of work to be distributed by the work provider.
+	 * @param controller The simulation controller.
+	 * @return A new work provider.
+	 */
 	protected abstract IWorkProvider doGetWorkProvider(int workSize, IController controller);
 
 }

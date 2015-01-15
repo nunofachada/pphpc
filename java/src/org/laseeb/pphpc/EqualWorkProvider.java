@@ -27,14 +27,35 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Work provider which divides work equally among the available workers.
+ * 
+ * @author Nuno Fachada
+ */
 public class EqualWorkProvider implements IWorkProvider {
 
+	/**
+	 * A class which represents the state of equal work performed by 
+	 * each worker.
+	 */
 	private class EqualWork extends AbstractWork {
 
+		/* Fixed start work token. */
 		private int startToken;
+		
+		/* Fixed end work token. */
 		private int endToken;
+		
+		/* Current work token. */
 		private int counter;
 		
+		/**
+		 * Create a new equal work state representation.
+		 * 
+		 * @param wId Worker ID.
+		 * @param startToken Start work token.
+		 * @param endToken End work token.
+		 */
 		public EqualWork(int wId, int startToken, int endToken) { 
 			super(wId);
 			this.startToken = startToken;
@@ -44,14 +65,26 @@ public class EqualWorkProvider implements IWorkProvider {
 		
 	}
 	
+	/* Number of workers. */
 	private int numWorkers;
+	
+	/* Total work size to be performed by the available workers. */
 	private int workSize;
 	
+	/**
+	 * Create a new equal work provider.
+	 * 
+	 * @param numWorkers Number of available workers.
+	 * @param workSize Total work size to be performed by the available workers.
+	 */
 	public EqualWorkProvider(int numWorkers, int workSize) {
 		this.numWorkers = numWorkers;
 		this.workSize = workSize;
 	}
 	
+	/**
+	 * @see IWorkProvider#newWork(int)
+	 */
 	@Override
 	public IWork newWork(int wId) {
 		
@@ -70,25 +103,45 @@ public class EqualWorkProvider implements IWorkProvider {
 	}
 
 
+	/**
+	 * @see IWorkProvider#getNextToken(IWork)
+	 */
 	@Override
 	public int getNextToken(IWork work) {
 		
+		/* Set the nextToken to -1, which means no more work
+		 * is available. */
 		int nextToken = -1;
+
+		/* Cast generic work state to equal work state. */
 		EqualWork eWork = (EqualWork) work;
 
+		/* Check if there is any work left to do. */
 		if (eWork.counter < eWork.endToken) {
+			
+			/* If so, get next work token... */
 			nextToken = eWork.counter;
+			
+			/* ...and increment work token counter. */
 			eWork.counter++;
 		}
 		
+		/* Return the next work token. */
 		return nextToken;
 	}
 
+	/**
+	 * @see IWorkProvider#resetWork(IWork)
+	 */
 	@Override
 	public void resetWork(IWork work) {
-		EqualWork eWork = (EqualWork) work;
-		eWork.counter = eWork.startToken;
-	}
 
+		/* Cast generic work state to equal work state. */
+		EqualWork eWork = (EqualWork) work;
+		
+		/* Reset work tokens for current worker.*/
+		eWork.counter = eWork.startToken;
+		
+	}
 
 }

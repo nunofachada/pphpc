@@ -29,6 +29,13 @@ package org.laseeb.pphpc;
 
 public interface IWorkFactory {
 
+	/**
+	 * Creates or returns a previously created work provider for a given work size.
+	 * 
+	 * @param workSize Size of work to be distributed by the work provider.
+	 * @param controller The simulation controller.
+	 * @return A new or previously created work provider for the given work size.
+	 */
 	public IWorkProvider getWorkProvider(int workSize, IController controller);
 	
 	public ICellPutAgentStrategy createPutNewAgentStrategy();

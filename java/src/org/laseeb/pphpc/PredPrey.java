@@ -53,7 +53,7 @@ public class PredPrey {
 	
 	/* Enumeration containing program errors. */
 	public enum Errors {
-		NONE(0), ARGS(-1), PARAMS(-2), PRESIM(-3), SIM(-4), EXPORT(-5), UNKNOWN(-6);
+		NONE(0), ARGS(-1), PARAMS(-2), SIM(-3), OTHER(-4);
 		private int value;
 		private Errors(int value) { this.value = value; }
 		public int getValue() { return this.value; }
@@ -160,7 +160,7 @@ public class PredPrey {
 			this.initWorkFactories();
 		} catch (Exception e) {
 			System.err.println(errMessage(e));
-			System.exit(Errors.UNKNOWN.getValue());
+			System.exit(Errors.OTHER.getValue());
 		}
 		
 		/* Setup command line options parser. */

@@ -37,7 +37,7 @@ import java.util.Random;
 public abstract class AbstractAgent implements IAgent {
 	
 	/* Agent energy. */
-	protected int energy;
+	private int energy;
 	
 	/* Simulation parameters. */
 	protected ModelParams params;

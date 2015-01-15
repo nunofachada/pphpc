@@ -29,6 +29,10 @@ package org.laseeb.pphpc;
 
 public class SingleThreadWorkProvider implements IWorkProvider {
 	
+	/**
+	 * A class which represents the state of work performed by 
+	 * the single available worker.
+	 */
 	private class SingleThreadWork extends AbstractWork {
 
 		int counter;
@@ -53,7 +57,11 @@ public class SingleThreadWorkProvider implements IWorkProvider {
 
 	@Override
 	public int getNextToken(IWork work) {
+
+		/* Set the nextToken to -1, which means no more work
+		 * is available. */
 		int token = -1;
+		
 		SingleThreadWork stWork = (SingleThreadWork) work;
 		if (stWork.counter < this.workSize) {
 			token = stWork.counter;

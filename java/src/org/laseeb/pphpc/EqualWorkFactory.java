@@ -30,57 +30,104 @@ package org.laseeb.pphpc;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
+/**
+ * Work factory which creates the required objects to divide work among the available 
+ * workers in a thread-safe fashion.
+ * 
+ * @author Nuno Fachada
+ */
 @Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
 public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	
+	/* Name of command which invokes this work factory.*/
 	final private String commandName = "equal";
 
+	/* Is the simulation repeatable? */
 	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
 	private boolean repeatable = false;
 
+	/**
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 */
 	@Override
 	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+		
+		/* The equal work provider will assure equal work division among workers. */
 		return new EqualWorkProvider(this.numThreads, workSize);
+		
 	}
 
+	/**
+	 * @see IWorkFactory#createPutNewAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		if (this.repeatable)
+		
+		/* If simulation is to be repeatable... */
+		if (this.repeatable) {
+			
+			/* ...agents must be sorted after inserted in cell. */
 			return new CellPutAgentSyncSort();
-		else
+		
+		} else {
+			
+			/* Otherwise, synchronous agent insertion suffices. */
 			return new CellPutAgentSync();
+			
+		}
 	}
 
+	/**
+	 * @see IWorkFactory#createPutExistingAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
-		if (this.repeatable)
+
+		/* If simulation is to be repeatable... */
+		if (this.repeatable) {
+
+			/* ...agents must be sorted after inserted in cell. */
 			return new CellPutAgentSyncSort();
-		else
+			
+		} else {
+			
+			/* Otherwise, synchronous agent insertion suffices. */
 			return new CellPutAgentSync();
+		
+		}
 	}
 
+	/**
+	 * @see IWorkFactory#createSimController(IModel)
+	 */
 	@Override
 	public IController createSimController(IModel model) {
+		
+		/* Instantiate the controller... */
 		IController controller = new Controller(model, this);
+		
+		/* ...and set appropriate sync. points for equal work division. */
 		controller.setWorkerSynchronizers(
 				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads),
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+		
+		/* Return the controller, configured for equal work division. */
 		return controller;
 	}
 
-	@Override
-	public IGlobalStats createGlobalStats(int iters) {
-		return new ThreadSafeGlobalStats(iters);
-	}
-
+	/**
+	 * @see IWorkFactory#getCommandName()
+	 */
 	@Override
 	public String getCommandName() {
+		
 		return this.commandName;
+		
 	}
 }

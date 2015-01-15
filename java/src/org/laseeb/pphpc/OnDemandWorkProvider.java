@@ -31,6 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class OnDemandWorkProvider implements IWorkProvider {
 
+	/**
+	 * A class which represents the state of on-demand work performed by 
+	 * each worker.
+	 */
 	private class OnDemandWork extends AbstractWork {
 
 		private int current;
@@ -63,6 +67,8 @@ public class OnDemandWorkProvider implements IWorkProvider {
 		
 		OnDemandWork odWork = (OnDemandWork) work;
 		
+		/* Set the nextToken to -1, which means no more work
+		 * is available. */
 		int nextIndex = -1;
 		
 		if (odWork.current >= odWork.last) {

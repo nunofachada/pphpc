@@ -31,8 +31,8 @@ import java.util.Random;
 
 /**
  *  A simulation worker. 
- *  */
-public class ModelWorker implements Runnable {
+ * */
+public class SimWorker implements Runnable {
 	
 	private int swId;
 	private IWorkFactory workFactory;
@@ -40,7 +40,7 @@ public class ModelWorker implements Runnable {
 	private IModel model;
 	private IController controller;
 	
-	public ModelWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
+	public SimWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
 		this.swId = swId;
 		this.workFactory = workFactory;
 		this.params = model.getParams();
@@ -92,7 +92,7 @@ public class ModelWorker implements Runnable {
 				model.setCellNeighbors(token);
 			}
 			
-			controller.workerNotifyCellsAddNeighbors();
+			controller.workerNotifySetCellNeighbors();
 			
 			/* Populate simulation grid with agents. */
 			while ((token = sheepWorkProvider.getNextToken(sheepWork)) >= 0) {

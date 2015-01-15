@@ -55,7 +55,7 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 		controller.setWorkerSynchronizers(
 				new SingleThreadSyncPoint(ControlEvent.BEFORE_INIT_CELLS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
-				new SingleThreadSyncPoint(ControlEvent.AFTER_CELLS_ADD_NEIGHBORS), 
+				new SingleThreadSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_AGENTS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_FIRST_STATS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_HALF_ITERATION), 

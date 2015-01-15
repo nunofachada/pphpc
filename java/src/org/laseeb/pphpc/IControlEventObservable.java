@@ -27,8 +27,19 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Classes implementing this interface can be observed or monitored for 
+ * control events.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IControlEventObservable {
 
+	/**
+	 * Register a control event observer.
+	 * 
+	 * @param observer Control event observer to register.
+	 */
 	public void registerObserver(IControlEventObserver observer);
 
 }

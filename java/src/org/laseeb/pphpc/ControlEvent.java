@@ -27,15 +27,35 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * An enumeration of simulation control events.
+ * 
+ * @author Nuno Fachada
+ */
 public enum ControlEvent {
 	
+	/** Before cell initialization. */
 	BEFORE_INIT_CELLS,
+	
+	/** After cell initialization. */
 	AFTER_INIT_CELLS,
-	AFTER_CELLS_ADD_NEIGHBORS,
+	
+	/** After setting cell neighbors. */
+	AFTER_SET_CELL_NEIGHBORS,
+	
+	/** After agent initialization. */
 	AFTER_INIT_AGENTS,
+	
+	/** After getting first statistics. */
 	AFTER_FIRST_STATS,
+	
+	/** After half iteration point. */
 	AFTER_HALF_ITERATION,
+	
+	/** After iteration is finished. */
 	AFTER_END_ITERATION,
+	
+	/** After simulation is finished. */
 	AFTER_END_SIMULATION
 
 }

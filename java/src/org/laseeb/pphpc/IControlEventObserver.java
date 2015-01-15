@@ -27,8 +27,19 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Interface to be implemented by classes wishing to observe or monitor control events.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IControlEventObserver {
 
+	/**
+	 * Notify observer that a control event has occurred.
+	 * 
+	 * @param event Control event which has occurred.
+	 * @param controller Simulation controller.
+	 */
 	public void update(ControlEvent event, IController controller);
 	
 }
