@@ -27,8 +27,18 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Model event observers, such as MVC views, should implement this interface.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IModelEventObserver {
 	
+	/**
+	 * Update observer according to a specified model event.
+	 * 
+	 * @param event A model event, such as "start", "stop", "exception", etc.
+	 */
 	public void update(ModelEvent event);
 
 }

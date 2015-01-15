@@ -81,7 +81,7 @@ public class SimWorker implements Runnable {
 			
 			/* Initialize simulation grid cells. */
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
-				model.setCellAt(token, rng);
+				model.initCellAt(token, rng);
 			}
 
 			controller.workerNotifyInitCells();

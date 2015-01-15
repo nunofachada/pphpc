@@ -353,9 +353,9 @@ public class Controller implements IController {
 		if (this.simStatus == SimStatus.RUNNING) {
 			
 			/* If simulation is running, pause it.*/
-			this.model.pause();
-			this.simStatus = SimStatus.PAUSED;
 			this.pauseLatch = new CountDownLatch(1);
+			this.simStatus = SimStatus.PAUSED;
+			this.model.pause();
 			
 		} else if (this.simStatus == SimStatus.PAUSED) {
 			
@@ -370,7 +370,6 @@ public class Controller implements IController {
 			throw new IllegalSimStateException("Simulation can only be paused/continued if status != " + SimStatus.STOPPED);
 			
 		}
-
 
 	}
 

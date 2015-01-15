@@ -27,8 +27,19 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Interface for observable MVC models.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IModelEventObservable {
 	
+	/**
+	 * Register an observer for specific model events.
+	 * 
+	 * @param event A model event, such as "start", "stop", "exception", etc.
+	 * @param observer Observer to register.
+	 */
 	public void registerObserver(ModelEvent event, IModelEventObserver observer);
 
 }

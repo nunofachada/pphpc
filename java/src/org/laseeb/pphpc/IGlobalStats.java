@@ -27,11 +27,15 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Interface for classes which provide management of global simulation statistics.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IGlobalStats {
 	
-	
 	/**
-	 * Get statistics.
+	 * Get a specific statistic for a given iteration.
 	 * 
 	 * @param st Type of statistic (number of sheep or wolves, or quantity of grass).
 	 * @param iter Iteration.
@@ -39,10 +43,27 @@ public interface IGlobalStats {
 	 */
 	public int getStats(StatType st, int iter);
 	
+	/**
+	 * Get complete statistics for a given iteration.
+	 * 
+	 * @param iter Iteration.
+	 * @return The complete statistics for a given iteration.
+	 */
 	public IterationStats getStats(int iter);
 	
+	/**
+	 * Update global statistics for a specified iteration. The given 
+	 * iteration statistics are added to the global statistics for the 
+	 * specified iteration.
+	 * 
+	 * @param iter Iteration.
+	 * @param stats Statistics to add.
+	 */
 	public void updateStats(int iter, IterationStats stats);
 
+	/**
+	 * Reset statistics (see all statistics in all iteration to zero).
+	 */
 	public void reset();
 
 }

@@ -71,21 +71,6 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 	}
 
 	/**
-	 * @see AbstractSyncPoint#doSyncNotify(IController)
-	 */
-	@Override
-	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
-
-		try {
-			/* Perform synchronization. */
-			this.barrier.await();
-		} catch (Exception e) {
-			/* Synchronization may be interrupted externally. */
-			throw new InterruptedWorkException(e);
-		}
-	}
-
-	/**
 	 * @see ISyncPoint#stopNow()
 	 */
 	@Override
@@ -100,5 +85,19 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 		
 	}
 
+	/**
+	 * @see AbstractSyncPoint#doSyncNotify(IController)
+	 */
+	@Override
+	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
+
+		try {
+			/* Perform synchronization. */
+			this.barrier.await();
+		} catch (Exception e) {
+			/* Synchronization may be interrupted externally. */
+			throw new InterruptedWorkException(e);
+		}
+	}
 
 }

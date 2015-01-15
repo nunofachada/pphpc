@@ -27,6 +27,12 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Concrete models (in the MVC sense) should implement this interface.
+ * Basically, concrete models should be manipulable and queryable.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IModel extends IModelManipulator, IModelQuerier {
-
+	
 }

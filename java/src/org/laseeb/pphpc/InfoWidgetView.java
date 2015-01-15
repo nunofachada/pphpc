@@ -33,12 +33,72 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
 
+/**
+ * A simple information widget to track simulation progress.
+ * 
+ * @author Nuno Fachada
+ */
 public class InfoWidgetView extends AbstractModelEventObserver implements IView {
 
+	/* Widget components. */
 	private JLabel label;
 	private JProgressBar progressBar;
 	private IModelQuerier model;
 
+	public InfoWidgetView() {}
+
+	/**
+	 * @see IView#init(IModelQuerier, IController, PredPrey)
+	 */
+	@Override
+	public void init(IModelQuerier model, IController controller, PredPrey pp) {
+
+		this.model = model;
+
+		/* Register widget for start, stop and new iteration model events. */
+		model.registerObserver(ModelEvent.START, this);
+		model.registerObserver(ModelEvent.STOP, this);
+		model.registerObserver(ModelEvent.NEW_ITERATION, this);
+		
+		/* Show widget. */
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				createAndShowGUI();
+			}
+		});
+		
+	}
+
+	/**
+	 * @see AbstractModelEventObserver#updateOnNewIteration()
+	 */
+	@Override
+	public void updateOnNewIteration() {
+		
+		/* Get current iteration... */
+		final int iter = model.getCurrentIteration();
+
+		/* Then enqueue widget update when possible, so that the
+		 * simulation itself is delayed by the update. */
+		javax.swing.SwingUtilities.invokeLater(new Runnable() {
+			public void run() {
+				label.setText("Iter: " + iter);
+				progressBar.setValue(iter);
+			}
+		});
+	}
+
+	/**
+	 * @see IView#getType()
+	 */
+	@Override
+	public ViewType getType() {
+		return ViewType.PASSIVE;
+	}
+
+	/**
+	 * Create and show widget.
+	 */
 	private void createAndShowGUI() {
 		
 		/* Create and set up the window. */
@@ -60,43 +120,5 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 		frame.pack();
 		frame.setVisible(true);
 	}
-
-	public InfoWidgetView() {}
-
-	@Override
-	public void init(IModelQuerier model, IController controller, PredPrey pp) {
-
-		this.model = model;
-		model.registerObserver(ModelEvent.START, this);
-		model.registerObserver(ModelEvent.STOP, this);
-		model.registerObserver(ModelEvent.NEW_ITERATION, this);
-		
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				createAndShowGUI();
-			}
-		});
-		
-	}
-
-	@Override
-	public void updateOnNewIteration() {
-		/* Get current iteration within allowable time. */
-		final int iter = model.getCurrentIteration();
-
-		/* Then enqueue widget update. */
-		javax.swing.SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				label.setText("Iter: " + iter);
-				progressBar.setValue(iter);
-			}
-		});
-	}
-
-	@Override
-	public ViewType getType() {
-		return ViewType.PASSIVE;
-	}
-
 
 }

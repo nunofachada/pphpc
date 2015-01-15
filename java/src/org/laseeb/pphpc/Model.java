@@ -87,11 +87,6 @@ public class Model implements IModel {
 	}
 
 	@Override
-	public void setCell(int idx, Cell cell) {
-		this.cells[idx] = cell;
-	}
-
-	@Override
 	public void setCellNeighbors(int idx) {
 		this.space.setNeighbors(cells, idx);
 	}
@@ -113,7 +108,7 @@ public class Model implements IModel {
 	}
 
 	@Override
-	public void setCellAt(int idx, Random rng) {
+	public void initCellAt(int idx, Random rng) {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
 					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
@@ -184,19 +179,8 @@ public class Model implements IModel {
 		return this.lastThrowable;
 	}
 
-	/**
-	 * Create a random number generator of the type and with the seed specified as 
-	 * the command line arguments.
-	 * 
-	 * @param modifier Seed modifier, such as a thread ID, so that each thread
-	 * can instantiate an independent random number generator (not really
-	 * independent, but good enough for the purpose).
-	 * 
-	 * @return A new random number generator.
-	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
-	 */
 	@Override
-	public Random createRNG(long modifier) throws Exception {
+	public Random createRNG(int modifier) throws Exception {
 		
 		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
 

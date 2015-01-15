@@ -27,34 +27,83 @@
 
 package org.laseeb.pphpc;
 
-import java.io.IOException;
 import java.util.Random;
 
+/**
+ * Interface which defines methods for model manipulation.
+ *  
+ * @author Nuno Fachada
+ */
 public interface IModelManipulator {
 	
+	/**
+	 * Reset model.
+	 */
 	public void reset();
 	
+	/**
+	 * Increment iteration.
+	 */
 	public void incrementIteration();
 	
+	/**
+	 * Notify model of simulation start.
+	 */
 	public void start();
+
+	/**
+	 * Notify model of simulation stop.
+	 */
 	public void stop();
+
+	/**
+	 * Notify model of simulation pause.
+	 */
 	public void pause();
+	
+	/**
+	 * Notify model of simulation unpause.
+	 */
 	public void unpause();
 
 	/**
 	 * Export statistics to file.
 	 * @param str Statistics filename.
-	 * @throws Exception 
-	 * @throws IOException 
 	 */
 	public void export(String filename);
-	
 
-	public void setCell(int idx, Cell cell);
-
+	/**
+	 * Get a model cell from the specified space-independent index.
+	 * @param idx Space-independent index from where to fetch the cell.
+	 * @return A model cell from the specified space-independent index.
+	 */
 	public ICell getCell(int idx);
 	
+	/**
+	 * Set the neighbors of the model cell located at the specified space-independent 
+	 * index. This method can only be called once after all cells have been initialized
+	 * with {@link #initCellAt(int, Random)}.
+	 * 
+	 * @param idx Space-independent index of the cell in which the neighbors will be set.
+	 */
 	public void setCellNeighbors(int idx);
-	public void setCellAt(int idx, Random rng);
+
+	/**
+	 * Initialize a model cell at the specified space-independent index.
+	 * 
+	 * @param idx Space-independent index where to place the cell.
+	 * @param rng Random number generator with which to initialize the cell.
+	 */
+	public void initCellAt(int idx, Random rng);
+
+	/**
+	 * Update global statistics for a specified iteration. The given 
+	 * iteration statistics are added to the global statistics for the 
+	 * specified iteration.
+	 * 
+	 * @param iter Iteration.
+	 * @param stats Statistics to add.
+	 */
 	public void updateStats(int iter, IterationStats iterStats);
+	
 }
