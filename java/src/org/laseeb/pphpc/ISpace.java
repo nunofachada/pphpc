@@ -27,14 +27,40 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * A simulation space with some specific dimensionality and topology.
+ * 
+ * @author Nuno Fachada
+ */
 public interface ISpace {
 
+	/**
+	 * Set neighbors for cell located at the specified space-independent index. 
+	 * 
+	 * @param cells Array of all model cells.
+	 * @param idx Space-independent index of cell to set the neighbors of.
+	 */
 	public void setNeighbors(ICell[] cells, int idx);
 	
+	/**
+	 * Return the number of dimensions of this space.
+	 * 
+	 * @return The number of dimensions of this space.
+	 */
 	public int getNumDims();
 	
+	/**
+	 * Return the space size in all space dimensions.
+	 * 
+	 * @return The space size in all space dimensions.
+	 */
 	public int[] getDims();
 	
+	/**
+	 * Return the space size (number of cells).
+	 * 
+	 * @return The space size (number of cells).
+	 */
 	public int getSize();
 
 }

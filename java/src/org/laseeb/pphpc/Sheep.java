@@ -38,12 +38,28 @@ public class Sheep extends AbstractAgent {
 	 * Create a sheep agent.
 	 * 
 	 * @param energy Initial sheep energy.
-	 * @param Simulation parameters.
+	 * @param params Simulation parameters.
 	 */
 	public Sheep(int energy, ModelParams params) {
 		super(energy, params);
 	}
-	
+
+	/**
+	 * @see IAgent#getReproduceProbability()
+	 */
+	@Override
+	public int getReproduceProbability() {
+		return params.getSheepReproduceProb();
+	}
+
+	/**
+	 * @see IAgent#getReproduceThreshold()
+	 */
+	@Override
+	public int getReproduceThreshold() {
+		return params.getSheepReproduceThreshold();
+	}
+
 	/**
 	 * @see AbstractAgent#tryEat(ICell)
 	 */
@@ -66,22 +82,4 @@ public class Sheep extends AbstractAgent {
 			
 		}
 	}
-
-	/**
-	 * @see IAgent#getReproduceProbability()
-	 */
-	@Override
-	public int getReproduceProbability() {
-		return params.getSheepReproduceProb();
-	}
-
-	/**
-	 * @see IAgent#getReproduceThreshold()
-	 */
-	@Override
-	public int getReproduceThreshold() {
-		return params.getSheepReproduceThreshold();
-	}
-
-
 }

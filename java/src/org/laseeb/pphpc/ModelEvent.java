@@ -27,12 +27,29 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Observable model events.
+ * 
+ * @author Nuno Fachada
+ */
 public enum ModelEvent {
 
+	/** Simulation start. */
 	START,
+
+	/** Simulation stop. */
 	STOP,
+
+	/** Pause simulation. */
 	PAUSE,
+	
+	/** Unpause simulation. */
 	UNPAUSE,
+
+	/** New iteration will begin. */
 	NEW_ITERATION,
+	
+	/** An exception was registered with the model. */
 	EXCEPTION
+	
 }

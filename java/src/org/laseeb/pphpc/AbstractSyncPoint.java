@@ -84,9 +84,7 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	}
 	
 	/**
-	 * 
-	 * 
-	 * @see ISyncPoint#syncNotify(IModel model)
+	 * @see ISyncPoint#syncNotify(IController)
 	 */
 	@Override
 	public void syncNotify(IController controller) throws InterruptedWorkException {
@@ -101,9 +99,9 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	
 	/**
 	 * Perform proper synchronization. Implementations of this method must invoke
-	 * {@link #notifyObservers(IModel)}.
+	 * {@link #notifyObservers(IController)}.
 	 * 
-	 * @param model The simulation model.
+	 * @param controller The simulation controller.
 	 * @throws InterruptedWorkException if synchronization is interrupted by another thread.
 	 */
 	protected abstract void doSyncNotify(IController controller) throws InterruptedWorkException;

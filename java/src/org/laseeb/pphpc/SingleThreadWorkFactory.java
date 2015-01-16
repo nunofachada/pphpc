@@ -29,29 +29,51 @@ package org.laseeb.pphpc;
 
 import com.beust.jcommander.Parameters;
 
+/**
+ * Work factory which creates the required objects to distribute work to a single worker.
+ * 
+ * @author Nuno Fachada
+ */
 @Parameters(commandNames = {"st"}, commandDescription = "Single-threaded work command")
 public class SingleThreadWorkFactory implements IWorkFactory {
 
+	/* Name of command which invokes this work factory.*/
 	private String commandName = "st";
 
+	/**
+	 * @see IWorkFactory#getWorkProvider(int, IController)
+	 */
 	@Override
 	public IWorkProvider getWorkProvider(int workSize, IController controller) {
 		return new SingleThreadWorkProvider(workSize);
 	}
 
+	/**
+	 * @see IWorkFactory#createPutNewAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutNewAgentStrategy() {
 		return new CellPutAgentAsync();
 	}
 
+	/**
+	 * @see IWorkFactory#createPutExistingAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
 		return new CellPutAgentAsync();
 	}
 
+	/**
+	 * @see IWorkFactory#createSimController(IModel)
+	 */
 	@Override
 	public IController createSimController(IModel model) {
+		
+		/* Instantiate the controller... */
 		IController controller = new Controller(model, this);
+		
+		/* ...and set appropriate sync. points for only one worker. */
 		controller.setWorkerSynchronizers(
 				new SingleThreadSyncPoint(ControlEvent.BEFORE_INIT_CELLS), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_INIT_CELLS), 
@@ -61,19 +83,35 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 				new SingleThreadSyncPoint(ControlEvent.AFTER_HALF_ITERATION), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_END_ITERATION), 
 				new SingleThreadSyncPoint(ControlEvent.AFTER_END_SIMULATION));
+		
+		/* Return the controller, configured for one worker. */
 		return controller;
 	}
 
+	/**
+	 * @see IWorkFactory#createGlobalStats(int)
+	 */
 	@Override
 	public IGlobalStats createGlobalStats(int iters) {
 		return new SingleThreadGlobalStats(iters);
 	}
 
+	/**
+	 * Always returns 1.
+	 * 
+	 * @see IWorkFactory#getNumWorkers()
+	 */
 	@Override
 	public int getNumWorkers() {
+		
+		/* Always returns 1. */
 		return 1;
+		
 	}
 
+	/**
+	 * @see IWorkFactory#getCommandName()
+	 */
 	@Override
 	public String getCommandName() {
 		return this.commandName ;

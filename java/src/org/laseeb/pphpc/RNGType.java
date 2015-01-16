@@ -33,11 +33,18 @@ package org.laseeb.pphpc;
  * 
  * @author Nuno Fachada
  */
-public enum RNGType { 
-	AES, 
+public enum RNGType {
+	
+	/** @see org.uncommons.maths.random.AESCounterRNG */
+	AES,
+	/** @see org.uncommons.maths.random.CellularAutomatonRNG */
 	CA, 
+	/** @see org.uncommons.maths.random.CMWC4096RNG */
 	CMWC, 
+	/** @see org.uncommons.maths.random.JavaRNG */
 	JAVA, 
+	/** @see org.uncommons.maths.random.MersenneTwisterRNG */
 	MT, 
+	/** @see org.uncommons.maths.random.XORShiftRNG */
 	XORSHIFT 
 }

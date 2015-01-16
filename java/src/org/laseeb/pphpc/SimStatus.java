@@ -27,4 +27,18 @@
 
 package org.laseeb.pphpc;
 
-enum SimStatus { RUNNING, STOPPED, PAUSED }
+/**
+ * Enumeration which represents the simulation status.
+ * 
+ * @author Nuno Fachada
+ */
+enum SimStatus { 
+
+	/** Simulation is running. */
+	RUNNING, 
+	/** Simulation is stopped. */
+	STOPPED, 
+	/** Simulation is paused. */
+	PAUSED
+	
+}

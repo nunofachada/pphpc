@@ -31,8 +31,8 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
 /**
- * Work factory which creates the required objects to divide work among the available 
- * workers in a thread-safe fashion.
+ * Work factory which creates the required objects to divide work equally among the 
+ * available workers in a thread-safe fashion.
  * 
  * @author Nuno Fachada
  */
@@ -45,17 +45,6 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	/* Is the simulation repeatable? */
 	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
 	private boolean repeatable = false;
-
-	/**
-	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
-	 */
-	@Override
-	public IWorkProvider doGetWorkProvider(int workSize, IController controller) {
-		
-		/* The equal work provider will assure equal work division among workers. */
-		return new EqualWorkProvider(this.numThreads, workSize);
-		
-	}
 
 	/**
 	 * @see IWorkFactory#createPutNewAgentStrategy()
@@ -128,6 +117,17 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	public String getCommandName() {
 		
 		return this.commandName;
+		
+	}
+
+	/**
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 */
+	@Override
+	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+		
+		/* The equal work provider will assure equal work division among workers. */
+		return new EqualWorkProvider(this.numThreads, workSize);
 		
 	}
 }

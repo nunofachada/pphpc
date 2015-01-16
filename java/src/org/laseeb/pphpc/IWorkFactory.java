@@ -27,7 +27,23 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Work factories are responsible for creating all the objects related with the
+ * execution of a simulation (i.e. simulation work). Different work factories 
+ * provide different types of simulation execution, such as single-threaded 
+ * execution of various forms of multi-threaded execution.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IWorkFactory {
+
+	/**
+	 * Creates a simulation controller, in the MVC sense.
+	 * 
+	 * @param model The simulation model, in the MVC sense. 
+	 * @return A new simulation controller.
+	 */
+	public IController createSimController(IModel model);
 
 	/**
 	 * Creates or returns a previously created work provider for a given work size.
@@ -38,16 +54,43 @@ public interface IWorkFactory {
 	 */
 	public IWorkProvider getWorkProvider(int workSize, IController controller);
 	
+	/**
+	 * Create and return an appropriate strategy for putting new agents in a cell.
+	 * 
+	 * @return An appropriate strategy for putting new agents in a cell.
+	 */
 	public ICellPutAgentStrategy createPutNewAgentStrategy();
-
-	public ICellPutAgentStrategy createPutExistingAgentStrategy();
 	
-	public IController createSimController(IModel model);
+	/**
+	 * Create and return an appropriate strategy for putting existing agents in a cell.
+	 * 
+	 * @return An appropriate strategy for putting existing agents in a cell.
+	 */
+	public ICellPutAgentStrategy createPutExistingAgentStrategy();
 
+	/**
+	 * Create and return an appropriate global statistics object.
+	 * 
+	 * @param iters Number of iterations.
+	 * @return An appropriate global statistics object.
+	 */
 	public IGlobalStats createGlobalStats(int iters);
 	
+	/**
+	 * Return number of workers for which this work factory will create work-related
+	 * objects.
+	 * 
+	 * @return Number of workers for which this work factory will create work-related
+	 * objects.
+	 */
 	public int getNumWorkers();
 	
+	/**
+	 * Returns the command name of the work factory. This is used for factory
+	 * instantiation.
+	 * 
+	 * @return The command name of the work factory.
+	 */
 	public String getCommandName();
 	
 }

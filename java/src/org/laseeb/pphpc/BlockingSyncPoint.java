@@ -49,7 +49,7 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 	 * 
 	 * @param event Control event to associate with this synchronizer.
 	 * @param controller The simulation controller.
-	 * @param numThreads  Number of workers involved in the blocking synchronization.
+	 * @param numWorkers  Number of workers involved in the blocking synchronization.
 	 */
 	public BlockingSyncPoint(ControlEvent event, final IController controller, int numWorkers) {
 		

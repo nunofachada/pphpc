@@ -28,23 +28,25 @@
 package org.laseeb.pphpc;
 
 /**
- * A very simple non-blocking simulation synchronizer which only supports 
- * one thread for observer notification purposes. It works for multiple 
- * threads if no observers are registered.
+ * A very simple non-blocking synchronization point which only supports 
+ * one thread.
  * 
  * @author Nuno Fachada
  */
 public class SingleThreadSyncPoint extends AbstractSyncPoint {
 
 	/**
-	 * Create a new basic simulation synchronizer.
+	 * Create a new single-thread non-blocking synchronization point
 	 * 
-	 * @param event Simulation event to associate with this synchronizer.
+	 * @param event Control event to associate with this synchronization point.
 	 */
 	public SingleThreadSyncPoint(ControlEvent event) {
 		super(event);
 	}
 
+	/**
+	 * @see AbstractSyncPoint#doSyncNotify(IController)
+	 */
 	@Override
 	public void doSyncNotify(IController controller) {
 		this.notifyObservers(controller);

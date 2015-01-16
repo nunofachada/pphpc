@@ -30,20 +30,39 @@ package org.laseeb.pphpc;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
+/**
+ * Thread-safe management of global simulation statistics.
+ * 
+ * @author Nuno Fachada
+ */
 public class ThreadSafeGlobalStats implements IGlobalStats {
 
+	/* Sheep statistics. */
 	private AtomicIntegerArray sheepStats;
+
+	/* Wolf statistics. */
 	private AtomicIntegerArray wolfStats;
+
+	/* Grass statistics. */
 	private AtomicIntegerArray grassStats;
 	
+	/* Number of iterations. */
 	private int iters;
 	
+	/**
+	 * Create a new thread-safe global statistics object.
+	 * 
+	 * @param iters Number of iterations.
+	 */
 	public ThreadSafeGlobalStats(int iters) {
 		
 		this.iters = iters;
 		this.reset();
 	}
 	
+	/**
+	 * @see IGlobalStats#getStats(StatType, int)
+	 */
 	@Override
 	public int getStats(StatType st, int iter) {
 		
@@ -58,19 +77,28 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 		return 0;
 	}
 
+	/**
+	 * @see IGlobalStats#updateStats(int, IterationStats)
+	 */
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
 		this.sheepStats.addAndGet(iter, stats.getSheep());
 		this.wolfStats.addAndGet(iter, stats.getWolves());
-		this.grassStats.addAndGet(iter, stats.getGrass());		
+		this.grassStats.addAndGet(iter, stats.getGrass());
 	}
 
+	/**
+	 * @see IGlobalStats#getStats(int)
+	 */
 	@Override
 	public IterationStats getStats(int iter) {
 		return new IterationStats(
 				this.sheepStats.get(iter), this.wolfStats.get(iter), this.sheepStats.get(iter));
 	}
 
+	/**
+	 * @see IGlobalStats#reset()
+	 */
 	@Override
 	public void reset() {
 		int[] resetArray = new int[this.iters + 1];

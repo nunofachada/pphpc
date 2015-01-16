@@ -31,49 +31,48 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.beust.jcommander.validators.PositiveInteger;
 
+/**
+ * Work factory which creates the required objects to distribute work on demand among the 
+ * available workers in a thread-safe fashion.
+ *  
+ * @author Nuno Fachada
+ */
 @Parameters(commandNames = {"on_demand"}, commandDescription = "On-demand work command")
 public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 
+	/* Name of command which invokes this work factory.*/
 	final private String commandName = "on_demand";
 
 	/* Block size for ON_DEMAND work type. */
 	@Parameter(names = "-b", description = "Block size", validateWith = PositiveInteger.class)
 	private Integer blockSize = 100;
 
-	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
-		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);
-		IControlEventObserver resetCellCounter = new IControlEventObserver() {
-
-			@Override
-			public void update(ControlEvent event, IController controller) {
-				workProvider.resetWorkCounter();
-			}
-		};
-		
-		controller.registerControlEventObserver(ControlEvent.BEFORE_INIT_CELLS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_CELLS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_AGENTS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_FIRST_STATS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_HALF_ITERATION, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_END_ITERATION, resetCellCounter);
-		
-		return workProvider;
-	}
-
+	/**
+	 * @see IWorkFactory#createPutNewAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutNewAgentStrategy() {
 		return new CellPutAgentSync();
 	}
 
+	/**
+	 * @see IWorkFactory#createPutExistingAgentStrategy()
+	 */
 	@Override
 	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
 		return new CellPutAgentSync();
 	}
 
+	/**
+	 * @see IWorkFactory#createSimController(IModel)
+	 */
 	@Override
 	public IController createSimController(IModel model) {
+		
+		/* Instantiate the controller... */
 		IController controller = new Controller(model, this);
+		
+		/* ...and set appropriate sync. points for on-demand work division. */
 		controller.setWorkerSynchronizers(
 				new BlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
@@ -83,17 +82,47 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+		
+		/* Return the controller, configured for on-demand work division. */
 		return controller;
 	}
 
-	@Override
-	public IGlobalStats createGlobalStats(int iters) {
-		return new ThreadSafeGlobalStats(iters);
-	}
-
+	/**
+	 * @see IWorkFactory#getCommandName()
+	 */
 	@Override
 	public String getCommandName() {
 		return this.commandName;
+	}
+
+	/**
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 */
+	@Override
+	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+		
+		/* Instantiate the on-demand work provider. */
+		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);
+		
+		/* Create a control event observer to reset work at certain control points. */
+		IControlEventObserver resetCellCounter = new IControlEventObserver() {
+
+			@Override
+			public void update(ControlEvent event, IController controller) {
+				workProvider.resetWorkCounter();
+			}
+		};
+		
+		/* Add control observer to reset work at the following control points: */
+		controller.registerControlEventObserver(ControlEvent.BEFORE_INIT_CELLS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_CELLS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_AGENTS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_FIRST_STATS, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_HALF_ITERATION, resetCellCounter);
+		controller.registerControlEventObserver(ControlEvent.AFTER_END_ITERATION, resetCellCounter);
+		
+		/* Return the instantiated work provider. */
+		return workProvider;
 	}
 
 }

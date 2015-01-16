@@ -27,50 +27,101 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Simulation statistics for a single iteration. 
+ * 
+ * @author Nuno Fachada
+ */
 public class IterationStats {
 
+	/* Number of sheep. */
 	private int sheep;
+
+	/* Number of wolves. */
 	private int wolves;
+
+	/* Grass quantity. */
 	private int grass;
 
+	/**
+	 * Create a new iteration statistics object in which all statistics 
+	 * are initialized to zero.
+	 */
 	public IterationStats() {
+		
 		this.sheep = 0;
 		this.wolves = 0;
 		this.grass = 0;
+		
 	}
 	
+	/**
+	 * Create a new iteration statistics object in which the several
+	 * statistics are initialized to specified values.
+	 * 
+	 * @param sheep Number of sheep.
+	 * @param wolves Number of wolves.
+	 * @param grass Grass quantity.
+	 */
 	public IterationStats(int sheep, int wolves, int grass) {
 		this.sheep = sheep;
 		this.wolves = wolves;
 		this.grass = grass;
 	}
 	
+	/**
+	 * Reset statistics, i.e. set all statistics to zero.
+	 */
 	public void reset() {
 		this.sheep = 0;
 		this.wolves = 0;
 		this.grass = 0;
 	}
 	
+	/**
+	 * Get number of sheep.
+	 * 
+	 * @return Number of sheep.
+	 */
 	public int getSheep() {
 		return sheep;
 	}
 
+	/**
+	 * Increment number of sheep.
+	 */
 	public void incSheep() {
 		this.sheep++;
 	}
 
+	/**
+	 * Get number of wolves.
+	 * 
+	 * @return Number of wolves.
+	 */
 	public int getWolves() {
 		return wolves;
 	}
 
+	/**
+	 * Increment number of wolves.
+	 */
 	public void incWolves() {
 		this.wolves++;
 	}
 
+	/**
+	 * Get quantity of grass.
+	 * 
+	 * @return Quantity of grass.
+	 */
 	public int getGrass() {
 		return grass;
 	}
 
+	/**
+	 * Increment quantity of grass.
+	 */
 	public void incGrass() {
 		this.grass++;
 	}

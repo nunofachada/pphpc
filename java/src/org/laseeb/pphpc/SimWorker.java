@@ -30,25 +30,50 @@ package org.laseeb.pphpc;
 import java.util.Random;
 
 /**
- *  A simulation worker. 
+ *  A simulation worker. Each worker runs in its own thread.
+ *  
+ *  @author Nuno Fachada
+ *  @see java.lang.Runnable
  * */
 public class SimWorker implements Runnable {
 	
-	private int swId;
+	/* Worker ID. */
+	private int wId;
+	
+	/* Work factory. */
 	private IWorkFactory workFactory;
+	
+	/* Model parameters. */
 	private ModelParams params;
+	
+	/* MVC model. */
 	private IModel model;
+	
+	/* MVC controller. */
 	private IController controller;
 	
-	public SimWorker(int swId, IWorkFactory workFactory, IModel model, IController controller) {
-		this.swId = swId;
+	/**
+	 * Create a new simulation worker. Simulation workers are created by MVC controller
+	 * instances.
+	 *  
+	 * @param wId Worker ID.
+	 * @param workFactory Work factory.
+	 * @param model The MVC model.
+	 * @param controller The MVC controller.
+	 */
+	SimWorker(int wId, IWorkFactory workFactory, IModel model, IController controller) {
+		this.wId = wId;
 		this.workFactory = workFactory;
 		this.params = model.getParams();
 		this.model = model;
 		this.controller = controller;
 	}
 	
-	/* Simulate! */
+	/**
+	 *  Perform simulation work.
+	 *  
+	 *  @see java.lang.Runnable#run()
+	 * */
 	public void run() {
 		
 		/* Random number generator for current worker. */
@@ -68,15 +93,16 @@ public class SimWorker implements Runnable {
 		IWorkProvider wolvesWorkProvider = workFactory.getWorkProvider(params.getInitWolves(), this.controller);
 	
 		/* Get thread-local work. */
-		IWork cellsWork = cellsWorkProvider.newWork(swId);
-		IWork sheepWork = sheepWorkProvider.newWork(swId);
-		IWork wolvesWork = wolvesWorkProvider.newWork(swId);
+		IWork cellsWork = cellsWorkProvider.newWork(wId);
+		IWork sheepWork = sheepWorkProvider.newWork(wId);
+		IWork wolvesWork = wolvesWorkProvider.newWork(wId);
 		
 		try {
 
 			/* Create random number generator for current worker. */
-			rng = model.createRNG(swId);
+			rng = model.createRNG(wId);
 			
+			/* Notify controller that I'm about to begin working. */
 			controller.workerNotifyBeforeInitCells();
 			
 			/* Initialize simulation grid cells. */
@@ -84,14 +110,17 @@ public class SimWorker implements Runnable {
 				model.initCellAt(token, rng);
 			}
 
+			/* Notify controller I have initialized my allocated cells. */
 			controller.workerNotifyInitCells();
 
+			/* Reset my cells work. */
 			cellsWorkProvider.resetWork(cellsWork);
 			
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				model.setCellNeighbors(token);
 			}
 			
+			/* Notify controller I already set the neighbors for my allocated cells. */
 			controller.workerNotifySetCellNeighbors();
 			
 			/* Populate simulation grid with agents. */
@@ -107,6 +136,7 @@ public class SimWorker implements Runnable {
 				model.getCell(idx).putNewAgent(wolf);
 			}
 			
+			/* Notify controller I already initialized my allocated agents. */
 			controller.workerNotifyInitAgents();
 			
 			/* Get initial statistics. */
@@ -119,12 +149,16 @@ public class SimWorker implements Runnable {
 			/* Update global statistics. */
 			model.updateStats(0, iterStats);
 
-			/* Sync. with barrier. */
+			/* Notify controller I updated statistics for the zero iteration. */
 			controller.workerNotifyFirstStats();
+
 			/* Perform simulation steps. */
 			for (int iter = 1; iter <= params.getIters(); iter++) {
 
+				/* Reset my cells work. */
 				cellsWorkProvider.resetWork(cellsWork);
+				
+				/* Cycle through cells in order to perform step 1 and 2 of simulation. */
 				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 
 					/* Current cell being processed. */
@@ -145,9 +179,10 @@ public class SimWorker implements Runnable {
 	
 				}
 
+				/* Reset my cells work. */
 				cellsWorkProvider.resetWork(cellsWork);
 				
-				/* Sync. with barrier. */
+				/* Notify controller I'm half-way through an iteration. */
 				controller.workerNotifyHalfIteration();
 				
 				/* Reset statistics for current iteration. */
@@ -176,17 +211,19 @@ public class SimWorker implements Runnable {
 				/* Update global statistics. */
 				model.updateStats(iter, iterStats);
 				
-				/* Sync. with barrier. */
+				/* Notify controller I ended an iteration. */
 				controller.workerNotifyEndIteration();
 				
 			}
 			
+			/* Notify controller I'm finished with this simulation. */
 			controller.workerNotifySimFinish();
 			
 		} catch (InterruptedWorkException iwe) {
 
 			/* Thread interrupted by request of another thread. Do nothing, just
 			 * let thread finish by its own. */
+			
 		} catch (Exception e) {
 			
 			/* Notify model of exception. */

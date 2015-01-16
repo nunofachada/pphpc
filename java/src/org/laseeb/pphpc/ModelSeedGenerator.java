@@ -46,9 +46,9 @@ import org.uncommons.maths.random.SeedGenerator;
  */
 public class ModelSeedGenerator implements SeedGenerator {
 	
-	/* Different threads should pass different modifiers, so that each
+	/* Different threads should pass different IDs, so that each
 	 * gets a "different" stream from the RNG. */
-	private long modifier;
+	private long wId;
 	
 	/* Base seed for this seed generator. */
 	private BigInteger seed;
@@ -56,13 +56,13 @@ public class ModelSeedGenerator implements SeedGenerator {
 	/**
 	 * Create a new seed generator.
 	 * 
-	 * @param modifier A thread ID or similar, used for producing different
+	 * @param wId A thread ID or similar, used for producing different
 	 * seeds for different threads, based on the same {@link #seed}. If only
 	 * one thread is used, pass zero.
 	 * @param seed Base seed for this seed generator.
 	 */
-	public ModelSeedGenerator(long modifier, BigInteger seed) {
-		this.modifier = modifier;
+	public ModelSeedGenerator(int wId, BigInteger seed) {
+		this.wId = wId;
 		this.seed = seed;
 	}
 
@@ -80,7 +80,7 @@ public class ModelSeedGenerator implements SeedGenerator {
 		
 		/* If the thread modifier is not zero, create a scrambled modifierXor, 
 		 * unique for each thread. */
-		if (modifier != 0) {
+		if (wId != 0) {
 
 			/* This modifier will be XOR'ed with the final seed in order to
 			 * produce different seeds for different threads. */
@@ -90,7 +90,7 @@ public class ModelSeedGenerator implements SeedGenerator {
 				
 				/* Use SHA-256 for the scramble. */
 				MessageDigest digest = MessageDigest.getInstance("SHA-256");
-				digest.update(Long.toString(modifier).getBytes());
+				digest.update(Long.toString(wId).getBytes());
 				modifierXor = new BigInteger(digest.digest());
 				
 			} catch (NoSuchAlgorithmException e) {

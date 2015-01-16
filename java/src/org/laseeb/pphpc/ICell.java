@@ -111,7 +111,7 @@ public interface ICell {
 	/**
 	 * Perform agent movement for the agents in this cell.
 	 * 
-	 * @param A random number generator so that the agents move randomly.
+	 * @param rng A random number generator so that the agents move randomly.
 	 */
 	public void agentsMove(Random rng);
 

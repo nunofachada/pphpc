@@ -67,11 +67,13 @@ public class Cell implements ICell {
 	private int grass;
 	
 	/**
-	 * Constructor.
+	 * Create a new grid cell.
 	 * 
-	 * @param grassRestart
-	 * @param grassInitStrategy
-	 * @param putAgentsBehavior
+	 * @param grassRestart Grass restart simulation parameter.
+	 * @param initialGrass Initial grass value.
+	 * @param putNewAgentsStrategy Strategy for putting new agents in this cell.
+	 * @param putExistingAgentStrategy Strategy for putting existing agents in
+	 * this cell.
 	 */
 	public Cell(int grassRestart,
 			int initialGrass,

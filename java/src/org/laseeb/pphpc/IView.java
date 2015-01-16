@@ -27,10 +27,29 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Interface for simulation views, in the MVC sense.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IView extends IModelEventObserver {
 	
+	/**
+	 * Initialize and show view.
+	 * 
+	 * @param model Model, in the MVC sense.
+	 * @param controller Controller, in the MVC sense.
+	 * @param pp The main object, which contains all the specified command-line
+	 * options.
+	 */
 	public void init(IModelQuerier model, IController controller, PredPrey pp);
 	
+	/**
+	 * Return type of view.
+	 * @see ViewType
+	 * 
+	 * @return Type of view.
+	 */
 	public ViewType getType();
 
 }

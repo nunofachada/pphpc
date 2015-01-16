@@ -68,12 +68,14 @@ public interface IModelManipulator {
 
 	/**
 	 * Export statistics to file.
-	 * @param str Statistics filename.
+	 * 
+	 * @param filename Statistics filename.
 	 */
 	public void export(String filename);
 
 	/**
 	 * Get a model cell from the specified space-independent index.
+	 * 
 	 * @param idx Space-independent index from where to fetch the cell.
 	 * @return A model cell from the specified space-independent index.
 	 */
@@ -102,7 +104,7 @@ public interface IModelManipulator {
 	 * specified iteration.
 	 * 
 	 * @param iter Iteration.
-	 * @param stats Statistics to add.
+	 * @param iterStats Statistics to add.
 	 */
 	public void updateStats(int iter, IterationStats iterStats);
 	

@@ -29,6 +29,11 @@ package org.laseeb.pphpc;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Work provider which distributes work on-demand among the available workers.
+ * 
+ * @author Nuno Fachada
+ */
 public class OnDemandWorkProvider implements IWorkProvider {
 
 	/**
@@ -37,67 +42,113 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	 */
 	private class OnDemandWork extends AbstractWork {
 
-		private int current;
-		private int last;
+		/* Next work token to provide to worker. */
+		private int next;
 		
+		/* Marks the maximum limit of work to provide to worker. In 
+		 * other words, work tokens provided to worker must be lower
+		 * than this value. */
+		private int max;
+		
+		/**
+		 * Create an on-demand work state.
+		 * 
+		 * @param wId Worker ID.
+		 */
 		public OnDemandWork(int wId) {
 			super(wId);
-			this.current = 0;
-			this.last = 0;
+			this.next = 0;
+			this.max = 0;
 		}
 	}
 	
+	/* Work counter for all workers. */
 	private AtomicInteger counter;
+	
+	/* Number of work tokens to allocate for each worker at each request. */
 	private int blockSize;
+	
+	/* Total work size. */
 	private int workSize;
 
+	/**
+	 * Create a new on-demand work provider.
+	 * 
+	 * @param blockSize Number of work tokens to allocate for each worker at each request.
+	 * @param workSize Total work size.
+	 */
 	public OnDemandWorkProvider(int blockSize, int workSize) {
 		this.counter = new AtomicInteger(0);
 		this.blockSize = blockSize;
 		this.workSize = workSize;
 	}
 
+	/**
+	 * @see IWorkProvider#newWork(int)
+	 */
 	@Override
 	public IWork newWork(int wId) {
 		return new OnDemandWork(wId);
 	}
 
+	/**
+	 * @see IWorkProvider#getNextToken(IWork)
+	 */
 	@Override
 	public int getNextToken(IWork work) {
 		
+		/* Cast generic work to on-demand work. */
 		OnDemandWork odWork = (OnDemandWork) work;
 		
-		/* Set the nextToken to -1, which means no more work
+		/* Set nextToken to -1, which means no more work
 		 * is available. */
-		int nextIndex = -1;
+		int nextToken = -1;
 		
-		if (odWork.current >= odWork.last) {
+		/* Check if worker already processed its current block of work.*/
+		if (odWork.next >= odWork.max) {
 
-			odWork.current = this.counter.getAndAdd(this.blockSize);
-			odWork.last = Math.min(odWork.current + this.blockSize, this.workSize);
+			/* If so, allocate a new block of work for him. */
+			odWork.next = this.counter.getAndAdd(this.blockSize);
+			odWork.max = Math.min(odWork.next + this.blockSize, this.workSize);
 			
 		}
 		
-		if (odWork.current < this.workSize) {
+		/* If worker has still work left to do... */
+		if (odWork.next < this.workSize) {
 
-			nextIndex = odWork.current;
-			odWork.current++;
+			/* ...give worker a work token... */
+			nextToken = odWork.next;
+			
+			/* ...and increment the next work token for the next request.*/
+			odWork.next++;
 			
 		}
 
-		return nextIndex;
+		/* Return the next work token. */
+		return nextToken;
 	}
 
+	/**
+	 * @see IWorkProvider#resetWork(IWork)
+	 */
 	@Override
 	public void resetWork(IWork work) {
 		
+		/* Cast generic work to on-demand work... */
 		OnDemandWork odWork = (OnDemandWork) work;
-		odWork.current = 0;
-		odWork.last = 0;
+
+		/* ...and reset work state. */
+		odWork.next = 0;
+		odWork.max = 0;
 
 	}
 
+	/**
+	 * Reset global work counter. To be called by one thread only when a work session
+	 * is finished.
+	 */
 	void resetWorkCounter() {
 		this.counter.set(0);
 	}
+	
 }

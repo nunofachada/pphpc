@@ -27,6 +27,11 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Enumeration representing types of MVC views.
+ * 
+ * @author Nuno Fachada
+ */
 public enum ViewType {
 	
 	/**

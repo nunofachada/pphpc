@@ -45,17 +45,52 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 
 /**
- * Abstract PPHPC model.
+ * This class contains the main method for starting the simulator. The main method
+ * creates a new instance of this class and calls the {@link #doMain(String[])} method,
+ * which performs the following steps:
+ * 
+ * 1. Parses command-line options, keeping them in the created instance of this class, 
+ * which also serves as a container object for several of these options.
+ * 2. Selects the appropriate work factory.
+ * 3. Reads the simulation parameters file and creates a simulation parameters object.
+ * 4. Instantiates the MVC model, passing it the simulation parameters and several other
+ * options specified in the command-line.
+ * 5. Gets an MVC controller from the selected work factory.
+ * 6. Creates and initializes the MVC views specified in the command-line, passing them
+ * the model, the controller and a reference to the created instance of this class (so that
+ * views have access to some options specified in the command-line). 
  * 
  * @author Nuno Fachada
  */
 public class PredPrey {
 	
-	/* Enumeration containing program errors. */
+	/**
+	 *  Enumeration containing program errors. 
+	 * */
 	public enum Errors {
-		NONE(0), ARGS(-1), PARAMS(-2), SIM(-3), OTHER(-4);
+		
+		/** No error, successful program termination. */
+		NONE(0),
+		/** Error related with the specified command-line arguments. */
+		ARGS(-1), 
+		/** Unknown or invalid simulation parameters file. */
+		PARAMS(-2),
+		/** Error during simulation. */
+		SIM(-3),
+		/** Other errors. */
+		OTHER(-4);
+		
+		/* Error code. */
 		private int value;
+		
+		/* Enumeration constructor. */
 		private Errors(int value) { this.value = value; }
+		
+		/**
+		 * Return code for specified error.
+		 *  
+		 * @return Code for specified error.
+		 */
 		public int getValue() { return this.value; }
 	}
 	
@@ -105,51 +140,33 @@ public class PredPrey {
 	/* Work factory. */
 	private IWorkFactory workFactory;
 	
-	/* Known work factories. */
+	/* Known work factory names. */
 	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "OnDemandWorkFactory", "SingleThreadWorkFactory"};
 
+	/*  Known work factories. */
 	private Map<String, IWorkFactory> knownWorkFactories;
 	
-	private PredPrey() {}
-	
-	private void initWorkFactories() throws Exception {
-		
-		this.knownWorkFactories = new HashMap<String, IWorkFactory>();
-		
-		for (String factoryName : this.knownWorkFactoryNames) {
-			
-			Class<? extends IWorkFactory> factoryClass = 
-					Class.forName("org.laseeb.pphpc." + factoryName).asSubclass(IWorkFactory.class);
-			
-			IWorkFactory factoryObject = factoryClass.newInstance();
-			
-			this.knownWorkFactories.put(factoryObject.getCommandName(), factoryObject);
-			
-		}
-	}
 
 	/**
-	 * Show error message or stack trace, depending on debug parameter.
+	 * Main method.
 	 * 
-	 * @param t Exception which caused the error.
+	 * @param args Command line arguments.
 	 */
-	public String errMessage(Throwable t) {
+	public static void main(String[] args) {
 		
-		String errMessage;
+		/* Create a new instance of this class and call the doMain method to
+		 * perform the necessary steps to start the simulator. */
+		new PredPrey().doMain(args);
 		
-		if (this.debug) {
-			StringWriter sw = new StringWriter();
-			t.printStackTrace(new PrintWriter(sw));
-			errMessage = sw.toString();
-		} else {
-			errMessage = t.getMessage();
-		}
-		
-		return errMessage;
 	}
 	
 	/**
-	 * Run program.
+	 * Create a new main class object.
+	 */
+	public PredPrey() {}
+
+	/**
+	 * Perform the necessary steps to start the simulator.
 	 * 
 	 * @param args Command line arguments.
 	 */
@@ -183,15 +200,15 @@ public class PredPrey {
 			System.exit(Errors.ARGS.getValue());
 		}
 		
-		/* Get the work factory which corresponds to the command specified
-		 * in the command line. */
-		this.workFactory = this.knownWorkFactories.get(parser.getParsedCommand());
-		
 		/* If help option was passed, show help and quit. */
 		if (this.help) {
 			parser.usage();
 			System.exit(Errors.NONE.getValue());
 		}
+		
+		/* Get the work factory which corresponds to the command specified
+		 * in the command line. */
+		this.workFactory = this.knownWorkFactories.get(parser.getParsedCommand());
 		
 		/* Read parameters file. */
 		try {
@@ -205,56 +222,117 @@ public class PredPrey {
 		if (this.seed == null)
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
-		/* Perform simulation. */
+		/* Create the MVC model. */
 		IModel model = new Model(this.params, this.workFactory, this.rngType, this.seed);
+		
+		/* Obtain the MVC controller. */
 		IController controller = this.workFactory.createSimController(model);
 		
-		/* Create the views. */
+		/* Create the MVC views. */
 		List<IView> viewObjs = null;
 		try {
 			viewObjs = this.createViews();
 		} catch (Exception e) {
 			System.err.println("Unable to create instance of view: " + errMessage(e));
-			System.exit(Errors.PARAMS.getValue());			
+			System.exit(Errors.ARGS.getValue());			
 		}
 		
-		/* Initialize the views. */
+		/* Initialize the MVC views. */
 		try {
 			this.initViews(viewObjs, model, controller);
 		} catch (Exception e) {
 			System.err.println("Invalid selection of views: " + errMessage(e));
-			System.exit(Errors.PARAMS.getValue());			
+			System.exit(Errors.ARGS.getValue());			
 		}
 		
 	}
 	
-	private List<IView> createViews() 
-			throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+	/**
+	 * Returns the name of the file where to place the simulation statistics.
+	 * 
+	 * @return The name of the file where to place the simulation statistics.
+	 */
+	public String getStatsFile() {
+		return this.statsFile;
+	}
+
+	/**
+	 * Show error message or stack trace, depending on debug parameter.
+	 * 
+	 * @param t Exception which caused the error.
+	 */
+	public String errMessage(Throwable t) {
 		
+		String errMessage;
+		
+		if (this.debug) {
+			StringWriter sw = new StringWriter();
+			t.printStackTrace(new PrintWriter(sw));
+			errMessage = sw.toString();
+		} else {
+			errMessage = t.getMessage();
+		}
+		
+		return errMessage;
+	}
+	
+	/**
+	 * Create the MVC views.
+	 * 
+	 * @return A list of the specified MVC views.
+	 * @throws Exception If it wasn't possible to create any of the specified views.
+	 */
+	private List<IView> createViews() throws Exception {
+		
+		/* Create a list to hold the views. */
 		List<IView> viewObjs = new ArrayList<IView>();
 		
+		/* Cycle through the views specified in the command-line. */
 		for (String viewName : this.views) {
 		
+			/* Get the current view class. */
 			Class<? extends IView> viewClass = 
 					Class.forName("org.laseeb.pphpc." + viewName + "View").asSubclass(IView.class);
 			
+			/* Instantiate the current view and add it to the list. */
 			viewObjs.add(viewClass.newInstance());
 			
 		}
 		
+		/* Return the list of views. */
 		return viewObjs;
 	}
 	
+	/**
+	 * Initialize and show MVC views.
+	 * 
+	 * @param viewObjs View objects to initialize and show.
+	 * @param model The MVC model.
+	 * @param controller The MVC controller.
+	 * @throws Exception If it wasn't possible to initialize all of the views.
+	 */
 	private void initViews(List<IView> viewObjs, IModel model, IController controller) throws Exception {
 
+		/* Where any views specified? */
 		if (viewObjs.size() == 0) {
 			
+			/* If no views were specified, use the "one go" view, which performs a simulation
+			 * from start to finish without user interaction. */
 			viewObjs.add(new OneGoCLIView());
 			
 		} else {
 			
+			/* Some views were specified, check that there is at least one active view (i.e.
+			 * a view which is capable of controlling the simulation), and that if an active-exclusive
+			 * view was specified, there is no other active view. */
+			
+			/* Number of active-exclusive views. */
 			int exclusiveCount = 0;
+			
+			/* Number of active views. */
 			int activeCount = 0;
+			
+			/* Count active and active-exclusive views. */
 			for (IView view : viewObjs) {
 				if (view.getType() == ViewType.ACTIVE_EXCLUSIVE) {
 					exclusiveCount++;
@@ -262,6 +340,8 @@ public class PredPrey {
 					activeCount++;
 				}
 			}
+			
+			/* Check if the specified views are acceptable. */
 			if (exclusiveCount > 1) {
 				throw new Exception("There can be at most one exclusive view.");
 			}
@@ -273,24 +353,36 @@ public class PredPrey {
 			}
 		}
 		
+		/* All the views are acceptable, initialize and show them. */
 		for (IView view : viewObjs) {
 			view.init(model, controller, this);
 		}
 		
 	}
-
+	
 	/**
-	 * Main function.
-	 * 
-	 * @param args Command line arguments.
+	 * Initialize all known work factories.
+	 *  
+	 * @throws Exception If it isn't possible to initialize a known work factory.
 	 */
-	public static void main(String[] args) {
+	private void initWorkFactories() throws Exception {
 		
-		new PredPrey().doMain(args);
+		/* Initialize container for known work factory objects. */
+		this.knownWorkFactories = new HashMap<String, IWorkFactory>();
 		
-	}
-
-	public String getStatsFile() {
-		return this.statsFile;
+		/* Cycle through known work factory names. */
+		for (String factoryName : this.knownWorkFactoryNames) {
+			
+			/* Get the class for the current work factory. */
+			Class<? extends IWorkFactory> factoryClass = 
+					Class.forName("org.laseeb.pphpc." + factoryName).asSubclass(IWorkFactory.class);
+			
+			/* Instantiate the current work factory. */
+			IWorkFactory factoryObject = factoryClass.newInstance();
+			
+			/* Add the current work factory to the container of known work factories. */
+			this.knownWorkFactories.put(factoryObject.getCommandName(), factoryObject);
+			
+		}
 	}
 }

@@ -33,49 +33,17 @@ package org.laseeb.pphpc;
  * @author Nuno Fachada
  */
 public class Wolf extends AbstractAgent {
-	
+
 	/**
 	 * Create a wolf agent.
 	 * 
 	 * @param energy Initial wolf energy.
-	 * @param Simulation parameters.
+	 * @param params Simulation parameters.
 	 */
 	public Wolf(int energy, ModelParams params) {
 		super(energy, params);
 	}
 
-	/**
-	 * @see AbstractAgent#tryEat(ICell)
-	 */
-	@Override
-	protected void tryEat(ICell cell) {
-		
-		/* Iterate over agents in this cell. */
-		for (IAgent agent : cell.getAgents()) {
-			
-			/* Check if agent is sheep. */
-			if (agent instanceof Sheep) {
-				
-				/* Check if sheep is alive (otherwise another wolf got to the sheep first). */
-				if (agent.getEnergy() > 0) {
-					
-					/* Eat sheep... */
-					agent.setEnergy(0);
-
-					/* ...and gain energy from it. */
-					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
-					
-					/* I can only eat one sheep, so get out of here. */
-					break;
-					
-				}
-				
-			}
-			
-		}
-		
-	}
-	
 	/**
 	 * @see IAgent#getReproduceProbability()
 	 */
@@ -83,13 +51,45 @@ public class Wolf extends AbstractAgent {
 	public int getReproduceProbability() {
 		return params.getWolvesReproduceProb();
 	}
-	
+
 	/**
 	 * @see IAgent#getReproduceThreshold()
 	 */
 	@Override
 	public int getReproduceThreshold() {
 		return params.getWolvesReproduceThreshold();
+	}
+
+	/**
+	 * @see AbstractAgent#tryEat(ICell)
+	 */
+	@Override
+	protected void tryEat(ICell cell) {
+
+		/* Iterate over agents in this cell. */
+		for (IAgent agent : cell.getAgents()) {
+
+			/* Check if agent is sheep. */
+			if (agent instanceof Sheep) {
+
+				/* Check if sheep is alive (otherwise another wolf got to the sheep first). */
+				if (agent.getEnergy() > 0) {
+
+					/* Eat sheep... */
+					agent.setEnergy(0);
+
+					/* ...and gain energy from it. */
+					this.setEnergy(this.getEnergy() + params.getWolvesGainFromFood());
+
+					/* I can only eat one sheep, so get out of here. */
+					break;
+
+				}
+
+			}
+
+		}
+
 	}
 
 }

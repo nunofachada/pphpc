@@ -28,8 +28,7 @@
 package org.laseeb.pphpc;
 
 /**
- * Simulation synchronizer objects are used by {@link ISimWorkProvider}
- * implementations to provide synchronization points to the simulation
+ * Synchronization points are used to synchronize simulation
  * workers. 
  * 
  * They also follow the observer design pattern (as observable
@@ -42,16 +41,21 @@ package org.laseeb.pphpc;
 public interface ISyncPoint extends IControlEventObservable {
 	
 	/**
-	 * Notify simulation synchronizer that a simulation worker has reached
-	 * this stage.
+	 * Notify synchronization point that a simulation worker has reached it.
 	 * 
-	 * @throws InterruptedWorkException if synchronization was unexpectedly
-	 * interrupted.
+	 * @throws InterruptedWorkException if synchronization was interrupted by another 
+	 * thread.
 	 */
 	public void syncNotify(IController controller) throws InterruptedWorkException;
 
+	/**
+	 * Signal workers to terminate as soon as possible.
+	 */
 	public void stopNow();
 	
+	/**
+	 * Reset the synchronization point.
+	 */
 	public void reset();
 	
 }

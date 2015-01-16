@@ -27,18 +27,35 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * An exclusive command-line view which performs a simulation from start to
+ * finish.
+ * 
+ * @author Nuno Fachada
+ */
 public class OneGoCLIView extends AbstractModelEventObserver implements IView {
 	
+	/* The model object. */
 	private IModelQuerier model;
+	
+	/* The controller object. */
 	private IController controller;
+	
+	/* The main object, which contains all the specified command-line
+	 * options. */
 	private PredPrey pp;
 	
-	private long timming;
+	/* How long did the simulation take to complete? */
+	private long timing;
 	
-	public OneGoCLIView() {
-		
-	}
+	/**
+	 * Create a new view which performs a complete simulation in one go.
+	 */
+	public OneGoCLIView() {}
 	
+	/**
+	 * @see IView#init(IModelQuerier, IController, PredPrey)
+	 */
 	@Override
 	public void init(IModelQuerier model, final IController controller, PredPrey pp) {
 
@@ -46,15 +63,19 @@ public class OneGoCLIView extends AbstractModelEventObserver implements IView {
 		this.controller = controller;
 		this.pp = pp;
 		
+		/* Register this view as observer of start, stop and exception events. */
 		model.registerObserver(ModelEvent.START, this);
 		model.registerObserver(ModelEvent.STOP, this);
 		model.registerObserver(ModelEvent.EXCEPTION, this);
 
 		
+		/* Create a thread for this view, and start it. */
 		new Thread(new Runnable() {
 
 			@Override
 			public void run() {
+				
+				/* Start the simulation and let it finish by its own. */
 				try {
 					controller.start();
 				} catch (IllegalSimStateException e) {
@@ -65,29 +86,41 @@ public class OneGoCLIView extends AbstractModelEventObserver implements IView {
     	}).start();
 	}
 
+	/**
+	 * @see IView#getType()
+	 */
+	@Override
+	public ViewType getType() {
+		return ViewType.ACTIVE_EXCLUSIVE;
+	}
+
+	/**
+	 * @see AbstractModelEventObserver#updateOnStart()
+	 */
 	@Override
 	protected void updateOnStart() {
 		System.out.println("Started simulation with " + this.controller.getNumWorkers() + " threads...");
-		this.timming = System.currentTimeMillis();
+		this.timing = System.currentTimeMillis();
 	}
 
+	/**
+	 * @see AbstractModelEventObserver#updateOnStop()
+	 */
 	@Override
 	protected void updateOnStop() {
-		System.out.println("Total simulation time: " + ((System.currentTimeMillis() - this.timming) / 1000.0f) + "\n");
+		System.out.println("Total simulation time: " + ((System.currentTimeMillis() - this.timing) / 1000.0f) + "\n");
 		this.controller.export(this.pp.getStatsFile());
 		System.exit(PredPrey.Errors.NONE.getValue());
 	}
 
+	/**
+	 * @see AbstractModelEventObserver#updateOnException()
+	 */
 	@Override
 	protected void updateOnException() {
 		String msg = this.pp.errMessage(this.model.getLastThrowable());
 		System.err.println(msg);
 		System.exit(PredPrey.Errors.SIM.getValue());
-	}
-
-	@Override
-	public ViewType getType() {
-		return ViewType.ACTIVE_EXCLUSIVE;
 	}
 
 }

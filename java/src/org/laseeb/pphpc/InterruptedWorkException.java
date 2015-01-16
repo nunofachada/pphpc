@@ -27,15 +27,26 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Exception thrown when simulation workers are interrupted by another thread.
+ * 
+ * @author Nuno Fachada
+ */
 public class InterruptedWorkException extends Exception {
 
 	/* Generated serial version UID. */
 	private static final long serialVersionUID = -6623499019918946590L;
 	
+	/**
+	 * @see Exception#Exception(Throwable)
+	 */
 	public InterruptedWorkException(Exception e) {
 		super(e);
 	}
 
+	/**
+	 * @see Exception#Exception(String)
+	 */
 	public InterruptedWorkException(String message) {
 		super(message);
 	}

@@ -31,43 +31,75 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class Square2DTorusSpace implements ISpace {
+/**
+ * A two-dimensional toroidal space with Von Neumann neighborhood.
+ * 
+ * @author Nuno Fachada
+ */
+public class VonNeumann2DTorusSpace implements ISpace {
 
+	/* Horizontal space size. */
 	private int x;
+	
+	/* Total space size. */
 	private int size;
+	
+	/* Number of space dimensions. */
 	private final int numDims = 2;
+	
+	/* Size of space in each dimension. */
 	private int[] dims;
 
-	public Square2DTorusSpace(int x, int y) {
+	/**
+	 * Create a new two-dimensional toroidal space with Von Neumann neighborhood.
+	 * 
+	 * @param x Horizontal space size.
+	 * @param y Vertical space size.
+	 */
+	public VonNeumann2DTorusSpace(int x, int y) {
 		this.x = x;
 		this.size = x * y;
 		this.dims = new int[] { x, y };
 	}
 	
+	/**
+	 * @see ISpace#setNeighbors(ICell[], int)
+	 */
 	@Override
 	public void setNeighbors(ICell[] cells, int idx) {
 		
+		/* Determine Von Neumann neighbors. */
 		int up = idx - this.x >= 0 ? idx - this.x : this.size - x + idx;
 		int down = idx + this.x < this.size  ? idx + this.x : idx + this.x - this.size;
 		int right = idx + 1 < this.size ? idx + 1 : 0;
 		int left = idx - 1 >= 0 ? idx - 1 : this.size - 1;
 		
+		/* Set Von Neumann neighborhood. */
 		List<ICell> neighborhood = Arrays.asList(
 				cells[idx], cells[up], cells[right], cells[down], cells[left]); 
 	
 		cells[idx].setNeighborhood(Collections.unmodifiableList(neighborhood));
 	}
 
+	/**
+	 * @see ISpace#getNumDims()
+	 */
 	@Override
 	public int getNumDims() {
 		return this.numDims;
 	}
 
+	/**
+	 * @see ISpace#getDims()
+	 */
 	@Override
 	public int[] getDims() {
 		return this.dims;
 	}
 
+	/**
+	 * @see ISpace#getSize()
+	 */
 	@Override
 	public int getSize() {
 		return this.size;

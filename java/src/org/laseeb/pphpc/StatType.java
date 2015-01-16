@@ -30,4 +30,12 @@ package org.laseeb.pphpc;
 /**
  *  Enumeration for collected simulation quantities. 
  * */
-public enum StatType { SHEEP, WOLVES, GRASS }
+public enum StatType { 
+	
+	/** Sheep statistic. */
+	SHEEP, 
+	/** Wolves statistic. */
+	WOLVES, 
+	/** Grass statistic. */
+	GRASS 
+}
