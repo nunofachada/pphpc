@@ -44,7 +44,7 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	 * @see IWorkFactory#getWorkProvider(int, IController)
 	 */
 	@Override
-	public IWorkProvider getWorkProvider(int workSize, IController controller) {
+	public IWorkProvider getWorkProvider(int workSize, IModel model, IController controller) {
 		return new SingleThreadWorkProvider(workSize);
 	}
 

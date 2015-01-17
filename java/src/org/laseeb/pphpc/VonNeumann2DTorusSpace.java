@@ -105,4 +105,12 @@ public class VonNeumann2DTorusSpace implements ISpace {
 		return this.size;
 	}
 
+	/**
+	 * @see ISpace#getNeighborhoodRadius()
+	 */
+	@Override
+	public int getNeighborhoodRadius() {
+		return 1;
+	}
+
 }

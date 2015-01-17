@@ -99,7 +99,7 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
 		
 		/* Instantiate the on-demand work provider. */
 		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);

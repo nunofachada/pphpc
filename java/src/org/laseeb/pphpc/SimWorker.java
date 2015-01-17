@@ -86,11 +86,14 @@ public class SimWorker implements Runnable {
 		int token;
 		
 		/* Get cells work provider. */
-		IWorkProvider cellsWorkProvider = workFactory.getWorkProvider(model.getSize(), this.controller);
+		IWorkProvider cellsWorkProvider = this.workFactory.getWorkProvider(
+				this.model.getSize(), this.model, this.controller);
 		
 		/* Get initial agent creation work providers. */
-		IWorkProvider sheepWorkProvider = workFactory.getWorkProvider(params.getInitSheep(), this.controller);
-		IWorkProvider wolvesWorkProvider = workFactory.getWorkProvider(params.getInitWolves(), this.controller);
+		IWorkProvider sheepWorkProvider = this.workFactory.getWorkProvider(
+				this.params.getInitSheep(), this.model, this.controller);
+		IWorkProvider wolvesWorkProvider = this.workFactory.getWorkProvider(
+				this.params.getInitWolves(), this.model, this.controller);
 	
 		/* Get thread-local work. */
 		IWork cellsWork = cellsWorkProvider.newWork(wId);
@@ -100,24 +103,24 @@ public class SimWorker implements Runnable {
 		try {
 
 			/* Create random number generator for current worker. */
-			rng = model.createRNG(wId);
+			rng = this.model.createRNG(wId);
 			
 			/* Notify controller that I'm about to begin working. */
-			controller.workerNotifyBeforeInitCells();
+			this.controller.workerNotifyBeforeInitCells();
 			
 			/* Initialize simulation grid cells. */
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
-				model.initCellAt(token, rng);
+				this.model.initCellAt(token, rng);
 			}
 
 			/* Notify controller I have initialized my allocated cells. */
-			controller.workerNotifyInitCells();
+			this.controller.workerNotifyInitCells();
 
 			/* Reset my cells work. */
 			cellsWorkProvider.resetWork(cellsWork);
 			
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
-				model.setCellNeighbors(token);
+				this.model.setCellNeighbors(token);
 			}
 			
 			/* Notify controller I already set the neighbors for my allocated cells. */
@@ -125,35 +128,37 @@ public class SimWorker implements Runnable {
 			
 			/* Populate simulation grid with agents. */
 			while ((token = sheepWorkProvider.getNextToken(sheepWork)) >= 0) {
-				int idx = rng.nextInt(model.getSize());
-				IAgent sheep = new Sheep(1 + rng.nextInt(2 * params.getSheepGainFromFood()), params);
-				model.getCell(idx).putNewAgent(sheep);
+				int idx = rng.nextInt(this.model.getSize());
+				IAgent sheep = new Sheep(
+						1 + rng.nextInt(2 * this.params.getSheepGainFromFood()), this.params);
+				this.model.getCell(idx).putNewAgent(sheep);
 			}
 
 			while ((token = wolvesWorkProvider.getNextToken(wolvesWork)) >= 0) {
-				int idx = rng.nextInt(model.getSize());
-				IAgent wolf = new Wolf(1 + rng.nextInt(2 * params.getWolvesGainFromFood()), params);
-				model.getCell(idx).putNewAgent(wolf);
+				int idx = rng.nextInt(this.model.getSize());
+				IAgent wolf = new Wolf(
+						1 + rng.nextInt(2 * this.params.getWolvesGainFromFood()), this.params);
+				this.model.getCell(idx).putNewAgent(wolf);
 			}
 			
 			/* Notify controller I already initialized my allocated agents. */
-			controller.workerNotifyInitAgents();
+			this.controller.workerNotifyInitAgents();
 			
 			/* Get initial statistics. */
 			iterStats.reset();
 			cellsWorkProvider.resetWork(cellsWork);
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
-				model.getCell(token).getStats(iterStats);
+				this.model.getCell(token).getStats(iterStats);
 			}
 			
 			/* Update global statistics. */
-			model.updateStats(0, iterStats);
+			this.model.updateStats(0, iterStats);
 
 			/* Notify controller I updated statistics for the zero iteration. */
-			controller.workerNotifyFirstStats();
+			this.controller.workerNotifyFirstStats();
 
 			/* Perform simulation steps. */
-			for (int iter = 1; iter <= params.getIters(); iter++) {
+			for (int iter = 1; iter <= this.params.getIters(); iter++) {
 
 				/* Reset my cells work. */
 				cellsWorkProvider.resetWork(cellsWork);
@@ -162,7 +167,7 @@ public class SimWorker implements Runnable {
 				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 
 					/* Current cell being processed. */
-					ICell cell = model.getCell(token);
+					ICell cell = this.model.getCell(token);
 
 					/* ************************* */
 					/* ** 1 - Agent movement. ** */
@@ -183,7 +188,7 @@ public class SimWorker implements Runnable {
 				cellsWorkProvider.resetWork(cellsWork);
 				
 				/* Notify controller I'm half-way through an iteration. */
-				controller.workerNotifyHalfIteration();
+				this.controller.workerNotifyHalfIteration();
 				
 				/* Reset statistics for current iteration. */
 				iterStats.reset();
@@ -192,7 +197,7 @@ public class SimWorker implements Runnable {
 				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 
 					/* Current cell being processed. */
-					ICell cell = model.getCell(token);
+					ICell cell = this.model.getCell(token);
 
 					/* ************************** */
 					/* *** 3 - Agent actions. *** */
@@ -209,15 +214,15 @@ public class SimWorker implements Runnable {
 				}
 				
 				/* Update global statistics. */
-				model.updateStats(iter, iterStats);
+				this.model.updateStats(iter, iterStats);
 				
 				/* Notify controller I ended an iteration. */
-				controller.workerNotifyEndIteration();
+				this.controller.workerNotifyEndIteration();
 				
 			}
 			
 			/* Notify controller I'm finished with this simulation. */
-			controller.workerNotifySimFinish();
+			this.controller.workerNotifySimFinish();
 			
 		} catch (InterruptedWorkException iwe) {
 

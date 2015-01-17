@@ -62,5 +62,12 @@ public interface ISpace {
 	 * @return The space size (number of cells).
 	 */
 	public int getSize();
+	
+	/**
+	 * Return the neighborhood radius.
+	 * 
+	 * @return The neighborhood radius.
+	 */
+	public int getNeighborhoodRadius();
 
 }

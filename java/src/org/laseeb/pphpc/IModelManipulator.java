@@ -108,4 +108,11 @@ public interface IModelManipulator {
 	 */
 	public void updateStats(int iter, IterationStats iterStats);
 	
+	/**
+	 * Return the simulation space.
+	 * 
+	 * @return The simulation space.
+	 */
+	public ISpace getSpace();
+	
 }

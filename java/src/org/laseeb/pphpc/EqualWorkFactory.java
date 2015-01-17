@@ -124,7 +124,7 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
 		
 		/* The equal work provider will assure equal work division among workers. */
 		return new EqualWorkProvider(this.numThreads, workSize);

@@ -340,6 +340,14 @@ public class Model implements IModel {
 	}
 	
 	/**
+	 * @see IModelManipulator#getSpace()
+	 */
+	@Override
+	public ISpace getSpace() {
+		return this.space;
+	}
+
+	/**
 	 * Update model event observers registered for the given event.
 	 * 
 	 * @param event Model event.
