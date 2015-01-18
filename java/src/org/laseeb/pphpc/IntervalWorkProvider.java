@@ -98,13 +98,20 @@ public class IntervalWorkProvider implements IWorkProvider {
 		int rows = model.getSize() / this.syncInterval;
 		this.rowsPerWorker  = rows / this.numWorkers;
 		
+		System.out.println("Rows per worker (initial): " + this.rowsPerWorker);
+
 		if (rows % this.numWorkers > 0) {
-			if (rows - rowsPerWorker * this.numWorkers >= this.exclusionConstant - 1) {
-				this.rowsPerWorker++;
+			if (rows - this.rowsPerWorker * this.numWorkers >= this.exclusionConstant - 1) {
+				if ((this.rowsPerWorker + 1) * this.numWorkers < rows) {
+					this.rowsPerWorker++;
+				}
 			}
 		}
+		System.out.println("Rows per worker (final): " + this.rowsPerWorker);
+
 		
 		this.cellsPerWorker = this.syncInterval * this.rowsPerWorker;
+		System.out.println("Cells per worker: " + this.cellsPerWorker);
 	}
 
 	@Override
