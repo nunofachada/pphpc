@@ -24,13 +24,13 @@ public class IntervalWorkFactory extends AbstractMultiThreadWorkFactory {
 		/* ...and set appropriate sync. points for equal work division. */
 		controller.setWorkerSynchronizers(
 				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads),
-				new NonBlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, controller, this.numThreads));
 		
 		/* Return the controller, configured for equal work division. */
 		return controller;

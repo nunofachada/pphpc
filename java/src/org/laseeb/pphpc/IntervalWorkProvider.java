@@ -1,5 +1,6 @@
 package org.laseeb.pphpc;
 
+import java.util.Arrays;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
@@ -54,9 +55,15 @@ public class IntervalWorkProvider implements IWorkProvider {
 			int numSyncPoints = rowsPerWorker - 1;
 			this.syncPoints = new int[numSyncPoints];
 			for (int i = 0; i < numSyncPoints; i++) {
-				this.syncPoints[i] = (i + 1) *  syncInterval;
+				this.syncPoints[i] = startToken + (i + 1) *  syncInterval;
 			}
 			this.syncPointPointer = 0;
+			
+			
+			System.out.println("Worker " + wId + " gets work from " + this.startToken + " to " + this.endToken
+					+ " (sync points: " + Arrays.toString(syncPoints) + ")");
+			
+			
 		}
 		
 	}
@@ -122,16 +129,18 @@ public class IntervalWorkProvider implements IWorkProvider {
 			/* If so, get next work token... */
 			nextToken = iWork.counter;
 			
-			if (nextToken == iWork.syncPoints[iWork.syncPointPointer]) {
-				iWork.syncPointPointer++;
-				try {
-					this.barrier.await();
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (BrokenBarrierException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+			if (iWork.syncPointPointer < iWork.syncPoints.length) {
+				if (nextToken == iWork.syncPoints[iWork.syncPointPointer]) {
+					iWork.syncPointPointer++;
+					try {
+						this.barrier.await();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (BrokenBarrierException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
 			}
 			
@@ -149,6 +158,7 @@ public class IntervalWorkProvider implements IWorkProvider {
 		IntervalWork iWork = (IntervalWork) work;
 		
 		iWork.counter = iWork.startToken;
+		iWork.syncPointPointer = 0;
 	}
 
 }
