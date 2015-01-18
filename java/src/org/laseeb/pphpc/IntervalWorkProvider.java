@@ -122,15 +122,32 @@ public class IntervalWorkProvider implements IWorkProvider {
 
 		/* Cast generic work state to interval work state. */
 		IntervalWork iWork = (IntervalWork) work;
-
+		
 		/* Check if there is any work left to do. */
 		if (iWork.counter < iWork.endToken) {
 			
 			/* If so, get next work token... */
 			nextToken = iWork.counter;
+		}
+
+		/* Synchronize? */
+		if (iWork.syncPointPointer < iWork.syncPoints.length) {
 			
-			if (iWork.syncPointPointer < iWork.syncPoints.length) {
-				if (nextToken == iWork.syncPoints[iWork.syncPointPointer]) {
+			if (nextToken == iWork.syncPoints[iWork.syncPointPointer]) {
+				iWork.syncPointPointer++;
+				try {
+					this.barrier.await();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (BrokenBarrierException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+			if (iWork.counter >= model.getSize()) {
+				while (iWork.syncPointPointer < iWork.syncPoints.length) {
 					iWork.syncPointPointer++;
 					try {
 						this.barrier.await();
@@ -142,12 +159,13 @@ public class IntervalWorkProvider implements IWorkProvider {
 						e.printStackTrace();
 					}
 				}
+				
 			}
-			
-			/* ...and increment work token counter. */
-			iWork.counter++;
 		}
 		
+		/* Increment work token counter. */
+		iWork.counter++;
+
 		/* Return the next work token. */
 		return nextToken;
 	}
