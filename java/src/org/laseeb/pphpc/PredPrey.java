@@ -141,7 +141,7 @@ public class PredPrey {
 	private IWorkFactory workFactory;
 	
 	/* Known work factory names. */
-	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "OnDemandWorkFactory", "SingleThreadWorkFactory"};
+	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "OnDemandWorkFactory", "SingleThreadWorkFactory", "IntervalWorkFactory"};
 
 	/*  Known work factories. */
 	private Map<String, IWorkFactory> knownWorkFactories;
