@@ -28,15 +28,16 @@
 package org.laseeb.pphpc;
 
 /**
- * Work provider which divides work equally among the available workers.
+ * Work provider which divides work equally among the available workers. 
+ * If used for processing cells, synchronization is performed at cell-level.
  * 
  * @author Nuno Fachada
  */
 public class EqualWorkProvider implements IWorkProvider {
 
 	/**
-	 * A class which represents the state of equal work performed by 
-	 * each worker.
+	 * A class which represents the state of equal work. If used for 
+	 * processing cells, synchronization is performed at cell-level.
 	 */
 	private class EqualWork extends AbstractWork {
 
@@ -50,7 +51,8 @@ public class EqualWorkProvider implements IWorkProvider {
 		private int counter;
 		
 		/**
-		 * Create a new equal work state representation.
+		 * Create a new equal work state. If this work state is to be used
+		 * for processing cells, synchronization is performed at cell-level.
 		 * 
 		 * @param wId Worker ID.
 		 * @param startToken Start work token.
@@ -72,7 +74,8 @@ public class EqualWorkProvider implements IWorkProvider {
 	private int workSize;
 	
 	/**
-	 * Create a new equal work provider.
+	 * Create a new equal work provider. If used for processing cells, 
+	 * synchronization is performed at cell-level.
 	 * 
 	 * @param numWorkers Number of available workers.
 	 * @param workSize Total work size to be performed by the available workers.
@@ -101,7 +104,6 @@ public class EqualWorkProvider implements IWorkProvider {
 		/* Return the work state. */
 		return eWork;
 	}
-
 
 	/**
 	 * @see IWorkProvider#getNextToken(IWork)

@@ -85,22 +85,22 @@ public class SimWorker implements Runnable {
 		/* A work token. */
 		int token;
 		
-		/* Get cells work provider. */
-		IWorkProvider cellsWorkProvider = this.workFactory.getWorkProvider(
-				this.model.getSize(), this.model, this.controller);
-		
-		/* Get initial agent creation work providers. */
-		IWorkProvider sheepWorkProvider = this.workFactory.getWorkProvider(
-				this.params.getInitSheep(), this.model, this.controller);
-		IWorkProvider wolvesWorkProvider = this.workFactory.getWorkProvider(
-				this.params.getInitWolves(), this.model, this.controller);
-	
-		/* Get thread-local work. */
-		IWork cellsWork = cellsWorkProvider.newWork(wId);
-		IWork sheepWork = sheepWorkProvider.newWork(wId);
-		IWork wolvesWork = wolvesWorkProvider.newWork(wId);
-		
 		try {
+
+			/* Get cells work provider. */
+			IWorkProvider cellsWorkProvider = this.workFactory.getWorkProvider(
+					this.model.getSize(), this.model, this.controller);
+			
+			/* Get initial agent creation work providers. */
+			IWorkProvider sheepWorkProvider = this.workFactory.getWorkProvider(
+					this.params.getInitSheep(), this.model, this.controller);
+			IWorkProvider wolvesWorkProvider = this.workFactory.getWorkProvider(
+					this.params.getInitWolves(), this.model, this.controller);
+		
+			/* Get thread-local work. */
+			IWork cellsWork = cellsWorkProvider.newWork(wId);
+			IWork sheepWork = sheepWorkProvider.newWork(wId);
+			IWork wolvesWork = wolvesWorkProvider.newWork(wId);
 
 			/* Create random number generator for current worker. */
 			rng = this.model.createRNG(wId);

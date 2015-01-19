@@ -127,7 +127,8 @@ public class PredPrey {
 	private boolean debug = false;
 
 	/* List of MVC views to use. */
-	@Parameter(names = {"-v", "--views"}, description = "Simulation views: OneGoCLI (default), InteractiveCLI, InfoWidget", variableArity = true)
+	@Parameter(names = {"-v", "--views"}, description = "Simulation views: OneGoCLI (default), InteractiveCLI, InfoWidget", 
+			variableArity = true)
 	private List<String> views = new ArrayList<String>();
 	
 	/* Help option. */
@@ -141,7 +142,8 @@ public class PredPrey {
 	private IWorkFactory workFactory;
 	
 	/* Known work factory names. */
-	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "OnDemandWorkFactory", "SingleThreadWorkFactory", "IntervalWorkFactory"};
+	private String[] knownWorkFactoryNames = {"EqualWorkFactory", "EqualRowSyncWorkFactory", 
+			"OnDemandWorkFactory", "SingleThreadWorkFactory"};
 
 	/*  Known work factories. */
 	private Map<String, IWorkFactory> knownWorkFactories;
