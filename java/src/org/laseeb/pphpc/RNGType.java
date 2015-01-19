@@ -44,7 +44,11 @@ public enum RNGType {
 	/** @see org.uncommons.maths.random.JavaRNG */
 	JAVA, 
 	/** @see org.uncommons.maths.random.MersenneTwisterRNG */
-	MT, 
+	MT,
+	/** @see RanduRNG */
+	RANDU,
+	/** @see ReallyPoorRNG */
+	REALLYPOOR,
 	/** @see org.uncommons.maths.random.XORShiftRNG */
 	XORSHIFT 
 }

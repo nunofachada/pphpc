@@ -287,6 +287,10 @@ public class Model implements IModel {
 				return new JavaRNG(seedGen);
 			case MT:
 				return new MersenneTwisterRNG(seedGen);
+			case RANDU:
+				return new RanduRNG(seedGen);
+			case REALLYPOOR:
+				return new ReallyPoorRNG(seedGen);
 			case XORSHIFT: 
 				return new XORShiftRNG(seedGen);
 			default:

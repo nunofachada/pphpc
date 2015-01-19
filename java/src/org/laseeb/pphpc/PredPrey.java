@@ -118,7 +118,7 @@ public class PredPrey {
 	private BigInteger seed = null;
 	
 	/* Random number generator implementation. */
-	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT or XORSHIFT)", 
+	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT, RANDU, REALLYPOOR or XORSHIFT)", 
 			converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
 
