@@ -70,8 +70,14 @@ public interface ICell {
 	public Iterable<IAgent> getAgents();
 
 	/**
-	 * Put a new agent in this cell. A new agent is an agent which does not yet
-	 * exist in the simulation, e.g. a newly-born agent or an initial agent.
+	 * Put an initial agent in this cell.
+	 * 
+	 * @param agent Initial agent to put in cell.
+	 */
+	public void putInitAgent(IAgent agent);
+
+	/**
+	 * Put a new agent in this cell. A new agent is a newly-born agent.
 	 * 
 	 * @param agent New agent to put in cell.
 	 */

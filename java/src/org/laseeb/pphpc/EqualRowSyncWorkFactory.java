@@ -58,7 +58,7 @@ public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
@@ -67,6 +67,14 @@ public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 		return controller;
 	}
 
+	/**
+	 * @see IWorkFactory#createPutInitAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutInitAgentStrategy() {
+		return new CellPutAgentSyncSort();
+	}
+	
 	/**
 	 * @see IWorkFactory#createPutNewAgentStrategy()
 	 */
@@ -92,19 +100,19 @@ public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	/**
-	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		
-		if (workSize == model.getSize()) {
+		if (workType == WorkType.CELL) {
 			
 			/* Use the equal row sync. work provider when dealing with cells. */
 			return new EqualRowSyncWorkProvider(this.numThreads, model);
 	
 		} else {
 			
-			/* Use the equal cell sync. work provider when initializing agents. */
+			/* Use the equal work provider when initializing agents. */
 			return new EqualWorkProvider(this.numThreads, workSize);
 			
 		}

@@ -28,27 +28,20 @@
 package org.laseeb.pphpc;
 
 /**
- * Enum representing the random number generators present in the Uncommons
- * Math library.
+ * Type of simulation work to perform.
  * 
  * @author Nuno Fachada
  */
-public enum RNGType {
+public enum WorkType {
 	
-	/** @see org.uncommons.maths.random.AESCounterRNG */
-	AES,
-	/** @see org.uncommons.maths.random.CellularAutomatonRNG */
-	CA, 
-	/** @see org.uncommons.maths.random.CMWC4096RNG */
-	CMWC, 
-	/** @see org.uncommons.maths.random.JavaRNG */
-	JAVA, 
-	/** @see org.uncommons.maths.random.MersenneTwisterRNG */
-	MT,
-	/** @see RanduRNG */
-	RANDU,
-	/** @see ReallyPoorRNG */
-	REALLYPOOR,
-	/** @see org.uncommons.maths.random.XORShiftRNG */
-	XORSHIFT 
+	/**
+	 * Agent-related work, i.e. work is distributed agent-wise.
+	 */
+	AGENT,
+
+	/**
+	 * Cell-related work, i.e. work is distributed cell-wise.
+	 */
+	CELL
+
 }

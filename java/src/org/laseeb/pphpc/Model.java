@@ -69,6 +69,9 @@ public class Model implements IModel {
 	/* Simulation space. */
 	private ISpace space;
 	
+	/* Strategy for putting inital agents in cells. */
+	private ICellPutAgentStrategy putInitAgentStrategy;
+	
 	/* Strategy for putting new agents in cells. */
 	private ICellPutAgentStrategy putNewAgentStrategy;
 	
@@ -103,6 +106,7 @@ public class Model implements IModel {
 		this.params = params;
 		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
 		this.globalStats = wFactory.createGlobalStats(params.getIters());
+		this.putInitAgentStrategy = wFactory.createPutInitAgentStrategy();
 		this.putNewAgentStrategy = wFactory.createPutNewAgentStrategy();
 		this.putExistingAgentStrategy = wFactory.createPutExistingAgentStrategy();
 		this.grassInitStrategy = new CellGrassInitCoinRandCounter();
@@ -170,8 +174,9 @@ public class Model implements IModel {
 	public void initCellAt(int idx, Random rng) {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
-					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
-					this.putNewAgentStrategy, this.putExistingAgentStrategy);
+					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng),
+					this.putInitAgentStrategy, this.putNewAgentStrategy,
+					this.putExistingAgentStrategy);
 		} else {
 			throw new IllegalStateException("Cell " + idx + " already set!");
 		}
@@ -239,17 +244,18 @@ public class Model implements IModel {
 				out.close();
 			}
 		} catch (Exception e) {
-			this.registerException(e);
+			this.registerException(e, "Exporting statistics to file '" + filename + "'");
 		}
 	}
 
 	/**
-	 * @see IModelQuerier#registerException(Throwable)
+	 * @see IModelQuerier#registerException(Throwable, String)
 	 */
 	@Override
-	public void registerException(Throwable t) {
+	public void registerException(Throwable t, String s) {
+		System.out.println(this.getStats(0).getSheep() + " : " + this.getStats(0).getWolves() + " : " + this.getStats(0).getGrass());
 		synchronized (this) {
-			this.lastThrowable = t;
+			this.lastThrowable = new Throwable(t.getMessage() + " (additional info: " + s + ")", t);
 		}
 		this.updateObservers(ModelEvent.EXCEPTION);
 	}
@@ -281,6 +287,10 @@ public class Model implements IModel {
 				return new JavaRNG(seedGen);
 			case MT:
 				return new MersenneTwisterRNG(seedGen);
+			case RANDU:
+				return new RanduRNG(seedGen);
+			case REALLYPOOR:
+				return new ReallyPoorRNG(seedGen);
 			case XORSHIFT: 
 				return new XORShiftRNG(seedGen);
 			default:

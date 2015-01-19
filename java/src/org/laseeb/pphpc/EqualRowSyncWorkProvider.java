@@ -190,34 +190,24 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 
 		/* How many rows will be processed by worker? */
 		this.rowsPerWorker  = rows / this.numWorkers;
-		
-//		System.out.println("Rows per worker (initial): " + this.rowsPerWorker);
 
 		/* If the rows cannot be equally divided among the available workers...  */
 		if (rows % this.numWorkers > 0) {
 			
-			/* ...check if we can add another row to be processed by each thread. To do
-			 * so, two conditions are required: */
-			
-			/* 1. */
-			if (rows - this.rowsPerWorker * this.numWorkers >= this.minThreadDist - 1) {
+			/* ...check if we can add another row to be processed by each thread. For this
+			 * to happen, the starting row of the last worker in a +1 row per worker scenario
+			 * must be at least "minThreadDist" rows lower than the total number of rows. */
+			if ((this.rowsPerWorker + 1) * this.numWorkers < rows - this.minThreadDist) {
 				
-				/* 2. The starting row of */
-				if ((this.rowsPerWorker + 1) * this.numWorkers < rows) {
+				/* Condition verified, use an additional row per worker. */
+				this.rowsPerWorker++;
 					
-					/* Both conditions verified, use an additional row per worker. */
-					this.rowsPerWorker++;
-					
-				}
 			}
 		}
 
-//		System.out.println("Rows per worker (final): " + this.rowsPerWorker);
-
 		/* Keep the final number of cells per worker. */
 		this.cellsPerWorker = this.rowSize * this.rowsPerWorker;
-		
-//		System.out.println("Cells per worker: " + this.cellsPerWorker);
+
 	}
 
 	/**

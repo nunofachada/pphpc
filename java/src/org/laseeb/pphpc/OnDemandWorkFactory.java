@@ -48,6 +48,14 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	private Integer blockSize = 100;
 
 	/**
+	 * @see IWorkFactory#createPutInitAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutInitAgentStrategy() {
+		return new CellPutAgentSync();
+	}
+	
+	/**
 	 * @see IWorkFactory#createPutNewAgentStrategy()
 	 */
 	@Override
@@ -96,10 +104,10 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	/**
-	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		
 		/* Instantiate the on-demand work provider. */
 		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);

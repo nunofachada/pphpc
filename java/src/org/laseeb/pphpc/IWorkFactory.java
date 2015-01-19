@@ -49,11 +49,19 @@ public interface IWorkFactory {
 	 * Creates or returns a previously created work provider for a given work size.
 	 * 
 	 * @param workSize Size of work to be distributed by the work provider.
+	 * @param workType Type of work to perform (agent or cell work).
 	 * @param model The MVC model.
 	 * @param controller The MVC controller.
 	 * @return A new or previously created work provider for the given work size.
 	 */
-	public IWorkProvider getWorkProvider(int workSize, IModel model, IController controller);
+	public IWorkProvider getWorkProvider(int workSize, WorkType workType, IModel model, IController controller);
+
+	/**
+	 * Create and return an appropriate strategy for putting initial agents in a cell.
+	 * 
+	 * @return An appropriate strategy for putting initial agents in a cell.
+	 */
+	public ICellPutAgentStrategy createPutInitAgentStrategy();
 	
 	/**
 	 * Create and return an appropriate strategy for putting new agents in a cell.
@@ -93,5 +101,6 @@ public interface IWorkFactory {
 	 * @return The command name of the work factory.
 	 */
 	public String getCommandName();
+
 	
 }

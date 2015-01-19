@@ -68,6 +68,26 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	/**
+	 * @see IWorkFactory#createPutInitAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutInitAgentStrategy() {
+
+		/* If simulation is to be repeatable... */
+		if (this.repeatable) {
+
+			/* ...agents must be sorted after inserted in cell. */
+			return new CellPutAgentSyncSort();
+			
+		} else {
+			
+			/* Otherwise, synchronous agent insertion suffices. */
+			return new CellPutAgentSync();
+		
+		}
+	}
+	
+	/**
 	 * @see IWorkFactory#createPutExistingAgentStrategy()
 	 */
 	@Override
@@ -122,10 +142,10 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	/**
-	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, IController)
+	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		
 		/* The equal work provider will assure equal work division among workers. */
 		return new EqualWorkProvider(this.numThreads, workSize);

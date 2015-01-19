@@ -40,6 +40,7 @@ import java.util.Random;
 public class Cell implements ICell {
 	
 	/* Put agent strategies. */
+	private ICellPutAgentStrategy putInitAgentStrategy;
 	private ICellPutAgentStrategy putNewAgentStrategy;
 	private ICellPutAgentStrategy putExistingAgentStrategy;
 	
@@ -77,11 +78,13 @@ public class Cell implements ICell {
 	 */
 	public Cell(int grassRestart,
 			int initialGrass,
+			ICellPutAgentStrategy putInitAgentsStrategy,
 			ICellPutAgentStrategy putNewAgentsStrategy,
 			ICellPutAgentStrategy putExistingAgentStrategy) {
 		
 		this.grassRestart = grassRestart;
 		this.grass = initialGrass;
+		this.putInitAgentStrategy = putInitAgentsStrategy;
 		this.putNewAgentStrategy = putNewAgentsStrategy;
 		this.putExistingAgentStrategy = putExistingAgentStrategy;
 		
@@ -137,6 +140,17 @@ public class Cell implements ICell {
 		
 	}
 
+	/**
+	 * @see ICell#putInitAgent(IAgent)
+	 */
+	@Override
+	public void putInitAgent(IAgent agent) {
+		
+		/* Put inital agent according to the specified strategy. */
+		this.putInitAgentStrategy.putAgent(this.newAgents, agent);
+
+	}
+	
 	/**
 	 * @see ICell#putNewAgent(IAgent)
 	 */

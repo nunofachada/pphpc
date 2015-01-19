@@ -40,7 +40,7 @@ public abstract class AbstractMultiThreadWorkFactory extends AbstractWorkFactory
 	/* Number of threads. */
 	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
 	protected int numThreads = Runtime.getRuntime().availableProcessors();
-
+	
 	/**
 	 * Create a thread-safe global statistics object. 
 	 * 

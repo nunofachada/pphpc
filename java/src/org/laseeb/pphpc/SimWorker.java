@@ -85,17 +85,20 @@ public class SimWorker implements Runnable {
 		/* A work token. */
 		int token;
 		
+		/* Current iteration*/
+		int iter = 0;
+		
 		try {
 
 			/* Get cells work provider. */
 			IWorkProvider cellsWorkProvider = this.workFactory.getWorkProvider(
-					this.model.getSize(), this.model, this.controller);
+					this.model.getSize(), WorkType.CELL, this.model, this.controller);
 			
 			/* Get initial agent creation work providers. */
 			IWorkProvider sheepWorkProvider = this.workFactory.getWorkProvider(
-					this.params.getInitSheep(), this.model, this.controller);
+					this.params.getInitSheep(), WorkType.AGENT, this.model, this.controller);
 			IWorkProvider wolvesWorkProvider = this.workFactory.getWorkProvider(
-					this.params.getInitWolves(), this.model, this.controller);
+					this.params.getInitWolves(), WorkType.AGENT, this.model, this.controller);
 		
 			/* Get thread-local work. */
 			IWork cellsWork = cellsWorkProvider.newWork(wId);
@@ -131,14 +134,14 @@ public class SimWorker implements Runnable {
 				int idx = rng.nextInt(this.model.getSize());
 				IAgent sheep = new Sheep(
 						1 + rng.nextInt(2 * this.params.getSheepGainFromFood()), this.params);
-				this.model.getCell(idx).putNewAgent(sheep);
+				this.model.getCell(idx).putInitAgent(sheep);
 			}
 
 			while ((token = wolvesWorkProvider.getNextToken(wolvesWork)) >= 0) {
 				int idx = rng.nextInt(this.model.getSize());
 				IAgent wolf = new Wolf(
 						1 + rng.nextInt(2 * this.params.getWolvesGainFromFood()), this.params);
-				this.model.getCell(idx).putNewAgent(wolf);
+				this.model.getCell(idx).putInitAgent(wolf);
 			}
 			
 			/* Notify controller I already initialized my allocated agents. */
@@ -156,9 +159,9 @@ public class SimWorker implements Runnable {
 
 			/* Notify controller I updated statistics for the zero iteration. */
 			this.controller.workerNotifyFirstStats();
-
+			
 			/* Perform simulation steps. */
-			for (int iter = 1; iter <= this.params.getIters(); iter++) {
+			for (iter = 1; iter <= this.params.getIters(); iter++) {
 
 				/* Reset my cells work. */
 				cellsWorkProvider.resetWork(cellsWork);
@@ -232,7 +235,7 @@ public class SimWorker implements Runnable {
 		} catch (Exception e) {
 			
 			/* Notify model of exception. */
-			this.model.registerException(e);
+			this.model.registerException(e, "Iteration #" + iter);
 			
 			/* Some other unexpected exception. Notify controller to stop all other
 			 * threads immediately. */
