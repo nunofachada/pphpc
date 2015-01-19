@@ -41,13 +41,21 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	private String commandName = "st";
 
 	/**
-	 * @see IWorkFactory#getWorkProvider(int, IController)
+	 * @see IWorkFactory#getWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	public IWorkProvider getWorkProvider(int workSize, IModel model, IController controller) {
+	public IWorkProvider getWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		return new SingleThreadWorkProvider(workSize);
 	}
 
+	/**
+	 * @see IWorkFactory#createPutInitAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutInitAgentStrategy() {
+		return new CellPutAgentAsync();
+	}
+	
 	/**
 	 * @see IWorkFactory#createPutNewAgentStrategy()
 	 */

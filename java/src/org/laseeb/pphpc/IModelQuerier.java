@@ -80,13 +80,14 @@ public interface IModelQuerier extends IModelEventObservable {
 	 * notify all observers of the "exception" model event.
 	 * 
 	 * @param t Throwable or exception to register.
+	 * @param info Additional information.
 	 */
-	public void registerException(Throwable t);
+	public void registerException(Throwable t, String info);
 
 	/**
-	 * Return the last exception registered with {@link #registerException(Throwable)}.
+	 * Return the last exception registered with {@link #registerException(Throwable, String)}.
 	 * 
-	 * @return The last exception registered with {@link #registerException(Throwable)}.
+	 * @return The last exception registered with {@link #registerException(Throwable, String)}.
 	 */
 	public Throwable getLastThrowable();
 

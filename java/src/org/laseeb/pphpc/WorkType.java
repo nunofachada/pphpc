@@ -27,36 +27,21 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.validators.PositiveInteger;
-
 /**
- * Abstract class for multi-threaded work factories. 
+ * Type of simulation work to perform.
  * 
  * @author Nuno Fachada
  */
-public abstract class AbstractMultiThreadWorkFactory extends AbstractWorkFactory {
-
-	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
-	protected int numThreads = Runtime.getRuntime().availableProcessors();
+public enum WorkType {
 	
 	/**
-	 * Create a thread-safe global statistics object. 
-	 * 
-	 * @see IWorkFactory#createGlobalStats(int)
+	 * Agent-related work, i.e. work is distributed agent-wise.
 	 */
-	@Override
-	public IGlobalStats createGlobalStats(int iters) {
-		return new ThreadSafeGlobalStats(iters);
-	}
+	AGENT,
 
 	/**
-	 * @see IWorkFactory#getNumWorkers()
+	 * Cell-related work, i.e. work is distributed cell-wise.
 	 */
-	@Override
-	public int getNumWorkers() {
-		return this.numThreads;
-	}
+	CELL
 
 }

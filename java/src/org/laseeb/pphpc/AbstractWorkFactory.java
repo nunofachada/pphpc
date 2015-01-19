@@ -51,10 +51,10 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 	}
 	
 	/**
-	 * @see IWorkFactory#getWorkProvider(int, IController)
+	 * @see IWorkFactory#getWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	public IWorkProvider getWorkProvider(int workSize, IModel model, IController controller) {
+	public IWorkProvider getWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 
 		/* Instantiate work provider if required. Use double-checked locking to avoid thread
 		 * synchronization after initialization. */
@@ -64,7 +64,7 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 					
 					/* If the work provider for the given work size hasn't yet been created, 
 					 * delegate creation to the concrete work factory. */
-					IWorkProvider workProvider = this.doGetWorkProvider(workSize, model, controller);
+					IWorkProvider workProvider = this.doGetWorkProvider(workSize, workType, model, controller);
 					
 					/* Put new work provider in map, associated with the given work size. */
 					this.workProviders.put(workSize, workProvider);
@@ -80,10 +80,11 @@ public abstract class AbstractWorkFactory implements IWorkFactory {
 	 * Create concrete work provider.
 	 * 
 	 * @param workSize Size of work to be distributed by the work provider.
+	 * @param workType Type of work to perform (agent or cell work).
 	 * @param model The MVC model.
 	 * @param controller The MVC controller.
 	 * @return A new work provider.
 	 */
-	protected abstract IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller);
+	protected abstract IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller);
 
 }
