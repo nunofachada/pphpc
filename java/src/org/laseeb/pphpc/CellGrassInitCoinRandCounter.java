@@ -29,10 +29,23 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Grass initialization strategy where there is a 50% possibility of the grass
+ * being alive. In case the grass is not alive, its regrowth counter is set to
+ * a random value between 1 and the grassRestart state variable.
+ * 
+ * @author Nuno Fachada
+ */
 public class CellGrassInitCoinRandCounter implements ICellGrassInitStrategy {
 
+	/**
+	 * Constructor for this strategy.
+	 */
 	public CellGrassInitCoinRandCounter() {}
 
+	/**
+	 * @see ICellGrassInitStrategy#getInitGrass(int, Random)
+	 */
 	@Override
 	public int getInitGrass(int grassRestart, Random rng) {
 

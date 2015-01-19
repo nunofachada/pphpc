@@ -33,8 +33,8 @@ import java.util.List;
  * This class defines how an agent is added to an cell's internal agent list.
  * Strategy design pattern.
  *  
- * @see Cell#putAgentFuture(IAgent)
- * @see Cell#putNewAgent(IAgent)
+ * @see ICell#putNewAgent(IAgent) 
+ * @see ICell#putExistingAgent(IAgent)
  * 
  * @author Nuno Fachada
  */

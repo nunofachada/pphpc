@@ -27,65 +27,21 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
 /**
  * Work factory which creates the required objects to divide work equally among the 
- * available workers in a thread-safe fashion. If used for processing cells, synchronization 
- * is performed at cell-level.
+ * available workers in a thread-safe fashion. When used for cell processing, thread-safety 
+ * is achieved using row-level synchronization. When used for agent processing, it delegates
+ * responsibility to a {@link EqualWorkProvider}.
  * 
  * @author Nuno Fachada
  */
-@Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
-public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
+@Parameters(commandNames = {"eq_rowsync"}, commandDescription = "Equal row sync. work command")
+public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 	
 	/* Name of command which invokes this work factory.*/
-	final private String commandName = "equal";
-
-	/* Is the simulation repeatable? */
-	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
-	private boolean repeatable = false;
-
-	/**
-	 * @see IWorkFactory#createPutNewAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		
-		/* If simulation is to be repeatable... */
-		if (this.repeatable) {
-			
-			/* ...agents must be sorted after inserted in cell. */
-			return new CellPutAgentSyncSort();
-		
-		} else {
-			
-			/* Otherwise, synchronous agent insertion suffices. */
-			return new CellPutAgentSync();
-			
-		}
-	}
-
-	/**
-	 * @see IWorkFactory#createPutExistingAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
-
-		/* If simulation is to be repeatable... */
-		if (this.repeatable) {
-
-			/* ...agents must be sorted after inserted in cell. */
-			return new CellPutAgentSyncSort();
-			
-		} else {
-			
-			/* Otherwise, synchronous agent insertion suffices. */
-			return new CellPutAgentSync();
-		
-		}
-	}
+	final private String commandName = "eq_rowsync";
 
 	/**
 	 * @see IWorkFactory#createSimController(IModel)
@@ -100,7 +56,7 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 		controller.setWorkerSynchronizers(
 				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads),
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, controller, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
@@ -112,13 +68,27 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	}
 
 	/**
+	 * @see IWorkFactory#createPutNewAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutNewAgentStrategy() {
+		return new CellPutAgentAsync();
+	}
+
+	/**
+	 * @see IWorkFactory#createPutExistingAgentStrategy()
+	 */
+	@Override
+	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
+		return new CellPutAgentAsync();
+	}
+
+	/**
 	 * @see IWorkFactory#getCommandName()
 	 */
 	@Override
 	public String getCommandName() {
-		
 		return this.commandName;
-		
 	}
 
 	/**
@@ -127,8 +97,18 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	@Override
 	protected IWorkProvider doGetWorkProvider(int workSize, IModel model, IController controller) {
 		
-		/* The equal work provider will assure equal work division among workers. */
-		return new EqualWorkProvider(this.numThreads, workSize);
-		
+		if (workSize == model.getSize()) {
+			
+			/* Use the equal row sync. work provider when dealing with cells. */
+			return new EqualRowSyncWorkProvider(this.numThreads, model);
+	
+		} else {
+			
+			/* Use the equal cell sync. work provider when initializing agents. */
+			return new EqualWorkProvider(this.numThreads, workSize);
+			
+		}
+				
 	}
+
 }

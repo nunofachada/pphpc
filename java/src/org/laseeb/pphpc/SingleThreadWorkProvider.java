@@ -27,12 +27,27 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Work provider which provides work to a single worker.
+ * 
+ * @author Nuno Fachada
+ */
 public class SingleThreadWorkProvider implements IWorkProvider {
 	
+	/**
+	 * A class which represents the state of work performed by 
+	 * the single available worker.
+	 */
 	private class SingleThreadWork extends AbstractWork {
 
+		/* Work token counter. */
 		int counter;
 		
+		/**
+		 * Create a new work state for the single available worker.
+		 * 
+		 * @param wId The worker ID, which will always be zero.
+		 */
 		public SingleThreadWork(int wId) {
 			super(wId);
 			this.counter = 0;
@@ -40,31 +55,63 @@ public class SingleThreadWorkProvider implements IWorkProvider {
 		
 	}
 	
+	/* Total work size. */
 	private int workSize;
 
+	/**
+	 * Create a work provider for a single worker.
+	 * 
+	 * @param workSize Total work size.
+	 */
 	public SingleThreadWorkProvider(int workSize) {
 		this.workSize = workSize;
 	}
 
+	/**
+	 * @see IWorkProvider#newWork(int)
+	 */
 	@Override
 	public IWork newWork(int wId) {
 		return new SingleThreadWork(wId);
 	}
 
+	/**
+	 * @see IWorkProvider#getNextToken(IWork)
+	 */
 	@Override
 	public int getNextToken(IWork work) {
-		int token = -1;
+
+		/* Set the nextToken to -1, which means no more work
+		 * is available. */
+		int nextToken = -1;
+		
+		/* Cast generic work to single-thread work. */
 		SingleThreadWork stWork = (SingleThreadWork) work;
+		
+		/* If there is more work to be done... */
 		if (stWork.counter < this.workSize) {
-			token = stWork.counter;
+			
+			/* ...get the next work token... */
+			nextToken = stWork.counter;
+			
+			/* ...and increment the work counter. */
 			stWork.counter++;
 		}
-		return token;
+		
+		/* Return the next work token. */
+		return nextToken;
 	}
 
+	/**
+	 * @see IWorkProvider#resetWork(IWork)
+	 */
 	@Override
 	public void resetWork(IWork work) {
+		
+		/* Cast generic work to single-thread work. */
 		SingleThreadWork stWork = (SingleThreadWork) work;
+		
+		/* Set work counter to zero. */
 		stWork.counter = 0;
 	}
 

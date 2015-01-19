@@ -30,16 +30,28 @@ package org.laseeb.pphpc;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * TO DO
+ * A non-blocking thread-safe synchronization point. Simulation workers
+ * are not held by this synchronization point. When the last worker
+ * passes by this synchronization point, it notifies and processes the 
+ * associated control event observers, before continuing.
  * 
  * @author Nuno Fachada
  */
 public class NonBlockingSyncPoint extends AbstractSyncPoint {
 
+	/* Workers counter. */
 	private AtomicInteger workersCount;
 	
+	/* Number of workers. */
 	private int numWorkers;
 	
+	/**
+	 * Create a new non-blocking synchronization point.
+	 * 
+	 * @param event Control event to which this synchronization point will be
+	 * associated with.
+	 * @param numWorkers Number of workers.
+	 */
 	public NonBlockingSyncPoint(ControlEvent event, int numWorkers) {
 		
 		/* Call the super constructor. */
@@ -50,14 +62,25 @@ public class NonBlockingSyncPoint extends AbstractSyncPoint {
 	
 	}
 
+	/**
+	 * @see AbstractSyncPoint#doSyncNotify(IController)
+	 */
 	@Override
 	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
+		/* How many workers have yet to pass this synchronization point before notifying 
+		 * observers? */
 		int count = this.workersCount.decrementAndGet();
 		
+		/* If all workers have passed this synchronization point... */
 		if (count == 0) {
+			
+			/* ...notify observers... */
 			this.notifyObservers(controller);
+			
+			/* ...and reset workers counter. */
 			this.workersCount.set(this.numWorkers);
+			
 		}
 	}
 

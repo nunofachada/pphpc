@@ -44,26 +44,64 @@ import org.uncommons.maths.random.MersenneTwisterRNG;
 import org.uncommons.maths.random.SeedGenerator;
 import org.uncommons.maths.random.XORShiftRNG;
 
+/**
+ * A concrete implementation of the simulation model, in the MVC sense.
+ * 
+ * @author Nuno Fachada
+ */
 public class Model implements IModel {
 	
+	/* Size of model (i.e. number of cells). */
 	private int size;
+	
+	/* Model parameters. */
 	private ModelParams params;
+	
+	/* Model cells. */
 	private ICell cells[];
+	
+	/* Current iteration. */
 	private int currentIteration;
+	
+	/* Global statistics. */
 	private IGlobalStats globalStats;
+	
+	/* Simulation space. */
 	private ISpace space;
+	
+	/* Strategy for putting new agents in cells. */
 	private ICellPutAgentStrategy putNewAgentStrategy;
+	
+	/* Strategy for putting existing agents in cells. */
 	private ICellPutAgentStrategy putExistingAgentStrategy;
+	
+	/* Grass initialization strategy. */
 	private ICellGrassInitStrategy grassInitStrategy;
-//	private ModelStatus status; 
+	
+	/* Last exception registered with the model. */
 	private Throwable lastThrowable;
+	
+	/* Model event observers. */
 	private Map<ModelEvent, List<IModelEventObserver>> observers = null;
+	
+	/* Type of random number generator used in this model. */
 	private RNGType rngType;
+	
+	/* Random number generator seed. */
 	private BigInteger seed;
 	
+	/**
+	 * Create a new simulation model.
+	 * 
+	 * @param params Model parameters.
+	 * @param wFactory Work factory used to execute the simulation.
+	 * @param rngType Type of random number generator used in this model.
+	 * @param seed Random number generator seed. 
+	 */
 	public Model(ModelParams params, IWorkFactory wFactory, RNGType rngType, BigInteger seed) {
+		
 		this.params = params;
-		this.space = new Square2DTorusSpace(params.getGridX(), params.getGridY());
+		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
 		this.globalStats = wFactory.createGlobalStats(params.getIters());
 		this.putNewAgentStrategy = wFactory.createPutNewAgentStrategy();
 		this.putExistingAgentStrategy = wFactory.createPutExistingAgentStrategy();
@@ -73,47 +111,63 @@ public class Model implements IModel {
 		this.cells = new ICell[this.size];
 		this.rngType = rngType;
 		this.seed = seed;
-//		this.status = ModelStatus.STOPPED;
+
 	}
 	
+	/**
+	 * @see IModelQuerier#getSize()
+	 */
 	@Override
 	public int getSize() {
 		return this.size;
 	}
-	
+
+	/**
+	 * @see IModelManipulator#getCell(int)
+	 */
 	@Override
 	public ICell getCell(int idx) {
 		return this.cells[idx];
 	}
 
-	@Override
-	public void setCell(int idx, Cell cell) {
-		this.cells[idx] = cell;
-	}
-
+	/**
+	 * @see IModelManipulator#setCellNeighbors(int)
+	 */
 	@Override
 	public void setCellNeighbors(int idx) {
 		this.space.setNeighbors(cells, idx);
 	}
 
+	/**
+	 * @see IModelQuerier#getParams()
+	 */
 	@Override
 	public ModelParams getParams() {
 		return this.params;
 	}
 
+	/**
+	 * @see IModelQuerier#getCurrentIteration()
+	 */
 	@Override
 	public int getCurrentIteration() {
 		return this.currentIteration;
 	}
 
+	/**
+	 * @see IModelManipulator#incrementIteration()
+	 */
 	@Override
 	public void incrementIteration() {
 		this.currentIteration++;
 		this.updateObservers(ModelEvent.NEW_ITERATION);		
 	}
 
+	/**
+	 * @see IModelManipulator#initCellAt(int, Random)
+	 */
 	@Override
-	public void setCellAt(int idx, Random rng) {
+	public void initCellAt(int idx, Random rng) {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
 					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng), 
@@ -123,90 +177,51 @@ public class Model implements IModel {
 		}
 	}
 	
+	/**
+	 * @see IModelManipulator#reset()
+	 */
 	@Override
 	public void reset() {
 		Arrays.fill(this.cells, null);
 		this.globalStats.reset();
 		this.currentIteration = 0;
 	}
-
-//	/**
-//	 * @return the status
-//	 */
-//	@Override
-//	public ModelStatus getStatus() {
-//		return status;
-//	}
-
-//	public void start() {}
-//	public void pauseContinue() {}
-//	public void start() {}
-//	public void start() {}
-//	
-//	/**
-//	 * @param status the status to set
-//	 */
-//	@Override
-//	public void setStatus(ModelStatus status) {
-//			
-//		ModelEvent event;
-//		
-//		if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.PAUSED)) {
-//			event = ModelEvent.PAUSE;
-//		} else if ((this.status == ModelStatus.RUNNING) && (status == ModelStatus.STOPPED)) {
-//			event = ModelEvent.STOP;
-//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.RUNNING)) {
-//			event = ModelEvent.CONTINUE;
-//		} else if ((this.status == ModelStatus.PAUSED) && (status == ModelStatus.STOPPED)) {
-//			event = ModelEvent.STOP;
-//		} else if ((this.status == ModelStatus.STOPPED) && (status == ModelStatus.RUNNING)) {
-//			event = ModelEvent.START;
-//		} else {
-//			return;
-//		}
-//			
-//		this.status = status;
-//		
-//		this.updateObservers(event);
-//	}
 	
+	/**
+	 * @see IModelManipulator#start()
+	 */
 	@Override
 	public void start() {
 		this.updateObservers(ModelEvent.START);
 	}
 	
+	/**
+	 * @see IModelManipulator#stop()
+	 */
 	@Override
 	public void stop() {
 		this.updateObservers(ModelEvent.STOP);
 	}
 	
+	/**
+	 * @see IModelManipulator#pause()
+	 */
 	@Override
 	public void pause() {
 		this.updateObservers(ModelEvent.PAUSE);
 	}	
 
+	/**
+	 * @see IModelManipulator#unpause()
+	 */
 	@Override
 	public void unpause() {
-		this.updateObservers(ModelEvent.CONTINUE);
+		this.updateObservers(ModelEvent.UNPAUSE);
 	}	
 	
-	
-//
-//	@Override
-//	public boolean isRunning() {
-//		return this.status == ModelStatus.RUNNING;
-//	}
-//
-//	@Override
-//	public boolean isStopped() {
-//		return this.status == ModelStatus.STOPPED;
-//	}
-//
-//	@Override
-//	public boolean isPaused() {
-//		return this.status == ModelStatus.PAUSED;
-//	}
-	
+	/**
+	 * @see IModelManipulator#export(String)
+	 */
 	@Override
 	public void export(String filename) {
 		
@@ -228,6 +243,9 @@ public class Model implements IModel {
 		}
 	}
 
+	/**
+	 * @see IModelQuerier#registerException(Throwable)
+	 */
 	@Override
 	public void registerException(Throwable t) {
 		synchronized (this) {
@@ -236,24 +254,19 @@ public class Model implements IModel {
 		this.updateObservers(ModelEvent.EXCEPTION);
 	}
 
+	/**
+	 * @see IModelQuerier#getLastThrowable()
+	 */
 	@Override
 	public Throwable getLastThrowable() {
 		return this.lastThrowable;
 	}
 
 	/**
-	 * Create a random number generator of the type and with the seed specified as 
-	 * the command line arguments.
-	 * 
-	 * @param modifier Seed modifier, such as a thread ID, so that each thread
-	 * can instantiate an independent random number generator (not really
-	 * independent, but good enough for the purpose).
-	 * 
-	 * @return A new random number generator.
-	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
+	 * @see IModelQuerier#createRNG(int)
 	 */
 	@Override
-	public Random createRNG(long modifier) throws Exception {
+	public Random createRNG(int modifier) throws Exception {
 		
 		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
 
@@ -276,14 +289,9 @@ public class Model implements IModel {
 		
 	}
 	
-	
-	private void updateObservers(ModelEvent event) {
-		List<IModelEventObserver> observerList = this.observers.get(event);
-		for (IModelEventObserver observer : observerList) {
-			observer.update(event);
-		}
-	}
-
+	/**
+	 * @see IModelEventObservable#registerObserver(ModelEvent, IModelEventObserver)
+	 */
 	@Override
 	public void registerObserver(ModelEvent event, IModelEventObserver observer) {
 		
@@ -307,19 +315,48 @@ public class Model implements IModel {
 		}
 	}
 
+	/**
+	 * @see IModelQuerier#getStats(int)
+	 */
 	@Override
 	public IterationStats getStats(int iteration) {
 		return this.globalStats.getStats(iteration);
 	}
 
+	/**
+	 * @see IModelQuerier#getLatestStats()
+	 */
 	@Override
 	public IterationStats getLatestStats() {
 		return this.globalStats.getStats(this.currentIteration - 1);
 	}
 
+	/**
+	 * @see IModelManipulator#updateStats(int, IterationStats)
+	 */
 	@Override
 	public void updateStats(int iter, IterationStats iterStats) {
 		this.globalStats.updateStats(iter, iterStats);
+	}
+	
+	/**
+	 * @see IModelManipulator#getSpace()
+	 */
+	@Override
+	public ISpace getSpace() {
+		return this.space;
+	}
+
+	/**
+	 * Update model event observers registered for the given event.
+	 * 
+	 * @param event Model event.
+	 */
+	private void updateObservers(ModelEvent event) {
+		List<IModelEventObserver> observerList = this.observers.get(event);
+		for (IModelEventObserver observer : observerList) {
+			observer.update(event);
+		}
 	}
 
 }

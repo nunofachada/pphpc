@@ -28,29 +28,24 @@
 package org.laseeb.pphpc;
 
 /**
- * A very simple non-blocking synchronization point which only supports 
- * one thread.
+ * Exception thrown when a simulation command cannot be performed due to
+ * current simulation state. For example, when trying to start a simulation
+ * which has already started.
  * 
  * @author Nuno Fachada
  */
-public class SingleThreadSyncPoint extends AbstractSyncPoint {
+public class IllegalSimStateException extends Exception {
+
+	/* Generated serial version UID. */
+	private static final long serialVersionUID = -4893988978582012331L;
 
 	/**
-	 * Create a new single-thread non-blocking synchronization point
+	 * Exception constructor.
 	 * 
-	 * @param event Control event to associate with this synchronization point.
+	 * @param string Cause of exception.
 	 */
-	public SingleThreadSyncPoint(ControlEvent event) {
-		super(event);
+	public IllegalSimStateException(String string) {
+		super(string);
 	}
-
-	/**
-	 * @see AbstractSyncPoint#doSyncNotify(IController)
-	 */
-	@Override
-	public void doSyncNotify(IController controller) {
-		this.notifyObservers(controller);
-	}
-
 
 }

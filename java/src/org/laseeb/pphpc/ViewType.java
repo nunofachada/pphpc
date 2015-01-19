@@ -28,29 +28,26 @@
 package org.laseeb.pphpc;
 
 /**
- * A very simple non-blocking synchronization point which only supports 
- * one thread.
+ * Enumeration representing types of MVC views.
  * 
  * @author Nuno Fachada
  */
-public class SingleThreadSyncPoint extends AbstractSyncPoint {
-
+public enum ViewType {
+	
 	/**
-	 * Create a new single-thread non-blocking synchronization point
-	 * 
-	 * @param event Control event to associate with this synchronization point.
+	 * View only reads model values.
 	 */
-	public SingleThreadSyncPoint(ControlEvent event) {
-		super(event);
-	}
-
+	PASSIVE,
+	
 	/**
-	 * @see AbstractSyncPoint#doSyncNotify(IController)
+	 * View controls the simulation using an IController object.
 	 */
-	@Override
-	public void doSyncNotify(IController controller) {
-		this.notifyObservers(controller);
-	}
-
+	ACTIVE,
+	
+	/**
+	 * View controls the simulation using an IController object, and must do it
+	 * exclusively (i.e. no more ACTIVE views are allowed).
+	 */
+	ACTIVE_EXCLUSIVE
 
 }

@@ -41,21 +41,27 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 	/* Used as a blocking synchronizer. */
 	private CyclicBarrier barrier;
 	
+	/* Number of workers involved in the blocking synchronization. */
 	private int numWorkers;
 	
 	/**
 	 * Create a new blocking simulation synchronizer.
 	 * 
-	 * @param event Simulation event to associate with this synchronizer.
-	 * @param numThreads Number of simulation workers in current simulation.
+	 * @param event Control event to associate with this synchronizer.
+	 * @param controller The simulation controller.
+	 * @param numWorkers  Number of workers involved in the blocking synchronization.
 	 */
 	public BlockingSyncPoint(ControlEvent event, final IController controller, int numWorkers) {
 		
 		/* Call the super constructor. */
 		super(event);
 		
+		/* Keep the number of workers. */
 		this.numWorkers = numWorkers;
 	
+		/* User a cyclic barrier as a blocking synchronizer. When all workers reach the barrier,
+		 * observers of this sync. point will be notified, and the all workers are allowed
+		 * to continue. */
 		this.barrier = new CyclicBarrier(this.numWorkers, new Runnable() {
 			@Override public void run() {
 				notifyObservers(controller); 
@@ -64,22 +70,34 @@ public class BlockingSyncPoint extends AbstractSyncPoint {
 		
 	}
 
+	/**
+	 * @see ISyncPoint#stopNow()
+	 */
+	@Override
+	public void stopNow() {
+		
+		/* Call overrided super class method. */
+		super.stopNow();
+		
+		/* Reset barrier (will cause all waiting workers to be interrupted and
+		 * throw InterruptedWorkException's. */
+		this.barrier.reset();
+		
+	}
+
+	/**
+	 * @see AbstractSyncPoint#doSyncNotify(IController)
+	 */
 	@Override
 	protected void doSyncNotify(IController controller) throws InterruptedWorkException {
 
-		/* Perform synchronization. */
 		try {
+			/* Perform synchronization. */
 			this.barrier.await();
 		} catch (Exception e) {
+			/* Synchronization may be interrupted externally. */
 			throw new InterruptedWorkException(e);
 		}
 	}
-
-	@Override
-	public void stopNow() {
-		super.stopNow();
-		this.barrier.reset();
-	}
-
 
 }

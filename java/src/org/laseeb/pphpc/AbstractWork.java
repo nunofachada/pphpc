@@ -27,14 +27,31 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Abstract class representing the state of work being performed by each of the 
+ * available workers. Implements worker IDs, so that sub-classes don't have to. 
+ * 
+ * @author Nuno Fachada
+ */
 public class AbstractWork implements IWork {
 	
+	/* Worker ID. */
 	private int wId;
 	
+	/**
+	 * Create a new work object with a given worker ID.
+	 * 
+	 * @param wId Worker ID.
+	 */
 	public AbstractWork(int wId) {
 		this.wId = wId;
 	}
 
+	/**
+	 * Return the worker ID, i.e. the ID of the worker which owns this work.
+	 * 
+	 * @return The worker ID, i.e. the ID of the worker which owns this work.
+	 */
 	@Override
 	public int getWorkId() {
 		return this.wId;

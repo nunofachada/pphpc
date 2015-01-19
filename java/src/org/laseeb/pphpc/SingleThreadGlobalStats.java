@@ -29,12 +29,28 @@ package org.laseeb.pphpc;
 
 import java.util.Arrays;
 
+/**
+ * Single-thread management of global simulation statistics.
+ * Will not work in multi-threaded simulations.
+ * 
+ * @author Nuno Fachada
+ */
 public class SingleThreadGlobalStats implements IGlobalStats {
 
+	/* Sheep statistics. */
 	private int[] sheepStats;
+
+	/* Wolf statistics. */
 	private int[] wolfStats;
+
+	/* Grass statistics. */
 	private int[] grassStats;
-	
+
+	/**
+	 * Create a new single-threaded global statistics object.
+	 * 
+	 * @param iters Number of iterations.
+	 */
 	public SingleThreadGlobalStats(int iters) {
 		this.sheepStats = new int[iters + 1];
 		this.wolfStats = new int[iters + 1];
@@ -42,6 +58,9 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 		this.reset();
 	}
 	
+	/**
+	 * @see IGlobalStats#getStats(StatType, int)
+	 */
 	@Override
 	public int getStats(StatType st, int iter) {
 
@@ -57,6 +76,9 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 		return 0;
 	}
 
+	/**
+	 * @see IGlobalStats#updateStats(int, IterationStats)
+	 */
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
 		this.sheepStats[iter] = stats.getSheep();
@@ -64,11 +86,17 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 		this.grassStats[iter] = stats.getGrass();
 	}
 
+	/**
+	 * @see IGlobalStats#getStats(int)
+	 */
 	@Override
 	public IterationStats getStats(int iter) {
 		return new IterationStats(this.sheepStats[iter], this.wolfStats[iter], this.grassStats[iter]);
 	}
 
+	/**
+	 * @see IGlobalStats#reset()
+	 */
 	@Override
 	public void reset() {
 		Arrays.fill(this.sheepStats, 0);

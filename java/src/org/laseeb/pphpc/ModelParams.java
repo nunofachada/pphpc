@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 /**
- * PPHPC simulation parameters.
+ * PPHPC model parameters.
  * 
  * @author Nuno Fachada
  */

@@ -27,12 +27,35 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Work providers provide work tokens to simulation workers.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IWorkProvider {
 
+	/**
+	 * Create and return a new work state for the worker with the given ID.
+	 * 
+	 * @param wId Worker ID.
+	 * @return A new work state for the worker with the given ID.
+	 */
 	public IWork newWork(int wId);
 
+	/**
+	 * Get next work token for a given worker.
+	 * 
+	 * @param work Work state, contains the worker ID and how much has the worker
+	 * advanced in its work.
+	 * @return Next work token for a given worker.
+	 */
 	public int getNextToken(IWork work);
 	
+	/**
+	 * Reset the given work state.
+	 * 
+	 * @param work Work state to reset.
+	 */
 	public void resetWork(IWork work);
 
 }

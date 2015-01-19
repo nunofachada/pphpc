@@ -28,85 +28,89 @@
 package org.laseeb.pphpc;
 
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Thread-safe management of global simulation statistics.
+ * A two-dimensional toroidal space with Von Neumann neighborhood.
  * 
  * @author Nuno Fachada
  */
-public class ThreadSafeGlobalStats implements IGlobalStats {
+public class VonNeumann2DTorusSpace implements ISpace {
 
-	/* Sheep statistics. */
-	private AtomicIntegerArray sheepStats;
-
-	/* Wolf statistics. */
-	private AtomicIntegerArray wolfStats;
-
-	/* Grass statistics. */
-	private AtomicIntegerArray grassStats;
+	/* Horizontal space size. */
+	private int x;
 	
-	/* Number of iterations. */
-	private int iters;
+	/* Total space size. */
+	private int size;
 	
+	/* Number of space dimensions. */
+	private final int numDims = 2;
+	
+	/* Size of space in each dimension. */
+	private int[] dims;
+
 	/**
-	 * Create a new thread-safe global statistics object.
+	 * Create a new two-dimensional toroidal space with Von Neumann neighborhood.
 	 * 
-	 * @param iters Number of iterations.
+	 * @param x Horizontal space size.
+	 * @param y Vertical space size.
 	 */
-	public ThreadSafeGlobalStats(int iters) {
-		
-		this.iters = iters;
-		this.reset();
+	public VonNeumann2DTorusSpace(int x, int y) {
+		this.x = x;
+		this.size = x * y;
+		this.dims = new int[] { x, y };
 	}
 	
 	/**
-	 * @see IGlobalStats#getStats(StatType, int)
+	 * @see ISpace#setNeighbors(ICell[], int)
 	 */
 	@Override
-	public int getStats(StatType st, int iter) {
+	public void setNeighbors(ICell[] cells, int idx) {
 		
-		switch (st) {
-			case SHEEP:
-				return sheepStats.get(iter);
-			case WOLVES:
-				return wolfStats.get(iter);
-			case GRASS:
-				return grassStats.get(iter);
-		}
-		return 0;
+		/* Determine Von Neumann neighbors. */
+		int up = idx - this.x >= 0 ? idx - this.x : this.size - x + idx;
+		int down = idx + this.x < this.size  ? idx + this.x : idx + this.x - this.size;
+		int right = idx + 1 < this.size ? idx + 1 : 0;
+		int left = idx - 1 >= 0 ? idx - 1 : this.size - 1;
+		
+		/* Set Von Neumann neighborhood. */
+		List<ICell> neighborhood = Arrays.asList(
+				cells[idx], cells[up], cells[right], cells[down], cells[left]); 
+	
+		cells[idx].setNeighborhood(Collections.unmodifiableList(neighborhood));
 	}
 
 	/**
-	 * @see IGlobalStats#updateStats(int, IterationStats)
+	 * @see ISpace#getNumDims()
 	 */
 	@Override
-	public void updateStats(int iter, IterationStats stats) {
-		this.sheepStats.addAndGet(iter, stats.getSheep());
-		this.wolfStats.addAndGet(iter, stats.getWolves());
-		this.grassStats.addAndGet(iter, stats.getGrass());
+	public int getNumDims() {
+		return this.numDims;
 	}
 
 	/**
-	 * @see IGlobalStats#getStats(int)
+	 * @see ISpace#getDims()
 	 */
 	@Override
-	public IterationStats getStats(int iter) {
-		return new IterationStats(
-				this.sheepStats.get(iter), this.wolfStats.get(iter), this.sheepStats.get(iter));
+	public int[] getDims() {
+		return this.dims;
 	}
 
 	/**
-	 * @see IGlobalStats#reset()
+	 * @see ISpace#getSize()
 	 */
 	@Override
-	public void reset() {
-		int[] resetArray = new int[this.iters + 1];
-		Arrays.fill(resetArray, 0);
-		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.grassStats = new AtomicIntegerArray(resetArray);		
+	public int getSize() {
+		return this.size;
 	}
 
+	/**
+	 * @see ISpace#getNeighborhoodRadius()
+	 */
+	@Override
+	public int getNeighborhoodRadius() {
+		return 1;
+	}
 
 }

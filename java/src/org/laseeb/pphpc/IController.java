@@ -27,44 +27,159 @@
 
 package org.laseeb.pphpc;
 
+/**
+ * Interface for simulation controllers.
+ * 
+ * @author Nuno Fachada
+ */
 public interface IController {
 
+	/**
+	 * Set worker synchronizers. This operation is usually performed by a work factory.
+	 * 
+	 * @param beforeInitCellsSync Synchronizes before cell initialization.
+	 * @param afterInitCellsSync Synchronizes after cell initialization.
+	 * @param afterSetCellNeighsSync Synchronizes after setting cell neighbors.
+	 * @param afterInitAgentsSync Synchronizes after initializing agents.
+	 * @param afterFirstStatsSync Synchronizes after getting first stats.
+	 * @param afterHalfIterSync Synchronizes after half iteration.
+	 * @param afterEndIterSync Synchronizes after an iteration is finished.
+	 * @param afterEndSimSync Synchronizes after the simulation finishes.
+	 */
 	public void setWorkerSynchronizers(ISyncPoint beforeInitCellsSync,
 			ISyncPoint afterInitCellsSync,
-			ISyncPoint afterAddCellsNeighsSync, ISyncPoint afterAddAgentsSync,
+			ISyncPoint afterSetCellNeighsSync, ISyncPoint afterInitAgentsSync,
 			ISyncPoint afterFirstStatsSync, ISyncPoint afterHalfIterSync,
 			ISyncPoint afterEndIterSync, ISyncPoint afterEndSimSync);
 
+	/**
+	 * Registers a control event observer.
+	 * 
+	 * @param event Control event to be observed.
+	 * @param observer Observer to be registered.
+	 */
 	public void registerControlEventObserver(ControlEvent event, IControlEventObserver observer);
 
+	/**
+	 * Used by workers to synchronize before cell initialization.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyBeforeInitCells() throws InterruptedWorkException;
 	
+	/**
+	 * Used by workers to synchronize after cell initialization.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyInitCells() throws InterruptedWorkException;
 
-	public void workerNotifyCellsAddNeighbors() throws InterruptedWorkException;
+	/**
+	 * Used by workers to synchronize after setting cell neighbors.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
+	public void workerNotifySetCellNeighbors() throws InterruptedWorkException;
 
+	/**
+	 * Used by workers to synchronize after initializing agents.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyInitAgents() throws InterruptedWorkException;
 
+	/**
+	 * Used by workers to synchronize after getting first stats.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyFirstStats() throws InterruptedWorkException;
 
+	/**
+	 * Used by workers to synchronize after half iteration.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyHalfIteration() throws InterruptedWorkException;
 
+	/**
+	 * Used by workers to synchronize after an iteration is finished.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifyEndIteration() throws InterruptedWorkException;
 
+	/**
+	 * Used by workers to synchronize after the simulation finishes.
+	 * 
+	 * @throws InterruptedWorkException If work is interrupted.
+	 */
 	public void workerNotifySimFinish() throws InterruptedWorkException;
 
+	/**
+	 * Stop simulation as soon as possible, i.e. don't wait for the end
+	 * of the current iteration.
+	 */
 	public void stopNow();
 	
-	public void stop();
+	/**
+	 * Stop simulation after the current iteration.
+	 * 
+	 * @throws IllegalSimStateException If simulation is in a state where it can't be 
+	 * stopped (e.g. it's already stopped).
+	 */
+	public void stop() throws IllegalSimStateException;
 	
-	public void start();
+	/**
+	 * Start simulation.
+	 * 
+	 * @throws IllegalSimStateException If simulation is in a state where it can't be 
+	 * started (e.g. it's already started).
+	 */
+	public void start() throws IllegalSimStateException;
 	
-	public void pause();
+	/**
+	 * Pause simulation if it's currently running, or continue simulation if it's currently
+	 * paused.
+	 * 
+	 * @throws IllegalSimStateException If simulation is in a state where it can't be 
+	 * paused or continued (e.g. it's stopped).
+	 */
+	public void pauseContinue() throws IllegalSimStateException;
 
-	public void unpause();
-
+	/**
+	 * Export simulation statistics to a file.
+	 * 
+	 * @param filename File where to export simulation statistics to.
+	 */
 	public void export(String filename);
 
+	/**
+	 * Return the number of available simulation workers.
+	 * 
+	 * @return The number of available simulation workers.
+	 */
 	public int getNumWorkers();
+
+	/**
+	 * Is the simulation running?
+	 * 
+	 * @return True if simulation is running, false otherwise.
+	 */
+	public boolean isRunning();
+	
+	/**
+	 * Is the simulation paused?
+	 * 
+	 * @return True if simulation is paused, false otherwise.
+	 */
+	public boolean isPaused();
+	
+	/**
+	 * Is the simulation stopped?
+	 * 
+	 * @return True if simulation is stopped, false otherwise.
+	 */
+	public boolean isStopped();
 
 }

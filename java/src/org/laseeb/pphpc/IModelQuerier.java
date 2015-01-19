@@ -29,22 +29,76 @@ package org.laseeb.pphpc;
 
 import java.util.Random;
 
+/**
+ * Interface which defines methods for model querying.
+ *  
+ * @author Nuno Fachada
+ */
 public interface IModelQuerier extends IModelEventObservable {
 	
+	/**
+	 * Get model size (number of cells).
+	 * 
+	 * @return Model size (number of cells).
+	 */
 	public int getSize();
 	
+	/**
+	 * Get model parameters.
+	 * 
+	 * @return Model parameters.
+	 */
 	public ModelParams getParams();
 	
+	/**
+	 * Get current iteration.
+	 * 
+	 * @return Current iteration.
+	 */
 	public int getCurrentIteration();
 	
+	/**
+	 * Get iteration statistics for the specified iteration.
+	 * 
+	 * @param iteration Iteration to which the requested iteration 
+	 * statistics should refer to.
+	 * @return Iteration statistics for the specified iteration.
+	 */
 	public IterationStats getStats(int iteration);
 	
+	/**
+	 * Get iteration statistics for the last iteration for which there
+	 * are available statistics.
+	 *  
+	 * @return Iteration statistics for the last iteration for which there
+	 * are available statistics.
+	 */
 	public IterationStats getLatestStats();
 
+	/**
+	 * Register an exception with the model. This will cause the model to
+	 * notify all observers of the "exception" model event.
+	 * 
+	 * @param t Throwable or exception to register.
+	 */
 	public void registerException(Throwable t);
 
+	/**
+	 * Return the last exception registered with {@link #registerException(Throwable)}.
+	 * 
+	 * @return The last exception registered with {@link #registerException(Throwable)}.
+	 */
 	public Throwable getLastThrowable();
 
-	public Random createRNG(long modifier) throws Exception;
+	/**
+	 * Create a random number generator. The type of RNG and the base seed are specified 
+	 * at model instantiation time.
+	 * 
+	 * @param wId Worker ID, required so that each thread gets an independent random number 
+	 * generator (not really independent, but good enough for the purpose).
+	 * @return A new random number generator.
+	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
+	 */
+	public Random createRNG(int wId) throws Exception;
 	
 }

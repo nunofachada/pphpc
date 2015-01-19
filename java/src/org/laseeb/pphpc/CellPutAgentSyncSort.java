@@ -47,14 +47,18 @@ public class CellPutAgentSyncSort implements ICellPutAgentStrategy {
 	 * Put an agent in a cell's internal agent list synchronously and then sort the 
 	 * list, in a thread-safe fashion.
 	 * 
-	 * @param agents Agent list, internal to the cell.
-	 * @param agent Agent to put in list.
+	 * @see ICellPutAgentStrategy#putAgent(List, IAgent)
 	 * */
 	@Override
 	public void putAgent(List<IAgent> agents, IAgent agent) {
 		synchronized (agents) {
+			
+			/* Add agent to list. */
 			agents.add(agent);
+			
+			/* Sort list. */
 			Collections.sort(agents);
+			
 		}
 	}
 

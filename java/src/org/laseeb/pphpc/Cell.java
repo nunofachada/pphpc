@@ -67,11 +67,13 @@ public class Cell implements ICell {
 	private int grass;
 	
 	/**
-	 * Constructor.
+	 * Create a new grid cell.
 	 * 
-	 * @param grassRestart
-	 * @param grassInitStrategy
-	 * @param putAgentsBehavior
+	 * @param grassRestart Grass restart simulation parameter.
+	 * @param initialGrass Initial grass value.
+	 * @param putNewAgentsStrategy Strategy for putting new agents in this cell.
+	 * @param putExistingAgentStrategy Strategy for putting existing agents in
+	 * this cell.
 	 */
 	public Cell(int grassRestart,
 			int initialGrass,
@@ -91,16 +93,25 @@ public class Cell implements ICell {
 	}
 
 
+	/**
+	 * @see ICell#isGrassAlive()
+	 */
 	@Override
 	public boolean isGrassAlive() {
 		return this.grass == 0;
 	}
-	
+
+	/**
+	 * @see ICell#eatGrass()
+	 */
 	@Override
 	public void eatGrass() {
 		this.grass = this.getGrassRestart();
 	}
 	
+	/**
+	 * @see ICell#regenerateGrass()
+	 */
 	@Override
 	public void regenerateGrass() {
 		if (this.grass > 0) {
@@ -108,11 +119,17 @@ public class Cell implements ICell {
 		}
 	}
 	
+	/**
+	 * @see ICell#getGrassRestart()
+	 */
 	@Override
 	public int getGrassRestart() {
 		return grassRestart;
 	}
 
+	/**
+	 * @see ICell#getAgents()
+	 */
 	@Override
 	public Iterable<IAgent> getAgents() {
 		
@@ -120,16 +137,31 @@ public class Cell implements ICell {
 		
 	}
 
+	/**
+	 * @see ICell#putNewAgent(IAgent)
+	 */
 	@Override
 	public void putNewAgent(IAgent agent) {
+		
+		/* Put new agent according to the specified strategy. */
 		this.putNewAgentStrategy.putAgent(this.newAgents, agent);
+
 	}
 	
+	/**
+	 * @see ICell#putExistingAgent(IAgent)
+	 */
 	@Override
 	public void putExistingAgent(IAgent agent) {
+
+		/* Put existing agent according to the specified strategy. */
 		this.putExistingAgentStrategy.putAgent(this.existingAgents, agent);
+
 	}
 	
+	/**
+	 * @see ICell#getStats(IterationStats)
+	 */
 	@Override
 	public void getStats(IterationStats stats) {
 		
@@ -139,11 +171,13 @@ public class Cell implements ICell {
 		
 		this.auxAgents.clear();
 		
-		/* Previously existing agents. */
+		/* Count previously existing agents, add them to the auxAgents list. */
 		for (int i = 0; i < this.agents.size(); i++) {
 			
+			/* Get current agent. */
 			IAgent agent = this.agents.get(i);
 			
+			/* If he's alive, count him and add him to the auxAgents list. */
 			if (agent.isAlive()) {
 				if (agent instanceof Sheep)
 					stats.incSheep();
@@ -153,11 +187,13 @@ public class Cell implements ICell {
 			}
 		}
 		
-		/* Newly born agents. */
+		/* Count newly born agents, add them to the auxAgents list. */
 		for (int i = 0; i < this.newAgents.size(); i++) {
 
+			/* Get current agent. */
 			IAgent agent = this.newAgents.get(i);
 
+			/* Count him and add him to the auxAgents list. */
 			if (agent instanceof Sheep)
 				stats.incSheep();
 			else if (agent instanceof Wolf)
@@ -165,62 +201,89 @@ public class Cell implements ICell {
 			this.auxAgents.add(agent);
 
 		}
+		
+		/* Clear the newAgents list. */
 		this.newAgents.clear();
 		
-		/* Swap agents lists. */
+		/* Swap agents lists. The auxAgents list becomes the current agents list, and vice-versa. */
 		List<IAgent> aux = this.agents;
 		this.agents = this.auxAgents;
 		this.auxAgents = aux;
 		
 	}
 	
+	/**
+	 * @see ICell#agentActions(Random)
+	 */
 	@Override
 	public void agentActions(Random rng) {
 		
+		/* Swap current agents list and existingAgents list. */
 		List<IAgent> aux;
 		aux = this.agents;
 		this.agents = this.existingAgents;
 		this.existingAgents = aux;
 		this.existingAgents.clear();
 		
+		/* Cycle through agents in the current agents list. */
 		for (int i = 0; i < this.agents.size(); i++) {
 			
+			/* Get current agent. */
 			IAgent agent = this.agents.get(i);
+			
+			/* If agent is alive, perform its actions. */
 			if (agent.isAlive())
 				agent.act(this, rng);
 		}
 		
 	}
 
+	/**
+	 * @see ICell#setNeighborhood(List)
+	 */
 	@Override
 	public void setNeighborhood(List<ICell> neighborhood) {
-		if (this.neighborhood == null)
+		
+		if (this.neighborhood == null) {
+
+			/* Only set neighborhood if neighborhood is not already set. */
 			this.neighborhood = neighborhood;
-		else
+
+		} else {
+			
+			/* If this exception is thrown, there is a bug somewhere. */
 			throw new IllegalStateException("Cell neighborhood already set!");
+			
+		}
 		
 	}
 
+	/**
+	 * @see ICell#agentsMove(Random)
+	 */
 	@Override
 	public void agentsMove(Random rng) {
 			
-
+		/*  Cycle through agents in the current agents list. */
 		for (int i = 0; i < this.agents.size(); i++) {
 			
+			/* Get current agent. */
 			IAgent agent = this.agents.get(i);
 
 			/* Decrement agent energy. */
 			agent.decEnergy();
 
+			/* Move agent if he's still alive. */
 			if (agent.isAlive()) {
-				/* Choose direction. */
+				
+				/* Choose a random direction. */
 				int direction = rng.nextInt(this.neighborhood.size());
 				
 				/* Move agent. */
 				this.neighborhood.get(direction).putExistingAgent(agent);
+				
 			}
 		}
-		
 		
 	}
 

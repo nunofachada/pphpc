@@ -37,7 +37,7 @@ import java.util.Random;
 public abstract class AbstractAgent implements IAgent {
 	
 	/* Agent energy. */
-	protected int energy;
+	private int energy;
 	
 	/* Simulation parameters. */
 	protected ModelParams params;
@@ -86,7 +86,7 @@ public abstract class AbstractAgent implements IAgent {
 	}
 
 	/**
-	 * @see org.laseeb.pphpc.IAgent#act(org.laseeb.pphpc.ICell)
+	 * @see IAgent#act(ICell, Random)
 	 */
 	@Override
 	public void act(ICell cell, Random rng) {

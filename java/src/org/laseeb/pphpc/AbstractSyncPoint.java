@@ -31,8 +31,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Abstract simulation synchronizer which implements the IObservable
- * interface.
+ * Abstract simulation synchronization point which implements observer
+ * registration and notification and handles synchronization reset.
  * 
  * @author Nuno Fachada
  */
@@ -67,20 +67,24 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 		this.observers.add(observer);
 	}
 	
+	/**
+	 * @see ISyncPoint#stopNow()
+	 */
 	@Override
 	public void stopNow() {
 		this.interrupted = true;
 	}
 
+	/**
+	 * @see ISyncPoint#reset()
+	 */
 	@Override
 	public void reset() {
 		this.interrupted = false;
 	}
 	
 	/**
-	 * 
-	 * 
-	 * @see ISyncPoint#syncNotify(IModel model)
+	 * @see ISyncPoint#syncNotify(IController)
 	 */
 	@Override
 	public void syncNotify(IController controller) throws InterruptedWorkException {
@@ -95,16 +99,17 @@ public abstract class AbstractSyncPoint implements ISyncPoint {
 	
 	/**
 	 * Perform proper synchronization. Implementations of this method must invoke
-	 * {@link #notifyObservers(IModel)}.
+	 * {@link #notifyObservers(IController)}.
 	 * 
-	 * @param model The simulation model.
+	 * @param controller The simulation controller.
+	 * @throws InterruptedWorkException if synchronization is interrupted by another thread.
 	 */
 	protected abstract void doSyncNotify(IController controller) throws InterruptedWorkException;
 
 	/**
 	 * Helper method which notifies the registered observers.
 	 * 
-	 * @param model The simulation model.
+	 * @param controller The simulation controller.
 	 */
 	protected void notifyObservers(IController controller) {
 		for (IControlEventObserver o : this.observers) {
