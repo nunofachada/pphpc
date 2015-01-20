@@ -1,0 +1,11 @@
+*.ods
+*~
+.~*#
+.nfs*
+bin/
+doc/
+.project
+.classpath
+stats*.txt
+*.log
+*.jar
