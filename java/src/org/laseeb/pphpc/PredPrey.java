@@ -100,10 +100,6 @@ public class PredPrey {
 	/* Default statistics output filename. */
 	private final String statsFileDefault = "stats.txt";
 	
-	/* Interval to print current iteration. */
-	@Parameter(names = "-i", description = "Interval of iterations to print current iteration")
-	private long stepPrint = 0;
-	
 	/* File containing simulation parameters. */
 	@Parameter(names = "-p", description = "File containing simulation parameters")
 	private String paramsFile = paramsFileDefault;
