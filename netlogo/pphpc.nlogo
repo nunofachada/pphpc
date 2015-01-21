@@ -433,7 +433,7 @@ INPUTBOX
 357
 146
 iterations
-2000
+4000
 1
 0
 Number
@@ -845,6 +845,9 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="20"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
   </experiment>
   <experiment name="ex200v1" repetitions="1" runMetricsEveryStep="true">
     <setup>setup</setup>
@@ -884,6 +887,9 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex400v1" repetitions="1" runMetricsEveryStep="true">
@@ -925,6 +931,9 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="20"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
   </experiment>
   <experiment name="ex800v1" repetitions="1" runMetricsEveryStep="true">
     <setup>setup</setup>
@@ -965,6 +974,9 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="20"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
   </experiment>
   <experiment name="ex1600v1" repetitions="1" runMetricsEveryStep="true">
     <setup>setup</setup>
@@ -1004,6 +1016,224 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex100v2" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="99"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="99"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex200v2" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="800"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex400v2" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="6400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="399"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="399"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="3200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex800v2" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="25600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="799"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="799"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="12800"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex1600v2" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="102400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="1599"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="1599"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="51200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4000"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
