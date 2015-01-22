@@ -38,7 +38,8 @@ import org.uncommons.maths.random.SeedGenerator;
 
 /**
  * A really poor random number generator used to test if it the PPHPC 
- * simulation works with really poor generators.
+ * simulation works with really poor generators. Very loosely based on
+ * the Middle-Square Method from Von Neumann.
  *
  * @author Nuno Fachada
  */
@@ -48,16 +49,13 @@ public class ReallyPoorRNG extends Random implements RepeatableRNG {
 	private static final long serialVersionUID = -8761384561773317806L;
 
 	/* Seed size. */
-	private static final int SEED_SIZE_BYTES = 4;
-	
-	/* Something to XOR sometimes. */
-	private final int toXor = Integer.parseInt("01011001001001011110100111110011", 2);
+	private static final int SEED_SIZE_BYTES = 8;
 	
 	/* RNG seed. */
 	private byte[] seed;
 	
 	/* The RNG state. */
-	private int state;
+	private long state;
 
 	/* Lock to prevent concurrent modification of the RNG's internal state. */
 	private final ReentrantLock lock = new ReentrantLock();
@@ -93,8 +91,7 @@ public class ReallyPoorRNG extends Random implements RepeatableRNG {
 			throw new IllegalArgumentException("ReallyPoor RNG requires 32 bits of seed data.");
 		}
 		this.seed = seed.clone();
-		int[] state = BinaryUtils.convertBytesToInts(seed);
-		this.state = state[0];
+		this.state = BinaryUtils.convertBytesToLong(seed, 0);
 
 	}
 
@@ -112,10 +109,10 @@ public class ReallyPoorRNG extends Random implements RepeatableRNG {
 	protected int next(int bits) {
 		try {
 			lock.lock();
-			int newState = this.state >> (this.state & 0xF) + 1;
-			newState ^= (this.toXor << ((this.state >> 4) & 0x7));
-			this.state = newState;
-			return newState >>> (32 - bits);
+			
+			this.state = ((this.state + 2) * (this.state + 1)) >> 1;
+			return ((int) (this.state & 0xFFFFFFFF)) >>> (32 - bits);
+
 		} finally {
 			lock.unlock();
 		}
