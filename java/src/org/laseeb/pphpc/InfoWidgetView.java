@@ -51,19 +51,19 @@ public class InfoWidgetView extends AbstractModelEventObserver implements IView 
 	 * @see IView#init(IModelQuerier, IController, PredPrey)
 	 */
 	@Override
-	public void init(IModelQuerier model, IController controller, PredPrey pp) {
+	public void init(final IModelQuerier model, IController controller, PredPrey pp) {
 
 		this.model = model;
-
-		/* Register widget for start, stop and new iteration model events. */
-		model.registerObserver(ModelEvent.START, this);
-		model.registerObserver(ModelEvent.STOP, this);
-		model.registerObserver(ModelEvent.NEW_ITERATION, this);
+		final IView thisView = this;
 		
-		/* Show widget. */
 		javax.swing.SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
+				/* Show widget. */
 				createAndShowGUI();
+				/* Register widget for start, stop and new iteration model events. */
+				model.registerObserver(ModelEvent.START, thisView);
+				model.registerObserver(ModelEvent.STOP, thisView);
+				model.registerObserver(ModelEvent.NEW_ITERATION, thisView);
 			}
 		});
 		
