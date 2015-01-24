@@ -31,8 +31,18 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Random;
 
+import org.laseeb.pphpc.PredPrey.Errors;
+import org.uncommons.maths.random.AESCounterRNG;
+import org.uncommons.maths.random.CMWC4096RNG;
+import org.uncommons.maths.random.CellularAutomatonRNG;
+import org.uncommons.maths.random.JavaRNG;
 import org.uncommons.maths.random.MersenneTwisterRNG;
-import org.uncommons.maths.random.SeedException;
+import org.uncommons.maths.random.SeedGenerator;
+import org.uncommons.maths.random.XORShiftRNG;
+
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 
 /**
  * Small class to test the available RNGs with Dieharder.
@@ -43,17 +53,71 @@ import org.uncommons.maths.random.SeedException;
  */
 public class TestRNGs {
 
+	/* Seed for random number generator. */
+	@Parameter(names = "-r", description = "Seed for random number generator (defaults to System.nanoTime())", 
+			converter = BigIntegerConverter.class)
+	private BigInteger seed = null;
+	
+	/* Random number generator implementation. */
+	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT, RANDU, REALLYPOOR or XORSHIFT)", 
+			converter =  RNGTypeConverter.class)
+	private RNGType rngType = RNGType.MT;
+	
+	/* Help option. */
+	@Parameter(names = {"--help", "-h", "-?"}, description = "Show options", help = true)
+	private boolean help;
+	
+	/**
+	 * Main method.
+	 * 
+	 * @param args Command-line arguments.
+	 */
 	public static void main(String[] args) {
-		byte[] seed = { 3, 4 , 5 ,6, 7 ,8, 8 ,9};
-		ModelSeedGenerator sg = new ModelSeedGenerator(1, new BigInteger(seed));
-		Random rng = null;
+		new TestRNGs().doMain(args);
+	}
+
+	/**
+	 * This method will actually do stuff once the TestRNGs object is created.
+	 * 
+	 * @param args Command-line arguments.
+	 */
+	private void doMain(String[] args) {
+
+		/* Setup command line options parser. */
+		JCommander parser = new JCommander(this);
+		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib" +  
+				java.io.File.separator +  "* " + TestRNGs.class.getName());
+		
+		/* Parse command line options. */
 		try {
-			rng = new ReallyPoorRNG(sg);
-//			rng = new MersenneTwisterRNG(sg);
-		} catch (SeedException e) {
-			e.printStackTrace();
+			parser.parse(args);
+		} catch (ParameterException pe) {
+			/* On parsing error, show usage and return. */
+			System.err.println(pe.getMessage());
+			parser.usage();
+			System.exit(Errors.ARGS.getValue());
 		}
 		
+		/* If help option was passed, show help and quit. */
+		if (this.help) {
+			parser.usage();
+			System.exit(Errors.NONE.getValue());
+		}
+		
+		/* Setup seed for random number generator. */
+		if (this.seed == null)
+			this.seed = BigInteger.valueOf(System.nanoTime());
+
+		/* Create random number generator. */
+		Random rng = null;
+		try {
+			rng = this.createRNG(0);
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			System.exit(Errors.OTHER.getValue());
+		}
+		
+		/* Generate random bits and send to stdout. */
 		byte[] bytes = new byte[4];
 		while (true) {
 			rng.nextBytes(bytes);
@@ -63,6 +127,39 @@ public class TestRNGs {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	/**
+	 * Create random number generator.
+	 * @param modifier
+	 * @return A random number generator.
+	 * @throws Exception
+	 */
+	private Random createRNG(int modifier) throws Exception {
+		
+		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
+
+		switch (this.rngType) {
+			case AES:
+				return new AESCounterRNG(seedGen);
+			case CA:
+				return new CellularAutomatonRNG(seedGen);
+			case CMWC:
+				return new CMWC4096RNG(seedGen);
+			case JAVA:
+				return new JavaRNG(seedGen);
+			case MT:
+				return new MersenneTwisterRNG(seedGen);
+			case RANDU:
+				return new RanduRNG(seedGen);
+			case REALLYPOOR:
+				return new ReallyPoorRNG(seedGen);
+			case XORSHIFT: 
+				return new XORShiftRNG(seedGen);
+			default:
+				throw new RuntimeException("Don't know this random number generator.");
+		}
+		
 	}
 
 }
