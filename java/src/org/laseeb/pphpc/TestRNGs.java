@@ -118,7 +118,7 @@ public class TestRNGs {
 		}
 		
 		/* Generate random bits and send to stdout. */
-		byte[] bytes = new byte[4];
+		byte[] bytes = new byte[32768];
 		while (true) {
 			rng.nextBytes(bytes);
 			try {
