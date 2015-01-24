@@ -180,8 +180,8 @@ public class PredPrey {
 		
 		/* Setup command line options parser. */
 		JCommander parser = new JCommander(this);
-		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib/* " 
-				+ PredPrey.class.getName());
+		parser.setProgramName("java -cp bin" + java.io.File.pathSeparator + "lib" 
+				+ java.io.File.separator + "* " + PredPrey.class.getName());
 		
 		/* Add available work factories to parser. */
 		for (Entry<String, IWorkFactory> entry : this.knownWorkFactories.entrySet()) {
