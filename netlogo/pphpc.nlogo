@@ -46,25 +46,24 @@ end
 to go
   ask patches [ grow-grass ]
 
-  ask sheep [
+  ask turtles [
     move
-    set energy energy - 1  ;; deduct energy for sheep only if grass? switch is on
-    death
-  ]
-  ask wolves [
-    move
-    set energy energy - 1  ;; wolves lose energy as they move
+    set energy energy - 1
     death
   ]
   
-  ask sheep [
-    eat-grass
-    reproduce-sheep
+  ask turtles [
+    ifelse is-a-sheep? self [
+      ;; is a sheep
+      eat-grass
+      reproduce-sheep
+    ] [ 
+      ;; is a wolf
+      catch-sheep
+      reproduce-wolves
+    ]
   ]
-  ask wolves [
-    catch-sheep
-    reproduce-wolves
-  ]
+
   tick
   update-plot
   display-labels
