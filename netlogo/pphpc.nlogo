@@ -76,8 +76,9 @@ to go
 end
 
 to move  ;; turtle procedure
-  if random 5 != 0 [
-    set heading 90 * random 4
+  let direction random 5
+  if direction < 4 [
+    set heading 90 * direction
     fd 1
   ]
 end
@@ -212,7 +213,7 @@ wolf-gain-from-food
 wolf-gain-from-food
 0.0
 100.0
-14
+20
 1.0
 1
 NIL
@@ -227,7 +228,7 @@ wolf-reprod-prob
 wolf-reprod-prob
 0.0
 20.0
-1
+5
 1.0
 1
 %
