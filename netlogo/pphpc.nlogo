@@ -6,11 +6,9 @@ turtles-own [energy]       ;; both wolves and sheep have energy
 patches-own [countdown]
 
 to setup
-  ;; (for this model to work with NetLogo's new plotting features,
-  ;; __clear-all-and-reset-ticks should be replaced with clear-all at
-  ;; the beginning of your setup procedure and reset-ticks at the end
-  ;; of the procedure.)
-  __clear-all-and-reset-ticks
+
+  clear-all
+
   ask patches [ 
     set pcolor green 
     set countdown 0]
@@ -29,7 +27,7 @@ to setup
     set size 1  ;; easier to see
     set label-color blue - 2
     set energy 1 + random (2 * sheep-gain-from-food)
-    setxy random-xcor random-ycor
+    setxy random-pxcor random-pycor
   ]
   set-default-shape wolves "wolf"
   create-wolves initial-number-wolves  ;; create the wolves, then initialize their variables
@@ -37,34 +35,40 @@ to setup
     set color black
     set size 1  ;; easier to see
     set energy 1 + random (2 * wolf-gain-from-food)
-    setxy random-xcor random-ycor
+    setxy random-pxcor random-pycor
   ]
+
   display-labels
+  reset-ticks
   update-plot
+
 end
 
 to go
-  ask patches [ grow-grass ]
 
-  ask sheep [
+  ;; Move
+  ask turtles [
     move
-    set energy energy - 1  ;; deduct energy for sheep only if grass? switch is on
-    death
-  ]
-  ask wolves [
-    move
-    set energy energy - 1  ;; wolves lose energy as they move
+    set energy energy - 1
     death
   ]
   
-  ask sheep [
-    eat-grass
-    reproduce-sheep
+  ;; Grow food
+  ask patches [ grow-grass ]
+  
+  ;; Act
+  ask turtles [
+    ifelse is-a-sheep? self [
+      ;; is a sheep
+      eat-grass
+      reproduce sheep-reprod-thres sheep-reprod-prob
+    ] [ 
+      ;; is a wolf
+      catch-sheep
+      reproduce wolf-reprod-thres wolf-reprod-prob
+    ]
   ]
-  ask wolves [
-    catch-sheep
-    reproduce-wolves
-  ]
+
   tick
   update-plot
   display-labels
@@ -72,8 +76,9 @@ to go
 end
 
 to move  ;; turtle procedure
-  if random 5 != 0 [
-    set heading 90 * random 4
+  let direction random 5
+  if direction < 4 [
+    set heading 90 * direction
     fd 1
   ]
 end
@@ -87,19 +92,9 @@ to eat-grass  ;; sheep procedure
   ]
 end
 
-to reproduce-sheep  ;; sheep procedure
-  if energy > sheep-reprod-thres [
-    if random 100 < sheep-reprod-prob [  ;; throw "dice" to see if you will reproduce
-      let energy_offspring int (energy / 2)
-      set energy energy - energy_offspring   ;; divide energy between parent and offspring
-      hatch 1 [ set energy energy_offspring] ;; hatch an offspring which stays in the same place
-    ]
-  ]
-end
-
-to reproduce-wolves  ;; wolf procedure
-  if energy > wolf-reprod-thres [
-    if random 100 < wolf-reprod-prob [  ;; throw "dice" to see if you will reproduce
+to reproduce [ reprod-thres reprod-prob ]
+  if energy > reprod-thres [
+    if random 100 < reprod-prob [  ;; throw "dice" to see if you will reproduce
       let energy_offspring int (energy / 2)
       set energy energy - energy_offspring   ;; divide energy between parent and offspring
       hatch 1 [ set energy energy_offspring] ;; hatch an offspring which stays in the same place
@@ -142,10 +137,9 @@ to update-plot
 end
 
 to display-labels
-  ask turtles [ set label "" ]
   if show-energy? [
-    ask wolves [ set label round energy ]
-    ask sheep [ set label round energy ]
+    ask wolves [ set label energy ]
+    ask sheep [ set label energy ]
   ]
 end
 
@@ -156,13 +150,13 @@ end
 GRAPHICS-WINDOW
 405
 14
-1036
-666
+1015
+645
 -1
 -1
-6.21
+6.0
 1
-14
+6
 1
 1
 1
@@ -433,7 +427,7 @@ INPUTBOX
 357
 146
 iterations
-4000
+2000
 1
 0
 Number
@@ -846,7 +840,7 @@ repeat 75 [ go ]
       <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex200v1" repetitions="1" runMetricsEveryStep="true">
@@ -889,7 +883,7 @@ repeat 75 [ go ]
       <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex400v1" repetitions="1" runMetricsEveryStep="true">
@@ -932,7 +926,7 @@ repeat 75 [ go ]
       <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex800v1" repetitions="1" runMetricsEveryStep="true">
@@ -975,7 +969,7 @@ repeat 75 [ go ]
       <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex1600v1" repetitions="1" runMetricsEveryStep="true">
@@ -1018,7 +1012,7 @@ repeat 75 [ go ]
       <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex100v2" repetitions="1" runMetricsEveryStep="true">
@@ -1061,7 +1055,7 @@ repeat 75 [ go ]
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex200v2" repetitions="1" runMetricsEveryStep="true">
@@ -1104,7 +1098,7 @@ repeat 75 [ go ]
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex400v2" repetitions="1" runMetricsEveryStep="true">
@@ -1147,7 +1141,7 @@ repeat 75 [ go ]
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex800v2" repetitions="1" runMetricsEveryStep="true">
@@ -1190,7 +1184,7 @@ repeat 75 [ go ]
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex1600v2" repetitions="1" runMetricsEveryStep="true">
@@ -1233,7 +1227,7 @@ repeat 75 [ go ]
       <value value="10"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
-      <value value="4000"/>
+      <value value="4001"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
