@@ -5,18 +5,18 @@ breed [wolves wolf]
 turtles-own [energy]       ;; both wolves and sheep have energy
 patches-own [countdown]
 
+;; Initialization
 to setup
 
   clear-all
 
   ask patches [ 
-    set pcolor green 
-    set countdown 0]
-
-  ask patches [
-    if random 2 = 1 [
+    ifelse random 2 = 1 [
       set countdown 1 + random grass-regrowth-time ;; initialize grass grow clocks randomly
       set pcolor brown
+    ] [
+      set countdown 0
+      set pcolor green 
     ]
   ]
 
@@ -40,23 +40,23 @@ to setup
 
   display-labels
   reset-ticks
-  update-plot
 
 end
 
+;; Simulation loop
 to go
 
-  ;; Move
+  ;; 1 - Agent movement
   ask turtles [
     move
     set energy energy - 1
-    death
+    if energy < 1 [ die ] ;; if energy dips below zero, die
   ]
   
-  ;; Grow food
+  ;; 2 - Grow food
   ask patches [ grow-grass ]
   
-  ;; Act
+  ;; 3 - Act
   ask turtles [
     ifelse is-a-sheep? self [
       ;; is a sheep
@@ -69,10 +69,14 @@ to go
     ]
   ]
 
+
+  ;; 4 - New iteration (agent/grass counts are done here)
   tick
-  update-plot
   display-labels
+  
+  ;; Time to stop?
   if ticks = iterations [ stop ]
+  
 end
 
 to move  ;; turtle procedure
@@ -92,12 +96,12 @@ to eat-grass  ;; sheep procedure
   ]
 end
 
-to reproduce [ reprod-thres reprod-prob ]
+to reproduce [ reprod-thres reprod-prob ] ;; turtle procedure
   if energy > reprod-thres [
     if random 100 < reprod-prob [  ;; throw "dice" to see if you will reproduce
       let energy_offspring int (energy / 2)
-      set energy energy - energy_offspring   ;; divide energy between parent and offspring
-      hatch 1 [ set energy energy_offspring] ;; hatch an offspring which stays in the same place
+      set energy energy - energy_offspring    ;; divide energy between parent and offspring
+      hatch 1 [ set energy energy_offspring ] ;; hatch an offspring which stays in the same place
     ]
   ]
 end
@@ -109,11 +113,6 @@ to catch-sheep  ;; wolf procedure
       set energy energy + wolf-gain-from-food ] ;; get energy from eating
 end
 
-to death  ;; turtle procedure
-  ;; when energy dips below zero, die
-  if energy < 1 [ die ]
-end
-
 to grow-grass  ;; patch procedure
   ;; countdown on brown patches: if reach 0, grow some grass
   if pcolor = brown [
@@ -122,18 +121,6 @@ to grow-grass  ;; patch procedure
       [ set pcolor green
         set countdown 0 ]
   ]
-end
-
-to update-plot
-  set grass count patches with [countdown <= 0]
-  set-current-plot "populations"
-  set-current-plot-pen "sheep"
-  plot count sheep
-  set-current-plot-pen "wolves"
-  plot count wolves
-  set-current-plot-pen "grass / 4"
-  plot grass / 4  ;; divide by four to keep it within similar
-                    ;; range as wolf and sheep populations
 end
 
 to display-labels
@@ -297,7 +284,7 @@ pop.
 100.0
 true
 true
-"" ""
+"" "set grass count patches with [countdown <= 0]\n  set-current-plot \"populations\"\n  set-current-plot-pen \"sheep\"\n  plot count sheep\n  set-current-plot-pen \"wolves\"\n  plot count wolves\n  set-current-plot-pen \"grass / 4\"\n  plot grass / 4  ;; divide by four to keep it within similar\n                    ;; range as wolf and sheep populations"
 PENS
 "sheep" 1.0 0 -13345367 true "" ""
 "wolves" 1.0 0 -2674135 true "" ""
@@ -1219,6 +1206,92 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-number-wolves">
       <value value="51200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4001"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex200v1NOWOLF" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4001"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex200v2NOWOLF" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>count sheep</metric>
+    <metric>count wolves</metric>
+    <metric>grass</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="0"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="grass-regrowth-time">
       <value value="15"/>
