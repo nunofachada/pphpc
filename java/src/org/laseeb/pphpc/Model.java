@@ -235,9 +235,19 @@ public class Model implements IModel {
 			out = new FileWriter(filename);
 				
 			for (int i = 0; i <= params.getIters() ; i++) {
-				out.write(this.globalStats.getStats(StatType.SHEEP, i) + "\t"
-						+ this.globalStats.getStats(StatType.WOLVES, i) + "\t"
-						+ this.globalStats.getStats(StatType.GRASS, i) + "\n");
+				
+				int sheepCount = this.globalStats.getStats(StatType.SHEEP_COUNT, i).intValue();
+				int wolvesCount = this.globalStats.getStats(StatType.WOLVES_COUNT, i).intValue();
+				int grassAlive = this.globalStats.getStats(StatType.GRASS_ALIVE, i).intValue();
+				float avgSheepEnergy = this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue()
+						/ (float) sheepCount;
+				float avgWolvesEnergy = this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue()
+						/ (float) wolvesCount;
+				float avgGrassCountdown = this.globalStats.getStats(StatType.GRASS_COUNTDOWN, i).longValue()
+						/ (float) this.getSize();
+				
+				out.write(sheepCount + "\t" + wolvesCount + "\t" + grassAlive + "\t"
+						+ avgSheepEnergy + "\t" + avgWolvesEnergy + "\t" + avgGrassCountdown + "\n");
 			}
 			
 			if (out != null) {
@@ -253,7 +263,7 @@ public class Model implements IModel {
 	 */
 	@Override
 	public void registerException(Throwable t, String s) {
-		System.out.println(this.getStats(0).getSheep() + " : " + this.getStats(0).getWolves() + " : " + this.getStats(0).getGrass());
+		System.out.println(this.getStats(0).getSheepCount() + " : " + this.getStats(0).getWolvesCount() + " : " + this.getStats(0).getGrassAlive());
 		synchronized (this) {
 			this.lastThrowable = new Throwable(t.getMessage() + " (additional info: " + s + ")", t);
 		}

@@ -146,7 +146,7 @@ public class Cell implements ICell {
 	@Override
 	public void putInitAgent(IAgent agent) {
 		
-		/* Put inital agent according to the specified strategy. */
+		/* Put initial agent according to the specified strategy. */
 		this.putInitAgentStrategy.putAgent(this.newAgents, agent);
 
 	}
@@ -181,7 +181,9 @@ public class Cell implements ICell {
 		
 		/* Grass alive or not? */
 		if (this.isGrassAlive())
-			stats.incGrass();
+			stats.incGrassAlive();
+		else
+			stats.updateGrassCountdown(this.grass);
 		
 		this.auxAgents.clear();
 		
@@ -193,10 +195,13 @@ public class Cell implements ICell {
 			
 			/* If he's alive, count him and add him to the auxAgents list. */
 			if (agent.isAlive()) {
-				if (agent instanceof Sheep)
-					stats.incSheep();
-				else if (agent instanceof Wolf)
-					stats.incWolves();
+				if (agent instanceof Sheep) {
+					stats.incSheepCount();
+					stats.updateSheepEnergy(agent.getEnergy());
+				} else if (agent instanceof Wolf) {
+					stats.incWolvesCount();
+					stats.updateWolvesEnergy(agent.getEnergy());
+				}
 				this.auxAgents.add(agent);
 			}
 		}
@@ -208,10 +213,13 @@ public class Cell implements ICell {
 			IAgent agent = this.newAgents.get(i);
 
 			/* Count him and add him to the auxAgents list. */
-			if (agent instanceof Sheep)
-				stats.incSheep();
-			else if (agent instanceof Wolf)
-				stats.incWolves();
+			if (agent instanceof Sheep) {
+				stats.incSheepCount();
+				stats.updateSheepEnergy(agent.getEnergy());
+			} else if (agent instanceof Wolf) {
+				stats.incWolvesCount();
+				stats.updateWolvesEnergy(agent.getEnergy());
+			}
 			this.auxAgents.add(agent);
 
 		}

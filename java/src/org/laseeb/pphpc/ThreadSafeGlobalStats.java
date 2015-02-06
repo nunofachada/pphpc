@@ -29,6 +29,7 @@ package org.laseeb.pphpc;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
  * Thread-safe management of global simulation statistics.
@@ -37,14 +38,23 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
  */
 public class ThreadSafeGlobalStats implements IGlobalStats {
 
-	/* Sheep statistics. */
-	private AtomicIntegerArray sheepStats;
+	/* Sheep count. */
+	private AtomicIntegerArray sheepCount;
 
-	/* Wolf statistics. */
-	private AtomicIntegerArray wolfStats;
+	/* Wolves count. */
+	private AtomicIntegerArray wolvesCount;
 
-	/* Grass statistics. */
-	private AtomicIntegerArray grassStats;
+	/* Grass alive. */
+	private AtomicIntegerArray grassAlive;
+
+	/* Total sheep energy. */
+	private AtomicLongArray sheepEnergy;
+
+	/* Total wolf energy. */
+	private AtomicLongArray wolvesEnergy;
+
+	/* Total grass countdown. */
+	private AtomicLongArray grassCountdown;
 	
 	/* Number of iterations. */
 	private int iters;
@@ -64,15 +74,21 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 	 * @see IGlobalStats#getStats(StatType, int)
 	 */
 	@Override
-	public int getStats(StatType st, int iter) {
+	public Number getStats(StatType st, int iter) {
 		
 		switch (st) {
-			case SHEEP:
-				return sheepStats.get(iter);
-			case WOLVES:
-				return wolfStats.get(iter);
-			case GRASS:
-				return grassStats.get(iter);
+			case SHEEP_COUNT:
+				return sheepCount.get(iter);
+			case WOLVES_COUNT:
+				return this.wolvesCount.get(iter);
+			case GRASS_ALIVE:
+				return this.grassAlive.get(iter);
+			case SHEEP_ENERGY:
+				return this.sheepEnergy.get(iter);
+			case WOLVES_ENERGY:
+				return this.wolvesEnergy.get(iter);
+			case GRASS_COUNTDOWN:
+				return this.grassCountdown.get(iter);
 		}
 		return 0;
 	}
@@ -82,9 +98,12 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 	 */
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
-		this.sheepStats.addAndGet(iter, stats.getSheep());
-		this.wolfStats.addAndGet(iter, stats.getWolves());
-		this.grassStats.addAndGet(iter, stats.getGrass());
+		this.sheepCount.addAndGet(iter, stats.getSheepCount());
+		this.wolvesCount.addAndGet(iter, stats.getWolvesCount());
+		this.grassAlive.addAndGet(iter, stats.getGrassAlive());
+		this.sheepEnergy.addAndGet(iter, stats.getSheepEnergy());
+		this.wolvesEnergy.addAndGet(iter, stats.getWolvesEnergy());
+		this.grassCountdown.addAndGet(iter, stats.getGrassCountdown());
 	}
 
 	/**
@@ -93,7 +112,8 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 	@Override
 	public IterationStats getStats(int iter) {
 		return new IterationStats(
-				this.sheepStats.get(iter), this.wolfStats.get(iter), this.sheepStats.get(iter));
+				this.sheepCount.get(iter), this.wolvesCount.get(iter), this.sheepCount.get(iter),
+				this.sheepEnergy.get(iter), this.wolvesEnergy.get(iter), this.grassCountdown.get(iter));
 	}
 
 	/**
@@ -101,11 +121,16 @@ public class ThreadSafeGlobalStats implements IGlobalStats {
 	 */
 	@Override
 	public void reset() {
-		int[] resetArray = new int[this.iters + 1];
-		Arrays.fill(resetArray, 0);
-		this.sheepStats = new AtomicIntegerArray(resetArray);
-		this.wolfStats = new AtomicIntegerArray(resetArray);
-		this.grassStats = new AtomicIntegerArray(resetArray);		
+		int[] resetArrayInt = new int[this.iters + 1];
+		long[] resetArrayLong = new long[this.iters + 1];
+		Arrays.fill(resetArrayInt, 0);
+		Arrays.fill(resetArrayLong, 0);
+		this.sheepCount = new AtomicIntegerArray(resetArrayInt);
+		this.wolvesCount = new AtomicIntegerArray(resetArrayInt);
+		this.grassAlive = new AtomicIntegerArray(resetArrayInt);
+		this.sheepEnergy = new AtomicLongArray(resetArrayLong);
+		this.wolvesEnergy = new AtomicLongArray(resetArrayLong);
+		this.grassCountdown = new AtomicLongArray(resetArrayLong);
 	}
 
 
