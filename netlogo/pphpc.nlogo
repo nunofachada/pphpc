@@ -67,10 +67,6 @@ to go
   ;; 2 - Grow food
   ask patches [ grow-grass ]
   
-  ;; Determine youngest agent to date, wolves can't eat agents younger than
-  ;; this born during the Act stage.
-  set maxwho max [who] of turtles
-  
   ;; 3 - Act
   ask turtles [
     ifelse is-a-sheep? self [
@@ -133,7 +129,9 @@ to reproduce [ reprod-thres reprod-prob ] ;; turtle procedure
     if random 100 < reprod-prob [  ;; throw "dice" to see if you will reproduce
       let energy_offspring int (energy / 2)
       set energy energy - energy_offspring    ;; divide energy between parent and offspring
-      hatch 1 [ set energy energy_offspring ] ;; hatch an offspring which stays in the same place
+      hatch 1 [ ;; hatch an offspring which stays in the same place
+        set energy energy_offspring 
+        set maxwho who ] 
     ]
   ]
 end
