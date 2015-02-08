@@ -239,10 +239,12 @@ public class Model implements IModel {
 				int sheepCount = this.globalStats.getStats(StatType.SHEEP_COUNT, i).intValue();
 				int wolvesCount = this.globalStats.getStats(StatType.WOLVES_COUNT, i).intValue();
 				int grassAlive = this.globalStats.getStats(StatType.GRASS_ALIVE, i).intValue();
-				float avgSheepEnergy = this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue()
-						/ (float) sheepCount;
-				float avgWolvesEnergy = this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue()
-						/ (float) wolvesCount;
+				float avgSheepEnergy = sheepCount > 0 
+						? this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue() / (float) sheepCount
+						: 0;
+				float avgWolvesEnergy = wolvesCount > 0 
+						? this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue() / (float) wolvesCount
+						: 0;
 				float avgGrassCountdown = this.globalStats.getStats(StatType.GRASS_COUNTDOWN, i).longValue()
 						/ (float) this.getSize();
 				
