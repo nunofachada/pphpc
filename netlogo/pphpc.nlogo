@@ -5,6 +5,7 @@ globals [
   sheep-energy    ;; mean sheep energy
   wolves-energy   ;; mean wolf energy
   grass-countdown ;; mean grass countdown
+  maxwho          ;; youngest agent to date
 ]
 
 ;; Sheep and wolves are both breeds of turtle.
@@ -65,6 +66,10 @@ to go
   
   ;; 2 - Grow food
   ask patches [ grow-grass ]
+  
+  ;; Determine youngest agent to date, wolves can't eat agents younger than
+  ;; this born during the Act stage.
+  set maxwho max [who] of turtles
   
   ;; 3 - Act
   ask turtles [
@@ -134,7 +139,7 @@ to reproduce [ reprod-thres reprod-prob ] ;; turtle procedure
 end
 
 to catch-sheep  ;; wolf procedure
-  let prey one-of sheep-here                    ;; grab a random sheep
+  let prey one-of sheep-here with [ who <= maxwho ]  ;; grab a random sheep, cannot be a newly born sheep
   if prey != nobody                             ;; did we get one?  if so,
     [ ask prey [ die ]                          ;; kill it
       set energy energy + wolf-gain-from-food ] ;; get energy from eating
