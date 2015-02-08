@@ -96,8 +96,12 @@ to gather-stats
   set wolves-count count wolves
   set grass-alive count patches with [countdown <= 0]
   if show-energy? [
-    set sheep-energy mean [energy] of sheep
-    set wolves-energy mean [energy] of wolves
+    ifelse sheep-count > 0
+      [ set sheep-energy mean [energy] of sheep ]
+      [ set sheep-energy 0 ]
+    ifelse wolves-count > 0
+      [ set wolves-energy mean [energy] of wolves ]
+      [ set wolves-energy 0 ]
     set grass-countdown mean [countdown] of patches
   ]
 end
@@ -459,7 +463,7 @@ BUTTON
 190
 43
 Reset
-set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2
+set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2\n
 NIL
 1
 T
@@ -1816,6 +1820,55 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="iterations">
+      <value value="4001"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="show-energy?">
+      <value value="true"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="ex200v1ENW" repetitions="1" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>sheep-count</metric>
+    <metric>wolves-count</metric>
+    <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
+    <enumeratedValueSet variable="initial-number-sheep">
+      <value value="1600"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-gain-from-food">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-prob">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-prob">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pxcor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pxcor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-pycor">
+      <value value="199"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="min-pycor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-wolves">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grass-regrowth-time">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-gain-from-food">
+      <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
       <value value="4001"/>
