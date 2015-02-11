@@ -112,7 +112,7 @@ public class ModelSeedGenerator implements SeedGenerator {
 			finalSeed = finalSeed.pow(2).add(BigInteger.TEN);
 			
 		}
-		
+
 		/* Return a byte array of the exact length required by the RNG. */
 		return Arrays.copyOf(finalSeed.toByteArray(), length);
 	}

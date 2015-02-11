@@ -88,6 +88,9 @@ public class SimWorker implements Runnable {
 		/* Current iteration*/
 		int iter = 0;
 		
+		/* Shuffle agents before they act? */
+		boolean shuffle = this.model.isShuffle();
+		
 		try {
 
 			/* Get cells work provider. */
@@ -206,7 +209,7 @@ public class SimWorker implements Runnable {
 					/* *** 3 - Agent actions. *** */
 					/* ************************** */
 	
-					cell.agentActions(rng);
+					cell.agentActions(rng, shuffle);
 					
 					/* ****************************** */
 					/* *** 4 - Gather statistics. *** */

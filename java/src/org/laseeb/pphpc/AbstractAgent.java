@@ -147,13 +147,13 @@ public abstract class AbstractAgent implements IAgent {
 	 * @param rng Random number generator used to try reproduction.
 	 */
 	private void tryReproduce(ICell cell, Random rng) {
-
+		
 		/* Energy needs to be above threshold in order for agents to reproduce. */
-		if (energy > getReproduceThreshold()) {
+		if (energy > this.getReproduceThreshold()) {
 			
 			/* Throw dice, see if agent reproduces. */
-			if (rng.nextInt(100) < getReproduceProbability()) {
-				
+			if (rng.nextInt(100) < this.getReproduceProbability()) {
+
 				/* Create new agent with half of the energy of the current agent. */
 				AbstractAgent agent = null;
 				

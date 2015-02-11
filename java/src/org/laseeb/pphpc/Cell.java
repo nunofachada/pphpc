@@ -28,6 +28,7 @@
 package org.laseeb.pphpc;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -235,10 +236,10 @@ public class Cell implements ICell {
 	}
 	
 	/**
-	 * @see ICell#agentActions(Random)
+	 * @see ICell#agentActions(Random, boolean shuffle)
 	 */
 	@Override
-	public void agentActions(Random rng) {
+	public void agentActions(Random rng, boolean shuffle) {
 		
 		/* Swap current agents list and existingAgents list. */
 		List<IAgent> aux;
@@ -246,6 +247,8 @@ public class Cell implements ICell {
 		this.agents = this.existingAgents;
 		this.existingAgents = aux;
 		this.existingAgents.clear();
+		
+		if (shuffle) Collections.shuffle(this.agents, rng);
 		
 		/* Cycle through agents in the current agents list. */
 		for (int i = 0; i < this.agents.size(); i++) {
@@ -259,7 +262,7 @@ public class Cell implements ICell {
 		}
 		
 	}
-
+	
 	/**
 	 * @see ICell#setNeighborhood(List)
 	 */

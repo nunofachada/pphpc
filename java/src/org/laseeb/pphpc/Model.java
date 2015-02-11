@@ -87,6 +87,9 @@ public class Model implements IModel {
 	/* Model event observers. */
 	private Map<ModelEvent, List<IModelEventObserver>> observers = null;
 	
+	/* Shuffle agents before they act? */
+	private boolean shuffle;
+	
 	/* Type of random number generator used in this model. */
 	private RNGType rngType;
 	
@@ -98,10 +101,12 @@ public class Model implements IModel {
 	 * 
 	 * @param params Model parameters.
 	 * @param wFactory Work factory used to execute the simulation.
+	 * @param shuffle Shuffle agents before they act?
 	 * @param rngType Type of random number generator used in this model.
 	 * @param seed Random number generator seed. 
 	 */
-	public Model(ModelParams params, IWorkFactory wFactory, RNGType rngType, BigInteger seed) {
+	public Model(ModelParams params, IWorkFactory wFactory, boolean shuffle, 
+			RNGType rngType, BigInteger seed) {
 		
 		this.params = params;
 		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
@@ -113,11 +118,20 @@ public class Model implements IModel {
 		this.currentIteration = 0;
 		this.size = space.getSize();
 		this.cells = new ICell[this.size];
+		this.shuffle = shuffle;
 		this.rngType = rngType;
 		this.seed = seed;
 
 	}
 	
+	/**
+	 * @see IModelQuerier#isShuffle()
+	 */
+	@Override
+	public boolean isShuffle() {
+		return shuffle;
+	}
+
 	/**
 	 * @see IModelQuerier#getSize()
 	 */
