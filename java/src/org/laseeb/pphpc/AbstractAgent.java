@@ -118,7 +118,7 @@ public abstract class AbstractAgent implements IAgent {
 		
 		/* Get a unique profile for the other agent based on its type and 
 		 * energy. */
-		int p2 = this.getEnergy() << 30 | this.getEnergy() << 2 | (this instanceof Wolf ? 0x1 : 0x2);
+		int p2 = otherAgent.getEnergy() << 30 | otherAgent.getEnergy() << 2 | (otherAgent instanceof Wolf ? 0x1 : 0x2);
 
 		/* Get a hash for current agent. */
 		int h1 = this.hash(p1);
@@ -219,5 +219,13 @@ public abstract class AbstractAgent implements IAgent {
 //		a = a ^ (a >> 15);
 //		
 //		return a;
+//	}
+//	private int hash(int a) {
+//		
+//		a ^= (a >>> 20) ^ (a >>> 12);
+//		a = a ^ (a >>> 7) ^ (a >>> 4);
+//		
+//		return a;
 //	}	
+	
 }
