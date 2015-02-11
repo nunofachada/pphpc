@@ -315,8 +315,8 @@ public class Model implements IModel {
 				return new MersenneTwisterRNG(seedGen);
 			case RANDU:
 				return new RanduRNG(seedGen);
-			case REALLYPOOR:
-				return new ReallyPoorRNG(seedGen);
+			case MODMIDSQUARE:
+				return new ModMidSquareRNG(seedGen);
 			case XORSHIFT: 
 				return new XORShiftRNG(seedGen);
 			default:

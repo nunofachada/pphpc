@@ -108,8 +108,8 @@ public class ModelSeedGenerator implements SeedGenerator {
 		 * at least the size required by the RNG. */
 		while (finalSeed.bitCount() < length * 8) {
 			
-			/* We add the value 10 for the case when the base seed is zero. */
-			finalSeed = finalSeed.pow(2).add(BigInteger.TEN);
+			/* We add the value 11 for the case when the base seed is zero. */
+			finalSeed = finalSeed.pow(2).add(BigInteger.TEN).add(BigInteger.ONE);
 			
 		}
 

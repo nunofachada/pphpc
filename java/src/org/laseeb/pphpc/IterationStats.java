@@ -191,7 +191,7 @@ public class IterationStats {
 	/**
 	 * Update grass countdown.
 	 * 
-	 * @param energy Partial grass countdown.
+	 * @param countdown Partial grass countdown.
 	 */
 	public void updateGrassCountdown(int countdown) {
 		this.grassCountdown += countdown;
