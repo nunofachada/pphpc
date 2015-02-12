@@ -279,7 +279,7 @@ public class Model implements IModel {
 	 */
 	@Override
 	public void registerException(Throwable t, String s) {
-		System.out.println(this.getStats(0).getSheepCount() + " : " + this.getStats(0).getWolvesCount() + " : " + this.getStats(0).getGrassAlive());
+
 		synchronized (this) {
 			this.lastThrowable = new Throwable(t.getMessage() + " (additional info: " + s + ")", t);
 		}

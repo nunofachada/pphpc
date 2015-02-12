@@ -119,7 +119,7 @@ public class PredPrey {
 	private RNGType rngType = RNGType.MT;
 	
 	/* Shuffle agents before they act? */
-	@Parameter(names = {"-n", "--no-shuffle"}, description = "Disable agent shuffling before agent actions (faster, but will have"
+	@Parameter(names = {"-u", "--no-shuffle"}, description = "Disable agent shuffling before agent actions (faster, but will have"
 			+ " some impact in model dynamics")
 	private boolean noShuffle = false;
 
