@@ -117,6 +117,11 @@ public class PredPrey {
 	@Parameter(names = "-g", description = "Random number generator (AES, CA, CMWC, JAVA, MT, RANDU, REALLYPOOR or XORSHIFT)", 
 			converter =  RNGTypeConverter.class)
 	private RNGType rngType = RNGType.MT;
+	
+	/* Shuffle agents before they act? */
+	@Parameter(names = {"-u", "--no-shuffle"}, description = "Disable agent shuffling before agent actions (faster, but will have"
+			+ " some impact in model dynamics")
+	private boolean noShuffle = false;
 
 	/* Debug mode. */
 	@Parameter(names = "-d", description = "Debug mode (show stack trace on error)", hidden = true)
@@ -221,7 +226,7 @@ public class PredPrey {
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
 		/* Create the MVC model. */
-		IModel model = new Model(this.params, this.workFactory, this.rngType, this.seed);
+		IModel model = new Model(this.params, this.workFactory, !this.noShuffle, this.rngType, this.seed);
 		
 		/* Obtain the MVC controller. */
 		IController controller = this.workFactory.createSimController(model);

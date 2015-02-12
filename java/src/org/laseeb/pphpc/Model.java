@@ -87,6 +87,9 @@ public class Model implements IModel {
 	/* Model event observers. */
 	private Map<ModelEvent, List<IModelEventObserver>> observers = null;
 	
+	/* Shuffle agents before they act? */
+	private boolean shuffle;
+	
 	/* Type of random number generator used in this model. */
 	private RNGType rngType;
 	
@@ -98,10 +101,12 @@ public class Model implements IModel {
 	 * 
 	 * @param params Model parameters.
 	 * @param wFactory Work factory used to execute the simulation.
+	 * @param shuffle Shuffle agents before they act?
 	 * @param rngType Type of random number generator used in this model.
 	 * @param seed Random number generator seed. 
 	 */
-	public Model(ModelParams params, IWorkFactory wFactory, RNGType rngType, BigInteger seed) {
+	public Model(ModelParams params, IWorkFactory wFactory, boolean shuffle, 
+			RNGType rngType, BigInteger seed) {
 		
 		this.params = params;
 		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
@@ -113,11 +118,20 @@ public class Model implements IModel {
 		this.currentIteration = 0;
 		this.size = space.getSize();
 		this.cells = new ICell[this.size];
+		this.shuffle = shuffle;
 		this.rngType = rngType;
 		this.seed = seed;
 
 	}
 	
+	/**
+	 * @see IModelQuerier#isShuffle()
+	 */
+	@Override
+	public boolean isShuffle() {
+		return shuffle;
+	}
+
 	/**
 	 * @see IModelQuerier#getSize()
 	 */
@@ -235,9 +249,21 @@ public class Model implements IModel {
 			out = new FileWriter(filename);
 				
 			for (int i = 0; i <= params.getIters() ; i++) {
-				out.write(this.globalStats.getStats(StatType.SHEEP, i) + "\t"
-						+ this.globalStats.getStats(StatType.WOLVES, i) + "\t"
-						+ this.globalStats.getStats(StatType.GRASS, i) + "\n");
+				
+				int sheepCount = this.globalStats.getStats(StatType.SHEEP_COUNT, i).intValue();
+				int wolvesCount = this.globalStats.getStats(StatType.WOLVES_COUNT, i).intValue();
+				int grassAlive = this.globalStats.getStats(StatType.GRASS_ALIVE, i).intValue();
+				float avgSheepEnergy = sheepCount > 0 
+						? this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue() / (float) sheepCount
+						: 0;
+				float avgWolvesEnergy = wolvesCount > 0 
+						? this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue() / (float) wolvesCount
+						: 0;
+				float avgGrassCountdown = this.globalStats.getStats(StatType.GRASS_COUNTDOWN, i).longValue()
+						/ (float) this.getSize();
+				
+				out.write(sheepCount + "\t" + wolvesCount + "\t" + grassAlive + "\t"
+						+ avgSheepEnergy + "\t" + avgWolvesEnergy + "\t" + avgGrassCountdown + "\n");
 			}
 			
 			if (out != null) {
@@ -253,7 +279,7 @@ public class Model implements IModel {
 	 */
 	@Override
 	public void registerException(Throwable t, String s) {
-		System.out.println(this.getStats(0).getSheep() + " : " + this.getStats(0).getWolves() + " : " + this.getStats(0).getGrass());
+
 		synchronized (this) {
 			this.lastThrowable = new Throwable(t.getMessage() + " (additional info: " + s + ")", t);
 		}
@@ -289,8 +315,8 @@ public class Model implements IModel {
 				return new MersenneTwisterRNG(seedGen);
 			case RANDU:
 				return new RanduRNG(seedGen);
-			case REALLYPOOR:
-				return new ReallyPoorRNG(seedGen);
+			case MODMIDSQUARE:
+				return new ModMidSquareRNG(seedGen);
 			case XORSHIFT: 
 				return new XORShiftRNG(seedGen);
 			default:

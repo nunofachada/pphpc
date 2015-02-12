@@ -37,24 +37,36 @@ import java.util.Arrays;
  */
 public class SingleThreadGlobalStats implements IGlobalStats {
 
-	/* Sheep statistics. */
-	private int[] sheepStats;
+	/* Sheep count. */
+	private int[] sheepCount;
 
-	/* Wolf statistics. */
-	private int[] wolfStats;
+	/* Wolves count. */
+	private int[] wolvesCount;
 
-	/* Grass statistics. */
-	private int[] grassStats;
+	/* Grass alive. */
+	private int[] grassAlive;
 
+	/* Total sheep energy. */
+	private long[] sheepEnergy;
+
+	/* Total wolf energy. */
+	private long[] wolvesEnergy;
+
+	/* Total grass countdown. */
+	private long[] grassCountdown;
+	
 	/**
 	 * Create a new single-threaded global statistics object.
 	 * 
 	 * @param iters Number of iterations.
 	 */
 	public SingleThreadGlobalStats(int iters) {
-		this.sheepStats = new int[iters + 1];
-		this.wolfStats = new int[iters + 1];
-		this.grassStats = new int[iters + 1];
+		this.sheepCount = new int[iters + 1];
+		this.wolvesCount = new int[iters + 1];
+		this.grassAlive = new int[iters + 1];
+		this.sheepEnergy = new long[iters + 1];
+		this.wolvesEnergy = new long[iters + 1];
+		this.grassCountdown = new long[iters + 1];
 		this.reset();
 	}
 	
@@ -62,16 +74,22 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 	 * @see IGlobalStats#getStats(StatType, int)
 	 */
 	@Override
-	public int getStats(StatType st, int iter) {
+	public Number getStats(StatType st, int iter) {
 
 		switch (st) {
-			case SHEEP:
-				return sheepStats[iter];
-			case WOLVES:
-				return wolfStats[iter];
-			case GRASS:
-				return grassStats[iter];
-			}
+			case SHEEP_COUNT:
+				return this.sheepCount[iter];
+			case WOLVES_COUNT:
+				return this.wolvesCount[iter];
+			case GRASS_ALIVE:
+				return this.grassAlive[iter];
+			case SHEEP_ENERGY:
+				return this.sheepEnergy[iter];
+			case WOLVES_ENERGY:
+				return this.wolvesEnergy[iter];
+			case GRASS_COUNTDOWN:
+				return this.grassCountdown[iter];
+		}
 
 		return 0;
 	}
@@ -81,9 +99,12 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 	 */
 	@Override
 	public void updateStats(int iter, IterationStats stats) {
-		this.sheepStats[iter] = stats.getSheep();
-		this.wolfStats[iter] = stats.getWolves();
-		this.grassStats[iter] = stats.getGrass();
+		this.sheepCount[iter] = stats.getSheepCount();
+		this.wolvesCount[iter] = stats.getWolvesCount();
+		this.grassAlive[iter] = stats.getGrassAlive();
+		this.sheepEnergy[iter] = stats.getSheepEnergy();
+		this.wolvesEnergy[iter] = stats.getWolvesEnergy();
+		this.grassCountdown[iter] = stats.getGrassCountdown();
 	}
 
 	/**
@@ -91,7 +112,8 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 	 */
 	@Override
 	public IterationStats getStats(int iter) {
-		return new IterationStats(this.sheepStats[iter], this.wolfStats[iter], this.grassStats[iter]);
+		return new IterationStats(this.sheepCount[iter], this.wolvesCount[iter], this.grassAlive[iter],
+				this.sheepEnergy[iter], this.wolvesEnergy[iter], this.grassCountdown[iter]);
 	}
 
 	/**
@@ -99,8 +121,11 @@ public class SingleThreadGlobalStats implements IGlobalStats {
 	 */
 	@Override
 	public void reset() {
-		Arrays.fill(this.sheepStats, 0);
-		Arrays.fill(this.wolfStats, 0);
-		Arrays.fill(this.grassStats, 0);
+		Arrays.fill(this.sheepCount, 0);
+		Arrays.fill(this.wolvesCount, 0);
+		Arrays.fill(this.grassAlive, 0);
+		Arrays.fill(this.sheepEnergy, 0);
+		Arrays.fill(this.wolvesEnergy, 0);
+		Arrays.fill(this.grassCountdown, 0);
 	}
 }

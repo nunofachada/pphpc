@@ -41,7 +41,7 @@ public interface IGlobalStats {
 	 * @param iter Iteration.
 	 * @return The requested statistic.
 	 */
-	public int getStats(StatType st, int iter);
+	public Number getStats(StatType st, int iter);
 	
 	/**
 	 * Get complete statistics for a given iteration.

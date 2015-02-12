@@ -47,8 +47,8 @@ public enum RNGType {
 	MT,
 	/** @see RanduRNG */
 	RANDU,
-	/** @see ReallyPoorRNG */
-	REALLYPOOR,
+	/** @see ModMidSquareRNG */
+	MODMIDSQUARE,
 	/** @see org.uncommons.maths.random.XORShiftRNG */
 	XORSHIFT 
 }

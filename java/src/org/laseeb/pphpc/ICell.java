@@ -103,8 +103,9 @@ public interface ICell {
 	 * 
 	 * @param rng A random number generator for the agent to perform its actions
 	 * stochastically.
+	 * @param shuffle If true, agents in this cell will be shuffled before they act.
 	 */
-	public void agentActions(Random rng);
+	public void agentActions(Random rng, boolean shuffle);
 
 	/**
 	 * Set the neighborhood for this cell.
@@ -120,5 +121,6 @@ public interface ICell {
 	 * @param rng A random number generator so that the agents move randomly.
 	 */
 	public void agentsMove(Random rng);
+
 
 }

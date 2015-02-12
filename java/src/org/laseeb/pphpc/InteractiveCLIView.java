@@ -261,9 +261,9 @@ public class InteractiveCLIView extends AbstractModelEventObserver implements IV
 		
 		IterationStats stats = this.model.getLatestStats();
 		String info = "\nCurrent iteration: " + this.model.getCurrentIteration() + 
-				"\nNumber of sheep: " + stats.getSheep() +
-				"\nNumber of wolves: " + stats.getWolves() +
-				"\nQuantity of grass: " + stats.getGrass();
+				"\nNumber of sheep: " + stats.getSheepCount() +
+				"\nNumber of wolves: " + stats.getWolvesCount() +
+				"\nQuantity of grass: " + stats.getGrassAlive();
 		System.out.println(info);
 		
 	}

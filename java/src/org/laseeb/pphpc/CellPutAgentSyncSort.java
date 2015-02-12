@@ -53,11 +53,24 @@ public class CellPutAgentSyncSort implements ICellPutAgentStrategy {
 	public void putAgent(List<IAgent> agents, IAgent agent) {
 		synchronized (agents) {
 			
-			/* Add agent to list. */
-			agents.add(agent);
+			if (agents.size() == 0) {
 			
-			/* Sort list. */
-			Collections.sort(agents);
+				/* If agent list is empty, just insert current agent in the
+				 * first position. */
+				agents.add(agent);
+
+			} else {
+			
+				/* Find index where to place agent. */
+				int idx = Collections.binarySearch(agents, agent);
+				
+				/* Adjust index. */
+				idx = idx < 0 ? -idx - 1 : idx;
+			
+				/* Add agent to list at the specified index, such that the
+				 * agent list remains sorted. */
+				agents.add(idx, agent);
+			}
 			
 		}
 	}

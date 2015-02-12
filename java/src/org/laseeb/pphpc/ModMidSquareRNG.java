@@ -37,13 +37,16 @@ import org.uncommons.maths.random.SeedException;
 import org.uncommons.maths.random.SeedGenerator;
 
 /**
- * A really poor random number generator used to test if it the PPHPC 
- * simulation works with really poor generators. Very loosely based on
- * the Middle-Square Method from Von Neumann.
+ * A poor random number generator used to test if it the PPHPC simulation 
+ * works with poor generators. Very loosely based on the Middle-Square Method
+ * from Von Neumann.
  *
+ * Note: After testing this RNG with Dieharder it's actually not that bad. 
+ * Randu fails much more tests. I'd still wouldn't recommend it though.
+ * 
  * @author Nuno Fachada
  */
-public class ReallyPoorRNG extends Random implements RepeatableRNG {
+public class ModMidSquareRNG extends Random implements RepeatableRNG {
 	
 	/* Generated serial version UID. */
 	private static final long serialVersionUID = -8761384561773317806L;
@@ -61,21 +64,21 @@ public class ReallyPoorRNG extends Random implements RepeatableRNG {
 	private final ReentrantLock lock = new ReentrantLock();
 
 	/**
-	 * Creates a new ReallyPoor RNG and seeds it using the default seeding strategy.
+	 * Creates a new ModMidSquare RNG and seeds it using the default seeding strategy.
 	 */
-	public ReallyPoorRNG() {
+	public ModMidSquareRNG() {
 		this(DefaultSeedGenerator.getInstance().generateSeed(SEED_SIZE_BYTES));
 	}
 
 
 	/**
-	 * Seed the ReallyPoor RNG using the provided seed generation strategy.
+	 * Seed the ModMidSquare RNG using the provided seed generation strategy.
 	 * 
 	 * @param seedGenerator The seed generation strategy that will provide
 	 * the seed value for this RNG.
 	 * @throws SeedException If there is a problem generating a seed.
 	 */
-	public ReallyPoorRNG(SeedGenerator seedGenerator) throws SeedException {
+	public ModMidSquareRNG(SeedGenerator seedGenerator) throws SeedException {
 		this(seedGenerator.generateSeed(SEED_SIZE_BYTES));
 	}
 
@@ -85,10 +88,10 @@ public class ReallyPoorRNG extends Random implements RepeatableRNG {
 	 * 
 	 * @param seed The seed data used to initialize the RNG.
 	 */
-	public ReallyPoorRNG(byte[] seed) {
+	public ModMidSquareRNG(byte[] seed) {
 		
 		if (seed == null || seed.length != SEED_SIZE_BYTES) {
-			throw new IllegalArgumentException("ReallyPoor RNG requires 32 bits of seed data.");
+			throw new IllegalArgumentException("ModMidSquare RNG requires 32 bits of seed data.");
 		}
 		this.seed = seed.clone();
 		this.state = BinaryUtils.convertBytesToLong(seed, 0);

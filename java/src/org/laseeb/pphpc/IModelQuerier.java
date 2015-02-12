@@ -101,5 +101,14 @@ public interface IModelQuerier extends IModelEventObservable {
 	 * @throws Exception If for some reason, with wasn't possible to create the RNG.
 	 */
 	public Random createRNG(int wId) throws Exception;
+
+	/**
+	 * Shuffle agents before they act?
+	 * 
+	 * @return Returns true if agents are to be shuffled before they act,
+	 * false otherwise.
+	 */
+	public boolean isShuffle();
+
 	
 }

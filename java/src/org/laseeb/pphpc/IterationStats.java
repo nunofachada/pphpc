@@ -35,13 +35,22 @@ package org.laseeb.pphpc;
 public class IterationStats {
 
 	/* Number of sheep. */
-	private int sheep;
+	private int sheepCount;
 
 	/* Number of wolves. */
-	private int wolves;
+	private int wolvesCount;
 
 	/* Grass quantity. */
-	private int grass;
+	private int grassAlive;
+	
+	/* Total sheep energy. */
+	private long sheepEnergy;
+
+	/* Total wolves energy. */
+	private long wolvesEnergy;
+
+	/* Total grass countdown. */
+	private long grassCountdown;
 
 	/**
 	 * Create a new iteration statistics object in which all statistics 
@@ -49,9 +58,7 @@ public class IterationStats {
 	 */
 	public IterationStats() {
 		
-		this.sheep = 0;
-		this.wolves = 0;
-		this.grass = 0;
+		this.reset();
 		
 	}
 	
@@ -59,23 +66,33 @@ public class IterationStats {
 	 * Create a new iteration statistics object in which the several
 	 * statistics are initialized to specified values.
 	 * 
-	 * @param sheep Number of sheep.
-	 * @param wolves Number of wolves.
-	 * @param grass Grass quantity.
+	 * @param sheepCount Number of sheep.
+	 * @param wolvesCount Number of wolves.
+	 * @param grassAlive Grass quantity.
+	 * @param sheepEnergy Total sheep energy.
+	 * @param wolvesEnergy Total wolves energy.
+	 * @param grassCountdown Total grass countdown.
 	 */
-	public IterationStats(int sheep, int wolves, int grass) {
-		this.sheep = sheep;
-		this.wolves = wolves;
-		this.grass = grass;
+	public IterationStats(int sheepCount, int wolvesCount, int grassAlive, 
+			long sheepEnergy, long wolvesEnergy, long grassCountdown) {
+		this.sheepCount = sheepCount;
+		this.wolvesCount = wolvesCount;
+		this.grassAlive = grassAlive;
+		this.sheepEnergy = sheepEnergy;
+		this.wolvesEnergy = wolvesEnergy;
+		this.grassCountdown = grassCountdown;
 	}
 	
 	/**
 	 * Reset statistics, i.e. set all statistics to zero.
 	 */
 	public void reset() {
-		this.sheep = 0;
-		this.wolves = 0;
-		this.grass = 0;
+		this.sheepCount = 0;
+		this.wolvesCount = 0;
+		this.grassAlive = 0;
+		this.sheepEnergy = 0;
+		this.wolvesEnergy = 0;
+		this.grassCountdown = 0;
 	}
 	
 	/**
@@ -83,15 +100,15 @@ public class IterationStats {
 	 * 
 	 * @return Number of sheep.
 	 */
-	public int getSheep() {
-		return sheep;
+	public int getSheepCount() {
+		return this.sheepCount;
 	}
 
 	/**
 	 * Increment number of sheep.
 	 */
-	public void incSheep() {
-		this.sheep++;
+	public void incSheepCount() {
+		this.sheepCount++;
 	}
 
 	/**
@@ -99,15 +116,15 @@ public class IterationStats {
 	 * 
 	 * @return Number of wolves.
 	 */
-	public int getWolves() {
-		return wolves;
+	public int getWolvesCount() {
+		return this.wolvesCount;
 	}
 
 	/**
 	 * Increment number of wolves.
 	 */
-	public void incWolves() {
-		this.wolves++;
+	public void incWolvesCount() {
+		this.wolvesCount++;
 	}
 
 	/**
@@ -115,15 +132,69 @@ public class IterationStats {
 	 * 
 	 * @return Quantity of grass.
 	 */
-	public int getGrass() {
-		return grass;
+	public int getGrassAlive() {
+		return this.grassAlive;
 	}
 
 	/**
-	 * Increment quantity of grass.
+	 * Increment quantity of alive grass.
 	 */
-	public void incGrass() {
-		this.grass++;
+	public void incGrassAlive() {
+		this.grassAlive++;
+	}
+	
+	/**
+	 * Get total sheep energy.
+	 * 
+	 * @return Total sheep energy.
+	 */
+	public long getSheepEnergy() {
+		return this.sheepEnergy;
+	}
+	
+	/**
+	 * Update sheep energy.
+	 * 
+	 * @param energy Partial sheep energy.
+	 */
+	public void updateSheepEnergy(int energy) {
+		this.sheepEnergy += energy;
+	}
+
+	/**
+	 * Get total wolves energy.
+	 * 
+	 * @return Total wolves energy.
+	 */
+	public long getWolvesEnergy() {
+		return this.wolvesEnergy;
+	}
+
+	/**
+	 * Update wolves energy.
+	 * 
+	 * @param energy Partial wolves energy.
+	 */
+	public void updateWolvesEnergy(int energy) {
+		this.wolvesEnergy += energy;
+	}
+
+	/**
+	 * Get total grass countdown.
+	 * 
+	 * @return Total grass countdown.
+	 */
+	public long getGrassCountdown() {
+		return this.grassCountdown;
+	}
+
+	/**
+	 * Update grass countdown.
+	 * 
+	 * @param countdown Partial grass countdown.
+	 */
+	public void updateGrassCountdown(int countdown) {
+		this.grassCountdown += countdown;
 	}
 
 }
