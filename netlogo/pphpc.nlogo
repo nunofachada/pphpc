@@ -18,6 +18,8 @@ patches-own [countdown] ;; patches have a countdown variable for grass
 to setup
 
   clear-all
+  
+  ;; show-params
 
   ask patches [ 
     ifelse random 2 = 1 [
@@ -93,6 +95,7 @@ to go
 end
 
 to gather-stats
+  set maxwho max [who] of sheep
   set sheep-count count sheep
   set wolves-count count wolves
   set grass-alive count patches with [countdown <= 0]
@@ -130,8 +133,7 @@ to reproduce [ reprod-thres reprod-prob ] ;; turtle procedure
       let energy_offspring int (energy / 2)
       set energy energy - energy_offspring    ;; divide energy between parent and offspring
       hatch 1 [ ;; hatch an offspring which stays in the same place
-        set energy energy_offspring 
-        set maxwho who ] 
+        set energy energy_offspring  ] 
     ]
   ]
 end
@@ -160,19 +162,33 @@ to display-labels
   ]
 end
 
+to show-params
+  print word "                INIT_SHEEP = " initial-number-sheep
+  print word "      SHEEP_GAIN_FROM_FOOD = " sheep-gain-from-food
+  print word " SHEEP_REPRODUCE_THRESHOLD = " sheep-reprod-thres
+  print word "      SHEEP_REPRODUCE_PROB = " sheep-reprod-prob
+  print word "               INIT_WOLVES = " initial-number-wolves
+  print word "     WOLVES_GAIN_FROM_FOOD = " wolf-gain-from-food
+  print word "WOLVES_REPRODUCE_THRESHOLD = " wolf-reprod-thres
+  print word "     WOLVES_REPRODUCE_PROB = " wolf-reprod-prob
+  print word "             GRASS_RESTART = " grass-regrowth-time
+  print word "                    GRID_X = " world-width
+  print word "                    GRID_Y = " world-height
+  print word "                     ITERS = " iterations
+end
 
 ; Copyright 1997 Uri Wilensky. All rights reserved.
 ; Copyright 2015 Nuno Fachada. All rights reserved.
 ; The full copyright notice is in the Information tab.
 @#$#@#$#@
 GRAPHICS-WINDOW
-644
+646
 10
-1154
-541
+1056
+441
 -1
 -1
-5.0
+4.0
 1
 9
 1
@@ -391,7 +407,7 @@ SWITCH
 91
 show-energy?
 show-energy?
-0
+1
 1
 -1000
 
@@ -461,10 +477,10 @@ Number of iterations
 1
 
 BUTTON
-135
-10
-190
-43
+73
+380
+128
+413
 Reset
 set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2\n
 NIL
@@ -539,6 +555,23 @@ grass-countdown
 3
 1
 11
+
+BUTTON
+134
+10
+193
+43
+step
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -899,6 +932,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="99"/>
     </enumeratedValueSet>
@@ -944,6 +983,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="199"/>
@@ -991,6 +1036,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="399"/>
     </enumeratedValueSet>
@@ -1036,6 +1087,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="799"/>
@@ -1083,6 +1140,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="1599"/>
     </enumeratedValueSet>
@@ -1128,6 +1191,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="99"/>
@@ -1175,6 +1244,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="199"/>
     </enumeratedValueSet>
@@ -1220,6 +1295,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="399"/>
@@ -1267,6 +1348,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="799"/>
     </enumeratedValueSet>
@@ -1312,6 +1399,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="1599"/>
@@ -1362,6 +1455,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="99"/>
     </enumeratedValueSet>
@@ -1410,6 +1509,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="199"/>
@@ -1460,6 +1565,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="399"/>
     </enumeratedValueSet>
@@ -1508,6 +1619,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="799"/>
@@ -1558,6 +1675,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="4"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="1599"/>
     </enumeratedValueSet>
@@ -1606,6 +1729,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="99"/>
@@ -1656,6 +1785,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="199"/>
     </enumeratedValueSet>
@@ -1704,6 +1839,12 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="399"/>
@@ -1754,6 +1895,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="799"/>
     </enumeratedValueSet>
@@ -1803,6 +1950,12 @@ repeat 75 [ go ]
     <enumeratedValueSet variable="sheep-reprod-prob">
       <value value="10"/>
     </enumeratedValueSet>
+    <enumeratedValueSet variable="wolf-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="sheep-reprod-thres">
+      <value value="2"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="max-pxcor">
       <value value="1599"/>
     </enumeratedValueSet>
@@ -1823,55 +1976,6 @@ repeat 75 [ go ]
     </enumeratedValueSet>
     <enumeratedValueSet variable="wolf-gain-from-food">
       <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex200v1ENW" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="1600"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="iterations">
       <value value="4001"/>
