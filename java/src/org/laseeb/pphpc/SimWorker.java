@@ -119,15 +119,18 @@ public class SimWorker implements Runnable {
 				this.model.initCellAt(token, rng);
 			}
 
-			/* Notify controller I have initialized my allocated cells. */
-			this.controller.workerNotifyInitCells();
-
 			/* Reset my cells work. */
 			cellsWorkProvider.resetWork(cellsWork);
+
+			/* Notify controller I have initialized my allocated cells. */
+			this.controller.workerNotifyInitCells();
 			
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				this.model.setCellNeighbors(token);
 			}
+
+			/* Reset my cells work. */
+			cellsWorkProvider.resetWork(cellsWork);
 			
 			/* Notify controller I already set the neighbors for my allocated cells. */
 			controller.workerNotifySetCellNeighbors();
@@ -152,10 +155,12 @@ public class SimWorker implements Runnable {
 			
 			/* Get initial statistics. */
 			iterStats.reset();
-			cellsWorkProvider.resetWork(cellsWork);
 			while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
 				this.model.getCell(token).getStats(iterStats);
 			}
+
+			/* Reset my cells work. */
+			cellsWorkProvider.resetWork(cellsWork);
 			
 			/* Update global statistics. */
 			this.model.updateStats(0, iterStats);
@@ -165,9 +170,6 @@ public class SimWorker implements Runnable {
 			
 			/* Perform simulation steps. */
 			for (iter = 1; iter <= this.params.getIters(); iter++) {
-
-				/* Reset my cells work. */
-				cellsWorkProvider.resetWork(cellsWork);
 				
 				/* Cycle through cells in order to perform step 1 and 2 of simulation. */
 				while ((token = cellsWorkProvider.getNextToken(cellsWork)) >= 0) {
@@ -218,6 +220,9 @@ public class SimWorker implements Runnable {
 					cell.getStats(iterStats);
 					
 				}
+
+				/* Reset my cells work. */
+				cellsWorkProvider.resetWork(cellsWork);
 				
 				/* Update global statistics. */
 				this.model.updateStats(iter, iterStats);

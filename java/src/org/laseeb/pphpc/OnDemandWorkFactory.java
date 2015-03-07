@@ -109,28 +109,8 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	@Override
 	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		
-		/* Instantiate the on-demand work provider. */
-		final OnDemandWorkProvider workProvider = new OnDemandWorkProvider(this.blockSize, workSize);
-		
-		/* Create a control event observer to reset work at certain control points. */
-		IControlEventObserver resetCellCounter = new IControlEventObserver() {
-
-			@Override
-			public void update(ControlEvent event, IController controller) {
-				workProvider.resetWorkCounter();
-			}
-		};
-		
-		/* Add control observer to reset work at the following control points: */
-		controller.registerControlEventObserver(ControlEvent.BEFORE_INIT_CELLS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_CELLS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_INIT_AGENTS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_FIRST_STATS, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_HALF_ITERATION, resetCellCounter);
-		controller.registerControlEventObserver(ControlEvent.AFTER_END_ITERATION, resetCellCounter);
-		
-		/* Return the instantiated work provider. */
-		return workProvider;
+		/* Return a new on-demand work provider. */
+		return new OnDemandWorkProvider(this.blockSize, workSize);
 	}
 
 }
