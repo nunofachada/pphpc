@@ -65,6 +65,12 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	/* Work counter for all workers. */
 	private AtomicInteger counter;
 	
+	/* How many workers have reset their work? */
+	private AtomicInteger resetsCounter;
+	
+	/* How many workers will fetch work from this work provider? */
+	private int numWorkers;
+	
 	/* Number of work tokens to allocate for each worker at each request. */
 	private int blockSize;
 	
@@ -79,6 +85,8 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	 */
 	public OnDemandWorkProvider(int blockSize, int workSize) {
 		this.counter = new AtomicInteger(0);
+		this.resetsCounter = new AtomicInteger(0);
+		this.numWorkers = 0;
 		this.blockSize = blockSize;
 		this.workSize = workSize;
 	}
@@ -88,6 +96,11 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	 */
 	@Override
 	public IWork newWork(int wId) {
+		synchronized(this) {
+			if (wId + 1 > this.numWorkers) {
+				this.numWorkers = wId + 1;
+			}
+		}
 		return new OnDemandWork(wId);
 	}
 
@@ -134,21 +147,21 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	@Override
 	public void resetWork(IWork work) {
 		
+		/* Another worker has reset its work... */
+		int numResets = this.resetsCounter.incrementAndGet();
+
 		/* Cast generic work to on-demand work... */
 		OnDemandWork odWork = (OnDemandWork) work;
 
 		/* ...and reset work state. */
 		odWork.next = 0;
 		odWork.max = 0;
-
+		
+		/* If all workers have reset their work, reset work counter. */
+		if (numResets == this.numWorkers) {
+			this.resetsCounter.set(0);
+			this.counter.set(0);
+		}
 	}
 
-	/**
-	 * Reset global work counter. To be called by one thread only when a work session
-	 * is finished.
-	 */
-	void resetWorkCounter() {
-		this.counter.set(0);
-	}
-	
 }
