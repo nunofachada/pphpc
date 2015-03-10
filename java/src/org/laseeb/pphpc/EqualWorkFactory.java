@@ -48,26 +48,6 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 	private boolean repeatable = false;
 
 	/**
-	 * @see IWorkFactory#createPutNewAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		
-		/* If simulation is to be repeatable... */
-		if (this.repeatable) {
-			
-			/* ...agents must be sorted after inserted in cell. */
-			return new CellPutAgentSyncSort();
-		
-		} else {
-			
-			/* Otherwise, synchronous agent insertion suffices. */
-			return new CellPutAgentSync();
-			
-		}
-	}
-
-	/**
 	 * @see IWorkFactory#createPutInitAgentStrategy()
 	 */
 	@Override
@@ -77,7 +57,7 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 		if (this.repeatable) {
 
 			/* ...agents must be sorted after inserted in cell. */
-			return new CellPutAgentSyncSort();
+			return new CellPutAgentSyncOrdered();
 			
 		} else {
 			
@@ -97,7 +77,7 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 		if (this.repeatable) {
 
 			/* ...agents must be sorted after inserted in cell. */
-			return new CellPutAgentSyncSort();
+			return new CellPutAgentSyncOrdered();
 			
 		} else {
 			

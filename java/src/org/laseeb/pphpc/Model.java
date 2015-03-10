@@ -69,11 +69,8 @@ public class Model implements IModel {
 	/* Simulation space. */
 	private ISpace space;
 	
-	/* Strategy for putting inital agents in cells. */
+	/* Strategy for putting initial agents in cells. */
 	private ICellPutAgentStrategy putInitAgentStrategy;
-	
-	/* Strategy for putting new agents in cells. */
-	private ICellPutAgentStrategy putNewAgentStrategy;
 	
 	/* Strategy for putting existing agents in cells. */
 	private ICellPutAgentStrategy putExistingAgentStrategy;
@@ -112,7 +109,6 @@ public class Model implements IModel {
 		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
 		this.globalStats = wFactory.createGlobalStats(params.getIters());
 		this.putInitAgentStrategy = wFactory.createPutInitAgentStrategy();
-		this.putNewAgentStrategy = wFactory.createPutNewAgentStrategy();
 		this.putExistingAgentStrategy = wFactory.createPutExistingAgentStrategy();
 		this.grassInitStrategy = new CellGrassInitCoinRandCounter();
 		this.currentIteration = 0;
@@ -189,8 +185,7 @@ public class Model implements IModel {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
 					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng),
-					this.putInitAgentStrategy, this.putNewAgentStrategy,
-					this.putExistingAgentStrategy);
+					this.putInitAgentStrategy, this.putExistingAgentStrategy);
 		} else {
 			throw new IllegalStateException("Cell " + idx + " already set!");
 		}

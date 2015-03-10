@@ -55,14 +55,6 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 	public ICellPutAgentStrategy createPutInitAgentStrategy() {
 		return new CellPutAgentAsync();
 	}
-	
-	/**
-	 * @see IWorkFactory#createPutNewAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		return new CellPutAgentAsync();
-	}
 
 	/**
 	 * @see IWorkFactory#createPutExistingAgentStrategy()
