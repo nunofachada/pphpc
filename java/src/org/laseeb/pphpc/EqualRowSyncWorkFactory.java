@@ -72,15 +72,7 @@ public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 	 */
 	@Override
 	public ICellPutAgentStrategy createPutInitAgentStrategy() {
-		return new CellPutAgentSyncSort();
-	}
-	
-	/**
-	 * @see IWorkFactory#createPutNewAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		return new CellPutAgentAsync();
+		return new CellPutAgentSyncOrdered();
 	}
 
 	/**

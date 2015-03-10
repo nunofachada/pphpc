@@ -64,13 +64,6 @@ public interface IWorkFactory {
 	public ICellPutAgentStrategy createPutInitAgentStrategy();
 	
 	/**
-	 * Create and return an appropriate strategy for putting new agents in a cell.
-	 * 
-	 * @return An appropriate strategy for putting new agents in a cell.
-	 */
-	public ICellPutAgentStrategy createPutNewAgentStrategy();
-	
-	/**
 	 * Create and return an appropriate strategy for putting existing agents in a cell.
 	 * 
 	 * @return An appropriate strategy for putting existing agents in a cell.

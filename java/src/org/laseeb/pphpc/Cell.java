@@ -42,7 +42,6 @@ public class Cell implements ICell {
 	
 	/* Put agent strategies. */
 	private ICellPutAgentStrategy putInitAgentStrategy;
-	private ICellPutAgentStrategy putNewAgentStrategy;
 	private ICellPutAgentStrategy putExistingAgentStrategy;
 	
 	/* Iterations for cell restart. */
@@ -80,13 +79,11 @@ public class Cell implements ICell {
 	public Cell(int grassRestart,
 			int initialGrass,
 			ICellPutAgentStrategy putInitAgentsStrategy,
-			ICellPutAgentStrategy putNewAgentsStrategy,
 			ICellPutAgentStrategy putExistingAgentStrategy) {
 		
 		this.grassRestart = grassRestart;
 		this.grass = initialGrass;
 		this.putInitAgentStrategy = putInitAgentsStrategy;
-		this.putNewAgentStrategy = putNewAgentsStrategy;
 		this.putExistingAgentStrategy = putExistingAgentStrategy;
 		
 		/* Initialize agent keeping structures. */
@@ -158,8 +155,8 @@ public class Cell implements ICell {
 	@Override
 	public void putNewAgent(IAgent agent) {
 		
-		/* Put new agent according to the specified strategy. */
-		this.putNewAgentStrategy.putAgent(this.newAgents, agent);
+		/* Put new agent in new agent list. */
+		this.newAgents.add(agent);
 
 	}
 	

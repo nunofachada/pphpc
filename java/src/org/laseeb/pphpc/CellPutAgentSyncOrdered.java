@@ -31,21 +31,21 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Put an agent in a cell's internal agent list synchronously and then sort the list,
+ * Put an agent in a cell's internal agent list synchronously and in order,
  * in a thread-safe fashion.
  *  
  * @author Nuno Fachada
  */
-public class CellPutAgentSyncSort implements ICellPutAgentStrategy {
+public class CellPutAgentSyncOrdered implements ICellPutAgentStrategy {
 
 	/**
 	 * Create a new instance of this class.
 	 */
-	public CellPutAgentSyncSort() {}
+	public CellPutAgentSyncOrdered() {}
 
 	/**
-	 * Put an agent in a cell's internal agent list synchronously and then sort the 
-	 * list, in a thread-safe fashion.
+	 * Put an agent in a cell's internal agent list synchronously and in order, 
+	 * in a thread-safe fashion.
 	 * 
 	 * @see ICellPutAgentStrategy#putAgent(List, IAgent)
 	 * */

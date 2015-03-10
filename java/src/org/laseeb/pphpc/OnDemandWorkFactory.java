@@ -54,14 +54,6 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	public ICellPutAgentStrategy createPutInitAgentStrategy() {
 		return new CellPutAgentSync();
 	}
-	
-	/**
-	 * @see IWorkFactory#createPutNewAgentStrategy()
-	 */
-	@Override
-	public ICellPutAgentStrategy createPutNewAgentStrategy() {
-		return new CellPutAgentSync();
-	}
 
 	/**
 	 * @see IWorkFactory#createPutExistingAgentStrategy()
