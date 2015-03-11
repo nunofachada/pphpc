@@ -72,7 +72,6 @@ public class Cell implements ICell {
 	 * 
 	 * @param grassRestart Grass restart simulation parameter.
 	 * @param initialGrass Initial grass value.
-	 * @param putNewAgentsStrategy Strategy for putting new agents in this cell.
 	 * @param putExistingAgentStrategy Strategy for putting existing agents in
 	 * this cell.
 	 */
