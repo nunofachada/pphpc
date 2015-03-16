@@ -27,19 +27,80 @@
 
 package org.laseeb.pphpc;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.validators.PositiveInteger;
 
 /**
- * Abstract class for multi-threaded work factories. 
+ * Abstract class for multi-threaded work factories. Produces work providers for
+ * a given work size and maintains a map of work sizes and work provider 
+ * implementations.
  * 
  * @author Nuno Fachada
  */
-public abstract class AbstractMultiThreadWorkFactory extends AbstractWorkFactory {
+public abstract class AbstractMultiThreadWorkFactory implements IWorkFactory {
 
 	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", validateWith = PositiveInteger.class)
+	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", 
+			validateWith = PositiveInteger.class)
 	protected int numThreads = Runtime.getRuntime().availableProcessors();
+
+	/* Map of work sizes and work provider implementations. */
+	private Map<Integer, IWorkProvider> workProviders;
+	
+	/**
+	 * Create a new abstract work factory.
+	 */
+	public AbstractMultiThreadWorkFactory() {
+		
+		/* Initialize map of work sizes and work provider implementations. */
+		this.workProviders = new HashMap<Integer, IWorkProvider>();
+	}
+	
+	/**
+	 * @see IWorkFactory#getWorkProvider(int, WorkType, IModel, IController)
+	 */
+	@Override
+	public IWorkProvider getWorkProvider(int workSize, WorkType workType, 
+			IModel model, IController controller) {
+
+		/* Instantiate work provider if required. Use double-checked locking to 
+		 * avoid thread synchronization after initialization. */
+		if (!this.workProviders.containsKey(workSize)) {
+			synchronized (this) {
+				if (!this.workProviders.containsKey(workSize)) {
+					
+					/* If the work provider for the given work size hasn't yet 
+					 * been created, delegate creation to the concrete work 
+					 * factory. */
+					IWorkProvider workProvider = this.doGetWorkProvider(
+							workSize, workType, model, controller);
+					
+					/* Put new work provider in map, associated with the given 
+					 * work size. */
+					this.workProviders.put(workSize, workProvider);
+					
+				}
+			}
+		}
+		
+		return this.workProviders.get(workSize);
+	}
+
+	/**
+	 * Create concrete work provider.
+	 * 
+	 * @param workSize Size of work to be distributed by the work provider.
+	 * @param workType Type of work to perform (agent or cell work).
+	 * @param model The MVC model.
+	 * @param controller The MVC controller.
+	 * @return A new work provider.
+	 */
+	protected abstract IWorkProvider doGetWorkProvider(int workSize, 
+			WorkType workType, IModel model, IController controller);
+	
 	
 	/**
 	 * Create a thread-safe global statistics object. 

@@ -121,10 +121,6 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 			/* Current sync. point is zero, naturally. */
 			this.currSyncPoint = 0;
 			
-//			System.out.println("Worker " + wId + " gets work from " + this.startToken + " to " + this.endToken
-//					+ " (sync points: " + Arrays.toString(syncPoints) + ")");
-			
-			
 		}
 		
 	}

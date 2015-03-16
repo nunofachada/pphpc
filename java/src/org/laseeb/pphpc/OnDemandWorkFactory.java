@@ -74,7 +74,7 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 		
 		/* ...and set appropriate sync. points for on-demand work division. */
 		controller.setWorkerSynchronizers(
-				new BlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
 				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
 				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS,controller, this.numThreads), 
@@ -102,7 +102,7 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
 		
 		/* Return a new on-demand work provider. */
-		return new OnDemandWorkProvider(this.blockSize, workSize);
+		return new OnDemandWorkProvider(this.numThreads, this.blockSize, workSize);
 	}
 
 }
