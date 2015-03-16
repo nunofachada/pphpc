@@ -80,13 +80,14 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	/**
 	 * Create a new on-demand work provider.
 	 * 
+	 * @param numWorkers Number of workers which will access this work provider.
 	 * @param blockSize Number of work tokens to allocate for each worker at each request.
 	 * @param workSize Total work size.
 	 */
-	public OnDemandWorkProvider(int blockSize, int workSize) {
+	public OnDemandWorkProvider(int numWorkers, int blockSize, int workSize) {
 		this.counter = new AtomicInteger(0);
 		this.resetsCounter = new AtomicInteger(0);
-		this.numWorkers = 0;
+		this.numWorkers = numWorkers;
 		this.blockSize = blockSize;
 		this.workSize = workSize;
 	}
@@ -96,11 +97,6 @@ public class OnDemandWorkProvider implements IWorkProvider {
 	 */
 	@Override
 	public IWork newWork(int wId) {
-		synchronized(this) {
-			if (wId + 1 > this.numWorkers) {
-				this.numWorkers = wId + 1;
-			}
-		}
 		return new OnDemandWork(wId);
 	}
 
