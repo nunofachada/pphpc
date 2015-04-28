@@ -517,6 +517,7 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 			buffersHost->matrix[gridIndex].grass = grassState;
 			if (grassState == 0)
 				buffersHost->stats[0].grass++;
+			buffersHost->stats[0].grass_en += grassState;
 
 			/* Initialize agent pointer. */
 			buffersHost->matrix[gridIndex].agent_pointer =
@@ -548,27 +549,37 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 			/* Initialize generic agent parameters. */
 			buffersHost->agents[i].action = 0;
 			buffersHost->agents[i].next = PPC_NULL_AGENT_POINTER;
-			cl_uint gridIndex = (x + y*params.grid_x);
+			cl_uint gridIndex = (x + y * params.grid_x);
 			if (buffersHost->matrix[gridIndex].agent_pointer == PPC_NULL_AGENT_POINTER) {
+
 				/* This cell had no agent, put it there. */
 				buffersHost->matrix[gridIndex].agent_pointer = i;
+
 			} else {
+
 				/* Cell already has agent, put it at the end of the list. */
 				cl_uint agindex = buffersHost->matrix[gridIndex].agent_pointer;
 				while (buffersHost->agents [agindex].next != PPC_NULL_AGENT_POINTER)
 					agindex = buffersHost->agents [agindex].next;
 				buffersHost->agents [agindex].next = i;
+
 			}
 
 			/* Perform agent specific initialization. */
 			if (i < params.init_sheep) {
 				/* Initialize sheep specific parameters. */
-				buffersHost->agents[i].energy = g_rand_int_range(rng, 1, params.sheep_gain_from_food * 2 + 1);
+				buffersHost->agents[i].energy = g_rand_int_range(
+					rng, 1, params.sheep_gain_from_food * 2 + 1);
 				buffersHost->agents[i].type = SHEEP_ID;
+				buffersHost->stats[0].sheep_en +=
+					buffersHost->agents[i].energy;
 			} else {
 				/* Initialize wolf specific parameters. */
-				buffersHost->agents[i].energy = g_rand_int_range(rng, 1, params.wolves_gain_from_food * 2 + 1);
+				buffersHost->agents[i].energy = g_rand_int_range(
+					rng, 1, params.wolves_gain_from_food * 2 + 1);
 				buffersHost->agents[i].type = WOLF_ID;
+				buffersHost->stats[0].wolves_en +=
+					buffersHost->agents[i].energy;
 			}
 
 		} else {
@@ -831,8 +842,15 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 		"Unable to open file \"%s\"", realFilename);
 
 	for (cl_uint i = 0; i <= params.iters; ++i)
-		fprintf(fp, "%d\t%d\t%d\n", buffersHost->stats[i].sheep,
-			buffersHost->stats[i].wolves, buffersHost->stats[i].grass);
+		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\n",
+			buffersHost->stats[i].sheep, buffersHost->stats[i].wolves,
+			buffersHost->stats[i].grass,
+			buffersHost->stats[i].sheep_en /
+				(float) buffersHost->stats[i].sheep,
+			buffersHost->stats[i].wolves_en /
+				(float) buffersHost->stats[i].wolves,
+			buffersHost->stats[i].grass_en /
+				(float) params.grid_xy);
 
 	fclose(fp);
 

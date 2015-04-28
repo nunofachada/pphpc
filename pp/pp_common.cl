@@ -28,6 +28,9 @@ typedef struct pp_statistics_ocl {
 	uint sheep;
 	uint wolves;
 	uint grass;
+	uint sheep_en;
+	uint wolves_en;
+	uint grass_en;
 } PPStatisticsOcl;
 
 /** @todo This is only required for pp_cpu, but if we pass sim

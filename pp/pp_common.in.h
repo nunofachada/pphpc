@@ -92,6 +92,12 @@ typedef struct pp_statistics {
 	cl_uint wolves;
 	/** Quantity of grass. */
 	cl_uint grass;
+	/** Total sheep energy. */
+	cl_uint sheep_en;
+	/** Total wolf energy. */
+	cl_uint wolves_en;
+	/** Total countdown value. */
+	cl_uint grass_en;
 } PPStatistics;
 
 /**

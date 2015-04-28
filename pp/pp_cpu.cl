@@ -217,112 +217,206 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			__private uint iter,
 			__private uint turn,
 			__constant PPCSimParamsOcl* sim_params_ptr,
-			__constant PPAgentParamsOcl* agent_params)
-{
+			__constant PPAgentParamsOcl* agent_params) {
+
+	/* Get simulation parameters localy. */
 	PPCSimParamsOcl sim_params = *sim_params_ptr;
-	// Reset partial statistics
+
+	/* Reset partial statistics */
 	uint sheepCount = 0;
 	uint wolvesCount = 0;
 	uint grassCount = 0;
-	// Determine line to process
+	uint totSheepEn = 0;
+	uint totWolvesEn = 0;
+	uint totGrassEn = 0;
+
+	/* Determine line to process */
 	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
-	// Check if this thread has to process anything
+
+	/* Check if this thread has to process anything */
 	if (y < sim_params.size_y) {
-		// Determine start and end of line
+
+		/* Determine start and end of line */
 		uint indexStart = y * sim_params.size_x;
 		uint indexStop = indexStart + sim_params.size_x;
-		// Cycle through cells in line
+
+		/* Cycle through cells in line */
 		for (uint index = indexStart; index < indexStop; index++) {
-			// For each agent in cell:
+
+			/* For each agent in cell */
 			uint agentPointer = matrix[index].agent_pointer;
 			while (agentPointer != sim_params.null_agent_pointer) {
+
 				/* Get agent from global memory to private memory. */
 				PPCAgentOcl agent = agents[agentPointer];
+
 				/* Set agent action as performed. */
 				agent.action = 0;
+
+				/* Agent actions. Agent will only perform actions if
+				 * its energy is positive. */
 				if (agent.energy > 0) {
-					/* Agent actions. */
+
+					/* Is agent a sheep? */
 					if (agent.type == SHEEP_ID) {
-						// Count sheep
-						sheepCount++;
-						// If there is grass...
+
+						/* If there is grass... */
 						if (matrix[index].grass == 0) {
-							// ...eat grass...
-							matrix[index].grass = sim_params.grass_restart;
-							// ...and gain energy!
-							agent.energy += agent_params[SHEEP_ID].gain_from_food;
+
+							/* ...eat grass... */
+							matrix[index].grass =
+								sim_params.grass_restart;
+
+							/* ...and gain energy! */
+							agent.energy +=
+								agent_params[SHEEP_ID].gain_from_food;
 						}
+
+						/* Update sheep stats. */
+						sheepCount++;
+						totSheepEn += agent.energy;
+
+					/* Or is agent a wolf? */
 					} else {
-						// Count wolves
-						wolvesCount++;
-						// Look for sheep
-						uint localAgentPointer = matrix[index].agent_pointer;
-						uint previousAgentPointer = sim_params.null_agent_pointer;
-						while (localAgentPointer != sim_params.null_agent_pointer) {
-							uint nextAgentPointer = agents[localAgentPointer].next;
-							// Is sheep?
-							if (agents[localAgentPointer].type == SHEEP_ID) {
-								// It is sheep, eat it!
-								agents[localAgentPointer].energy = 0;
-								if (agents[localAgentPointer].action == 0) // Can be: if (agentPointer > localAgentPointer)
+
+						/* Look for sheep... */
+						uint localAgentPointer =
+							matrix[index].agent_pointer;
+						uint previousAgentPointer =
+							sim_params.null_agent_pointer;
+
+						/* ...while there are agents to look for. */
+						while (localAgentPointer !=
+								sim_params.null_agent_pointer) {
+
+							/* Get next agent. */
+							uint nextAgentPointer =
+								agents[localAgentPointer].next;
+
+							/* Is next agent a sheep? */
+							if (agents[localAgentPointer].type ==
+									SHEEP_ID) {
+
+								/* It is sheep, eat it! */
+
+								/* If sheep already acted, update
+								 * sheep stats. */
+								if (agents[localAgentPointer].action
+										== 0) { /* Can also be: if (agentPointer > localAgentPointer) */
+
 									sheepCount--;
-								removeAgentFromCell(agents, matrix, index, localAgentPointer, previousAgentPointer, sim_params);
-								agent.energy += agent_params[WOLF_ID].gain_from_food;
-								// If previous agent in list is the wolf currently acting, make sure his next pointer is updated in local var
-								if (previousAgentPointer == agentPointer)
-									agent.next = agents[localAgentPointer].next;
-								// One sheep is enough...
+									totSheepEn -=
+										agents[localAgentPointer].energy;
+
+								}
+
+								/* Set sheep energy to zero. */
+								agents[localAgentPointer].energy = 0;
+
+								/* Remove sheep from cell. */
+								removeAgentFromCell(agents, matrix,
+									index, localAgentPointer,
+									previousAgentPointer, sim_params);
+
+								/* Increment wolf energy. */
+								agent.energy +=
+									agent_params[WOLF_ID].gain_from_food;
+
+								/* If previous agent in list is the wolf
+								 * currently acting, make sure his next
+								 * pointer is updated in local var */
+								if (previousAgentPointer == agentPointer) {
+
+									agent.next =
+										agents[localAgentPointer].next;
+
+								}
+
+								/* One sheep is enough... */
 								break;
 							}
-							// Not a sheep, next agent please
+
+							/* Not a sheep, next agent please */
 							previousAgentPointer = localAgentPointer;
 							localAgentPointer = nextAgentPointer;
 						}
+
+						/* Update wolves stats. */
+						wolvesCount++;
+						totWolvesEn += agent.energy;
+
 					}
 
 					/* Try to reproduce agent. */
 
-					// Perhaps agent will reproduce if energy > reproduce_threshold
-					if (agent.energy > agent_params[agent.type].reproduce_threshold) {
-						// Throw some kind of dice to see if agent reproduces
-						if (clo_rng_next_int(seeds, 100) < agent_params[agent.type].reproduce_prob ) {
-							// Agent will reproduce! Let's find some space...
-							uint newAgentIndex = allocateAgentIndex(agents, seeds, sim_params);
-							// Create agent with half the energy of parent and pointing to first agent in this cell
+					/* Perhaps agent will reproduce if
+					 * energy > reproduce_threshold ? */
+					if (agent.energy >
+							agent_params[agent.type].reproduce_threshold) {
+
+						/* Throw dice to see if agent reproduces */
+						if (clo_rng_next_int(seeds, 100) <
+								agent_params[agent.type].reproduce_prob ) {
+
+							/* Agent will reproduce!
+							 * Let's find some space for new agent... */
+							uint newAgentIndex = allocateAgentIndex(
+								agents, seeds, sim_params);
+
+							/* Create agent with half the energy of
+							 * parent and pointing to first agent in
+							 * this cell */
 							PPCAgentOcl newAgent;
 							newAgent.action = 0;
 							newAgent.type = agent.type;
 							newAgent.energy = agent.energy / 2;
+
+							/* Put new agent in this cell */
 							newAgent.next = matrix[index].agent_pointer;
-							// Put new agent in this cell
 							matrix[index].agent_pointer = newAgentIndex;
-							// Save new agent in agent array
+
+							/* Save new agent in agent array */
 							agents[newAgentIndex] = newAgent;
-							// Parent's energy will be halved also
-							agent.energy = agent.energy - newAgent.energy;
-							// Increment count
+
+							/* Parent's energy will be halved also */
+							agent.energy =
+								agent.energy - newAgent.energy;
+
+							/* Increment agent count */
 							if (agent.type == SHEEP_ID)
 								sheepCount++;
 							else
 								wolvesCount++;
+
+							/* I don't touch the energy stats because
+							 * the total energy will remain the same. */
 						}
 					}
+
 					/* Save agent back to global memory. */
 					agents[agentPointer] = agent;
 				}
+
 				/* Get next agent. */
 				agentPointer = agent.next;
 			}
-			// Count grass
+
+			/* Update grass stats. */
 			if (matrix[index].grass == 0)
 				grassCount++;
+			totGrassEn += matrix[index].grass;
+
 		}
 	}
 
-	// Update global stats
+	/* Update global stats */
 	atomic_add(&stats[iter].sheep, sheepCount);
 	atomic_add(&stats[iter].wolves, wolvesCount);
 	atomic_add(&stats[iter].grass, grassCount);
+
+	atomic_add(&stats[iter].sheep_en, totSheepEn);
+	atomic_add(&stats[iter].wolves_en, totWolvesEn);
+	atomic_add(&stats[iter].grass_en, totGrassEn);
 }
 
 
