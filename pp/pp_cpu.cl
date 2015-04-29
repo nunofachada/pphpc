@@ -243,8 +243,59 @@ __kernel void step2(__global PPCAgentOcl * agents,
 		/* Cycle through cells in line */
 		for (uint index = indexStart; index < indexStop; index++) {
 
+			/* Pointer for current agent. */
+			uint agentPointer;
+
+			agentPointer = matrix[index].agent_pointer;
+			while (agentPointer != sim_params.null_agent_pointer) {
+
+				int j = clo_rng_next_int(seeds, 5);
+
+				if ((j < 3) && (agents[agentPointer].next != sim_params.null_agent_pointer)) { /* 60% */
+
+					uint energy = agents[agentPointer].energy;
+					uint type = agents[agentPointer].type;
+
+					agents[agentPointer].energy =
+						agents[agents[agentPointer].next].energy;
+					agents[agentPointer].type =
+						agents[agents[agentPointer].next].type;
+
+					agents[agents[agentPointer].next].energy = energy;
+					agents[agents[agentPointer].next].type = type;
+
+
+				}
+				agentPointer = agents[agentPointer].next;
+
+			}
+
+			agentPointer = matrix[index].agent_pointer;
+
+			//~ /* Shuffle agents in cell using the Durstenfeld version of
+			 //~ * the Fisher-Yates shuffle. */
+			//~ for (int i = numAgentsInCell - 1; i > 0 ; --i) {
+//~
+				//~ int j = clo_rng_next_int(seeds, i + 1);
+//~
+				//~ uint energy = agents[agentPointer + i].energy;
+				//~ uint type = agents[agentPointer + i].type;
+				//~ uint action = agents[agentPointer + i].action;
+//~
+				//~ agents[agentPointer + i].energy =
+					//~ agents[agentPointer + j].energy;
+				//~ agents[agentPointer + i].type =
+					//~ agents[agentPointer + j].type;
+				//~ agents[agentPointer + i].action =
+					//~ agents[agentPointer + j].action;
+//~
+				//~ agents[agentPointer + j].energy = energy;
+				//~ agents[agentPointer + j].type = type;
+				//~ agents[agentPointer + j].action = action;
+			//~ }
+
 			/* For each agent in cell */
-			uint agentPointer = matrix[index].agent_pointer;
+			//agentPointer = matrix[index].agent_pointer;
 			while (agentPointer != sim_params.null_agent_pointer) {
 
 				/* Get agent from global memory to private memory. */
