@@ -24,6 +24,12 @@
 #define PPC_NULL_AGENT_POINTER UINT_MAX
 
 /**
+ * Minimum distance between rows, which is equal to @f$2r + 1@f$, where
+ * @f$r=1@f$ is the radius of agent movement.
+ * */
+#define PPC_D_MIN 3
+
+/**
  * Parsed command-line arguments.
  * */
 typedef struct pp_c_args {
@@ -237,51 +243,93 @@ static GOptionEntry entries[] = {
 static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	cl_uint num_rows, GError **err) {
 
+	/* Get local work size. */
+	workSizes->lws = args.lws;
+
 	/* Determine maximum number of global work-items which can be used
 	 * for current problem (each pair of work-items must process rows
 	 * which are separated by two rows not being processed) */
-	workSizes->max_gws = num_rows / 3;
+	workSizes->max_gws = num_rows / PPC_D_MIN;
 
 	/* Determine effective number of global work-items to use. */
 	if (args.gws > 0) {
+
 		/* User specified a value, let's see if it's possible to use
 		 * it. */
 		if (workSizes->max_gws >= args.gws) {
+
 			/* Yes, it's possible. */
 			workSizes->gws = args.gws;
+
 		} else {
+
 			/* No, specified value is too large for the given
-			 * problem. */
+			 * problem. Throw error and exit function. */
 			ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
 				PP_INVALID_ARGS, error_handler,
 				"Global work size is too large for model parameters. " \
 				"Maximum size is %d.", (int) workSizes->max_gws);
+
 		}
+
+		/* If a local work size is given, check that the global work
+		 * size is a multiple of it. */
+		if (workSizes->lws > 0) {
+			ccl_if_err_create_goto(*err, PP_ERROR,
+				workSizes->gws % workSizes->lws != 0,
+				PP_INVALID_ARGS, error_handler,
+				"Global work size (%d) is not multiple of local work " \
+				"size (%d).",
+				(int) workSizes->gws, (int) workSizes->lws);
+		}
+
+
 	} else {
-		/* User did not specify a value, thus find a good one (which
-		 * will be the largest power of 2 bellow or equal to the
-		 * maximum. */
-		 /** @todo Should not be nlpo but in increments of LWS. */
-		unsigned int maxgws = clo_nlpo2(workSizes->max_gws);
-		if (maxgws > workSizes->max_gws)
-			workSizes->gws = maxgws / 2;
-		else
-			workSizes->gws = maxgws;
+
+		/* User did not specify a global work-size, as such it will
+		 * depend on whether the user specified a local work size. */
+		if (workSizes->lws > 0) {
+
+			/* User specified a local work size, as such find a global
+			 * work size less or equal than the maximum and which is
+			 * a multiple of the local work size. */
+			if (workSizes->max_gws % workSizes->lws == 0) {
+
+				workSizes->gws = workSizes->max_gws;
+
+			} else {
+				workSizes->gws = pp_next_multiple(
+					workSizes->max_gws - 2 * workSizes->lws,
+					workSizes->lws);
+			}
+
+		} else {
+
+			/* User did not specify a local work size, as such just
+			 * use the maximum value for the global work size and let
+			 * the OpenCL implementation figure out a good local work
+			 * size. */
+			workSizes->gws = workSizes->max_gws;
+
+		}
+
 	}
-	/* Determine the rows to be computed per thread. */
-	workSizes->rows_per_workitem =
-		num_rows / workSizes->gws + (num_rows % workSizes->gws > 0);
 
-	/* Get local work size. */
-	workSizes->lws = args.lws;
+	/* Determine initial estimate of rows to be computed per thread. */
+	workSizes->rows_per_workitem = num_rows / workSizes->gws;
 
-	/* Check that the global work size is a multiple of the local work
-	 * size. */
-	ccl_if_err_create_goto(*err, PP_ERROR,
-		(workSizes->lws > 0) && (workSizes->gws % workSizes->lws != 0),
-		PP_INVALID_ARGS, error_handler,
-		"Global work size (%d) is not multiple of local work size (%d).",
-		(int) workSizes->gws, (int) workSizes->lws);
+	/* Is it viable to increment estimate? This estimate can be
+	 * incremented if: 1) the number of rows is not equally divisible by
+	 * the global work-size; and, 2) after incrementing it, there are
+	 * enough rows for the last worker to process. */
+	if ((num_rows % workSizes->gws > 0)
+			&& (workSizes->gws * (workSizes->rows_per_workitem + 1)
+				< num_rows - PPC_D_MIN)) {
+
+		/* It is viable, so increment estimate. */
+		workSizes->rows_per_workitem++;
+
+	}
 
 	/* Set maximum number of agents. */
 	workSizes->max_agents = args.max_agents;
@@ -748,13 +796,15 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
      * let OpenCL decide. */
 	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
 
-	/* Get kernels. */
+	/* Get step1 kernel. */
 	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Get step2 kernel. */
 	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	/* Simulation loop! */
+	/* Simulation loop. */
 	for (iter = 1; iter <= params.iters; iter++) {
 
 		/* Step 1:  Move agents, grow grass */
@@ -983,12 +1033,15 @@ int main(int argc, char ** argv) {
 	ccl_if_err_goto(err, error_handler);
 	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
 
-	/* Select device and create context. */
+	/* Add CPU filter to device selection. */
 	ccl_devsel_add_indep_filter(
 		&filters, ccl_devsel_indep_type_cpu, NULL);
+
+	/* Add menu filter to device selection. */
 	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu,
 		&args.dev_idx);
 
+	/* Create context with device specified by user. */
 	ctx = ccl_context_new_from_filters(&filters, &err);
 	ccl_if_err_goto(err, error_handler);
 
