@@ -257,29 +257,27 @@ void shuffle_agents(__global PPCAgentOcl * agents,
 
 	/* Shuffle agents in cell using the Durstenfeld version of
 	 * the Fisher-Yates shuffle. */
-	for (int i = idx - 1; i > 0 ; --i) {
+	for (int i = idx - 1; i > 0; --i) {
 
 		uint j = clo_rng_next_int(seeds, i + 1);
 
 		uint energy = agents[ag_pointers[i]].energy;
 		uint type = agents[ag_pointers[i]].type;
-		//~ uint action = agents[ag_ptr + i].action;
+		//~ uint action = agents[ag_pointers[i]].action;
 
 		agents[ag_pointers[i]].energy =
 			agents[ag_pointers[j]].energy;
 		agents[ag_pointers[i]].type =
 			agents[ag_pointers[j]].type;
-		//~ agents[ag_ptr + i].action =
-			//~ agents[ag_ptr + j].action;
+		//~ agents[ag_pointers[i]].action =
+			//~ agents[ag_pointers[j]].action;
 
 		agents[ag_pointers[j]].energy = energy;
 		agents[ag_pointers[j]].type = type;
-		//~ agents[ag_ptr + j].action = action;
+		//~ agents[ag_pointers[j]].action = action;
+	}
 }
 
-
-
-}
 
 /*
  * AgentActionsGetStats (step2) kernel
