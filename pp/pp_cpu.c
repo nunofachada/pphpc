@@ -328,9 +328,9 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	 * incremented if: 1) the number of rows is not equally divisible by
 	 * the global work-size; and, 2) after incrementing it, there are
 	 * enough rows for the last worker to process. */
-	if ((num_rows % workSizes->gws > 0)
-			&& (workSizes->gws * (workSizes->rows_per_workitem + 1)
-				< num_rows - PPC_D_MIN)) {
+	if ((num_rows % workSizes->gws > 0) &&
+			((workSizes->gws - 1) * (workSizes->rows_per_workitem + 1)
+			< num_rows - PPC_D_MIN)) {
 
 		/* It is viable, so increment estimate. */
 		workSizes->rows_per_workitem++;

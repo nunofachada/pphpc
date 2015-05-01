@@ -175,15 +175,23 @@ __kernel void step1(__global PPCAgentOcl * agents,
 	/* Simulation parameters. */
 	PPCSimParamsOcl sim_params = *sim_params_ptr;
 
-	/* Determine line to process */
+	/* Determine row to process */
 	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
 
 	/* Check if this thread has to process anything */
 	if (y < sim_params.size_y) {
 
-		/* Determine start and end of line */
+		/* Determine start of row. */
 		uint idx_start = y * sim_params.size_x;
-		uint idx_stop = idx_start + sim_params.size_x;
+
+		/* Determine end of row: if this is not the last work-item
+		 * (condition 1) OR this is not the last row to process
+		 * (condition 2), then process current row until the end.
+		 * Otherwise, process all remaining cells until the end. */
+		uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
+						|| (turn < sim_params.rows_per_workitem - 1)
+			? idx_start + sim_params.size_x
+			: sim_params.size_xy;
 
 		/* Cycle through cells in line */
 		for (uint index = idx_start; index < idx_stop; index++) {
@@ -323,15 +331,23 @@ __kernel void step2(__global PPCAgentOcl * agents,
 	/* Array with agent pointers, for shuffling purposes.*/
 	uint ag_pointers[MAX_AGENT_PTRS];
 
-	/* Determine line to process */
+	/* Determine row to process. */
 	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
 
 	/* Check if this thread has to process anything */
 	if (y < sim_params.size_y) {
 
-		/* Determine start and end of line */
+		/* Determine start of row. */
 		uint idx_start = y * sim_params.size_x;
-		uint idx_stop = idx_start + sim_params.size_x;
+
+		/* Determine end of row: if this is not the last work-item
+		 * (condition 1) OR this is not the last row to process
+		 * (condition 2), then process current row until the end.
+		 * Otherwise, process all remaining cells until the end. */
+		uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
+						|| (turn < sim_params.rows_per_workitem - 1)
+			? idx_start + sim_params.size_x
+			: sim_params.size_xy;
 
 		/* Cycle through cells in line */
 		for (uint index = idx_start; index < idx_stop; index++) {
