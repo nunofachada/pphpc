@@ -107,15 +107,16 @@ uint allocateAgentIndex(__global PPCAgentOcl * agents,
 /**
  * Get a random neighbor cell, or current cell.
  */
-uint getRandomWalkCellIndex(__global clo_statetype* seeds,
+uint random_walk(__global clo_statetype* seeds,
 				uint cell_idx,
 				PPCSimParamsOcl sim_params) {
 
 	/* Chose a random direction. */
 	uint direction = clo_rng_next_int(seeds, 5);
 
-	/* Base case: stay in current cell. */
-	int dest_cell_idx = cell_idx;
+	/* Get x and y positions. */
+	uint pos_x = cell_idx % sim_params.size_x;
+	uint pos_y = cell_idx / sim_params.size_x;
 
 	/* Select the destination cell based on the chosen direction. */
 	switch (direction) {
@@ -126,61 +127,40 @@ uint getRandomWalkCellIndex(__global clo_statetype* seeds,
 
 		case 1:
 			/* Walk right. */
-			dest_cell_idx++;
-
-			/* Make sure destination cell is on the same row. */
-			if (cell_idx / sim_params.size_x !=
-					dest_cell_idx / sim_params.size_x) {
-				dest_cell_idx -= (int) sim_params.size_x;
-			}
+			if (pos_x + 1 < sim_params.size_x)
+				pos_x++;
+			else
+				pos_x = 0;
 			break;
 
 		case 2:
 			/* Walk left. */
-			dest_cell_idx--;
-
-			/* Make sure destination cell is on the same row. */
-			if (cell_idx / sim_params.size_x !=
-					dest_cell_idx / sim_params.size_x) {
-				dest_cell_idx += (int) sim_params.size_x;
-			}
+			if (pos_x > 0)
+				pos_x--;
+			else
+				pos_x = sim_params.size_x - 1;
 			break;
 
 		case 3:
 			/* Walk down. */
-			dest_cell_idx += (int) sim_params.size_x;
-
-			/* Make sure destination cell is inside model limits. */
-			if (dest_cell_idx >= (int) sim_params.size_xy) {
-				dest_cell_idx -= (int) sim_params.size_xy;
-			}
+			if (pos_y + 1 < sim_params.size_y)
+				pos_y++;
+			else
+				pos_y = 0;
 			break;
 
 		case 4:
 			/* Walk up. */
-			dest_cell_idx -= (int) sim_params.size_x;
-
-			/* Make sure destination cell is inside model limits. */
-			if (dest_cell_idx < 0) {
-				dest_cell_idx += (int) sim_params.size_xy;
-			}
+			if (pos_y > 0)
+				pos_y--;
+			else
+				pos_y = sim_params.size_y - 1;
 			break;
 	}
 
 	/* Return random neighbor cell. */
-	return (uint) dest_cell_idx;
-}
+	return pos_y * sim_params.size_x + pos_x;
 
-/*
- * Kernel for testing random walk
- */
-__kernel void testGetRandomWalkCellIndex(__global int * intarray,
-					__global clo_statetype* seeds,
-					PPCSimParamsOcl sim_params)
-{
-	for (uint i = 0; i < 20; i++) {
-		intarray[20*get_group_id(0) + i] = getRandomWalkCellIndex(seeds, 10, sim_params);
-	}
 }
 
 /**
@@ -249,7 +229,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
 						 * move */
 
 						/* Get a destination */
-						uint neigh_idx = getRandomWalkCellIndex(
+						uint neigh_idx = random_walk(
 							seeds, index, sim_params);
 
 						/* Let's see if agent wants to move */
