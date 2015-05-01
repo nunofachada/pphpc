@@ -100,20 +100,22 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 			
 			/* If this is the last worker, then the last token will be the model
 			 * size; otherwise, the regular equal work distribution is used. */
-			this.endToken = last ? model.getSize() : startToken + cellsPerWorker;
+			this.endToken = 
+					last ? model.getSize() : startToken + cellsPerWorker;
 			
 			/* Initialize counter. */
 			this.counter = startToken;
 			
-			/* Determine number of sync. points. Basically, synchronize at the end
-			 * of each row, except the last one. */
+			/* Determine number of sync. points. Basically, synchronize at the 
+			 * end of each row, except the last one. */
 			int numSyncPoints = rowsPerWorker - 1;
 			
 			/* Initialize sync. points. */
 			this.syncPoints = new int[numSyncPoints];
 			for (int i = 0; i < numSyncPoints; i++) {
 				
-				/* Set sync. points at the end of each row, except the last one. */
+				/* Set sync. points at the end of each row, except the last 
+				 * one. */
 				this.syncPoints[i] = startToken + (i + 1) *  rowSize;
 				
 			}
@@ -153,28 +155,30 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 		for (int i = 0; i < numDims - 1; i++) {
 			
 			/* For 2D, the row size is the number of cells in a row.
-			 * For 3D, the row size is the number of cells in a horizontal slice. 
-			 * And so on. The row size is the synchronization interval. */
+			 * For 3D, the row size is the number of cells in a horizontal 
+			 * slice. And so on. The row size is the synchronization interval.
+			 *  */
 			this.rowSize *= dims[i];
 			
 		}
 		
-		/* Determine the minimum thread distance, in number of rows (or cells in 1D, 
-		 * slices in 3D, etc). */
+		/* Determine the minimum thread distance, in number of rows (or cells 
+		 * in 1D, slices in 3D, etc). */
 		this.minThreadDist = space.getNeighborhoodRadius() * 2 + 1;
 		
 		/* Determine number of rows. */
 		int rows = model.getSize() / this.rowSize;
 
-		/* Determine the maximum number of threads, which is the total number of rows
-		 * divided by the minimum thread distance. */
+		/* Determine the maximum number of threads, which is the total number of
+		 * rows divided by the minimum thread distance. */
 		int maxThreads = rows / this.minThreadDist;
 		
 		/* Check if number of threads doesn't exceed maximum value. */
 		if (numThreads > maxThreads) {
 			
 			/* If so, throw exception to be caught by the simulation workers. */
-			throw new RuntimeException("Too many threads! Max. threads is " + maxThreads);
+			throw new RuntimeException(
+					"Too many threads! Max. threads is " + maxThreads);
 			
 		}
 		
@@ -187,13 +191,16 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 		/* How many rows will be processed by worker? */
 		this.rowsPerWorker  = rows / this.numWorkers;
 
-		/* If the rows cannot be equally divided among the available workers...  */
+		/* If the rows cannot be equally divided among the available 
+		 * workers...  */
 		if (rows % this.numWorkers > 0) {
 			
-			/* ...check if we can add another row to be processed by each thread. For this
-			 * to happen, the starting row of the last worker in a +1 row per worker scenario
-			 * must be at least "minThreadDist" rows lower than the total number of rows. */
-			if ((this.rowsPerWorker + 1) * this.numWorkers < rows - this.minThreadDist) {
+			/* ...check if we can add another row to be processed by each 
+			 * thread. For this to happen, the starting row of the last worker 
+			 * in a +1 row per worker scenario must be at least "minThreadDist" 
+			 * rows lower than the total number of rows. */
+			if ((this.numWorkers - 1) * (this.rowsPerWorker + 1) 
+					< rows - this.minThreadDist) {
 				
 				/* Condition verified, use an additional row per worker. */
 				this.rowsPerWorker++;
@@ -263,8 +270,8 @@ public class EqualRowSyncWorkProvider implements IWorkProvider {
 			 * other workers. */
 			if (iWork.counter >= model.getSize()) {
 				
-				/* Last worker has to synchronize with remaining workers while he
-				 * still has sync. points left. */
+				/* Last worker has to synchronize with remaining workers while 
+				 * he still has sync. points left. */
 				while (iWork.currSyncPoint < iWork.syncPoints.length) {
 					
 					/* Increment current sync. point... */
