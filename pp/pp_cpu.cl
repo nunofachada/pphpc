@@ -34,103 +34,141 @@ typedef struct pp_c_cell_ocl {
 	uint agent_pointer;
 } PPCCellOcl;
 
-/*
+/**
  * Remove agent from given cell
  */
 void removeAgentFromCell(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
-		uint cellIndex,
+		uint cell_idx,
 		uint ag_idx,
 		uint prev_ag_idx,
 		PPCSimParamsOcl sim_params) {
 
-	// Determine if agent index is given by a cell or another agent
+	/* Determine if agent index is given by a cell or another agent. */
 	if (prev_ag_idx == sim_params.null_agent_pointer) {
-		// Agent index given by a cell
-		matrix[cellIndex].agent_pointer = agents[ag_idx].next;
+
+		/* Agent index given by a cell. */
+		matrix[cell_idx].agent_pointer = agents[ag_idx].next;
+
 	} else {
-		// Agent index given by another agent
+
+		/* Agent index given by another agent. */
 		agents[prev_ag_idx].next = agents[ag_idx].next;
 	}
-	// It's the callers responsability of setting agent's energy to zero in case agent is dead
+
+	/* It's the callers responsability of setting agent's energy to
+	 * zero in case agent is dead. */
 }
 
-/*
+/**
  * Add agent to given cell
  */
 void addAgentToCell(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		uint ag_idx,
-		uint cellIndex) {
-	// Put agent in place and update cell
-	agents[ag_idx].next = matrix[cellIndex].agent_pointer;
-	matrix[cellIndex].agent_pointer = ag_idx;
-	// It's the callers responsability that given agent has energy > 0
+		uint cell_idx) {
+
+	/* Put agent in place and update cell. */
+	agents[ag_idx].next = matrix[cell_idx].agent_pointer;
+	matrix[cell_idx].agent_pointer = ag_idx;
+
+	/* It's the callers responsability that agent has energy > 0. */
 }
 
-/*
- * Find a place for the new agent to stay
+/**
+ * Find a place for the new agent to stay.
  */
 uint allocateAgentIndex(__global PPCAgentOcl * agents,
 			__global clo_statetype* seeds,
 			PPCSimParamsOcl sim_params) {
-	// Find a place for the agent to stay
+
+	/* Index of place to put agent. */
 	uint ag_idx;
+
+	/* Find a place for the agent to stay. */
 	do {
-		// Random strategy will work well if max_agents >> actual number of agents
+
+		/* Random strategy will work well if:
+		 * max_agents >> actual number of agents. */
 		ag_idx = clo_rng_next_int(seeds, sim_params.max_agents);
-	} while (atomic_cmpxchg(&agents[ag_idx].energy, (uint) 0, (uint) 1) != 0);
+
+	} while (atomic_cmpxchg(&agents[ag_idx].energy,
+			(uint) 0, (uint) 1) != 0);
+
 	/*for ( ag_idx = 0; ag_idx < sim_params.max_agents; ag_idx++) {
 		if (atomic_cmpxchg(&agents[ag_idx].energy, (uint) 0, (uint) 1) == 0)
 			break;
 	}*/
+
+	/* Return index of place where to put agent. */
 	return ag_idx;
 }
 
-/*
- * Get a random neighbor cell, or current cell
+/**
+ * Get a random neighbor cell, or current cell.
  */
 uint getRandomWalkCellIndex(__global clo_statetype* seeds,
-				uint cellIndex,
+				uint cell_idx,
 				PPCSimParamsOcl sim_params) {
-	// Throw a coin
+
+	/* Chose a random direction. */
 	uint direction = clo_rng_next_int(seeds, 5);
-	int toWalkIndex = cellIndex; // Default is don't walk (case 0)
-	// Perform the actual walk
+
+	/* Base case: stay in current cell. */
+	int dest_cell_idx = cell_idx;
+
+	/* Select the destination cell based on the chosen direction. */
 	switch (direction) {
+
+		case 0:
+			/* Don't walk, stay in the same cell. */
+			break;
+
 		case 1:
-			// right
-			toWalkIndex++;
-			// destination cell must be on the same row
-			if (cellIndex / sim_params.size_x != toWalkIndex / sim_params.size_x)
-				toWalkIndex -= (int) sim_params.size_x;
-			break;
-		case 2:
-			// left
-			toWalkIndex--;
-			// destination cell must be on the same row
-			if (cellIndex / sim_params.size_x != toWalkIndex / sim_params.size_x)
-				toWalkIndex += (int) sim_params.size_x;
-			break;
-		case 3:
-			// down
-			toWalkIndex += (int) sim_params.size_x;
-			// destination cell must be inside limits
-			if (toWalkIndex >= (int) sim_params.size_xy) {
-				toWalkIndex -= (int) sim_params.size_xy;
+			/* Walk right. */
+			dest_cell_idx++;
+
+			/* Make sure destination cell is on the same row. */
+			if (cell_idx / sim_params.size_x !=
+					dest_cell_idx / sim_params.size_x) {
+				dest_cell_idx -= (int) sim_params.size_x;
 			}
 			break;
+
+		case 2:
+			/* Walk left. */
+			dest_cell_idx--;
+
+			/* Make sure destination cell is on the same row. */
+			if (cell_idx / sim_params.size_x !=
+					dest_cell_idx / sim_params.size_x) {
+				dest_cell_idx += (int) sim_params.size_x;
+			}
+			break;
+
+		case 3:
+			/* Walk down. */
+			dest_cell_idx += (int) sim_params.size_x;
+
+			/* Make sure destination cell is inside model limits. */
+			if (dest_cell_idx >= (int) sim_params.size_xy) {
+				dest_cell_idx -= (int) sim_params.size_xy;
+			}
+			break;
+
 		case 4:
-			// up
-			toWalkIndex -= (int) sim_params.size_x;
-			// destination cell must be inside limits
-			if (toWalkIndex < 0) {
-				toWalkIndex += (int) sim_params.size_xy;
+			/* Walk up. */
+			dest_cell_idx -= (int) sim_params.size_x;
+
+			/* Make sure destination cell is inside model limits. */
+			if (dest_cell_idx < 0) {
+				dest_cell_idx += (int) sim_params.size_xy;
 			}
 			break;
 	}
-	// Return value
-	return (uint) toWalkIndex;
+
+	/* Return random neighbor cell. */
+	return (uint) dest_cell_idx;
 }
 
 /*

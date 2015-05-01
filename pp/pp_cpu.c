@@ -295,9 +295,15 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 			 * a multiple of the local work size. */
 			if (workSizes->max_gws % workSizes->lws == 0) {
 
+				/* The maximum global work size is divisible by the
+				 * local work size, as such, use it. */
 				workSizes->gws = workSizes->max_gws;
 
 			} else {
+
+				/* The maximum global work size is not divisible by the
+				 * local work size, as such find an adequate global
+				 * work size that is. */
 				workSizes->gws = pp_next_multiple(
 					workSizes->max_gws - 2 * workSizes->lws,
 					workSizes->lws);
