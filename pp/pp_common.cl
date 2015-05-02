@@ -23,22 +23,36 @@
  * */
 #define PP_NEXT_MULTIPLE(val, div) ((val) + (div) - (val) % (div))
 
+/** Sheep identifier. */
+#define SHEEP_ID 0x0
 
+/** Wolf identifier. */
+#define WOLF_ID 0x1
+
+/**
+ * Simulation statistics for one iteration.
+ * */
 typedef struct pp_statistics_ocl {
+
+	/** Number of sheep. */
 	uint sheep;
+
+	/** Number of wolves. */
 	uint wolves;
+
+	/** Grass count. */
 	uint grass;
+
+	/** Total sheep energy. */
 	uint sheep_en;
+
+	/** Total wolves energy. */
 	uint wolves_en;
+
+	/** Total grass countdown value. */
 	uint grass_en;
+
 } PPStatisticsOcl;
 
-/** @todo This is only required for pp_cpu, but if we pass sim
- * as compiler params we can remove this altogheter. */
-typedef struct pp_agent_params_ocl {
-	uint gain_from_food;
-	uint reproduce_threshold;
-	uint reproduce_prob; /* between 1 and 100 */
-} PPAgentParamsOcl;
 
 

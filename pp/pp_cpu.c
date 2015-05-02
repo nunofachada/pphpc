@@ -15,13 +15,19 @@
  * */
 #define PPC_DEFAULT_MAX_AGENTS 16777216
 
+/**
+ * Default maximum number of agents which can be shuffled in the same
+ * loop.
+ * */
+#define PPC_DEFAULT_MAX_AGENTS_SHUF 256
+
 /** A description of the program. */
 #define PPC_DESCRIPTION "OpenCL predator-prey simulation for the CPU"
 
 /**
  * Constant which indicates no further agents are in a cell.
  * */
-#define PPC_NULL_AGENT_POINTER UINT_MAX
+#define PPC_NULL_AGENT_POINTER CL_UINT_MAX
 
 /**
  * Minimum distance between rows, which is equal to @f$2r + 1@f$, where
@@ -36,22 +42,33 @@ typedef struct pp_c_args {
 
 	/** Parameters file. */
 	gchar* params;
+
 	/** Stats output file. */
 	gchar* stats;
+
 	/** Compiler options. */
 	gchar* compiler_opts;
+
 	/** Global work size. */
 	size_t gws;
+
 	/** Local work size. */
 	size_t lws;
+
 	/** Index of device to use. */
 	cl_int dev_idx;
+
 	/** Rng seed. */
 	guint32 rng_seed;
+
 	/** Random number generator. */
 	gchar* rngen;
+
 	/** Maximum number of agents. */
 	cl_uint max_agents;
+
+	/** Maximum number of agents shuffled in the same loop. */
+	cl_uint max_agents_ptrs;
 
 } PPCArgs;
 
@@ -73,33 +90,6 @@ typedef struct pp_c_agent {
 	cl_uint next;
 
 } PPCAgent __attribute__ ((aligned (16)));
-
-/**
- * Simulation parameters for OpenCL kernels.
- *
- * @todo Maybe this can be constant passed as compiler options?
- * */
-typedef struct pp_c_sim_params {
-
-	/** Width (number of cells) of environment.*/
-	cl_uint size_x;
-	/** Height (number of cells) of environment. */
-	cl_uint size_y;
-	/** Dimension of environment (total number of cells). */
-	cl_uint size_xy;
-	/** Maximum number of agentes. */
-	cl_uint max_agents;
-	/** Constant which indicates no further agents are in cell. */
-	cl_uint null_agent_pointer;
-	/** Number of iterations that the grass takes to regrow after being
-	 * eaten by a sheep. */
-	cl_uint grass_restart;
-	/** Number of rows to be processed by each workitem. */
-	cl_uint rows_per_workitem;
-	/** Does nothing but align the struct to 32 bytes. */
-	cl_uint bogus;
-
-} PPCSimParams __attribute__ ((aligned (32)));
 
 /**
  * Cell object for OpenCL kernels.
@@ -141,16 +131,15 @@ typedef struct pp_c_data_sizes {
 
 	/** Size of stats data structure. */
 	size_t stats;
+
 	/** Size of matrix data structure. */
 	size_t matrix;
+
 	/** Size of agents data structure. */
 	size_t agents;
+
 	/** Number of RNG seeds required for RNG. */
 	size_t rng_seeds_count;
-	/** Size of agent parameters data structure. */
-	size_t agent_params;
-	/** Size of simulation parameters data structure. */
-	size_t sim_params;
 
 } PPCDataSizes;
 
@@ -161,14 +150,12 @@ typedef struct pp_c_buffers_host {
 
 	/** Statistics. */
 	PPStatistics* stats;
+
 	/** Matrix of environment cells. */
 	PPCCell* matrix;
+
 	/** Array of agents. */
 	PPCAgent *agents;
-	/** Agent parameters. */
-	PPAgentParams* agent_params;
-	/** Simulation parameters. */
-	PPCSimParams sim_params;
 
 } PPCBuffersHost;
 
@@ -179,22 +166,21 @@ typedef struct pp_c_buffers_device {
 
 	/** Statistics. */
 	CCLBuffer* stats;
+
 	/** Matrix of environment cells. */
 	CCLBuffer* matrix;
+
 	/** Array of agents. */
 	CCLBuffer* agents;
+
 	/** Array of RNG seeds. */
 	CCLBuffer* rng_seeds;
-	/** Agent parameters. */
-	CCLBuffer* agent_params;
-	/** Simulation parameters. */
-	CCLBuffer* sim_params;
 
 } PPCBuffersDevice;
 
 /** Command line arguments and respective default values. */
 static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED,
-		NULL, PPC_DEFAULT_MAX_AGENTS};
+		NULL, PPC_DEFAULT_MAX_AGENTS, PPC_DEFAULT_MAX_AGENTS_SHUF};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -214,7 +200,8 @@ static GOptionEntry entries[] = {
 		"Local work size (default is selected by OpenCL runtime)",
 		"SIZE"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,
-		"Device index (if not given and more than one device is available, chose device from menu)",
+		"Device index (if not given and more than one device is "\
+		"available, chose device from menu)",
 		"INDEX"},
 	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
 		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
@@ -224,6 +211,10 @@ static GOptionEntry entries[] = {
 		"RNG"},
 	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
 		"Maximum number of agents (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS) ")",
+		"SIZE"},
+	{"max_agents_shuff",'u', 0, G_OPTION_ARG_INT,      &args.max_agents_ptrs,
+		"Maximum number of agents which can be shuffled in the same " \
+		"loop (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS_SHUF) ")",
 		"SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,
 		NULL, NULL},
@@ -361,10 +352,12 @@ finish:
  * @param[in] workSizes Work sizes for kernels step1 and step2, and
  * other work/memory sizes related to the simulation.
  * @param[in] args Parsed command line arguments.
+ * @param[in] compilerOpts Compiler options.
  * @param[out] err Return location for a GError.
  * */
 static void ppc_simulation_info_print(CCLDevice* dev,
-	PPCWorkSizes workSizes, PPCArgs args, GError** err) {
+	PPCWorkSizes workSizes, PPCArgs args, gchar* compiler_opts,
+	GError** err) {
 
 	/* Error reporting object. */
 	GError* err_internal = NULL;
@@ -395,7 +388,7 @@ static void ppc_simulation_info_print(CCLDevice* dev,
 	printf("     Random seed                : %u\n", args.rng_seed);
 	/* ...Compiler options (out of table) */
 	printf("     Compiler options           : ");
-	if (args.compiler_opts != NULL) printf("%s\n", args.compiler_opts);
+	if (args.compiler_opts != NULL) printf("%s\n", compiler_opts);
 	else printf("none\n");
 	/* ...Finish table. */
 
@@ -412,31 +405,6 @@ finish:
 
 	/* Return. */
 	return;
-
-}
-
-/**
- * Initialize simulation parameters to be sent to kernels.
- *
- * @param[in] params Simulation parameters.
- * @param[in] null_agent_pointer Constant which indicates no further
- * agents are in cell.
- * @param[in] ws Work sizes for kernels step1 and step2, and other
- * work/memory sizes related to the simulation.
- * @return Simulation parameters to be sent to OpenCL kernels.
- * */
-static PPCSimParams ppc_simparams_init(PPParameters params,
-	cl_uint null_agent_pointer, PPCWorkSizes ws) {
-
-	PPCSimParams simParams;
-	simParams.size_x = params.grid_x;
-	simParams.size_y = params.grid_y;
-	simParams.size_xy = params.grid_x * params.grid_y;
-	simParams.max_agents = ws.max_agents;
-	simParams.null_agent_pointer = null_agent_pointer;
-	simParams.grass_restart = params.grass_restart;
-	simParams.rows_per_workitem = (cl_uint) ws.rows_per_workitem;
-	return simParams;
 
 }
 
@@ -458,12 +426,6 @@ static void ppc_datasizes_get(PPParameters params,
 
 	/* Agents. */
 	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
-
-	/* Agent parameters */
-	dataSizes->agent_params = 2 * sizeof(PPAgentParams);
-
-	/* Simulation parameters */
-	dataSizes->sim_params = sizeof(PPCSimParams);
 
 }
 
@@ -518,18 +480,6 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	buffersDevice->agents = ccl_buffer_new(ctx,
 		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents,
 		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	/* Agent parameters */
-	buffersDevice->agent_params = ccl_buffer_new(ctx,
-		CL_MEM_READ_ONLY  | CL_MEM_ALLOC_HOST_PTR,
-		dataSizes.agent_params, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-
-	/* Simulation parameters */
-	buffersDevice->sim_params = ccl_buffer_new(ctx,
-		CL_MEM_READ_ONLY  | CL_MEM_COPY_HOST_PTR, dataSizes.sim_params,
-		&buffersHost->sim_params, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* *********************************************************** */
@@ -679,33 +629,6 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Unmap: matrix");
 
-	/* Initialize agent parameters */
-	buffersHost->agent_params =
-		(PPAgentParams *) ccl_buffer_enqueue_map(
-		buffersDevice->agent_params, cq, CL_TRUE, CL_MAP_WRITE, 0,
-		dataSizes.agent_params, NULL, &evt, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Map: params");
-
-	buffersHost->agent_params[SHEEP_ID].gain_from_food =
-		params.sheep_gain_from_food;
-	buffersHost->agent_params[SHEEP_ID].reproduce_threshold =
-		params.sheep_reproduce_threshold;
-	buffersHost->agent_params[SHEEP_ID].reproduce_prob =
-		params.sheep_reproduce_prob;
-	buffersHost->agent_params[WOLF_ID].gain_from_food =
-		params.wolves_gain_from_food;
-	buffersHost->agent_params[WOLF_ID].reproduce_threshold =
-		params.wolves_reproduce_threshold;
-	buffersHost->agent_params[WOLF_ID].reproduce_prob =
-		params.wolves_reproduce_prob;
-
-	/* Unmap agent parameters buffer. */
-	evt = ccl_buffer_enqueue_unmap(buffersDevice->agent_params, cq,
-		buffersHost->agent_params, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Unmap: params");
-
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
 	goto finish;
@@ -750,13 +673,12 @@ static void ppc_kernelargs_set(CCLProgram* prg,
 	/* Step1 kernel - Move agents, grow grass */
 	ccl_kernel_set_args(step1_krnl, buffersDevice->agents,
 		buffersDevice->matrix, buffersDevice->rng_seeds, ccl_arg_skip,
-		buffersDevice->sim_params, NULL);
+		NULL);
 
 	/* Step2 kernel - Agent actions, get stats */
 	ccl_kernel_set_args(step2_krnl, buffersDevice->agents,
 		buffersDevice->matrix, buffersDevice->rng_seeds,
-		buffersDevice->stats, ccl_arg_skip, ccl_arg_skip,
-		buffersDevice->sim_params, buffersDevice->agent_params, NULL);
+		buffersDevice->stats, ccl_arg_skip, ccl_arg_skip, NULL);
 
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
@@ -871,10 +793,6 @@ static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 		ccl_buffer_destroy(buffersDevice->agents);
 	if (buffersDevice->matrix)
 		ccl_buffer_destroy(buffersDevice->matrix);
-	if (buffersDevice->sim_params)
-		ccl_buffer_destroy(buffersDevice->sim_params);
-	if (buffersDevice->agent_params)
-		ccl_buffer_destroy(buffersDevice->agent_params);
 }
 
 /**
@@ -989,6 +907,62 @@ static void ppc_args_free(GOptionContext* context) {
 }
 
 /**
+ * Build OpenCL compiler options string.
+ *
+ * @param[in] gws Kernel global work sizes.
+ * @param[in] lws Kernel local work sizes.
+ * @param[in] params Simulation parameters.
+ * @param[in] cliOpts Compiler options specified through the
+ * command-line.
+ * @return The final OpenCL compiler options string.
+ */
+static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
+	cl_uint rows_per_workitem, gchar* cliOpts) {
+
+	gchar* compilerOptsStr;
+
+	GString* compilerOpts = g_string_new("");
+	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ",
+		args.max_agents);
+	g_string_append_printf(compilerOpts, "-D MAX_AGENT_PTRS=%d ",
+		args.max_agents_ptrs);
+	g_string_append_printf(compilerOpts, "-D ROWS_PER_WORKITEM=%d ",
+		rows_per_workitem);
+	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ",
+		params.init_sheep);
+	g_string_append_printf(compilerOpts, "-D SHEEP_GAIN_FROM_FOOD=%d ",
+		params.sheep_gain_from_food);
+	g_string_append_printf(compilerOpts, "-D SHEEP_REPRODUCE_THRESHOLD=%d ",
+		params.sheep_reproduce_threshold);
+	g_string_append_printf(compilerOpts, "-D SHEEP_REPRODUCE_PROB=%d ",
+		params.sheep_reproduce_prob);
+	g_string_append_printf(compilerOpts, "-D INIT_WOLVES=%d ",
+		params.init_wolves);
+	g_string_append_printf(compilerOpts, "-D WOLVES_GAIN_FROM_FOOD=%d ",
+		params.wolves_gain_from_food);
+	g_string_append_printf(compilerOpts, "-D WOLVES_REPRODUCE_THRESHOLD=%d ",
+		params.wolves_reproduce_threshold);
+	g_string_append_printf(compilerOpts, "-D WOLVES_REPRODUCE_PROB=%d ",
+		params.wolves_reproduce_prob);
+	g_string_append_printf(compilerOpts, "-D GRASS_RESTART=%d ",
+		params.grass_restart);
+	g_string_append_printf(compilerOpts, "-D GRID_X=%d ",
+		params.grid_x);
+	g_string_append_printf(compilerOpts, "-D GRID_Y=%d ",
+		params.grid_y);
+	g_string_append_printf(compilerOpts, "-D ITERS=%d ",
+		params.iters);
+
+	if (cliOpts) g_string_append_printf(compilerOpts, "%s", cliOpts);
+	compilerOptsStr = compilerOpts->str;
+
+	g_string_free(compilerOpts, FALSE);
+
+	return compilerOptsStr;
+}
+
+
+/**
  * PredPrey CPU simulation main program.
  *
  * @param[in] argc Number of command line arguments.
@@ -1007,11 +981,10 @@ int main(int argc, char ** argv) {
 	/* Predator-Prey simulation data structures. */
 	PPCWorkSizes workSizes;
 	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost =
-		{NULL, NULL, NULL, NULL, {0, 0, 0, 0, 0, 0, 0, 0}};
-	PPCBuffersDevice buffersDevice =
-		{NULL, NULL, NULL, NULL, NULL, NULL};
+	PPCBuffersHost buffersHost = {NULL, NULL, NULL};
+	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL};
 	PPParameters params;
+	gchar* compilerOpts = NULL;
 
 	/* OpenCL object wrappers. */
 	CCLContext* ctx = NULL;
@@ -1064,21 +1037,6 @@ int main(int argc, char ** argv) {
 		args.max_agents, args.rng_seed, NULL, ctx, cq, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	/* Concatenate complete source: RNG kernels source + common source
-	 * + CPU kernel source. */
-	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
-		PP_CPU_SRC, NULL);
-
-	/* Create and build program. */
-	prg = ccl_program_new_from_source(ctx, src, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	ccl_program_build(prg, args.compiler_opts, &err);
-	ccl_if_err_goto(err, error_handler);
-
-	/* Profiling / Timings. */
-	prof = ccl_prof_new();
-
 	/* Get simulation parameters */
 	pp_load_params(&params, args.params, &err);
 	ccl_if_err_goto(err, error_handler);
@@ -1088,12 +1046,28 @@ int main(int argc, char ** argv) {
 	ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
 	ccl_if_err_goto(err, error_handler);
 
-	/* Set simulation parameters for passing to the OpenCL kernels. */
-	buffersHost.sim_params = ppc_simparams_init(params,
-		PPC_NULL_AGENT_POINTER, workSizes);
+	/* Concatenate complete source: RNG kernels source + common source
+	 * + CPU kernel source. */
+	src = g_strconcat(clo_rng_get_source(rng_clo), PP_COMMON_SRC,
+		PP_CPU_SRC, NULL);
+
+	/* Create aprogram. */
+	prg = ccl_program_new_from_source(ctx, src, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Compiler options. */
+	compilerOpts = ppc_compiler_opts_build(args, params,
+		workSizes.rows_per_workitem, args.compiler_opts);
+
+	/* Build program. */
+	ccl_program_build(prg, compilerOpts, &err);
+	ccl_if_err_goto(err, error_handler);
+
+	/* Profiling / Timings. */
+	prof = ccl_prof_new();
 
 	/* Print simulation info to screen */
-	ppc_simulation_info_print(dev, workSizes, args, &err);
+	ppc_simulation_info_print(dev, workSizes, args, compilerOpts, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Determine size in bytes for host and device data structures. */
@@ -1161,6 +1135,9 @@ cleanup:
 
 	/* Free profiler object. */
 	if (prof) ccl_prof_destroy(prof);
+
+	/* Free compiler options. */
+	if (compilerOpts) g_free(compilerOpts);
 
 	/* Free CL_Ops RNG object. */
 	if (rng_clo) clo_rng_destroy(rng_clo);

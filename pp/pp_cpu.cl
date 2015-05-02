@@ -1,15 +1,37 @@
 /**
  * @file
  * @brief OpenCL CPU kernels and data structures for PredPrey simulation.
- */
-
-#define SHEEP_ID 0
-#define WOLF_ID 1
+ *
+ * The kernels in this file expect the following preprocessor defines:
+ *
+ * * MAX_AGENTS - Maximum agents in simulation.
+ * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
+ * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
+ * item (except possibly the last one).
+ *
+ * * INIT_SHEEP - Initial number of sheep.
+ * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
+ * * SHEEP_REPRODUCE_THRESHOLD - Energy required for sheep to reproduce.
+ * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep
+ * reproduction.
+ * * INIT_WOLVES - Initial number of wolves.
+ * * WOLVES_GAIN_FROM_FOOD - Wolves energy gain when eating sheep.
+ * * WOLVES_REPRODUCE_THRESHOLD - Energy required for wolves to
+ * reproduce.
+ * * WOLVES_REPRODUCE_PROB - Probability (between 1 and 100) of wolves
+ * reproduction.
+ * * GRASS_RESTART - Number of iterations that the grass takes to regrow
+ * after being eaten by a sheep.
+ * * GRID_X - Number of grid columns (horizontal size, width).
+ * * GRID_Y - Number of grid rows (vertical size, height).
+ * * ITERS - Number of iterations.
+ * */
 
 #define PPCCell_GRASS_OFFSET 0
 #define PPCCell_AGINDEX_OFFSET 1
 
-#define MAX_AGENT_PTRS 256
+#define END_OF_AG_LIST UINT_MAX
+#define GRID_XY GRID_X * GRID_Y
 
 typedef struct pp_c_agent_ocl {
 	uint energy;
@@ -17,17 +39,6 @@ typedef struct pp_c_agent_ocl {
 	uint type;
 	uint next;
 } PPCAgentOcl __attribute__ ((aligned (16)));
-
-typedef struct pp_c_sim_params_ocl {
-	uint size_x;
-	uint size_y;
-	uint size_xy;
-	uint max_agents;
-	uint null_agent_pointer;
-	uint grass_restart;
-	uint rows_per_workitem;
-	uint bogus;
-} PPCSimParamsOcl __attribute__ ((aligned (32)));
 
 typedef struct pp_c_cell_ocl {
 	uint grass;
@@ -41,11 +52,10 @@ void rem_ag_from_cell(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		uint cell_idx,
 		uint ag_idx,
-		uint prev_ag_idx,
-		PPCSimParamsOcl sim_params) {
+		uint prev_ag_idx) {
 
 	/* Determine if agent index is given by a cell or another agent. */
-	if (prev_ag_idx == sim_params.null_agent_pointer) {
+	if (prev_ag_idx == END_OF_AG_LIST) {
 
 		/* Agent index given by a cell. */
 		matrix[cell_idx].agent_pointer = agents[ag_idx].next;
@@ -79,8 +89,7 @@ void add_ag_to_cell(__global PPCAgentOcl * agents,
  * Find a place for the new agent to stay.
  */
 uint alloc_ag_idx(__global PPCAgentOcl * agents,
-		__global clo_statetype* seeds,
-		PPCSimParamsOcl sim_params) {
+		__global clo_statetype* seeds) {
 
 	/* Index of place to put agent. */
 	uint ag_idx;
@@ -90,12 +99,12 @@ uint alloc_ag_idx(__global PPCAgentOcl * agents,
 
 		/* Random strategy will work well if:
 		 * max_agents >> actual number of agents. */
-		ag_idx = clo_rng_next_int(seeds, sim_params.max_agents);
+		ag_idx = clo_rng_next_int(seeds, MAX_AGENTS);
 
 	} while (atomic_cmpxchg(&agents[ag_idx].energy,
 			(uint) 0, (uint) 1) != 0);
 
-	/*for ( ag_idx = 0; ag_idx < sim_params.max_agents; ag_idx++) {
+	/*for ( ag_idx = 0; ag_idx < MAX_AGENTS; ag_idx++) {
 		if (atomic_cmpxchg(&agents[ag_idx].energy, (uint) 0, (uint) 1) == 0)
 			break;
 	}*/
@@ -103,6 +112,7 @@ uint alloc_ag_idx(__global PPCAgentOcl * agents,
 	/* Return index of place where to put agent. */
 	return ag_idx;
 }
+
 
 void shuffle_agents(__global PPCAgentOcl * agents,
 		__global clo_statetype* seeds,
@@ -136,15 +146,14 @@ void shuffle_agents(__global PPCAgentOcl * agents,
  * Get a random neighbor cell, or current cell.
  */
 uint random_walk(__global clo_statetype* seeds,
-		uint cell_idx,
-		PPCSimParamsOcl sim_params) {
+		uint cell_idx) {
 
 	/* Chose a random direction. */
 	uint direction = clo_rng_next_int(seeds, 5);
 
 	/* Get x and y positions. */
-	uint pos_x = cell_idx % sim_params.size_x;
-	uint pos_y = cell_idx / sim_params.size_x;
+	uint pos_x = cell_idx % GRID_X;
+	uint pos_y = cell_idx / GRID_X;
 
 	/* Select the destination cell based on the chosen direction. */
 	switch (direction) {
@@ -155,7 +164,7 @@ uint random_walk(__global clo_statetype* seeds,
 
 		case 1:
 			/* Walk right. */
-			if (pos_x + 1 < sim_params.size_x)
+			if (pos_x + 1 < GRID_X)
 				pos_x++;
 			else
 				pos_x = 0;
@@ -166,12 +175,12 @@ uint random_walk(__global clo_statetype* seeds,
 			if (pos_x > 0)
 				pos_x--;
 			else
-				pos_x = sim_params.size_x - 1;
+				pos_x = GRID_X - 1;
 			break;
 
 		case 3:
 			/* Walk down. */
-			if (pos_y + 1 < sim_params.size_y)
+			if (pos_y + 1 < GRID_Y)
 				pos_y++;
 			else
 				pos_y = 0;
@@ -182,12 +191,12 @@ uint random_walk(__global clo_statetype* seeds,
 			if (pos_y > 0)
 				pos_y--;
 			else
-				pos_y = sim_params.size_y - 1;
+				pos_y = GRID_Y - 1;
 			break;
 	}
 
 	/* Return random neighbor cell. */
-	return pos_y * sim_params.size_x + pos_x;
+	return pos_y * GRID_X + pos_x;
 
 }
 
@@ -197,26 +206,22 @@ uint random_walk(__global clo_statetype* seeds,
 __kernel void step1(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		__global clo_statetype* seeds,
-		__private uint turn,
-		__constant PPCSimParamsOcl* sim_params_ptr) {
-
-	/* Simulation parameters. */
-	PPCSimParamsOcl sim_params = *sim_params_ptr;
+		__private uint turn) {
 
 	/* Determine row to process */
-	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
+	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
 
 	/* Determine start of row. */
-	uint idx_start = y * sim_params.size_x;
+	uint idx_start = y * GRID_X;
 
 	/* Determine end of row: if this is not the last work-item
 	 * (condition 1) OR this is not the last row to process
 	 * (condition 2), then process current row until the end.
 	 * Otherwise, process all remaining cells until the end. */
 	uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
-					|| (turn < sim_params.rows_per_workitem - 1)
-		? idx_start + sim_params.size_x
-		: sim_params.size_xy;
+					|| (turn < ROWS_PER_WORKITEM - 1)
+		? idx_start + GRID_X
+		: GRID_XY;
 
 	/* Cycle through cells in line */
 	for (uint index = idx_start; index < idx_stop; index++) {
@@ -232,10 +237,10 @@ __kernel void step1(__global PPCAgentOcl * agents,
 
 		/* The following indicates that current index was obtained
 		 * via cell, and not via agent.next */
-		uint prev_ag_idx = sim_params.null_agent_pointer;
+		uint prev_ag_idx = END_OF_AG_LIST;
 
 		/* Cycle through agents in cell. */
-		while (ag_idx != sim_params.null_agent_pointer) {
+		while (ag_idx != END_OF_AG_LIST) {
 
 			/* Get index of next agent. */
 			uint next_ag_idx = agents[ag_idx].next;
@@ -254,7 +259,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
 
 					/* Agent has no energy left, so will die */
 					rem_ag_from_cell(agents, matrix, index,
-						ag_idx, prev_ag_idx, sim_params);
+						ag_idx, prev_ag_idx);
 
 				} else {
 
@@ -262,15 +267,14 @@ __kernel void step1(__global PPCAgentOcl * agents,
 					 * move */
 
 					/* Get a destination */
-					uint neigh_idx = random_walk(
-						seeds, index, sim_params);
+					uint neigh_idx = random_walk(seeds, index);
 
 					/* Let's see if agent wants to move */
 					if (neigh_idx != index) {
 
 						/* If agent wants to move, then move him. */
 						rem_ag_from_cell(agents, matrix, index,
-							ag_idx, prev_ag_idx, sim_params);
+							ag_idx, prev_ag_idx);
 						add_ag_to_cell(
 							agents, matrix, ag_idx, neigh_idx);
 
@@ -308,12 +312,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 		__global clo_statetype* seeds,
 		__global PPStatisticsOcl * stats,
 		__private uint iter,
-		__private uint turn,
-		__constant PPCSimParamsOcl* sim_params_ptr,
-		__constant PPAgentParamsOcl* agent_params) {
-
-	/* Get simulation parameters localy. */
-	PPCSimParamsOcl sim_params = *sim_params_ptr;
+		__private uint turn) {
 
 	/* Reset partial statistics */
 	uint sheep_count = 0;
@@ -327,19 +326,19 @@ __kernel void step2(__global PPCAgentOcl * agents,
 	uint ag_pointers[MAX_AGENT_PTRS];
 
 	/* Determine row to process. */
-	uint y = turn + get_global_id(0) * sim_params.rows_per_workitem;
+	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
 
 	/* Determine start of row. */
-	uint idx_start = y * sim_params.size_x;
+	uint idx_start = y * GRID_X;
 
 	/* Determine end of row: if this is not the last work-item
 	 * (condition 1) OR this is not the last row to process
 	 * (condition 2), then process current row until the end.
 	 * Otherwise, process all remaining cells until the end. */
 	uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
-					|| (turn < sim_params.rows_per_workitem - 1)
-		? idx_start + sim_params.size_x
-		: sim_params.size_xy;
+					|| (turn < ROWS_PER_WORKITEM - 1)
+		? idx_start + GRID_X
+		: GRID_XY;
 
 	/* Cycle through cells in line */
 	for (uint index = idx_start; index < idx_stop; index++) {
@@ -361,7 +360,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			ag_pointers[idx] = ag_ptr;
 
 			/* If this is the last agent... */
-			if (ag_ptr == sim_params.null_agent_pointer) {
+			if (ag_ptr == END_OF_AG_LIST) {
 
 				/* ...shuffle agent list using the array of
 				 * pointers... */
@@ -393,7 +392,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 		/* For each agent in cell */
 		ag_ptr = matrix[index].agent_pointer;
-		while (ag_ptr != sim_params.null_agent_pointer) {
+		while (ag_ptr != END_OF_AG_LIST) {
 
 			/* Get agent from global memory to private memory. */
 			PPCAgentOcl agent = agents[ag_ptr];
@@ -413,11 +412,11 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 						/* ...eat grass... */
 						matrix[index].grass =
-							sim_params.grass_restart;
+							GRASS_RESTART;
 
 						/* ...and gain energy! */
 						agent.energy +=
-							agent_params[SHEEP_ID].gain_from_food;
+							SHEEP_GAIN_FROM_FOOD;
 					}
 
 					/* Update sheep stats. */
@@ -431,11 +430,11 @@ __kernel void step2(__global PPCAgentOcl * agents,
 					uint local_ag_ptr =
 						matrix[index].agent_pointer;
 					uint prev_ag_ptr =
-						sim_params.null_agent_pointer;
+						END_OF_AG_LIST;
 
 					/* ...while there are agents to look for. */
 					while (local_ag_ptr !=
-							sim_params.null_agent_pointer) {
+							END_OF_AG_LIST) {
 
 						/* Get next agent. */
 						uint next_ag_ptr =
@@ -462,12 +461,11 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 							/* Remove sheep from cell. */
 							rem_ag_from_cell(agents, matrix,
-								index, local_ag_ptr,
-								prev_ag_ptr, sim_params);
+								index, local_ag_ptr, prev_ag_ptr);
 
 							/* Increment wolf energy. */
 							agent.energy +=
-								agent_params[WOLF_ID].gain_from_food;
+								WOLVES_GAIN_FROM_FOOD;
 
 							/* If previous agent in list is the wolf
 							 * currently acting, make sure his next
@@ -496,19 +494,24 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 				/* Try to reproduce agent. */
 
+				uint reproduce_threshold = agent.type == SHEEP_ID
+					? SHEEP_REPRODUCE_THRESHOLD
+					: WOLVES_REPRODUCE_THRESHOLD;
+
 				/* Perhaps agent will reproduce if
 				 * energy > reproduce_threshold ? */
-				if (agent.energy >
-						agent_params[agent.type].reproduce_threshold) {
+				if (agent.energy > reproduce_threshold) {
+
+					uint reproduce_prob = agent.type == SHEEP_ID
+						? SHEEP_REPRODUCE_PROB
+						: WOLVES_REPRODUCE_PROB;
 
 					/* Throw dice to see if agent reproduces */
-					if (clo_rng_next_int(seeds, 100) <
-							agent_params[agent.type].reproduce_prob) {
+					if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
 
 						/* Agent will reproduce!
 						 * Let's find some space for new agent... */
-						uint new_ag_idx = alloc_ag_idx(
-							agents, seeds, sim_params);
+						uint new_ag_idx = alloc_ag_idx(agents, seeds);
 
 						/* Create agent with half the energy of
 						 * parent and pointing to first agent in

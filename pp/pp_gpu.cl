@@ -30,12 +30,6 @@
  * * ITERS - Number of iterations.
  * */
 
-/** Sheep identifier. */
-#define SHEEP_ID 0x0
-
-/** Wolf identifier. */
-#define WOLF_ID 0x1
-
 /** Constants which depend on device endianess. When the agent structure
  * is accessed in half, these will point to the correct location in
  * global memory. */
