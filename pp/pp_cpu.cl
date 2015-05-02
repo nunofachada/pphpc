@@ -200,6 +200,118 @@ uint random_walk(__global clo_statetype* seeds,
 
 }
 
+__kernel void init(__global PPCAgentOcl * agents,
+		__global PPCCellOcl * matrix,
+		__global PPStatisticsOcl * stats,
+		__global clo_statetype* seeds) {
+
+	uint gid = get_global_id(0);
+	uint gws = get_global_size(0);
+	uint cells_per_worker = PP_DIV_CEIL(GRID_XY, gws);
+
+	uint grass_alive = 0;
+
+	uint cell_idx_start = gid * cells_per_worker;
+	uint cell_idx_end =
+		min((uint) ((gid + 1) * cells_per_worker), (uint) GRID_XY);
+	uint num_cells = cell_idx_end - cell_idx_start;
+
+	uint num_sheep = INIT_SHEEP / gws;
+	uint num_wolves = INIT_WOLVES / gws;
+	uint num_agents = num_sheep + num_wolves;
+
+	uint new_ag_idx_base = num_agents * gid;
+	uint new_ag_idx_offset = 0;
+
+	uint tot_sheep_en = 0;
+	uint tot_wolves_en = 0;
+	uint tot_grass_en = 0;
+
+	if (gid == gws - 1) {
+		num_sheep = INIT_SHEEP - num_sheep * (gws - 1);
+		num_wolves = INIT_WOLVES - num_wolves * (gws - 1);
+	}
+
+	/* Initialize cells. */
+	for (uint i = cell_idx_start; i < cell_idx_end; ++i) {
+
+		/* Is grass alive? */
+		uint alive = clo_rng_next_int(seeds, 2);
+
+		/* If grass is alive, countdown will be zero. Otherwise,
+		 * randomly determine a countdown value. */
+		if (alive) {
+
+			/* Alive. */
+			matrix[i].grass = 0;
+			if (alive) grass_alive++;
+
+		} else {
+
+			/* Dead. Set coundown. */
+			uint countdown = clo_rng_next_int(seeds, GRASS_RESTART) + 1;
+			matrix[i].grass = countdown;
+			tot_grass_en += countdown;
+
+		}
+
+		/* Initialize agent pointer. */
+		matrix[i].agent_pointer = END_OF_AG_LIST;
+	}
+
+	/* Initialize sheep. */
+	for (uint i = 0; i < num_agents; ++i) {
+
+		/* Create agent. */
+		PPCAgentOcl agent;
+		agent.action = 0;
+
+		if (i < num_sheep) {
+
+			agent.energy =
+				clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
+			agent.type = SHEEP_ID;
+			tot_sheep_en += agent.energy;
+
+		} else {
+
+			agent.energy =
+				clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
+			agent.type = WOLF_ID;
+			tot_wolves_en += agent.energy;
+
+		}
+
+		/* Get a cell where to put agent. */
+		uint cell_idx =
+			cell_idx_start + clo_rng_next_int(seeds, num_cells);
+
+		/* Index of agent in agents array. */
+		uint new_ag_idx = new_ag_idx_base + new_ag_idx_offset;
+
+		/* Put new agent in this cell */
+		agent.next = matrix[cell_idx].agent_pointer;
+		matrix[cell_idx].agent_pointer = new_ag_idx;
+
+		/* Save new agent in agent array */
+		agents[new_ag_idx] = agent;
+
+		/* Increase offset for next agent. */
+		new_ag_idx_offset++;
+
+	}
+
+	/* Update global stats */
+	atomic_add(&stats[0].sheep, num_sheep);
+	atomic_add(&stats[0].wolves, num_wolves);
+	atomic_add(&stats[0].grass, grass_alive);
+
+	atomic_add(&stats[0].sheep_en, tot_sheep_en);
+	atomic_add(&stats[0].wolves_en, tot_wolves_en);
+	atomic_add(&stats[0].grass_en, tot_grass_en);
+}
+
+
 /**
  * MoveAgentGrowGrass (step1) kernel
  */

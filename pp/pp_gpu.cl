@@ -208,8 +208,7 @@
  * */
 __kernel void init_cell(
 			__global uint *grass,
-			__global clo_statetype *seeds)
-{
+			__global clo_statetype *seeds) {
 
 	/* Grid position for this work-item */
 	uint gid = get_global_id(0);
@@ -219,8 +218,10 @@ __kernel void init_cell(
 
 	/* Check if this workitem will initialize a cell.*/
 	if (gid < CELL_NUM) {
+
 		/* Cells within bounds may be dead or alive with 50% chance. */
 		uint is_alive = select((uint) 0, (uint) clo_rng_next_int(seeds, 2), gid < CELL_NUM);
+
 		/* If cell is alive, value will be zero. Otherwise, randomly
 		 * determine a counter value. */
 		counter = select((uint) (clo_rng_next_int(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
@@ -242,8 +243,8 @@ __kernel void init_cell(
 __kernel void init_agent(
 			__global uagr *data,
 			__global clo_statetype *seeds
-)
-{
+) {
+
 	/* Agent to be handled by this workitem. */
 	size_t gid = get_global_id(0);
 	uagr new_agent;

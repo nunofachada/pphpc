@@ -113,12 +113,16 @@ typedef struct pp_c_work_sizes {
 
 	/** Global worksize. */
 	size_t gws;
+
 	/** Local worksize. */
 	size_t lws;
+
 	/** Number of rows to be processed by each workitem. */
 	size_t rows_per_workitem;
+
 	/** Maximum global worksize for given simulation parameters. */
 	size_t max_gws;
+
 	/** Maximum number of agentes. */
 	size_t max_agents;
 
@@ -142,22 +146,6 @@ typedef struct pp_c_data_sizes {
 	size_t rng_seeds_count;
 
 } PPCDataSizes;
-
-/**
- * Host buffers.
- * */
-typedef struct pp_c_buffers_host {
-
-	/** Statistics. */
-	PPStatistics* stats;
-
-	/** Matrix of environment cells. */
-	PPCCell* matrix;
-
-	/** Array of agents. */
-	PPCAgent *agents;
-
-} PPCBuffersHost;
 
 /**
  * Device buffers.
@@ -444,9 +432,8 @@ static void ppc_datasizes_get(PPParameters params,
  * @param[out] err Return location for a GError.
  * */
 static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
-	PPCWorkSizes ws, PPCBuffersHost *buffersHost,
 	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
-	PPParameters params, CloRng* rng_clo, GError** err) {
+	CloRng* rng_clo, GError** err) {
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
@@ -456,6 +443,9 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 
 	/* Initialize RNG. */
 	GRand* rng = g_rand_new_with_seed(args.rng_seed);
+
+	/* Zero pattern. */
+	const cl_uint zero = 0;
 
 	/* ************************* */
 	/* Initialize device buffers */
@@ -482,152 +472,29 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 		NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	/* *********************************************************** */
-	/* Initialize host buffers, which are mapped to device buffers */
-	/* *********************************************************** */
+	/* ************************************************************** */
+	/* Set buffers contents to zero. Nothing in the OpenCL spec. says */
+	/* that new buffers have zero'ed contents, so we do this just in  */
+	/* case.                                                          */
+	/* ************************************************************** */
 
-	/* Map stats buffer */
-	buffersHost->stats = (PPStatistics*) ccl_buffer_enqueue_map(
-		buffersDevice->stats, cq, CL_TRUE, CL_MAP_WRITE, 0,
-		dataSizes.stats, NULL, &evt, &err_internal);
+	evt = ccl_buffer_enqueue_fill(buffersDevice->stats, cq, &zero,
+		sizeof(cl_uint), 0, dataSizes.stats, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Map: stats");
+	ccl_event_set_name(evt, "Fill: stats");
 
-	/* Set all stats to zero. */
-	memset(buffersHost->stats, 0, params.iters * sizeof(PPStatistics));
-
-	/* Set initial stats to initial agent counts. */
-	buffersHost->stats[0].sheep = params.init_sheep;
-	buffersHost->stats[0].wolves = params.init_wolves;
-
-	/* Map grass matrix. */
-	buffersHost->matrix = (PPCCell*) ccl_buffer_enqueue_map(
-		buffersDevice->matrix, cq, CL_TRUE, CL_MAP_WRITE | CL_MAP_READ,
-		0, dataSizes.matrix, NULL, &evt, &err_internal);
+	evt = ccl_buffer_enqueue_fill(buffersDevice->agents, cq, &zero,
+		sizeof(cl_uint), 0, dataSizes.agents, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Map: matrix");
+	ccl_event_set_name(evt, "Fill: agents");
 
-	/* Initialize grass matrix. */
-	for(cl_uint i = 0; i < params.grid_x; i++) {
-		for (cl_uint j = 0; j < params.grid_y; j++) {
-
-			/* Determine grid index. */
-			cl_uint gridIndex = (i + j * params.grid_x);
-
-			/* Determine grass state. */
-			cl_uint grassState = g_rand_int_range(rng, 0, 2) == 0
-				? 0
-				: g_rand_int_range(rng, 1, params.grass_restart + 1);
-
-			/* Initialize grass. */
-			buffersHost->matrix[gridIndex].grass = grassState;
-
-			/* If grass is alive, update initial grass count stats. */
-			if (grassState == 0)
-				buffersHost->stats[0].grass++;
-
-			/* Update initial grass energy stats. */
-			buffersHost->stats[0].grass_en += grassState;
-
-			/* Initialize agent pointer. */
-			buffersHost->matrix[gridIndex].agent_pointer =
-				PPC_NULL_AGENT_POINTER;
-		}
-	}
-
-	/* Unmap stats buffer. */
-	evt = ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
-		buffersHost->stats, NULL, &err_internal);
+	evt = ccl_buffer_enqueue_fill(buffersDevice->matrix, cq, &zero,
+		sizeof(cl_uint), 0, dataSizes.matrix, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Unmap: stats");
+	ccl_event_set_name(evt, "Fill: matrix");
 
-	/* Map agent array. */
-	buffersHost->agents = (PPCAgent *) ccl_buffer_enqueue_map(
-		buffersDevice->agents, cq, CL_TRUE, CL_MAP_WRITE, 0,
-		dataSizes.agents, NULL, &evt, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Map: agents");
+	/* Launch initialization kernel. */
 
-	/* Initialize agent array. */
-	for(cl_uint i = 0; i < ws.max_agents; i++) 	{
-
-		/* Check if there are still agents to initialize. */
-		if (i < params.init_sheep + params.init_wolves) {
-
-			/* There are still agents to initialize... */
-
-			/* Initialize generic agent parameters. */
-			buffersHost->agents[i].action = 0;
-
-			/* Initialize specific agent parameters. */
-			if (i < params.init_sheep) {
-
-				/* Initialize sheep specific parameters. */
-				buffersHost->agents[i].energy = g_rand_int_range(
-					rng, 1, params.sheep_gain_from_food * 2 + 1);
-				buffersHost->agents[i].type = SHEEP_ID;
-				buffersHost->stats[0].sheep_en +=
-					buffersHost->agents[i].energy;
-
-			} else {
-
-				/* Initialize wolf specific parameters. */
-				buffersHost->agents[i].energy = g_rand_int_range(
-					rng, 1, params.wolves_gain_from_food * 2 + 1);
-				buffersHost->agents[i].type = WOLF_ID;
-				buffersHost->stats[0].wolves_en +=
-					buffersHost->agents[i].energy;
-
-			}
-
-			/* Chose a place to put next agent. */
-			cl_uint x = g_rand_int_range(rng, 0, params.grid_x);
-			cl_uint y = g_rand_int_range(rng, 0, params.grid_y);
-			cl_uint gridIndex = (x + y * params.grid_x);
-
-			/* Put agent in grid. */
-			if (buffersHost->matrix[gridIndex].agent_pointer
-					== PPC_NULL_AGENT_POINTER) {
-
-				/* This cell had no agent, put it there. */
-				buffersHost->matrix[gridIndex].agent_pointer = i;
-				buffersHost->agents[i].next = PPC_NULL_AGENT_POINTER;
-
-			} else {
-
-				/* Cell already has agent, put it in the beginning
-				 * of the list. */
-				buffersHost->agents[i].next =
-					buffersHost->matrix[gridIndex].agent_pointer;
-
-				buffersHost->matrix[gridIndex].agent_pointer = i;
-
-			}
-
-		} else {
-
-			/* No more agents to initialize, initialize array position
-			 * only. OpenCL implementations seem to initialize
-			 * everything to zero, but to avoid any bugs on untested
-			 * implementations we must at least initialize agents energy
-			 * to zero. */
-			buffersHost->agents[i].energy = 0;
-
-		}
-
-	}
-
-	/* Unmap agents buffer. */
-	evt = ccl_buffer_enqueue_unmap(buffersDevice->agents, cq,
-		buffersHost->agents, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Unmap: agents");
-
-	/* Unmap matrix buffer. */
-	evt = ccl_buffer_enqueue_unmap(buffersDevice->matrix, cq,
-		buffersHost->matrix, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
-	ccl_event_set_name(evt, "Unmap: matrix");
 
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
@@ -807,14 +674,17 @@ static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
  * @param[out] err Return location for a GError.
  * */
 static void ppc_stats_save(char* filename, CCLQueue* cq,
-	PPCBuffersHost* buffersHost, PPCBuffersDevice* buffersDevice,
-	PPCDataSizes dataSizes, PPParameters params, GError** err) {
+	PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes,
+	PPParameters params, GError** err) {
 
 	/* Stats file. */
 	FILE * fp;
 
 	/* Event wrapper. */
 	CCLEvent* evt = NULL;
+
+	/* Statistics. */
+	PPStatistics * stats;
 
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
@@ -824,9 +694,8 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
 
 	/* Map stats host buffer in order to get statistics */
-	buffersHost->stats = ccl_buffer_enqueue_map(
-		buffersDevice->stats, cq, CL_TRUE, CL_MAP_READ, 0,
-		dataSizes.stats, NULL, &evt, &err_internal);
+	stats = ccl_buffer_enqueue_map(buffersDevice->stats, cq, CL_TRUE,
+		CL_MAP_READ, 0, dataSizes.stats, NULL, &evt, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Map: stats");
 
@@ -838,20 +707,16 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 
 	for (cl_uint i = 0; i <= params.iters; ++i)
 		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\n",
-			buffersHost->stats[i].sheep, buffersHost->stats[i].wolves,
-			buffersHost->stats[i].grass,
-			buffersHost->stats[i].sheep_en /
-				(float) buffersHost->stats[i].sheep,
-			buffersHost->stats[i].wolves_en /
-				(float) buffersHost->stats[i].wolves,
-			buffersHost->stats[i].grass_en /
-				(float) params.grid_xy);
+			stats[i].sheep, stats[i].wolves, stats[i].grass,
+			stats[i].sheep_en / (float) stats[i].sheep,
+			stats[i].wolves_en / (float) stats[i].wolves,
+			stats[i].grass_en / (float) params.grid_xy);
 
 	fclose(fp);
 
 	/* Unmap stats host buffer. */
 	evt = ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
-		buffersHost->stats, NULL, &err_internal);
+		stats, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Unmap: stats");
 
@@ -981,7 +846,6 @@ int main(int argc, char ** argv) {
 	/* Predator-Prey simulation data structures. */
 	PPCWorkSizes workSizes;
 	PPCDataSizes dataSizes;
-	PPCBuffersHost buffersHost = {NULL, NULL, NULL};
 	PPCBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL};
 	PPParameters params;
 	gchar* compilerOpts = NULL;
@@ -1076,9 +940,8 @@ int main(int argc, char ** argv) {
 	/* Start basic timming / profiling. */
 	ccl_prof_start(prof);
 
-	/* Initialize and map host/device buffers */
-	ppc_buffers_init(ctx, cq, workSizes, &buffersHost, &buffersDevice,
-		dataSizes, params, rng_clo, &err);
+	/* Initialize device buffers */
+	ppc_buffers_init(ctx, cq, &buffersDevice, dataSizes, rng_clo, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/*  Set fixed kernel arguments. */
@@ -1090,8 +953,8 @@ int main(int argc, char ** argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/* Get statistics. */
-	ppc_stats_save(args.stats, cq, &buffersHost,
-		&buffersDevice, dataSizes, params, &err);
+	ppc_stats_save(
+		args.stats, cq, &buffersDevice, dataSizes, params, &err);
 	ccl_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
