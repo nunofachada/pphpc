@@ -4,7 +4,6 @@
  *
  * The kernels in this file expect the following preprocessor defines:
  *
- * * MAX_AGENTS - Maximum agents in simulation.
  * * MAX_AGENTS_LOC - Maximum agents per work item.
  * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
  * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
@@ -28,17 +27,28 @@
  * * ITERS - Number of iterations.
  * */
 
-#define PPCCell_GRASS_OFFSET 0
-#define PPCCell_AGINDEX_OFFSET 1
-
 #define END_OF_AG_LIST UINT_MAX
 #define GRID_XY GRID_X * GRID_Y
 
-typedef struct pp_c_agent_ocl {
+typedef struct pp_c_agent_ocl_internal {
 	uint energy;
-	uint action;
 	uint type;
+} PPCAgentOclInternal;
+
+union pp_c_agent_ocl_in {
+
+	PPCAgentOclInternal sep;
+	ulong merg;
+
+};
+
+typedef struct pp_c_agent_ocl {
+
+	union pp_c_agent_ocl_in in;
+	ushort action;
+	ushort dead;
 	uint next;
+
 } PPCAgentOcl __attribute__ ((aligned (16)));
 
 typedef struct pp_c_cell_ocl {
@@ -105,7 +115,7 @@ uint alloc_ag_idx(__global PPCAgentOcl * agents,
 		 * MAX_AGENTS >> actual number of agents. */
 		ag_idx = ag_idx_start + clo_rng_next_int(seeds, MAX_AGENTS_LOC);
 
-	} while (agents[ag_idx].energy != 0);
+	} while (agents[ag_idx].in.sep.energy != 0);
 
 	/* Return index of place where to put agent. */
 	return ag_idx;
@@ -123,20 +133,12 @@ void shuffle_agents(__global PPCAgentOcl * agents,
 
 		uint j = clo_rng_next_int(seeds, i + 1);
 
-		uint energy = agents[ag_pointers[i]].energy;
-		uint type = agents[ag_pointers[i]].type;
-		//~ uint action = agents[ag_pointers[i]].action;
+		ulong ag_internal = agents[ag_pointers[i]].in.merg;
 
-		agents[ag_pointers[i]].energy =
-			agents[ag_pointers[j]].energy;
-		agents[ag_pointers[i]].type =
-			agents[ag_pointers[j]].type;
-		//~ agents[ag_pointers[i]].action =
-			//~ agents[ag_pointers[j]].action;
+		agents[ag_pointers[i]].in.merg = agents[ag_pointers[j]].in.merg;
 
-		agents[ag_pointers[j]].energy = energy;
-		agents[ag_pointers[j]].type = type;
-		//~ agents[ag_pointers[j]].action = action;
+		agents[ag_pointers[j]].in.merg = ag_internal;
+
 	}
 }
 
@@ -285,18 +287,18 @@ __kernel void init(__global PPCAgentOcl * agents,
 		if (i < num_sheep) {
 
 			/* Initialize a sheep. */
-			agent.energy =
+			agent.in.sep.energy =
 				clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
-			agent.type = SHEEP_ID;
-			tot_sheep_en += agent.energy;
+			agent.in.sep.type = SHEEP_ID;
+			tot_sheep_en += agent.in.sep.energy;
 
 		} else {
 
 			/* Initialize a wolf. */
-			agent.energy =
+			agent.in.sep.energy =
 				clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
-			agent.type = WOLF_ID;
-			tot_wolves_en += agent.energy;
+			agent.in.sep.type = WOLF_ID;
+			tot_wolves_en += agent.in.sep.energy;
 
 		}
 
@@ -341,95 +343,99 @@ __kernel void step1(__global PPCAgentOcl * agents,
 	/* Determine row to process */
 	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
 
-	/* Determine start of row. */
-	uint idx_start = y * GRID_X;
+	/* Check if this thread has to process anything */
+	if (y < GRID_Y) {
 
-	/* Determine end of row: if this is not the last work-item
-	 * (condition 1) OR this is not the last row to process
-	 * (condition 2), then process current row until the end.
-	 * Otherwise, process all remaining cells until the end. */
-	uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
-					|| (turn < ROWS_PER_WORKITEM - 1)
-		? idx_start + GRID_X
-		: GRID_XY;
+		/* Determine start of row. */
+		uint idx_start = y * GRID_X;
 
-	/* Cycle through cells in line */
-	for (uint index = idx_start; index < idx_stop; index++) {
+		/* Determine end of row: if this is not the last work-item
+		 * (condition 1) OR this is not the last row to process
+		 * (condition 2), then process current row until the end.
+		 * Otherwise, process all remaining cells until the end. */
+		uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
+						|| (turn < ROWS_PER_WORKITEM - 1)
+			? idx_start + GRID_X
+			: GRID_XY;
 
-		/* *** Grow grass. *** */
-		if (matrix[index].grass > 0)
-			matrix[index].grass--;
+		/* Cycle through cells in line */
+		for (uint index = idx_start; index < idx_stop; index++) {
 
-		/* *** Move agents. *** */
+			/* *** Grow grass. *** */
+			if (matrix[index].grass > 0)
+				matrix[index].grass--;
 
-		/* Get first agent in cell. */
-		uint ag_idx = matrix[index].agent_pointer;
+			/* *** Move agents. *** */
 
-		/* The following indicates that current index was obtained
-		 * via cell, and not via agent.next */
-		uint prev_ag_idx = END_OF_AG_LIST;
+			/* Get first agent in cell. */
+			uint ag_idx = matrix[index].agent_pointer;
 
-		/* Cycle through agents in cell. */
-		while (ag_idx != END_OF_AG_LIST) {
+			/* The following indicates that current index was obtained
+			 * via cell, and not via agent.next */
+			uint prev_ag_idx = END_OF_AG_LIST;
 
-			/* Get index of next agent. */
-			uint next_ag_idx = agents[ag_idx].next;
+			/* Cycle through agents in cell. */
+			while (ag_idx != END_OF_AG_LIST) {
 
-			/* If agent hasn't moved yet... */
-			if (!agents[ag_idx].action) {
+				/* Get index of next agent. */
+				uint next_ag_idx = agents[ag_idx].next;
 
-				/* Set action as performed. */
-				agents[ag_idx].action = 1;
+				/* If agent hasn't moved yet... */
+				if (!agents[ag_idx].action) {
 
-				/* Agent looses energy by moving. */
-				agents[ag_idx].energy--;
+					/* Set action as performed. */
+					agents[ag_idx].action = 1;
 
-				/* Let's see if agent has any energy left... */
-				if (agents[ag_idx].energy == 0) {
+					/* Agent looses energy by moving. */
+					agents[ag_idx].in.sep.energy--;
 
-					/* Agent has no energy left, so will die */
-					rem_ag_from_cell(agents, matrix, index,
-						ag_idx, prev_ag_idx);
+					/* Let's see if agent has any energy left... */
+					if (agents[ag_idx].in.sep.energy == 0) {
 
-				} else {
-
-					/* Agent has energy, prompt him to possibly
-					 * move */
-
-					/* Get a destination */
-					uint neigh_idx = random_walk(seeds, index);
-
-					/* Let's see if agent wants to move */
-					if (neigh_idx != index) {
-
-						/* If agent wants to move, then move him. */
+						/* Agent has no energy left, so will die */
 						rem_ag_from_cell(agents, matrix, index,
 							ag_idx, prev_ag_idx);
-						add_ag_to_cell(
-							agents, matrix, ag_idx, neigh_idx);
-
-						/* Because this agent moved out of here,
-						 * previous agent remains the same */
 
 					} else {
 
-						/* Current agent will not move, as such make
-						 * previous agent equal to current agent */
-						prev_ag_idx = ag_idx;
+						/* Agent has energy, prompt him to possibly
+						 * move */
 
+						/* Get a destination */
+						uint neigh_idx = random_walk(seeds, index);
+
+						/* Let's see if agent wants to move */
+						if (neigh_idx != index) {
+
+							/* If agent wants to move, then move him. */
+							rem_ag_from_cell(agents, matrix, index,
+								ag_idx, prev_ag_idx);
+							add_ag_to_cell(
+								agents, matrix, ag_idx, neigh_idx);
+
+							/* Because this agent moved out of here,
+							 * previous agent remains the same */
+
+						} else {
+
+							/* Current agent will not move, as such make
+							 * previous agent equal to current agent */
+							prev_ag_idx = ag_idx;
+
+						}
 					}
+
+				} else {
+
+					/* If current agent did not move, previous agent
+					 * becomes current agent */
+					prev_ag_idx = ag_idx;
+
 				}
 
-			} else {
-
-				/* If current agent did not move, previous agent
-				 * becomes current agent */
-				prev_ag_idx = ag_idx;
-
+				/* Get next agent, if any */
+				ag_idx = next_ag_idx;
 			}
-
-			/* Get next agent, if any */
-			ag_idx = next_ag_idx;
 		}
 	}
 }
@@ -458,244 +464,258 @@ __kernel void step2(__global PPCAgentOcl * agents,
 	/* Determine row to process. */
 	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
 
-	/* Determine start of row. */
-	uint idx_start = y * GRID_X;
+	/* Check if this thread has to process anything */
+	if (y < GRID_Y) {
 
-	/* Determine end of row: if this is not the last work-item
-	 * (condition 1) OR this is not the last row to process
-	 * (condition 2), then process current row until the end.
-	 * Otherwise, process all remaining cells until the end. */
-	uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
-					|| (turn < ROWS_PER_WORKITEM - 1)
-		? idx_start + GRID_X
-		: GRID_XY;
+		/* Determine start of row. */
+		uint idx_start = y * GRID_X;
 
-	/* Cycle through cells in line */
-	for (uint index = idx_start; index < idx_stop; index++) {
+		/* Determine end of row: if this is not the last work-item
+		 * (condition 1) OR this is not the last row to process
+		 * (condition 2), then process current row until the end.
+		 * Otherwise, process all remaining cells until the end. */
+		uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
+						|| (turn < ROWS_PER_WORKITEM - 1)
+			? idx_start + GRID_X
+			: GRID_XY;
 
-		/* Pointer for current agent. */
-		uint ag_ptr;
+		/* Cycle through cells in line */
+		for (uint index = idx_start; index < idx_stop; index++) {
 
-		/* *** Shuffle agent list. *** */
+			/* Pointer for current agent. */
+			uint ag_ptr;
 
-		/* Get pointer to first agent. */
-		ag_ptr = matrix[index].agent_pointer;
-		uint idx = 0;
+			/* *** Shuffle agent list. *** */
 
-		/* Copy pointers to an array, and shuffle agents using
-		 * that array. */
-		while (1) {
+			/* Get pointer to first agent. */
+			ag_ptr = matrix[index].agent_pointer;
+			uint idx = 0;
 
-			/* Copy next pointer to array. */
-			ag_pointers[idx] = ag_ptr;
+			/* Copy pointers to an array, and shuffle agents using
+			 * that array. */
+			while (1) {
 
-			/* If this is the last agent... */
-			if (ag_ptr == END_OF_AG_LIST) {
+				/* Copy next pointer to array. */
+				ag_pointers[idx] = ag_ptr;
 
-				/* ...shuffle agent list using the array of
-				 * pointers... */
-				shuffle_agents(agents, seeds, ag_pointers, idx);
+				/* If this is the last agent... */
+				if (ag_ptr == END_OF_AG_LIST) {
 
-				/* ...and get out. */
-				break;
+					/* ...shuffle agent list using the array of
+					 * pointers... */
+					shuffle_agents(agents, seeds, ag_pointers, idx);
+
+					/* ...and get out. */
+					break;
+				}
+
+				/* Increment array index. */
+				idx++;
+
+				/* If we're over the array limit... */
+				if (idx >= MAX_AGENT_PTRS) {
+
+					/* ...shuffle agents currently pointed to by
+					 * pointers in the array... */
+					shuffle_agents(agents, seeds, ag_pointers, idx);
+
+					/* ...and reset the array index in order to start
+					 * over. */
+					idx = 0;
+				}
+
+				/* Update the agent pointer. */
+				ag_ptr = agents[ag_ptr].next;
+
 			}
 
-			/* Increment array index. */
-			idx++;
+			/* For each agent in cell */
+			ag_ptr = matrix[index].agent_pointer;
+			while (ag_ptr != END_OF_AG_LIST) {
 
-			/* If we're over the array limit... */
-			if (idx >= MAX_AGENT_PTRS) {
+				/* Get agent from global memory to private memory. */
+				PPCAgentOcl agent = agents[ag_ptr];
 
-				/* ...shuffle agents currently pointed to by
-				 * pointers in the array... */
-				shuffle_agents(agents, seeds, ag_pointers, idx);
+				/* Set agent action as performed. */
+				agent.action = 0;
 
-				/* ...and reset the array index in order to start
-				 * over. */
-				idx = 0;
-			}
+				/* Agent actions. Agent will only perform actions if
+				 * its energy is positive. */
+				if (agent.in.sep.energy > 0) {
 
-			/* Update the agent pointer. */
-			ag_ptr = agents[ag_ptr].next;
+					/* Is agent a sheep? */
+					if (agent.in.sep.type == SHEEP_ID) {
 
-		}
+						/* If there is grass... */
+						if (matrix[index].grass == 0) {
 
-		/* For each agent in cell */
-		ag_ptr = matrix[index].agent_pointer;
-		while (ag_ptr != END_OF_AG_LIST) {
+							/* ...eat grass... */
+							matrix[index].grass =
+								GRASS_RESTART;
 
-			/* Get agent from global memory to private memory. */
-			PPCAgentOcl agent = agents[ag_ptr];
-
-			/* Set agent action as performed. */
-			agent.action = 0;
-
-			/* Agent actions. Agent will only perform actions if
-			 * its energy is positive. */
-			if (agent.energy > 0) {
-
-				/* Is agent a sheep? */
-				if (agent.type == SHEEP_ID) {
-
-					/* If there is grass... */
-					if (matrix[index].grass == 0) {
-
-						/* ...eat grass... */
-						matrix[index].grass =
-							GRASS_RESTART;
-
-						/* ...and gain energy! */
-						agent.energy +=
-							SHEEP_GAIN_FROM_FOOD;
-					}
-
-					/* Update sheep stats. */
-					sheep_count++;
-					tot_sheep_en += agent.energy;
-
-				/* Or is agent a wolf? */
-				} else {
-
-					/* Look for sheep... */
-					uint local_ag_ptr =
-						matrix[index].agent_pointer;
-					uint prev_ag_ptr =
-						END_OF_AG_LIST;
-
-					/* ...while there are agents to look for. */
-					while (local_ag_ptr !=
-							END_OF_AG_LIST) {
-
-						/* Get next agent. */
-						uint next_ag_ptr =
-							agents[local_ag_ptr].next;
-
-						/* Is next agent a sheep? */
-						if (agents[local_ag_ptr].type == SHEEP_ID) {
-
-							/* It is sheep, eat it! */
-
-							/* If sheep already acted, update
-							 * sheep stats. */
-							if (agents[local_ag_ptr].action == 0) {
-							/* Can also be: if (ag_ptr > local_ag_ptr) */
-
-								sheep_count--;
-								tot_sheep_en -=
-									agents[local_ag_ptr].energy;
-
-							}
-
-							/* Set sheep energy to zero. */
-							agents[local_ag_ptr].energy = 0;
-
-							/* Remove sheep from cell. */
-							rem_ag_from_cell(agents, matrix,
-								index, local_ag_ptr, prev_ag_ptr);
-
-							/* Increment wolf energy. */
-							agent.energy +=
-								WOLVES_GAIN_FROM_FOOD;
-
-							/* If previous agent in list is the wolf
-							 * currently acting, make sure his next
-							 * pointer is updated in local var */
-							if (prev_ag_ptr == ag_ptr) {
-
-								agent.next =
-									agents[local_ag_ptr].next;
-
-							}
-
-							/* One sheep is enough... */
-							break;
+							/* ...and gain energy! */
+							agent.in.sep.energy +=
+								SHEEP_GAIN_FROM_FOOD;
 						}
 
-						/* Not a sheep, next agent please */
-						prev_ag_ptr = local_ag_ptr;
-						local_ag_ptr = next_ag_ptr;
+						/* Update sheep stats. */
+						sheep_count++;
+						tot_sheep_en += agent.in.sep.energy;
+
+					/* Or is agent a wolf? */
+					} else {
+
+						/* Look for sheep... */
+						uint local_ag_ptr =
+							matrix[index].agent_pointer;
+						uint prev_ag_ptr =
+							END_OF_AG_LIST;
+
+						/* ...while there are agents to look for. */
+						while (local_ag_ptr !=
+								END_OF_AG_LIST) {
+
+							/* Get next agent. */
+							uint next_ag_ptr =
+								agents[local_ag_ptr].next;
+
+							/* Is next agent a sheep? */
+							if (agents[local_ag_ptr].in.sep.type
+									== SHEEP_ID) {
+
+								/* It is sheep, eat it! */
+
+								/* If sheep already acted, update
+								 * sheep stats. */
+								if (agents[local_ag_ptr].action == 0) {
+								/* Can also be: if (ag_ptr > local_ag_ptr) */
+
+									sheep_count--;
+									tot_sheep_en -=
+										agents[local_ag_ptr].
+											in.sep.energy;
+
+								}
+
+								/* Set sheep energy to zero. */
+								agents[local_ag_ptr].
+									in.sep.energy = 0;
+
+								/* Remove sheep from cell. */
+								rem_ag_from_cell(agents, matrix,
+									index, local_ag_ptr, prev_ag_ptr);
+
+								/* Increment wolf energy. */
+								agent.in.sep.energy +=
+									WOLVES_GAIN_FROM_FOOD;
+
+								/* If previous agent in list is the wolf
+								 * currently acting, make sure his next
+								 * pointer is updated in local var */
+								if (prev_ag_ptr == ag_ptr) {
+
+									agent.next =
+										agents[local_ag_ptr].next;
+
+								}
+
+								/* One sheep is enough... */
+								break;
+							}
+
+							/* Not a sheep, next agent please */
+							prev_ag_ptr = local_ag_ptr;
+							local_ag_ptr = next_ag_ptr;
+						}
+
+						/* Update wolves stats. */
+						wolves_count++;
+						tot_wolves_en += agent.in.sep.energy;
+
 					}
 
-					/* Update wolves stats. */
-					wolves_count++;
-					tot_wolves_en += agent.energy;
+					/* Try to reproduce agent. */
 
-				}
+					uint reproduce_threshold =
+						agent.in.sep.type == SHEEP_ID
+						? SHEEP_REPRODUCE_THRESHOLD
+						: WOLVES_REPRODUCE_THRESHOLD;
 
-				/* Try to reproduce agent. */
+					/* Perhaps agent will reproduce if
+					 * energy > reproduce_threshold ? */
+					if (agent.in.sep.energy > reproduce_threshold) {
 
-				uint reproduce_threshold = agent.type == SHEEP_ID
-					? SHEEP_REPRODUCE_THRESHOLD
-					: WOLVES_REPRODUCE_THRESHOLD;
+						uint reproduce_prob =
+							agent.in.sep.type == SHEEP_ID
+							? SHEEP_REPRODUCE_PROB
+							: WOLVES_REPRODUCE_PROB;
 
-				/* Perhaps agent will reproduce if
-				 * energy > reproduce_threshold ? */
-				if (agent.energy > reproduce_threshold) {
+						/* Throw dice to see if agent reproduces */
+						if (clo_rng_next_int(seeds, 100)
+								< reproduce_prob) {
 
-					uint reproduce_prob = agent.type == SHEEP_ID
-						? SHEEP_REPRODUCE_PROB
-						: WOLVES_REPRODUCE_PROB;
+							/* Agent will reproduce!
+							 * Let's find some space for new agent... */
+							uint new_ag_idx =
+								alloc_ag_idx(agents, seeds);
 
-					/* Throw dice to see if agent reproduces */
-					if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
+							/* Create agent with half the energy of
+							 * parent and pointing to first agent in
+							 * this cell */
+							PPCAgentOcl new_ag;
+							new_ag.action = 0;
+							new_ag.in.sep.type =
+								agent.in.sep.type;
+							new_ag.in.sep.energy =
+								agent.in.sep.energy / 2;
 
-						/* Agent will reproduce!
-						 * Let's find some space for new agent... */
-						uint new_ag_idx = alloc_ag_idx(agents, seeds);
+							/* Put new agent in this cell */
+							new_ag.next = matrix[index].agent_pointer;
+							matrix[index].agent_pointer = new_ag_idx;
 
-						/* Create agent with half the energy of
-						 * parent and pointing to first agent in
-						 * this cell */
-						PPCAgentOcl new_ag;
-						new_ag.action = 0;
-						new_ag.type = agent.type;
-						new_ag.energy = agent.energy / 2;
+							/* Save new agent in agent array */
+							agents[new_ag_idx] = new_ag;
 
-						/* Put new agent in this cell */
-						new_ag.next = matrix[index].agent_pointer;
-						matrix[index].agent_pointer = new_ag_idx;
+							/* Parent's energy will be halved also */
+							agent.in.sep.energy =
+								agent.in.sep.energy
+								- new_ag.in.sep.energy;
 
-						/* Save new agent in agent array */
-						agents[new_ag_idx] = new_ag;
+							/* Increment agent count */
+							if (agent.in.sep.type == SHEEP_ID)
+								sheep_count++;
+							else
+								wolves_count++;
 
-						/* Parent's energy will be halved also */
-						agent.energy =
-							agent.energy - new_ag.energy;
-
-						/* Increment agent count */
-						if (agent.type == SHEEP_ID)
-							sheep_count++;
-						else
-							wolves_count++;
-
-						/* I don't touch the energy stats because
-						 * the total energy will remain the same. */
+							/* I don't touch the energy stats because
+							 * the total energy will remain the same. */
+						}
 					}
+
+					/* Save agent back to global memory. */
+					agents[ag_ptr] = agent;
 				}
 
-				/* Save agent back to global memory. */
-				agents[ag_ptr] = agent;
+				/* Get next agent. */
+				ag_ptr = agent.next;
 			}
 
-			/* Get next agent. */
-			ag_ptr = agent.next;
+			/* Update grass stats. */
+			if (matrix[index].grass == 0)
+				grass_count++;
+			tot_grass_en += matrix[index].grass;
+
 		}
 
-		/* Update grass stats. */
-		if (matrix[index].grass == 0)
-			grass_count++;
-		tot_grass_en += matrix[index].grass;
+		/* Update global stats */
+		atomic_add(&stats[iter].sheep, sheep_count);
+		atomic_add(&stats[iter].wolves, wolves_count);
+		atomic_add(&stats[iter].grass, grass_count);
 
+		atomic_add(&stats[iter].sheep_en, tot_sheep_en);
+		atomic_add(&stats[iter].wolves_en, tot_wolves_en);
+		atomic_add(&stats[iter].grass_en, tot_grass_en);
 	}
-
-	/* Update global stats */
-	atomic_add(&stats[iter].sheep, sheep_count);
-	atomic_add(&stats[iter].wolves, wolves_count);
-	atomic_add(&stats[iter].grass, grass_count);
-
-	atomic_add(&stats[iter].sheep_en, tot_sheep_en);
-	atomic_add(&stats[iter].wolves_en, tot_wolves_en);
-	atomic_add(&stats[iter].grass_en, tot_grass_en);
 }
 
 
