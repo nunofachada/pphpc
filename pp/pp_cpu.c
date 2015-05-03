@@ -73,39 +73,6 @@ typedef struct pp_c_args {
 } PPCArgs;
 
 /**
- * Agent object for OpenCL kernels.
- * */
-typedef struct pp_c_agent {
-
-	/** Agent energy. */
-	cl_uint energy;
-
-	/** True if agent already acted this turn, false otherwise. */
-	cl_uint action;
-
-	/** Type of agent (sheep or wolf). */
-	cl_uint type;
-
-	/** Pointer to next agent in current cell. */
-	cl_uint next;
-
-} PPCAgent __attribute__ ((aligned (16)));
-
-/**
- * Cell object for OpenCL kernels.
- * */
-typedef struct pp_c_cell {
-
-	/** Number of iterations left for grass to grow (or zero if grass
-	 * is alive). */
-	cl_uint grass;
-
-	/** Pointer to first agent in cell. */
-	cl_uint agent_pointer;
-
-} PPCCell;
-
-/**
  * Work sizes for kernels step1 and step2, and other work/memory
  * sizes related to the simulation.
  * */
@@ -407,11 +374,11 @@ static void ppc_datasizes_get(PPParameters params,
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
 
-	/* Matrix */
-	dataSizes->matrix = params.grid_x * params.grid_y * sizeof(PPCCell);
+	/* Matrix (each cell in device occupies 8 bytes). */
+	dataSizes->matrix = params.grid_x * params.grid_y * 8;
 
-	/* Agents. */
-	dataSizes->agents = ws.max_agents * sizeof(PPCAgent);
+	/* Agents (each agent in device occupies 16 bytes). */
+	dataSizes->agents = ws.max_agents * 16;
 
 }
 
