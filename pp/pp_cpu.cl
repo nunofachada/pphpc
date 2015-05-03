@@ -5,6 +5,7 @@
  * The kernels in this file expect the following preprocessor defines:
  *
  * * MAX_AGENTS - Maximum agents in simulation.
+ * * MAX_AGENTS_LOC - Maximum agents per work item.
  * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
  * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
  * item (except possibly the last one).
@@ -94,20 +95,17 @@ uint alloc_ag_idx(__global PPCAgentOcl * agents,
 	/* Index of place to put agent. */
 	uint ag_idx;
 
+	/* Base index of where I can place agent. */
+	uint ag_idx_start = MAX_AGENTS_LOC * get_global_id(0);
+
 	/* Find a place for the agent to stay. */
 	do {
 
 		/* Random strategy will work well if:
-		 * max_agents >> actual number of agents. */
-		ag_idx = clo_rng_next_int(seeds, MAX_AGENTS);
+		 * MAX_AGENTS >> actual number of agents. */
+		ag_idx = ag_idx_start + clo_rng_next_int(seeds, MAX_AGENTS_LOC);
 
-	} while (atomic_cmpxchg(&agents[ag_idx].energy,
-			(uint) 0, (uint) 1) != 0);
-
-	/*for ( ag_idx = 0; ag_idx < MAX_AGENTS; ag_idx++) {
-		if (atomic_cmpxchg(&agents[ag_idx].energy, (uint) 0, (uint) 1) == 0)
-			break;
-	}*/
+	} while (agents[ag_idx].energy != 0);
 
 	/* Return index of place where to put agent. */
 	return ag_idx;

@@ -375,9 +375,7 @@ static void ppc_simulation_info_print(CCLDevice* dev,
 	/* ...RNG seed */
 	printf("     Random seed                : %u\n", args.rng_seed);
 	/* ...Compiler options (out of table) */
-	printf("     Compiler options           : ");
-	if (args.compiler_opts != NULL) printf("%s\n", compiler_opts);
-	else printf("none\n");
+	printf("     Compiler options           : %s\n", compiler_opts);
 	/* ...Finish table. */
 
 	/* If we got here, everything is OK. */
@@ -798,17 +796,19 @@ static void ppc_args_free(GOptionContext* context) {
  * @return The final OpenCL compiler options string.
  */
 static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
-	cl_uint rows_per_workitem, gchar* cliOpts) {
+	PPCWorkSizes work_sizes, gchar* cliOpts) {
 
 	gchar* compilerOptsStr;
 
 	GString* compilerOpts = g_string_new("");
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ",
 		args.max_agents);
+	g_string_append_printf(compilerOpts, "-D MAX_AGENTS_LOC=%d ",
+		(cl_uint) (args.max_agents / work_sizes.gws));
 	g_string_append_printf(compilerOpts, "-D MAX_AGENT_PTRS=%d ",
 		args.max_agents_ptrs);
 	g_string_append_printf(compilerOpts, "-D ROWS_PER_WORKITEM=%d ",
-		rows_per_workitem);
+		(cl_uint) work_sizes.rows_per_workitem);
 	g_string_append_printf(compilerOpts, "-D INIT_SHEEP=%d ",
 		params.init_sheep);
 	g_string_append_printf(compilerOpts, "-D SHEEP_GAIN_FROM_FOOD=%d ",
@@ -936,8 +936,8 @@ int main(int argc, char ** argv) {
 	ccl_if_err_goto(err, error_handler);
 
 	/* Compiler options. */
-	compilerOpts = ppc_compiler_opts_build(args, params,
-		workSizes.rows_per_workitem, args.compiler_opts);
+	compilerOpts = ppc_compiler_opts_build(
+		args, params, workSizes, args.compiler_opts);
 
 	/* Build program. */
 	ccl_program_build(prg, compilerOpts, &err);
