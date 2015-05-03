@@ -493,9 +493,6 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: matrix");
 
-	/* Launch initialization kernel. */
-
-
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
 	goto finish;
@@ -528,21 +525,29 @@ static void ppc_kernelargs_set(CCLProgram* prg,
 	GError* err_internal = NULL;
 
 	/* Kernel wrappers. */
+	CCLKernel* init_krnl = NULL;
 	CCLKernel* step1_krnl = NULL;
 	CCLKernel* step2_krnl = NULL;
 
 	/* Get kernels. */
+	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 
-	/* Step1 kernel - Move agents, grow grass */
+	/* Init kernel. */
+	ccl_kernel_set_args(init_krnl, buffersDevice->agents,
+		buffersDevice->matrix, buffersDevice->stats,
+		buffersDevice->rng_seeds, NULL);
+
+	/* Step1 kernel - Move agents, grow grass. */
 	ccl_kernel_set_args(step1_krnl, buffersDevice->agents,
 		buffersDevice->matrix, buffersDevice->rng_seeds, ccl_arg_skip,
 		NULL);
 
-	/* Step2 kernel - Agent actions, get stats */
+	/* Step2 kernel - Agent actions, get stats. */
 	ccl_kernel_set_args(step2_krnl, buffersDevice->agents,
 		buffersDevice->matrix, buffersDevice->rng_seeds,
 		buffersDevice->stats, ccl_arg_skip, ccl_arg_skip, NULL);
@@ -578,6 +583,7 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	GError* err_internal = NULL;
 
 	/* Kernel wrappers. */
+	CCLKernel* init_krnl = NULL;
 	CCLKernel* step1_krnl = NULL;
 	CCLKernel* step2_krnl = NULL;
 
@@ -591,6 +597,10 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
      * let OpenCL decide. */
 	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
 
+	/* Get initialization kernel. */
+	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
 	/* Get step1 kernel. */
 	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
@@ -598,6 +608,12 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	/* Get step2 kernel. */
 	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+
+	/* Launch initialization kernel. */
+	evt = ccl_kernel_enqueue_ndrange(init_krnl, cq, 1, NULL,
+		&workSizes.gws, local_size, NULL, &err_internal);
+	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	ccl_event_set_name(evt, "K: init");
 
 	/* Simulation loop. */
 	for (iter = 1; iter <= params.iters; iter++) {

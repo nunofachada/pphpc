@@ -200,37 +200,54 @@ uint random_walk(__global clo_statetype* seeds,
 
 }
 
+/**
+ * Initialization kernel.
+ * */
 __kernel void init(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		__global PPStatisticsOcl * stats,
 		__global clo_statetype* seeds) {
 
+	/* Get global ID. */
 	uint gid = get_global_id(0);
+
+	/* Get global work size. */
 	uint gws = get_global_size(0);
+
+	/* Determine how many cells will be processed by each work-item. */
 	uint cells_per_worker = PP_DIV_CEIL(GRID_XY, gws);
 
-	uint grass_alive = 0;
-
+	/* Get cells to be initialized by this work item. */
 	uint cell_idx_start = gid * cells_per_worker;
 	uint cell_idx_end =
 		min((uint) ((gid + 1) * cells_per_worker), (uint) GRID_XY);
+
+	/* Number of cells to be initialized by this work item. */
 	uint num_cells = cell_idx_end - cell_idx_start;
 
+	/* Determine number of agents to be initialized by this work
+	 * item. */
 	uint num_sheep = INIT_SHEEP / gws;
 	uint num_wolves = INIT_WOLVES / gws;
 	uint num_agents = num_sheep + num_wolves;
 
-	uint new_ag_idx_base = num_agents * gid;
-	uint new_ag_idx_offset = 0;
-
-	uint tot_sheep_en = 0;
-	uint tot_wolves_en = 0;
-	uint tot_grass_en = 0;
-
+	/* If this is the last work item, adjust the number of agents to be
+	 * initialized accordingly. */
 	if (gid == gws - 1) {
 		num_sheep = INIT_SHEEP - num_sheep * (gws - 1);
 		num_wolves = INIT_WOLVES - num_wolves * (gws - 1);
 	}
+
+	/* Determine base and offset indexes for placing new agents in the
+	 * agents array. */
+	uint new_ag_idx_base = num_agents * gid;
+	uint new_ag_idx_offset = 0;
+
+	/* Initialize stats. */
+	uint tot_sheep_en = 0;
+	uint tot_wolves_en = 0;
+	uint tot_grass_en = 0;
+	uint grass_alive = 0;
 
 	/* Initialize cells. */
 	for (uint i = cell_idx_start; i < cell_idx_end; ++i) {
@@ -259,15 +276,17 @@ __kernel void init(__global PPCAgentOcl * agents,
 		matrix[i].agent_pointer = END_OF_AG_LIST;
 	}
 
-	/* Initialize sheep. */
+	/* Initialize agents. */
 	for (uint i = 0; i < num_agents; ++i) {
 
 		/* Create agent. */
 		PPCAgentOcl agent;
 		agent.action = 0;
 
+		/* Should I initialize a sheep or a wolf? */
 		if (i < num_sheep) {
 
+			/* Initialize a sheep. */
 			agent.energy =
 				clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1;
 			agent.type = SHEEP_ID;
@@ -275,6 +294,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 
 		} else {
 
+			/* Initialize a wolf. */
 			agent.energy =
 				clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1;
 			agent.type = WOLF_ID;
@@ -286,7 +306,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 		uint cell_idx =
 			cell_idx_start + clo_rng_next_int(seeds, num_cells);
 
-		/* Index of agent in agents array. */
+		/* Determine absolute index of agent in agents array. */
 		uint new_ag_idx = new_ag_idx_base + new_ag_idx_offset;
 
 		/* Put new agent in this cell */
@@ -296,7 +316,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 		/* Save new agent in agent array */
 		agents[new_ag_idx] = agent;
 
-		/* Increase offset for next agent. */
+		/* Increase index offset for next agent. */
 		new_ag_idx_offset++;
 
 	}
