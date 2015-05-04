@@ -667,6 +667,9 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 	/* Statistics. */
 	PPStatistics * stats;
 
+	/* Total allocation errors. */
+	cl_ulong alloc_errors = 0;
+
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
 
@@ -686,14 +689,21 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 		PP_UNABLE_SAVE_STATS, error_handler,
 		"Unable to open file \"%s\"", realFilename);
 
-	for (cl_uint i = 0; i <= params.iters; ++i)
+	for (cl_uint i = 0; i <= params.iters; ++i) {
 		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\t%d\n",
 			stats[i].sheep, stats[i].wolves, stats[i].grass,
 			stats[i].sheep_en / (float) stats[i].sheep,
 			stats[i].wolves_en / (float) stats[i].wolves,
 			stats[i].grass_en / (float) params.grid_xy,
 			stats[i].errors);
+		alloc_errors += stats[i].errors;
+	}
 	fclose(fp);
+
+	if (alloc_errors) {
+		printf("\n **** There were %lu allocation errors! **** \n",
+			alloc_errors);
+	}
 
 	/* Unmap stats host buffer. */
 	evt = ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
@@ -768,6 +778,8 @@ static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
 	gchar* compilerOptsStr;
 
 	GString* compilerOpts = g_string_new("");
+	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ",
+		args.max_agents);
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS_LOC=%d ",
 		(cl_uint) (args.max_agents / work_sizes.gws));
 	g_string_append_printf(compilerOpts, "-D MAX_AGENT_PTRS=%d ",

@@ -4,6 +4,7 @@
  *
  * The kernels in this file expect the following preprocessor defines:
  *
+ * * MAX_AGENTS - Maximum agents in simulation.
  * * MAX_AGENTS_LOC - Maximum agents per work item.
  * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
  * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
@@ -257,6 +258,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 	uint tot_wolves_en = 0;
 	uint tot_grass_en = 0;
 	uint grass_alive = 0;
+	uint errors = 0;
 
 	/* Initialize cells. */
 	for (uint i = cell_idx_start; i < cell_idx_end; ++i) {
@@ -319,6 +321,12 @@ __kernel void init(__global PPCAgentOcl * agents,
 		/* Determine absolute index of agent in agents array. */
 		uint new_ag_idx = new_ag_idx_base + new_ag_idx_offset;
 
+		/* Did we pass the agent limit? */
+		if (new_ag_idx >= MAX_AGENTS) {
+			errors++;
+			break;
+		}
+
 		/* Put new agent in this cell */
 		agent.next = matrix[cell_idx].agent_pointer;
 		matrix[cell_idx].agent_pointer = new_ag_idx;
@@ -339,6 +347,8 @@ __kernel void init(__global PPCAgentOcl * agents,
 	atomic_add(&stats[0].sheep_en, tot_sheep_en);
 	atomic_add(&stats[0].wolves_en, tot_wolves_en);
 	atomic_add(&stats[0].grass_en, tot_grass_en);
+
+	atomic_add(&stats[0].errors, errors);
 }
 
 
