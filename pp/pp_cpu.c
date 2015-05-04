@@ -410,7 +410,7 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	GRand* rng = g_rand_new_with_seed(args.rng_seed);
 
 	/* Zero pattern. */
-	const cl_uint zero = 0;
+	const cl_uchar zero = 0;
 
 	/* ************************* */
 	/* Initialize device buffers */
@@ -444,17 +444,17 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	/* ************************************************************** */
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->stats, cq, &zero,
-		sizeof(cl_uint), 0, dataSizes.stats, NULL, &err_internal);
+		sizeof(cl_uchar), 0, dataSizes.stats, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: stats");
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->agents, cq, &zero,
-		sizeof(cl_uint), 0, dataSizes.agents, NULL, &err_internal);
+		sizeof(cl_uchar), 0, dataSizes.agents, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: agents");
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->matrix, cq, &zero,
-		sizeof(cl_uint), 0, dataSizes.matrix, NULL, &err_internal);
+		sizeof(cl_uchar), 0, dataSizes.matrix, NULL, &err_internal);
 	ccl_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: matrix");
 
