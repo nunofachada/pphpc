@@ -29,6 +29,9 @@
 
 #define END_OF_AG_LIST UINT_MAX
 #define GRID_XY GRID_X * GRID_Y
+#ifndef MAX_ALLOC_ATTEMPTS
+	#define MAX_ALLOC_ATTEMPTS 500
+#endif
 
 typedef struct pp_c_agent_ocl_internal {
 	uint energy;
@@ -46,7 +49,7 @@ typedef struct pp_c_agent_ocl {
 
 	union pp_c_agent_ocl_in in;
 	ushort action;
-	ushort dead;
+	ushort alive;
 	uint next;
 
 } PPCAgentOcl __attribute__ ((aligned (16)));
@@ -108,9 +111,15 @@ uint alloc_ag_idx(__global PPCAgentOcl * agents,
 	/* Base index of where I can place agent. */
 	uint ag_idx_start = MAX_AGENTS_LOC * get_global_id(0);
 
+	uint attempts = 0;
+
 	/* Find a place for the agent to stay. */
 	do {
 
+		if (++attempts >= MAX_ALLOC_ATTEMPTS) {
+			ag_idx = END_OF_AG_LIST;
+			break;
+		}
 		/* Random strategy will work well if:
 		 * MAX_AGENTS >> actual number of agents. */
 		ag_idx = ag_idx_start + clo_rng_next_int(seeds, MAX_AGENTS_LOC);
@@ -282,6 +291,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 		/* Create agent. */
 		PPCAgentOcl agent;
 		agent.action = 0;
+		agent.alive = 1;
 
 		/* Should I initialize a sheep or a wolf? */
 		if (i < num_sheep) {
@@ -457,6 +467,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 	uint tot_sheep_en = 0;
 	uint tot_wolves_en = 0;
 	uint tot_grass_en = 0;
+	uint tot_errors = 0;
 
 	/* Array with agent pointers, for shuffling purposes.*/
 	uint ag_pointers[MAX_AGENT_PTRS];
@@ -572,16 +583,15 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							END_OF_AG_LIST;
 
 						/* ...while there are agents to look for. */
-						while (local_ag_ptr !=
-								END_OF_AG_LIST) {
+						while (local_ag_ptr != END_OF_AG_LIST) {
 
 							/* Get next agent. */
 							uint next_ag_ptr =
 								agents[local_ag_ptr].next;
 
 							/* Is next agent a sheep? */
-							if (agents[local_ag_ptr].in.sep.type
-									== SHEEP_ID) {
+							if ((agents[local_ag_ptr].in.sep.type
+									== SHEEP_ID) && (agents[local_ag_ptr].in.sep.energy > 0)) {
 
 								/* It is sheep, eat it! */
 
@@ -659,36 +669,44 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							uint new_ag_idx =
 								alloc_ag_idx(agents, seeds);
 
-							/* Create agent with half the energy of
-							 * parent and pointing to first agent in
-							 * this cell */
-							PPCAgentOcl new_ag;
-							new_ag.action = 0;
-							new_ag.in.sep.type =
-								agent.in.sep.type;
-							new_ag.in.sep.energy =
-								agent.in.sep.energy / 2;
+							if (new_ag_idx != END_OF_AG_LIST) {
 
-							/* Put new agent in this cell */
-							new_ag.next = matrix[index].agent_pointer;
-							matrix[index].agent_pointer = new_ag_idx;
+								/* Create agent with half the energy of
+								 * parent and pointing to first agent in
+								 * this cell */
+								PPCAgentOcl new_ag;
+								new_ag.action = 0;
+								new_ag.alive = 1;
+								new_ag.in.sep.type =
+									agent.in.sep.type;
+								new_ag.in.sep.energy =
+									agent.in.sep.energy / 2;
 
-							/* Save new agent in agent array */
-							agents[new_ag_idx] = new_ag;
+								/* Put new agent in this cell */
+								new_ag.next = matrix[index].agent_pointer;
+								matrix[index].agent_pointer = new_ag_idx;
 
-							/* Parent's energy will be halved also */
-							agent.in.sep.energy =
-								agent.in.sep.energy
-								- new_ag.in.sep.energy;
+								/* Save new agent in agent array */
+								agents[new_ag_idx] = new_ag;
 
-							/* Increment agent count */
-							if (agent.in.sep.type == SHEEP_ID)
-								sheep_count++;
-							else
-								wolves_count++;
+								/* Parent's energy will be halved also */
+								agent.in.sep.energy =
+									agent.in.sep.energy
+									- new_ag.in.sep.energy;
 
-							/* I don't touch the energy stats because
-							 * the total energy will remain the same. */
+								/* Increment agent count */
+								if (agent.in.sep.type == SHEEP_ID)
+									sheep_count++;
+								else
+									wolves_count++;
+
+								/* I don't touch the energy stats because
+								 * the total energy will remain the same. */
+							} else {
+
+								tot_errors++;
+
+							}
 						}
 					}
 
@@ -715,6 +733,9 @@ __kernel void step2(__global PPCAgentOcl * agents,
 		atomic_add(&stats[iter].sheep_en, tot_sheep_en);
 		atomic_add(&stats[iter].wolves_en, tot_wolves_en);
 		atomic_add(&stats[iter].grass_en, tot_grass_en);
+
+		atomic_add(&stats[iter].errors, tot_errors);
+
 	}
 }
 

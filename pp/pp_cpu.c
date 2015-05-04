@@ -687,12 +687,12 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 		"Unable to open file \"%s\"", realFilename);
 
 	for (cl_uint i = 0; i <= params.iters; ++i)
-		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\n",
+		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\t%d\n",
 			stats[i].sheep, stats[i].wolves, stats[i].grass,
 			stats[i].sheep_en / (float) stats[i].sheep,
 			stats[i].wolves_en / (float) stats[i].wolves,
-			stats[i].grass_en / (float) params.grid_xy);
-
+			stats[i].grass_en / (float) params.grid_xy,
+			stats[i].errors);
 	fclose(fp);
 
 	/* Unmap stats host buffer. */

@@ -98,6 +98,8 @@ typedef struct pp_statistics {
 	cl_uint wolves_en;
 	/** Total countdown value. */
 	cl_uint grass_en;
+	/** Simulation errors. */
+	cl_uint errors;
 } PPStatistics;
 
 /**

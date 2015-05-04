@@ -52,6 +52,9 @@ typedef struct pp_statistics_ocl {
 	/** Total grass countdown value. */
 	uint grass_en;
 
+	/** Errors during the simulation. */
+	uint errors;
+
 } PPStatisticsOcl;
 
 
