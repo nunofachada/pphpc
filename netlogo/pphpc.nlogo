@@ -19,6 +19,9 @@ to setup
 
   clear-all
   
+  ;; Set random number generator seed
+  random-seed rngseed
+  
   ;; show-params
 
   ask patches [ 
@@ -477,12 +480,12 @@ Number of iterations
 1
 
 BUTTON
-73
-380
-128
-413
+103
+379
+158
+412
 Reset
-set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2\n
+set iterations 2000\nset show-energy? false\nset grass-regrowth-time 10\nset initial-number-sheep 400\nset sheep-gain-from-food 4\nset sheep-reprod-prob 4\nset sheep-reprod-thres 2\nset initial-number-wolves 200\nset wolf-gain-from-food 20\nset wolf-reprod-prob 5\nset wolf-reprod-thres 2\nset rngseed new-seed\n
 NIL
 1
 T
@@ -572,6 +575,17 @@ NIL
 NIL
 NIL
 1
+
+INPUTBOX
+8
+380
+101
+440
+rngseed
+1784790635
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
