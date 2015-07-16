@@ -25,7 +25,7 @@ other large-scale SABMs.
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
 Parallelization Strategies for Spatial Agent-based Models, submitted for 
-publication, 2015
+publication, 2015 ([arXiv pre-print](http://arxiv.org/abs/1507.04047))
 
 #### Licenses
 
