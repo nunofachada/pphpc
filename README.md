@@ -23,9 +23,13 @@ other large-scale SABMs.
 
 #### Publications
 
+* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C.,
+A template model for agent-based simulations, submitted for
+publication, 2015 ([PeerJ preprint](https://peerj.com/preprints/1278/))
+
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
 Parallelization Strategies for Spatial Agent-based Models, submitted for 
-publication, 2015 ([arXiv pre-print](http://arxiv.org/abs/1507.04047))
+publication, 2015 ([arXiv preprint](http://arxiv.org/abs/1507.04047))
 
 #### Licenses
 
