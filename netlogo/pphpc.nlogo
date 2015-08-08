@@ -590,19 +590,35 @@ Number
 @#$#@#$#@
 ## WHAT IS IT?
 
-This model is based on the "Wolf Sheep Predation" model by Uri Wilensky (see reference bellow). Several changes have been implemented in order for the model to conform with the PPHPC ODD model by Nuno Fachada (see reference bellow).
+The purpose of the PPHPC model is to serve as a template for studying and evaluating SABM implementation strategies. It is a realization of a predator-prey dynamic system, and captures important characteristics of SABMs, such as agent movement and local agent interactions. The model can be implemented using substantially different approaches that ensure statistically equivalent qualitative results. Implementations may differ in aspects such as the selected system architecture, choice of programming language and/or agent-based modeling framework, parallelization strategy, random number generator, and so forth. By comparing distinct PPHPC implementations, valuable insights can be obtained on the computational and algorithmical design of SABMs in general.
+
+The NetLogo implementation of PPHPC is based on NetLogo's own "Wolf Sheep Predation" model by Uri Wilensky (see ref. 2), considerably modified to follow the model's ODD protocol described in ref. 1.
 
 ## REFERENCES
 
-For this specific NetLogo implementation with changes by Nuno Fachada:
+1. Fachada N, Lopes VV, Martins RC, Rosa AC. (2015) A template model for agent-based simulations. PeerJ PrePrints 3:e1569 https://dx.doi.org/10.7287/peerj.preprints.1278v1
 
-- Fachada, N. and Lopes, Vitor V. and Martins, Rui C. and Rosa, A.C. (2014). PPHPC: A model for benchmarking Agent-based simulations.
+2. Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.  
 
-For the original model:
-  
-- Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.  
+## COPYRIGHT NOTICES
 
-## COPYRIGHT NOTICE
+### For this model
+
+This model is made available under the CC BY-NC-SA 3.0 license which allows you to:
+
+* Share — copy and redistribute the material in any medium or format
+* Adapt — remix, transform, and build upon the material
+
+Under the following terms:
+
+* Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+* NonCommercial — You may not use the material for commercial purposes.
+* ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+
+The legal text for this license is available at
+http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
+
+### For the original model
 
 Copyright 1997 Uri Wilensky. All rights reserved.
 
