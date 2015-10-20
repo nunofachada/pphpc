@@ -27,11 +27,12 @@ in general.
 #### Publications
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C.,
-A template model for agent-based simulations, under review, 2015 
-([PeerJ preprint](https://peerj.com/preprints/1278/))
+Towards a standard model for research in agent-based modeling and simulation, 
+under review, 2015 
+([PeerJ preprint](https://peerj.com/preprints/1440/))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
-Parallelization Strategies for Spatial Agent-based Models, under review, 2015 
+Parallelization strategies for spatial agent-based models, under review, 2015 
 ([arXiv preprint](http://arxiv.org/abs/1507.04047))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
