@@ -21,6 +21,7 @@ in general.
 #### Currently available implementations
 
 * [Netlogo](https://github.com/FakenMC/pphpc/tree/netlogo)
+([certified OpenABM implementation](https://www.openabm.org/model/4693/))
 * [Java (parallel)](https://github.com/FakenMC/pphpc/tree/java)
 * [OpenCL (GPU+CPU)](https://github.com/FakenMC/pphpc/tree/opencl) (in progress)
 
@@ -32,7 +33,9 @@ under review, 2015
 ([PeerJ preprint](https://peerj.com/preprints/1440/))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
-Parallelization strategies for spatial agent-based models, under review, 2015 
+Parallelization strategies for spatial agent-based models, accepted for
+publication in the [International Journal of Parallel Programming](http://www.springer.com/computer/theoretical+computer+science/journal/10766), 
+2015 
 ([arXiv preprint](http://arxiv.org/abs/1507.04047))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
