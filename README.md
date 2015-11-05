@@ -29,8 +29,8 @@ in general.
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C.,
 Towards a standard model for research in agent-based modeling and simulation, 
-under review, 2015 
-([PeerJ preprint](https://peerj.com/preprints/1440/))
+accepted for publication in [PeerJ Computer Science](https://peerj.com/computer-science/), 
+2015 ([PeerJ preprint](https://peerj.com/preprints/1440/))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
 Parallelization strategies for spatial agent-based models, accepted for
