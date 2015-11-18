@@ -36,13 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.uncommons.maths.random.AESCounterRNG;
-import org.uncommons.maths.random.CMWC4096RNG;
-import org.uncommons.maths.random.CellularAutomatonRNG;
-import org.uncommons.maths.random.JavaRNG;
-import org.uncommons.maths.random.MersenneTwisterRNG;
 import org.uncommons.maths.random.SeedGenerator;
-import org.uncommons.maths.random.XORShiftRNG;
 
 /**
  * A concrete implementation of the simulation model, in the MVC sense.
@@ -106,10 +100,12 @@ public class Model implements IModel {
 			RNGType rngType, BigInteger seed) {
 		
 		this.params = params;
-		this.space = new VonNeumann2DTorusSpace(params.getGridX(), params.getGridY());
+		this.space = new VonNeumann2DTorusSpace(
+				params.getGridX(), params.getGridY());
 		this.globalStats = wFactory.createGlobalStats(params.getIters());
 		this.putInitAgentStrategy = wFactory.createPutInitAgentStrategy();
-		this.putExistingAgentStrategy = wFactory.createPutExistingAgentStrategy();
+		this.putExistingAgentStrategy = 
+				wFactory.createPutExistingAgentStrategy();
 		this.grassInitStrategy = new CellGrassInitCoinRandCounter();
 		this.currentIteration = 0;
 		this.size = space.getSize();
@@ -246,27 +242,34 @@ public class Model implements IModel {
 				
 			for (int i = 0; i <= params.getIters() ; i++) {
 				
-				int sheepCount = this.globalStats.getStats(StatType.SHEEP_COUNT, i).intValue();
-				int wolvesCount = this.globalStats.getStats(StatType.WOLVES_COUNT, i).intValue();
-				int grassAlive = this.globalStats.getStats(StatType.GRASS_ALIVE, i).intValue();
+				int sheepCount = this.globalStats.getStats(
+						StatType.SHEEP_COUNT, i).intValue();
+				int wolvesCount = this.globalStats.getStats(
+						StatType.WOLVES_COUNT, i).intValue();
+				int grassAlive = this.globalStats.getStats(
+						StatType.GRASS_ALIVE, i).intValue();
 				float avgSheepEnergy = sheepCount > 0 
-						? this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue() / (float) sheepCount
+						? this.globalStats.getStats(StatType.SHEEP_ENERGY, i).longValue() 
+								/ (float) sheepCount
 						: 0;
 				float avgWolvesEnergy = wolvesCount > 0 
-						? this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue() / (float) wolvesCount
+						? this.globalStats.getStats(StatType.WOLVES_ENERGY, i).longValue() 
+								/ (float) wolvesCount
 						: 0;
 				float avgGrassCountdown = this.globalStats.getStats(StatType.GRASS_COUNTDOWN, i).longValue()
 						/ (float) this.getSize();
 				
-				out.write(sheepCount + "\t" + wolvesCount + "\t" + grassAlive + "\t"
-						+ avgSheepEnergy + "\t" + avgWolvesEnergy + "\t" + avgGrassCountdown + "\n");
+				out.write(sheepCount + "\t" + wolvesCount + "\t" 
+						+ grassAlive + "\t" + avgSheepEnergy + "\t" 
+						+ avgWolvesEnergy + "\t" + avgGrassCountdown + "\n");
 			}
 			
 			if (out != null) {
 				out.close();
 			}
 		} catch (Exception e) {
-			this.registerException(e, "Exporting statistics to file '" + filename + "'");
+			this.registerException(e, "Exporting statistics to file '" 
+					+ filename + "'");
 		}
 	}
 
@@ -277,7 +280,8 @@ public class Model implements IModel {
 	public void registerException(Throwable t, String s) {
 
 		synchronized (this) {
-			this.lastThrowable = new Throwable(t.getMessage() + " (additional info: " + s + ")", t);
+			this.lastThrowable = new Throwable(t.getMessage() 
+					+ " (additional info: " + s + ")", t);
 		}
 		this.updateObservers(ModelEvent.EXCEPTION);
 	}
@@ -296,29 +300,11 @@ public class Model implements IModel {
 	@Override
 	public Random createRNG(int modifier) throws Exception {
 		
+		/* Instantiate the seed generator for the PPHPC model. */
 		SeedGenerator seedGen = new ModelSeedGenerator(modifier, this.seed);
-
-		switch (this.rngType) {
-			case AES:
-				return new AESCounterRNG(seedGen);
-			case CA:
-				return new CellularAutomatonRNG(seedGen);
-			case CMWC:
-				return new CMWC4096RNG(seedGen);
-			case JAVA:
-				return new JavaRNG(seedGen);
-			case MT:
-				return new MersenneTwisterRNG(seedGen);
-			case RANDU:
-				return new RanduRNG(seedGen);
-			case MODMIDSQUARE:
-				return new ModMidSquareRNG(seedGen);
-			case XORSHIFT: 
-				return new XORShiftRNG(seedGen);
-			default:
-				throw new RuntimeException(
-						"Don't know this random number generator.");
-		}
+		
+		/* Create and return the random number generator. */
+		return rngType.createRNG(seedGen);
 		
 	}
 	

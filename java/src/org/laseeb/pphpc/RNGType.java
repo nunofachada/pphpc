@@ -27,6 +27,16 @@
 
 package org.laseeb.pphpc;
 
+import java.util.Random;
+
+import org.uncommons.maths.random.AESCounterRNG;
+import org.uncommons.maths.random.CMWC4096RNG;
+import org.uncommons.maths.random.CellularAutomatonRNG;
+import org.uncommons.maths.random.JavaRNG;
+import org.uncommons.maths.random.MersenneTwisterRNG;
+import org.uncommons.maths.random.SeedGenerator;
+import org.uncommons.maths.random.XORShiftRNG;
+
 /**
  * Enum representing the random number generators present in the Uncommons
  * Math library.
@@ -36,19 +46,69 @@ package org.laseeb.pphpc;
 public enum RNGType {
 	
 	/** @see org.uncommons.maths.random.AESCounterRNG */
-	AES,
+	AES {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new AESCounterRNG(seedGen);
+		}
+	},
 	/** @see org.uncommons.maths.random.CellularAutomatonRNG */
-	CA, 
+	CA {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new CellularAutomatonRNG(seedGen);
+		}
+	}, 
 	/** @see org.uncommons.maths.random.CMWC4096RNG */
-	CMWC, 
+	CMWC {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new CMWC4096RNG(seedGen);
+		}
+	}, 
 	/** @see org.uncommons.maths.random.JavaRNG */
-	JAVA, 
+	JAVA {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new JavaRNG(seedGen);
+		}
+	}, 
 	/** @see org.uncommons.maths.random.MersenneTwisterRNG */
-	MT,
+	MT {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new MersenneTwisterRNG(seedGen);
+		}
+	},
 	/** @see RanduRNG */
-	RANDU,
+	RANDU {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new RanduRNG(seedGen);
+		}
+	},
 	/** @see ModMidSquareRNG */
-	MODMIDSQUARE,
+	MODMIDSQUARE {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new ModMidSquareRNG(seedGen);
+		}
+	},
 	/** @see org.uncommons.maths.random.XORShiftRNG */
-	XORSHIFT 
+	XORSHIFT {
+		@Override
+		public Random createRNG(SeedGenerator seedGen) throws Exception {
+			return new XORShiftRNG(seedGen);
+		}
+	};
+	
+	/**
+	 * Create the random number generator associated with this RNG type.
+	 * 
+	 * @param seedGen Seed generator.
+	 * @return A random number generator associated with this RNG type.
+	 * @throws Exception If some problem occurs while creating the RNG.
+	 */
+	public abstract Random createRNG(SeedGenerator seedGen) throws Exception;
+
 }
