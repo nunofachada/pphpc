@@ -100,7 +100,7 @@ public class PredPrey {
 	private ParStratType parStart = ParStratType.EQ;
 
 	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads (ignored for ST"
+	@Parameter(names = "-n", description = "Number of threads (ignored for ST "
 			+ "parallelization strategy), defaults to the number of processors", 
 			validateWith = PositiveInteger.class)
 	private int numThreads = Runtime.getRuntime().availableProcessors();
