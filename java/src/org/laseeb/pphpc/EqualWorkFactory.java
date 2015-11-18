@@ -27,26 +27,29 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.Parameters;
-
 /**
- * Work factory which creates the required objects to divide work equally among the 
- * available workers in a thread-safe fashion. If used for processing cells, synchronization 
- * is performed at cell-level.
+ * Work factory which creates the required objects to divide work equally among 
+ * the available workers in a thread-safe fashion. If used for processing cells, 
+ * synchronization is performed at cell-level.
  * 
  * @author Nuno Fachada
  */
-@Parameters(commandNames = {"equal"}, commandDescription = "Equal work command")
 public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
-	
-	/* Name of command which invokes this work factory.*/
-	final private String commandName = "equal";
 
 	/* Is the simulation repeatable? */
-	@Parameter(names = "-x", description = "Make the simulation repeatable? (slower)")
 	private boolean repeatable = false;
-
+	
+	/**
+	 * Create a new equal work factory.
+	 * 
+	 * @param numThreads Number of threads.
+	 * @param repeatable Are the simulations to be reproducible (slower)?
+	 */
+	public EqualWorkFactory(int numThreads, boolean repeatable) {
+		super(numThreads);
+		this.repeatable = repeatable;
+	}
+	
 	/**
 	 * @see IWorkFactory#createPutInitAgentStrategy()
 	 */
@@ -98,36 +101,36 @@ public class EqualWorkFactory extends AbstractMultiThreadWorkFactory {
 		
 		/* ...and set appropriate sync. points for equal work division. */
 		controller.setWorkerSynchronizers(
-				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads),
-				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, 
+						this.numThreads),
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, 
+						controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, 
+						this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS, 
+						controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, 
+						this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, 
+						controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, 
+						controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, 
+						this.numThreads));
 		
 		/* Return the controller, configured for equal work division. */
 		return controller;
 	}
 
 	/**
-	 * @see IWorkFactory#getCommandName()
-	 */
-	@Override
-	public String getCommandName() {
-		
-		return this.commandName;
-		
-	}
-
-	/**
 	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, 
+			IModel model, IController controller) {
 		
-		/* The equal work provider will assure equal work division among workers. */
+		/* The equal work provider will assure equal work division among 
+		 * workers. */
 		return new EqualWorkProvider(this.numThreads, workSize);
 		
 	}

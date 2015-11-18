@@ -27,8 +27,6 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameters;
-
 /**
  * Work factory which creates the required objects to divide work equally among the 
  * available workers in a thread-safe fashion. When used for cell processing, thread-safety 
@@ -37,12 +35,17 @@ import com.beust.jcommander.Parameters;
  * 
  * @author Nuno Fachada
  */
-@Parameters(commandNames = {"eq_rowsync"}, commandDescription = "Equal row sync. work command")
 public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
-	
-	/* Name of command which invokes this work factory.*/
-	final private String commandName = "eq_rowsync";
 
+	/**
+	 * Create a new equal row-synchronization work factory.
+	 * 
+	 * @param numThreads Number of threads.
+	 */
+	public EqualRowSyncWorkFactory(int numThreads) {
+		super(numThreads);
+	}
+	
 	/**
 	 * @see IWorkFactory#createSimController(IModel)
 	 */
@@ -81,14 +84,6 @@ public class EqualRowSyncWorkFactory extends AbstractMultiThreadWorkFactory {
 	@Override
 	public ICellPutAgentStrategy createPutExistingAgentStrategy() {
 		return new CellPutAgentAsync();
-	}
-
-	/**
-	 * @see IWorkFactory#getCommandName()
-	 */
-	@Override
-	public String getCommandName() {
-		return this.commandName;
 	}
 
 	/**

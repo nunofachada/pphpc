@@ -87,13 +87,4 @@ public interface IWorkFactory {
 	 */
 	public int getNumWorkers();
 	
-	/**
-	 * Returns the command name of the work factory. This is used for factory
-	 * instantiation.
-	 * 
-	 * @return The command name of the work factory.
-	 */
-	public String getCommandName();
-
-	
 }

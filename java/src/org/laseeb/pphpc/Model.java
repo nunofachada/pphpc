@@ -184,7 +184,8 @@ public class Model implements IModel {
 	public void initCellAt(int idx, Random rng) {
 		if (this.cells[idx] == null) {
 			this.cells[idx] = new Cell(params.getGrassRestart(), 
-					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), rng),
+					this.grassInitStrategy.getInitGrass(params.getGrassRestart(), 
+							rng),
 					this.putInitAgentStrategy, this.putExistingAgentStrategy);
 		} else {
 			throw new IllegalStateException("Cell " + idx + " already set!");
@@ -315,7 +316,8 @@ public class Model implements IModel {
 			case XORSHIFT: 
 				return new XORShiftRNG(seedGen);
 			default:
-				throw new RuntimeException("Don't know this random number generator.");
+				throw new RuntimeException(
+						"Don't know this random number generator.");
 		}
 		
 	}

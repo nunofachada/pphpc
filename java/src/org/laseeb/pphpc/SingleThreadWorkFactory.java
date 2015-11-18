@@ -27,18 +27,17 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameters;
-
 /**
  * Work factory which creates the required objects to distribute work to a single worker.
  * 
  * @author Nuno Fachada
  */
-@Parameters(commandNames = {"st"}, commandDescription = "Single-threaded work command")
 public class SingleThreadWorkFactory implements IWorkFactory {
-
-	/* Name of command which invokes this work factory.*/
-	private String commandName = "st";
+	
+	/**
+	 * Create a new single-threaded work factory.
+	 */
+	public SingleThreadWorkFactory() {}
 
 	/**
 	 * @see IWorkFactory#getWorkProvider(int, WorkType, IModel, IController)
@@ -107,14 +106,6 @@ public class SingleThreadWorkFactory implements IWorkFactory {
 		/* Always returns 1. */
 		return 1;
 		
-	}
-
-	/**
-	 * @see IWorkFactory#getCommandName()
-	 */
-	@Override
-	public String getCommandName() {
-		return this.commandName ;
 	}
 
 }

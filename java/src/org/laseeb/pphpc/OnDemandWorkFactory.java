@@ -27,25 +27,27 @@
 
 package org.laseeb.pphpc;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.Parameters;
-import com.beust.jcommander.validators.PositiveInteger;
-
 /**
- * Work factory which creates the required objects to distribute work on demand among the 
- * available workers in a thread-safe fashion.
+ * Work factory which creates the required objects to distribute work on demand
+ * among the available workers in a thread-safe fashion.
  *  
  * @author Nuno Fachada
  */
-@Parameters(commandNames = {"on_demand"}, commandDescription = "On-demand work command")
 public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 
-	/* Name of command which invokes this work factory.*/
-	final private String commandName = "on_demand";
-
-	/* Block size for ON_DEMAND work type. */
-	@Parameter(names = "-b", description = "Block size", validateWith = PositiveInteger.class)
-	private Integer blockSize = 100;
+	/* Block size for OD work type. */
+	private Integer blockSize;
+	
+	/**
+	 * Create a new on-demand work factory.
+	 * 
+	 * @param numThreads Number of threads.
+	 * @param blockSize Block size.
+	 */
+	public OnDemandWorkFactory(int numThreads, int blockSize) {
+		super(numThreads);
+		this.blockSize = blockSize;
+	}
 
 	/**
 	 * @see IWorkFactory#createPutInitAgentStrategy()
@@ -74,35 +76,37 @@ public class OnDemandWorkFactory extends AbstractMultiThreadWorkFactory {
 		
 		/* ...and set appropriate sync. points for on-demand work division. */
 		controller.setWorkerSynchronizers(
-				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS,controller, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, controller, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, controller, this.numThreads), 
-				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, controller, this.numThreads), 
-				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, this.numThreads));
+				new NonBlockingSyncPoint(ControlEvent.BEFORE_INIT_CELLS, 
+						this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_CELLS, 
+						controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_SET_CELL_NEIGHBORS, 
+						this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_INIT_AGENTS,
+						controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_FIRST_STATS, 
+						controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_HALF_ITERATION, 
+						controller, this.numThreads), 
+				new BlockingSyncPoint(ControlEvent.AFTER_END_ITERATION, 
+						controller, this.numThreads), 
+				new NonBlockingSyncPoint(ControlEvent.AFTER_END_SIMULATION, 
+						this.numThreads));
 		
 		/* Return the controller, configured for on-demand work division. */
 		return controller;
 	}
 
 	/**
-	 * @see IWorkFactory#getCommandName()
-	 */
-	@Override
-	public String getCommandName() {
-		return this.commandName;
-	}
-
-	/**
 	 * @see AbstractMultiThreadWorkFactory#doGetWorkProvider(int, WorkType, IModel, IController)
 	 */
 	@Override
-	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, IModel model, IController controller) {
+	protected IWorkProvider doGetWorkProvider(int workSize, WorkType workType, 
+			IModel model, IController controller) {
 		
 		/* Return a new on-demand work provider. */
-		return new OnDemandWorkProvider(this.numThreads, this.blockSize, workSize);
+		return new OnDemandWorkProvider(
+				this.numThreads, this.blockSize, workSize);
 	}
 
 }

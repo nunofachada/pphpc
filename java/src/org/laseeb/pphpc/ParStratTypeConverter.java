@@ -31,21 +31,21 @@ import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
 
 /**
- * This class provides a String to RNGType converter for JCommander,
- * which allows the user to select an Uncommons Maths random number 
- * generator as a command line option.
+ * This class provides a String to ParStratType converter for JCommander,
+ * which allows the user to select a parallelization strategy as a command line
+ * option.
  * 
  * @author Nuno Fachada
  */
-public class RNGTypeConverter implements IStringConverter<RNGType> {
+public class ParStratTypeConverter implements IStringConverter<ParStratType> {
 	
 	@Override
-	public RNGType convert(String value) {
-		RNGType type;
+	public ParStratType convert(String value) {
+		ParStratType type;
 		try {
-			type = RNGType.valueOf(value.toUpperCase());
+			type = ParStratType.valueOf(value.toUpperCase());
 		} catch (Exception e) {
-			throw new ParameterException("Unknown random number generator '" 
+			throw new ParameterException("Unknown parallelization strategy '" 
 					+ value + "'");
 		}
 		return type;

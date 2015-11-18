@@ -30,11 +30,8 @@ package org.laseeb.pphpc;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.validators.PositiveInteger;
-
 /**
- * Abstract class for multi-threaded work factories. Produces work providers for
+ * Abstract class for multithreaded work factories. Produces work providers for
  * a given work size and maintains a map of work sizes and work provider 
  * implementations.
  * 
@@ -43,17 +40,20 @@ import com.beust.jcommander.validators.PositiveInteger;
 public abstract class AbstractMultiThreadWorkFactory implements IWorkFactory {
 
 	/* Number of threads. */
-	@Parameter(names = "-n", description = "Number of threads, defaults to the number of processors", 
-			validateWith = PositiveInteger.class)
-	protected int numThreads = Runtime.getRuntime().availableProcessors();
+	protected int numThreads;
 
 	/* Map of work sizes and work provider implementations. */
 	private Map<Integer, IWorkProvider> workProviders;
 	
 	/**
 	 * Create a new abstract work factory.
+	 * 
+	 * @param numThreads Number of threads.
 	 */
-	public AbstractMultiThreadWorkFactory() {
+	public AbstractMultiThreadWorkFactory(int numThreads) {
+		
+		/* Set the number of threads. */
+		this.numThreads = numThreads;
 		
 		/* Initialize map of work sizes and work provider implementations. */
 		this.workProviders = new HashMap<Integer, IWorkProvider>();
