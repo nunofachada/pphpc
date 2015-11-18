@@ -46,17 +46,22 @@ import com.beust.jcommander.validators.PositiveInteger;
  * This class contains the main method for starting the simulator. The main method
  * creates a new instance of this class and calls the {@link #doMain(String[])} method,
  * which performs the following steps:
- * 
- * 1. Parses command-line options, keeping them in the created instance of this class, 
- * which also serves as a container object for several of these options.
- * 2. Selects the appropriate work factory.
- * 3. Reads the simulation parameters file and creates a simulation parameters object.
- * 4. Instantiates the MVC model, passing it the simulation parameters and several other
- * options specified in the command-line.
- * 5. Gets an MVC controller from the selected work factory.
- * 6. Creates and initializes the MVC views specified in the command-line, passing them
- * the model, the controller and a reference to the created instance of this class (so that
- * views have access to some options specified in the command-line). 
+ * <p>
+ * <ol>
+ * <li>Parses command-line options, keeping them in the created instance of 
+ * this class, which also serves as a container object for several of these 
+ * options.</li>
+ * <li>Instantiates the appropriate work factory.</li>
+ * <li>Reads the simulation parameters file and creates a simulation parameters
+ * object.</li>
+ * <li>Instantiates the MVC model, passing it the simulation parameters and 
+ * several other options specified in the command-line.</li>
+ * <li>Gets an MVC controller from the selected work factory.</li>
+ * <li>Creates and initializes the MVC views specified in the command-line, 
+ * passing them the model, the controller and a reference to the created 
+ * instance of this class (so that views have access to some options specified 
+ * in the command-line).</li> 
+ * </ol>
  * 
  * @author Nuno Fachada
  */
@@ -108,7 +113,7 @@ public class PredPrey {
 	@Parameter(names = "-b", description = "Block size (only for OD" 
 			+ " parallelization strategy)", 
 			validateWith = PositiveInteger.class)
-	private Integer blockSize = 100;
+	private int blockSize = 100;
 	
 	/* File containing simulation parameters. */
 	@Parameter(names = "-p", 
@@ -211,24 +216,7 @@ public class PredPrey {
 		
 		/* Get the work factory which corresponds to the command specified
 		 * in the command line. */
-		switch (parStart) {
-		case ST:
-			this.workFactory = new SingleThreadWorkFactory();
-			break;
-		case EQ:
-			this.workFactory = new EqualWorkFactory(this.numThreads, false);
-			break;
-		case EX:
-			this.workFactory = new EqualWorkFactory(this.numThreads, true);
-			break;
-		case ER:
-			this.workFactory = new EqualRowSyncWorkFactory(this.numThreads);
-			break;
-		case OD:
-			this.workFactory = new OnDemandWorkFactory(
-					this.numThreads, this.blockSize);
-			break;
-		}
+		this.workFactory = this.parStart.getWorkFactory(this);
 		
 		/* Read parameters file. */
 		try {
@@ -243,8 +231,8 @@ public class PredPrey {
 			this.seed = BigInteger.valueOf(System.nanoTime());
 		
 		/* Create the MVC model. */
-		IModel model = new Model(this.params, this.workFactory, !this.noShuffle, 
-				this.rngType, this.seed);
+		IModel model = new Model(this.params, this.workFactory, 
+				!this.noShuffle, this.rngType, this.seed);
 		
 		/* Obtain the MVC controller. */
 		IController controller = this.workFactory.createSimController(model);
@@ -267,15 +255,6 @@ public class PredPrey {
 			System.exit(Errors.ARGS.getValue());			
 		}
 		
-	}
-	
-	/**
-	 * Returns the name of the file where to place the simulation statistics.
-	 * 
-	 * @return The name of the file where to place the simulation statistics.
-	 */
-	public String getStatsFile() {
-		return this.statsFile;
 	}
 
 	/**
@@ -384,6 +363,35 @@ public class PredPrey {
 			view.init(model, controller, this);
 		}
 		
+	}
+	
+	/**
+	 * Returns the name of the file where to place the simulation statistics.
+	 * 
+	 * @return The name of the file where to place the simulation statistics.
+	 */
+	public String getStatsFile() {
+		return this.statsFile;
+	}
+
+	/**
+	 * Returns the number of threads specified in the command line.
+	 * 
+	 * @return The number of threads specified in the command line.
+	 */
+	public int getNumThreads() {
+		return numThreads;
+	}
+
+	/**
+	 * Returns the block size (for the OD strategy) specified in the command 
+	 * line.
+	 * 
+	 * @return The block size (for the OD strategy) specified in the command 
+	 * line.
+	 */
+	public int getBlockSize() {
+		return blockSize;
 	}
 	
 }

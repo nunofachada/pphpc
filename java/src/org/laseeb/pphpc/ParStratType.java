@@ -35,14 +35,61 @@ package org.laseeb.pphpc;
 public enum ParStratType {
 	
 	/** Single-thread. */
-	ST,
+	ST {
+		@Override
+		/** @see ParStratType#getWorkFactory() */
+		public IWorkFactory getWorkFactory(PredPrey pp) {
+			return new SingleThreadWorkFactory();
+		}
+	},
+	
 	/** Equal. */
-	EQ, 
+	EQ {
+		@Override
+		/** @see ParStratType#getWorkFactory() */
+		public IWorkFactory getWorkFactory(PredPrey pp) {
+			return new EqualWorkFactory(pp.getNumThreads(), false);
+		}
+	},
+	
 	/** Equal with repeatability. */
-	EX, 
+	EX {
+		@Override
+		/** @see ParStratType#getWorkFactory() */
+		public IWorkFactory getWorkFactory(PredPrey pp) {
+			return new EqualWorkFactory(pp.getNumThreads(), true);
+		}
+	},
+	
 	/** Equal with row synchronization. */
-	ER, 
+	ER {
+		@Override
+		/** @see ParStratType#getWorkFactory() */
+		public IWorkFactory getWorkFactory(PredPrey pp) {
+			return new EqualRowSyncWorkFactory(pp.getNumThreads());
+		}
+	},
+	
 	/** On-demand. */
-	OD
+	OD {
+		@Override
+		/** @see ParStratType#getWorkFactory() */
+		public IWorkFactory getWorkFactory(PredPrey pp) {
+			return new OnDemandWorkFactory(
+					pp.getNumThreads(), pp.getBlockSize());
+		}
+	};
+	
+	/**
+	 * Gets the work factory associated and properly configured according to
+	 * this parallelization strategy.
+	 * 
+	 * @param pp The {@link PredPrey} object containing work factory parameters
+	 * given as command line options.
+	 * 
+	 * @return A new work factory associated and properly configured according
+	 * to this parallelization strategy.
+	 */
+	public abstract IWorkFactory getWorkFactory(PredPrey pp);
 
 }
