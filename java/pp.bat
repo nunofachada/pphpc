@@ -1,1 +1,1 @@
-java -Xms2048m -Xmx4096m -cp bin:lib/* org.laseeb.pphpc.PredPrey %*
+java -Xms2048m -Xmx4096m -cp "bin;lib\*" org.laseeb.pphpc.PredPrey %*

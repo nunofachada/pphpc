@@ -26,35 +26,29 @@
 
 package org.laseeb.pphpc;
 
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
+
 /**
- * Work providers provide work tokens to simulation workers.
+ * This class provides a String to ParStratType converter for JCommander,
+ * which allows the user to select a parallelization strategy as a command line
+ * option.
  * 
  * @author Nuno Fachada
  */
-public interface IWorkProvider {
-
-	/**
-	 * Create and return a new work state for the worker with the given ID.
-	 * 
-	 * @param wId Worker ID.
-	 * @return A new work state for the worker with the given ID.
-	 */
-	public IWork newWork(int wId);
-
-	/**
-	 * Get next work token for a given worker.
-	 * 
-	 * @param work Work state, contains the worker ID and how much has the worker
-	 * advanced in its work.
-	 * @return Next work token for a given worker.
-	 */
-	public int getNextToken(IWork work);
+public class ParStratTypeConverter implements IStringConverter<ParStratType> {
 	
-	/**
-	 * Reset the given work state.
-	 * 
-	 * @param work Work state to reset.
-	 */
-	public void resetWork(IWork work);
+	@Override
+	public ParStratType convert(String value) {
+		ParStratType type;
+		try {
+			type = ParStratType.valueOf(value.toUpperCase());
+		} catch (Exception e) {
+			throw new ParameterException("Unknown parallelization strategy '" 
+					+ value + "'");
+		}
+		return type;
+		
+	}
 
 }
