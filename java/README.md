@@ -95,7 +95,7 @@ simulation.
 $ ./pp.sh -ps ST -p ../configs/config100v1.txt -v InfoWidget -v InteractiveCLI
 ```
 
-#### Example 4
+##### Example 4
 
 The `pp.sh` script (`pp.bat` in Windows) sets the initial memory to 2GB and the
 maximum memory to 4GB. For larger simulations, e.g. `config3200v2.txt` you might
