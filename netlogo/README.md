@@ -1,4 +1,4 @@
-## Parallel Java implementation of the PPHPC model
+## NetLogo implementation of the PPHPC model
 
 ### Running the model manually using the NetLogo GUI
 
