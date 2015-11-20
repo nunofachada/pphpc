@@ -464,7 +464,7 @@ INPUTBOX
 153
 169
 iterations
-2000
+4001
 1
 0
 Number
@@ -590,13 +590,13 @@ Number
 @#$#@#$#@
 ## WHAT IS IT?
 
-The purpose of the PPHPC model is to serve as a template for studying and evaluating SABM implementation strategies. It is a realization of a predator-prey dynamic system, and captures important characteristics of SABMs, such as agent movement and local agent interactions. The model can be implemented using substantially different approaches that ensure statistically equivalent qualitative results. Implementations may differ in aspects such as the selected system architecture, choice of programming language and/or agent-based modeling framework, parallelization strategy, random number generator, and so forth. By comparing distinct PPHPC implementations, valuable insights can be obtained on the computational and algorithmical design of SABMs in general.
+The purpose of PPHPC is to serve as a standard model for studying and evaluating spatial agent-based model (SABM) implementation strategies. It is a realization of a predator-prey dynamic system, and captures important characteristics of SABMs, such as agent movement and local agent interactions. The model can be implemented using substantially different approaches that ensure statistically equivalent qualitative results. Implementations may differ in aspects such as the selected system architecture, choice of programming language and/or agent-based modeling framework, parallelization strategy, random number generator, and so forth. By comparing distinct PPHPC implementations, valuable insights can be obtained on the computational and algorithmical design of SABMs in general.
 
 The NetLogo implementation of PPHPC is based on NetLogo's own "Wolf Sheep Predation" model by Uri Wilensky (see ref. 2), considerably modified to follow the model's ODD protocol described in ref. 1.
 
 ## REFERENCES
 
-1. Fachada N, Lopes VV, Martins RC, Rosa AC. (2015) A template model for agent-based simulations. PeerJ PrePrints 3:e1569 https://dx.doi.org/10.7287/peerj.preprints.1278v1
+1. Fachada N, Lopes VV, Martins RC, Rosa AC. (2015) Towards a standard model for research in agent-based modeling and simulation. *PeerJ Computer Science* 1:e36 https://dx.doi.org/10.7717/peerj-cs.36
 
 2. Wilensky, U. (1997).  NetLogo Wolf Sheep Predation model.  http://ccl.northwestern.edu/netlogo/models/WolfSheepPredation.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.  
 
@@ -604,7 +604,7 @@ The NetLogo implementation of PPHPC is based on NetLogo's own "Wolf Sheep Predat
 
 ### For this model
 
-This model is made available under the CC BY-NC-SA 3.0 license which allows you to:
+This model is made available under the CC BY-NC-SA 4.0 license which allows you to:
 
 * Share — copy and redistribute the material in any medium or format
 * Adapt — remix, transform, and build upon the material
@@ -616,7 +616,7 @@ Under the following terms:
 * ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 
 The legal text for this license is available at
-http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
+http://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
 
 ### For the original model
 
@@ -950,6 +950,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="400"/>
     </enumeratedValueSet>
@@ -993,7 +996,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex200v1" repetitions="1" runMetricsEveryStep="true">
@@ -1002,6 +1005,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="1600"/>
     </enumeratedValueSet>
@@ -1045,7 +1051,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex400v1" repetitions="1" runMetricsEveryStep="true">
@@ -1054,6 +1060,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="6400"/>
     </enumeratedValueSet>
@@ -1097,7 +1106,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex800v1" repetitions="1" runMetricsEveryStep="true">
@@ -1106,6 +1115,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="25600"/>
     </enumeratedValueSet>
@@ -1149,7 +1161,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex1600v1" repetitions="1" runMetricsEveryStep="true">
@@ -1158,6 +1170,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="102400"/>
     </enumeratedValueSet>
@@ -1201,7 +1216,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex100v2" repetitions="1" runMetricsEveryStep="true">
@@ -1210,6 +1225,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="400"/>
     </enumeratedValueSet>
@@ -1253,7 +1271,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex200v2" repetitions="1" runMetricsEveryStep="true">
@@ -1262,6 +1280,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="1600"/>
     </enumeratedValueSet>
@@ -1305,7 +1326,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex400v2" repetitions="1" runMetricsEveryStep="true">
@@ -1314,6 +1335,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="6400"/>
     </enumeratedValueSet>
@@ -1357,7 +1381,7 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex800v2" repetitions="1" runMetricsEveryStep="true">
@@ -1366,6 +1390,9 @@ repeat 75 [ go ]
     <metric>sheep-count</metric>
     <metric>wolves-count</metric>
     <metric>grass-alive</metric>
+    <metric>sheep-energy</metric>
+    <metric>wolves-energy</metric>
+    <metric>grass-countdown</metric>
     <enumeratedValueSet variable="initial-number-sheep">
       <value value="25600"/>
     </enumeratedValueSet>
@@ -1409,557 +1436,10 @@ repeat 75 [ go ]
       <value value="4001"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
+      <value value="true"/>
     </enumeratedValueSet>
   </experiment>
   <experiment name="ex1600v2" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="102400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="1599"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="1599"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="51200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="false"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex100v1E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="99"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="99"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex200v1E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="1600"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="800"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex400v1E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="6400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="399"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="399"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="3200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex800v1E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="25600"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="799"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="799"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="12800"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex1600v1E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="102400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="4"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="1599"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="1599"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="51200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex100v2E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="99"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="99"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex200v2E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="1600"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="199"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="800"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex400v2E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="6400"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="399"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="399"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="3200"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex800v2E" repetitions="1" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <metric>sheep-count</metric>
-    <metric>wolves-count</metric>
-    <metric>grass-alive</metric>
-    <metric>sheep-energy</metric>
-    <metric>wolves-energy</metric>
-    <metric>grass-countdown</metric>
-    <enumeratedValueSet variable="initial-number-sheep">
-      <value value="25600"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-gain-from-food">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-prob">
-      <value value="5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-prob">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="sheep-reprod-thres">
-      <value value="2"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pxcor">
-      <value value="799"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pxcor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="max-pycor">
-      <value value="799"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="min-pycor">
-      <value value="0"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-wolves">
-      <value value="12800"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="grass-regrowth-time">
-      <value value="15"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="wolf-gain-from-food">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="iterations">
-      <value value="4001"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="show-energy?">
-      <value value="true"/>
-    </enumeratedValueSet>
-  </experiment>
-  <experiment name="ex1600v2E" repetitions="1" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
     <metric>sheep-count</metric>
