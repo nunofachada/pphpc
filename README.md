@@ -34,9 +34,9 @@ Towards a standard model for research in agent-based modeling and simulation,
 2015, http://dx.doi.org/10.7717/peerj-cs.36
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
-Parallelization strategies for spatial agent-based models, accepted for
-publication in the [International Journal of Parallel Programming](http://www.springer.com/computer/theoretical+computer+science/journal/10766), 
-2015 
+Parallelization strategies for spatial agent-based models,
+[International Journal of Parallel Programming](http://www.springer.com/computer/theoretical+computer+science/journal/10766), 
+2016, http://dx.doi.org/10.1007/s10766-015-0399-9
 ([arXiv preprint](http://arxiv.org/abs/1507.04047))
 
 * Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
