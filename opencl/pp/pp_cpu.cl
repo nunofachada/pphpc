@@ -568,6 +568,10 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 			}
 
+			/* First and last newly born agent pointers. */
+			uint new_ag_ptr_first = END_OF_AG_LIST;
+			uint new_ag_ptr_last = END_OF_AG_LIST;
+
 			/* For each agent in cell */
 			ag_ptr = matrix[cell_idx].agent_pointer;
 			while (ag_ptr != END_OF_AG_LIST) {
@@ -580,6 +584,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 				/* Agent actions. Agent will only perform actions if
 				 * its energy is positive. */
+				 // TODO: WHY DO I NEED THIS CHECK FOR ENERGY?
 				if (agent.in.sep.energy > 0) {
 
 					/* Is agent a sheep? */
@@ -589,12 +594,10 @@ __kernel void step2(__global PPCAgentOcl * agents,
 						if (matrix[cell_idx].grass == 0) {
 
 							/* ...eat grass... */
-							matrix[cell_idx].grass =
-								GRASS_RESTART;
+							matrix[cell_idx].grass = GRASS_RESTART;
 
 							/* ...and gain energy! */
-							agent.in.sep.energy +=
-								SHEEP_GAIN_FROM_FOOD;
+							agent.in.sep.energy += SHEEP_GAIN_FROM_FOOD;
 						}
 
 						/* Update sheep stats. */
@@ -605,55 +608,48 @@ __kernel void step2(__global PPCAgentOcl * agents,
 					} else {
 
 						/* Look for sheep... */
-						uint local_ag_ptr =
-							matrix[cell_idx].agent_pointer;
-						uint prev_ag_ptr =
-							END_OF_AG_LIST;
+						uint local_ag_ptr = matrix[cell_idx].agent_pointer;
+						uint prev_ag_ptr = END_OF_AG_LIST;
 
 						/* ...while there are agents to look for. */
 						while (local_ag_ptr != END_OF_AG_LIST) {
 
 							/* Get next agent. */
-							uint next_ag_ptr =
-								agents[local_ag_ptr].next;
+							uint next_ag_ptr = agents[local_ag_ptr].next;
 
-							/* Is next agent a sheep? */
-							if ((agents[local_ag_ptr].in.sep.type
-									== SHEEP_ID) && (agents[local_ag_ptr].in.sep.energy > 0)) {
+							/* Is current agent a sheep? */
+							if ((agents[local_ag_ptr].in.sep.type == SHEEP_ID)
+								&& (agents[local_ag_ptr].in.sep.energy > 0)) { // TODO: WHY DO I NEED THIS CHECK FOR ENERGY?
 
 								/* It is sheep, eat it! */
 
 								/* If sheep already acted, update
 								 * sheep stats. */
 								if (agents[local_ag_ptr].action == 0) {
-								/* Can also be: if (ag_ptr > local_ag_ptr) */
 
 									sheep_count--;
 									tot_sheep_en -=
-										agents[local_ag_ptr].
-											in.sep.energy;
+										agents[local_ag_ptr].in.sep.energy;
 
 								}
 
 								/* Set sheep energy to zero. */
-								agents[local_ag_ptr].
-									in.sep.energy = 0;
+								agents[local_ag_ptr].in.sep.energy = 0;
+								agents[local_ag_ptr].alive = 0;
 
 								/* Remove sheep from cell. */
 								rem_ag_from_cell(agents, matrix,
 									cell_idx, local_ag_ptr, prev_ag_ptr);
 
 								/* Increment wolf energy. */
-								agent.in.sep.energy +=
-									WOLVES_GAIN_FROM_FOOD;
+								agent.in.sep.energy += WOLVES_GAIN_FROM_FOOD;
 
 								/* If previous agent in list is the wolf
 								 * currently acting, make sure his next
 								 * pointer is updated in local var */
 								if (prev_ag_ptr == ag_ptr) {
 
-									agent.next =
-										agents[local_ag_ptr].next;
+									agent.next = next_ag_ptr;
 
 								}
 
@@ -710,9 +706,12 @@ __kernel void step2(__global PPCAgentOcl * agents,
 								new_ag.in.sep.energy =
 									agent.in.sep.energy / 2;
 
-								/* Put new agent in this cell */
-								new_ag.next = matrix[cell_idx].agent_pointer;
-								matrix[cell_idx].agent_pointer = new_ag_idx;
+								/* Add new agent to newly born agents list. */
+								new_ag.next = new_ag_ptr_first;
+								new_ag_ptr_first = new_ag_idx;
+								if (new_ag_ptr_last == END_OF_AG_LIST) {
+									new_ag_ptr_last = new_ag_idx;
+								}
 
 								/* Save new agent in agent array */
 								agents[new_ag_idx] = new_ag;
@@ -744,6 +743,12 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 				/* Get next agent. */
 				ag_ptr = agent.next;
+			}
+
+			/* Add newly born agents to cell. */
+			if (new_ag_ptr_last != END_OF_AG_LIST) {
+				agents[new_ag_ptr_last].next = matrix[cell_idx].agent_pointer;
+				matrix[cell_idx].agent_pointer = new_ag_ptr_first;
 			}
 
 			/* Update grass stats. */
