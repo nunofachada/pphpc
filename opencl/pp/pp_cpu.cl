@@ -420,49 +420,47 @@ __kernel void step1(__global PPCAgentOcl * agents,
 				/* Get index of next agent. */
 				uint next_ag_idx = agents[ag_idx].next;
 
-				/* If agent hasn't moved yet... */
-				if (!agents[ag_idx].action) {
+				/* Let's see if agent has any energy left... */
+				if ((agents[ag_idx].in.sep.energy <= 1)
+					&& (!agents[ag_idx].action)) {
 
-					/* Set action as performed. */
+					agents[ag_idx].alive = 0;
+					agents[ag_idx].in.sep.energy = 0;
+
+					/* Agent has no energy left, so will die. */
+					rem_ag_from_cell(agents, matrix, cell_idx,
+						ag_idx, prev_ag_idx);
+
+				/* If agent has enough energy and hasn't moved yet... */
+				} else if (!agents[ag_idx].action) {
+
+					/* Set move action as performed. */
 					agents[ag_idx].action = 1;
 
-					/* Agent looses energy by moving. */
+					/* Decrement energy. */
 					agents[ag_idx].in.sep.energy--;
 
-					/* Let's see if agent has any energy left... */
-					if (agents[ag_idx].in.sep.energy == 0) {
+					/* Get a destination. */
+					uint neigh_idx = random_walk(seeds, cell_idx);
 
-						/* Agent has no energy left, so will die */
+					/* Let's see if agent wants to move */
+					if (neigh_idx != cell_idx) {
+
+						/* If agent wants to move, then move him. */
 						rem_ag_from_cell(agents, matrix, cell_idx,
 							ag_idx, prev_ag_idx);
+						add_ag_to_cell(
+							agents, matrix, ag_idx, neigh_idx);
+
+						/* Because this agent moved out of here,
+						 * previous agent remains the same */
 
 					} else {
 
-						/* Agent has energy, prompt him to possibly
-						 * move */
+						/* Current agent will not move, as such make
+						 * previous agent equal to current agent */
+						prev_ag_idx = ag_idx;
 
-						/* Get a destination */
-						uint neigh_idx = random_walk(seeds, cell_idx);
-
-						/* Let's see if agent wants to move */
-						if (neigh_idx != cell_idx) {
-
-							/* If agent wants to move, then move him. */
-							rem_ag_from_cell(agents, matrix, cell_idx,
-								ag_idx, prev_ag_idx);
-							add_ag_to_cell(
-								agents, matrix, ag_idx, neigh_idx);
-
-							/* Because this agent moved out of here,
-							 * previous agent remains the same */
-
-						} else {
-
-							/* Current agent will not move, as such make
-							 * previous agent equal to current agent */
-							prev_ag_idx = ag_idx;
-
-						}
 					}
 
 				} else {
