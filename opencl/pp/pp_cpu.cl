@@ -582,164 +582,152 @@ __kernel void step2(__global PPCAgentOcl * agents,
 				/* Set agent action as performed. */
 				agent.action = 0;
 
-				/* Agent actions. Agent will only perform actions if
-				 * its energy is positive. */
-				 // TODO: WHY DO I NEED THIS CHECK FOR ENERGY?
-				if (agent.in.sep.energy > 0) {
+				/* *** Agent actions. *** */
 
-					/* Is agent a sheep? */
-					if (agent.in.sep.type == SHEEP_ID) {
+				/* Is agent a sheep? */
+				if (agent.in.sep.type == SHEEP_ID) {
 
-						/* If there is grass... */
-						if (matrix[cell_idx].grass == 0) {
+					/* If there is grass... */
+					if (matrix[cell_idx].grass == 0) {
 
-							/* ...eat grass... */
-							matrix[cell_idx].grass = GRASS_RESTART;
+						/* ...eat grass... */
+						matrix[cell_idx].grass = GRASS_RESTART;
 
-							/* ...and gain energy! */
-							agent.in.sep.energy += SHEEP_GAIN_FROM_FOOD;
-						}
-
-						/* Update sheep stats. */
-						sheep_count++;
-						tot_sheep_en += agent.in.sep.energy;
-
-					/* Or is agent a wolf? */
-					} else {
-
-						/* Look for sheep... */
-						uint local_ag_ptr = matrix[cell_idx].agent_pointer;
-						uint prev_ag_ptr = END_OF_AG_LIST;
-
-						/* ...while there are agents to look for. */
-						while (local_ag_ptr != END_OF_AG_LIST) {
-
-							/* Get next agent. */
-							uint next_ag_ptr = agents[local_ag_ptr].next;
-
-							/* Is current agent a sheep? */
-							if ((agents[local_ag_ptr].in.sep.type == SHEEP_ID)
-								&& (agents[local_ag_ptr].in.sep.energy > 0)) { // TODO: WHY DO I NEED THIS CHECK FOR ENERGY?
-
-								/* It is sheep, eat it! */
-
-								/* If sheep already acted, update
-								 * sheep stats. */
-								if (agents[local_ag_ptr].action == 0) {
-
-									sheep_count--;
-									tot_sheep_en -=
-										agents[local_ag_ptr].in.sep.energy;
-
-								}
-
-								/* Set sheep energy to zero. */
-								agents[local_ag_ptr].in.sep.energy = 0;
-								agents[local_ag_ptr].alive = 0;
-
-								/* Remove sheep from cell. */
-								rem_ag_from_cell(agents, matrix,
-									cell_idx, local_ag_ptr, prev_ag_ptr);
-
-								/* Increment wolf energy. */
-								agent.in.sep.energy += WOLVES_GAIN_FROM_FOOD;
-
-								/* If previous agent in list is the wolf
-								 * currently acting, make sure his next
-								 * pointer is updated in local var */
-								if (prev_ag_ptr == ag_ptr) {
-
-									agent.next = next_ag_ptr;
-
-								}
-
-								/* One sheep is enough... */
-								break;
-							}
-
-							/* Not a sheep, next agent please */
-							prev_ag_ptr = local_ag_ptr;
-							local_ag_ptr = next_ag_ptr;
-						}
-
-						/* Update wolves stats. */
-						wolves_count++;
-						tot_wolves_en += agent.in.sep.energy;
-
+						/* ...and gain energy! */
+						agent.in.sep.energy += SHEEP_GAIN_FROM_FOOD;
 					}
 
-					/* Try to reproduce agent. */
+					/* Update sheep stats. */
+					sheep_count++;
+					tot_sheep_en += agent.in.sep.energy;
 
-					uint reproduce_threshold =
-						agent.in.sep.type == SHEEP_ID
-						? SHEEP_REPRODUCE_THRESHOLD
-						: WOLVES_REPRODUCE_THRESHOLD;
+				/* Or is agent a wolf? */
+				} else {
 
-					/* Perhaps agent will reproduce if
-					 * energy > reproduce_threshold ? */
-					if (agent.in.sep.energy > reproduce_threshold) {
+					/* Look for sheep... */
+					uint local_ag_ptr = matrix[cell_idx].agent_pointer;
+					uint prev_ag_ptr = END_OF_AG_LIST;
 
-						uint reproduce_prob =
-							agent.in.sep.type == SHEEP_ID
-							? SHEEP_REPRODUCE_PROB
-							: WOLVES_REPRODUCE_PROB;
+					/* ...while there are agents to look for. */
+					while (local_ag_ptr != END_OF_AG_LIST) {
 
-						/* Throw dice to see if agent reproduces */
-						if (clo_rng_next_int(seeds, 100)
-								< reproduce_prob) {
+						/* Get next agent. */
+						uint next_ag_ptr = agents[local_ag_ptr].next;
 
-							/* Agent will reproduce!
-							 * Let's find some space for new agent... */
-							uint new_ag_idx =
-								alloc_ag_idx(agents, seeds);
+						/* Is current agent a sheep? */
+						if (agents[local_ag_ptr].in.sep.type == SHEEP_ID) {
 
-							if (new_ag_idx != END_OF_AG_LIST) {
+							/* It is sheep, eat it! */
 
-								/* Create agent with half the energy of
-								 * parent and pointing to first agent in
-								 * this cell */
-								PPCAgentOcl new_ag;
-								new_ag.action = 0;
-								new_ag.alive = 1;
-								new_ag.in.sep.type =
-									agent.in.sep.type;
-								new_ag.in.sep.energy =
-									agent.in.sep.energy / 2;
+							/* If sheep already acted, update sheep stats. */
+							if (agents[local_ag_ptr].action == 0) {
 
-								/* Add new agent to newly born agents list. */
-								new_ag.next = new_ag_ptr_first;
-								new_ag_ptr_first = new_ag_idx;
-								if (new_ag_ptr_last == END_OF_AG_LIST) {
-									new_ag_ptr_last = new_ag_idx;
-								}
-
-								/* Save new agent in agent array */
-								agents[new_ag_idx] = new_ag;
-
-								/* Parent's energy will be halved also */
-								agent.in.sep.energy =
-									agent.in.sep.energy
-									- new_ag.in.sep.energy;
-
-								/* Increment agent count */
-								if (agent.in.sep.type == SHEEP_ID)
-									sheep_count++;
-								else
-									wolves_count++;
-
-								/* I don't touch the energy stats because
-								 * the total energy will remain the same. */
-							} else {
-
-								tot_errors++;
+								sheep_count--;
+								tot_sheep_en -=
+									agents[local_ag_ptr].in.sep.energy;
 
 							}
+
+							/* Set sheep energy to zero. */
+							agents[local_ag_ptr].in.sep.energy = 0;
+							agents[local_ag_ptr].alive = 0;
+
+							/* Remove sheep from cell. */
+							rem_ag_from_cell(agents, matrix,
+								cell_idx, local_ag_ptr, prev_ag_ptr);
+
+							/* Increment wolf energy. */
+							agent.in.sep.energy += WOLVES_GAIN_FROM_FOOD;
+
+							/* If previous agent in list is the wolf
+							 * currently acting, make sure his next
+							 * pointer is updated in local var */
+							if (prev_ag_ptr == ag_ptr) {
+
+								agent.next = next_ag_ptr;
+
+							}
+
+							/* One sheep is enough... */
+							break;
 						}
+
+						/* Not a sheep, next agent please */
+						prev_ag_ptr = local_ag_ptr;
+						local_ag_ptr = next_ag_ptr;
 					}
 
-					/* Save agent back to global memory. */
-					agents[ag_ptr] = agent;
+					/* Update wolves stats. */
+					wolves_count++;
+					tot_wolves_en += agent.in.sep.energy;
+
 				}
+
+				/* Try to reproduce agent. */
+
+				uint reproduce_threshold =
+					agent.in.sep.type == SHEEP_ID
+					? SHEEP_REPRODUCE_THRESHOLD
+					: WOLVES_REPRODUCE_THRESHOLD;
+
+				/* Perhaps agent will reproduce if
+				 * energy > reproduce_threshold ? */
+				if (agent.in.sep.energy > reproduce_threshold) {
+
+					uint reproduce_prob =
+						agent.in.sep.type == SHEEP_ID
+						? SHEEP_REPRODUCE_PROB
+						: WOLVES_REPRODUCE_PROB;
+
+					/* Throw dice to see if agent reproduces */
+					if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
+
+						/* Agent will reproduce!
+						 * Let's find some space for new agent... */
+						uint new_ag_idx = alloc_ag_idx(agents, seeds);
+
+						if (new_ag_idx != END_OF_AG_LIST) {
+
+							/* Create agent with half the energy of parent and
+							 * pointing to first agent in this cell */
+							PPCAgentOcl new_ag;
+							new_ag.action = 0;
+							new_ag.alive = 1;
+							new_ag.in.sep.type = agent.in.sep.type;
+							new_ag.in.sep.energy = agent.in.sep.energy / 2;
+
+							/* Add new agent to newly born agents list. */
+							new_ag.next = new_ag_ptr_first;
+							new_ag_ptr_first = new_ag_idx;
+							if (new_ag_ptr_last == END_OF_AG_LIST) {
+								new_ag_ptr_last = new_ag_idx;
+							}
+
+							/* Save new agent in agent array */
+							agents[new_ag_idx] = new_ag;
+
+							/* Parent's energy will be halved also */
+							agent.in.sep.energy =
+								agent.in.sep.energy - new_ag.in.sep.energy;
+
+							/* Increment agent count */
+							if (agent.in.sep.type == SHEEP_ID)
+								sheep_count++;
+							else
+								wolves_count++;
+
+							/* I don't touch the energy stats because
+							 * the total energy will remain the same. */
+						} else {
+
+							tot_errors++;
+
+						}
+					}
+				}
+
+				/* Save agent back to global memory. */
+				agents[ag_ptr] = agent;
 
 				/* Get next agent. */
 				ag_ptr = agent.next;
