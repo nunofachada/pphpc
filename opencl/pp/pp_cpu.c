@@ -200,10 +200,9 @@ static GOptionEntry entries[] = {
  * Determine effective worksizes to use in simulation.
  *
  * @param[in] args Parsed command line arguments.
- * @param[in] workSizes Work sizes for kernels step1 and step2, and
- * other work/memory sizes related to the simulation.
- * @param[in] num_rows Number of rows in (height of) simulation
- * environment.
+ * @param[in] workSizes Work sizes for kernels step1 and step2, and other
+ * work/memory sizes related to the simulation.
+ * @param[in] num_rows Number of rows in (height of) simulation environment.
  * @param[out] err Return location for a GError.
  * */
 static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
@@ -212,16 +211,15 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	/* Get local work size. */
 	workSizes->lws = args.lws;
 
-	/* Determine maximum number of global work-items which can be used
-	 * for current problem (each pair of work-items must process rows
-	 * which are separated by two rows not being processed) */
+	/* Determine maximum number of global work-items which can be used for
+	 * current problem (each pair of work-items must process rows which are
+	 * separated by two rows not being processed) */
 	workSizes->max_gws = num_rows / PPC_D_MIN;
 
 	/* Determine effective number of global work-items to use. */
 	if (args.gws > 0) {
 
-		/* User specified a value, let's see if it's possible to use
-		 * it. */
+		/* User specified a value, let's see if it's possible to use it. */
 		if (workSizes->max_gws >= args.gws) {
 
 			/* Yes, it's possible. */
@@ -229,22 +227,22 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 
 		} else {
 
-			/* No, specified value is too large for the given
-			 * problem. Throw error and exit function. */
-			ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+			/* No, specified value is too large for the given problem. Throw
+			 * error and exit function. */
+			g_if_err_create_goto(*err, PP_ERROR, TRUE,
 				PP_INVALID_ARGS, error_handler,
-				"Global work size is too large for model parameters. " \
+				"Global work size is too large for model parameters. "
 				"Maximum size is %d.", (int) workSizes->max_gws);
 
 		}
 
-		/* If a local work size is given, check that the global work
-		 * size is a multiple of it. */
+		/* If a local work size is given, check that the global work size is a
+		 * multiple of it. */
 		if (workSizes->lws > 0) {
-			ccl_if_err_create_goto(*err, PP_ERROR,
+			g_if_err_create_goto(*err, PP_ERROR,
 				workSizes->gws % workSizes->lws != 0,
 				PP_INVALID_ARGS, error_handler,
-				"Global work size (%d) is not multiple of local work " \
+				"Global work size (%d) is not multiple of local work "
 				"size (%d).",
 				(int) workSizes->gws, (int) workSizes->lws);
 		}
@@ -252,35 +250,33 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 
 	} else {
 
-		/* User did not specify a global work-size, as such it will
-		 * depend on whether the user specified a local work size. */
+		/* User did not specify a global work-size, as such it will depend on
+		 * whether the user specified a local work size. */
 		if (workSizes->lws > 0) {
 
-			/* User specified a local work size, as such find a global
-			 * work size less or equal than the maximum and which is
-			 * a multiple of the local work size. */
+			/* User specified a local work size, as such find a global work size
+			 * less or equal than the maximum and which is a multiple of the
+			 * local work size. */
 			if (workSizes->max_gws % workSizes->lws == 0) {
 
-				/* The maximum global work size is divisible by the
-				 * local work size, as such, use it. */
+				/* The maximum global work size is divisible by the local work
+				 * size, as such, use it. */
 				workSizes->gws = workSizes->max_gws;
 
 			} else {
 
-				/* The maximum global work size is not divisible by the
-				 * local work size, as such find an adequate global
-				 * work size that is. */
+				/* The maximum global work size is not divisible by the local
+				 * work size, as such find an adequate global work size that
+				 * is. */
 				workSizes->gws = pp_next_multiple(
-					workSizes->max_gws - 2 * workSizes->lws,
-					workSizes->lws);
+					workSizes->max_gws - 2 * workSizes->lws, workSizes->lws);
 			}
 
 		} else {
 
-			/* User did not specify a local work size, as such just
-			 * use the maximum value for the global work size and let
-			 * the OpenCL implementation figure out a good local work
-			 * size. */
+			/* User did not specify a local work size, as such just use the
+			 * maximum value for the global work size and let the OpenCL
+			 * implementation figure out a good local work size. */
 			workSizes->gws = workSizes->max_gws;
 
 		}
@@ -290,10 +286,10 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 	/* Determine initial estimate of rows to be computed per thread. */
 	workSizes->rows_per_workitem = num_rows / workSizes->gws;
 
-	/* Is it viable to increment estimate? This estimate can be
-	 * incremented if: 1) the number of rows is not equally divisible by
-	 * the global work-size; and, 2) after incrementing it, there are
-	 * enough rows for the last worker to process. */
+	/* Is it viable to increment estimate? This estimate can be incremented if:
+	 * 1) the number of rows is not equally divisible by the global work-size;
+	 * and, 2) after incrementing it, there are enough rows for the last worker
+	 * to process. */
 	if ((num_rows % workSizes->gws > 0) &&
 			((workSizes->gws - 1) * (workSizes->rows_per_workitem + 1)
 			< num_rows - PPC_D_MIN)) {
@@ -340,7 +336,7 @@ static void ppc_simulation_info_print(CCLDevice* dev,
 	/* Get number of device compute units. */
 	cl_uint cu = ccl_device_get_info_scalar(
 		dev, CL_DEVICE_MAX_COMPUTE_UNITS, cl_uint, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* ...Header */
 	printf("\n   ========================= Computational settings ======================== \n\n");
@@ -440,13 +436,13 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	buffersDevice->stats = ccl_buffer_new(ctx,
 		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.stats,
 		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Grass matrix */
 	buffersDevice->matrix = ccl_buffer_new(ctx,
 		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.matrix,
 		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Get RNG seeds from the CL_Ops RNG. */
 	buffersDevice->rng_seeds = clo_rng_get_device_seeds(rng_clo);
@@ -455,7 +451,7 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 	buffersDevice->agents = ccl_buffer_new(ctx,
 		CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, dataSizes.agents,
 		NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* ************************************************************** */
 	/* Set buffers contents to zero. Nothing in the OpenCL spec. says */
@@ -465,17 +461,17 @@ static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->stats, cq, &zero,
 		sizeof(cl_uchar), 0, dataSizes.stats, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: stats");
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->agents, cq, &zero,
 		sizeof(cl_uchar), 0, dataSizes.agents, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: agents");
 
 	evt = ccl_buffer_enqueue_fill(buffersDevice->matrix, cq, &zero,
 		sizeof(cl_uchar), 0, dataSizes.matrix, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Fill: matrix");
 
 	/* If we got here, everything is OK. */
@@ -516,11 +512,11 @@ static void ppc_kernelargs_set(CCLProgram* prg,
 
 	/* Get kernels. */
 	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Init kernel. */
 	ccl_kernel_set_args(init_krnl, buffersDevice->agents,
@@ -584,20 +580,20 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 
 	/* Get initialization kernel. */
 	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Get step1 kernel. */
 	step1_krnl = ccl_program_get_kernel(prg, "step1", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Get step2 kernel. */
 	step2_krnl = ccl_program_get_kernel(prg, "step2", &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* Launch initialization kernel. */
 	evt = ccl_kernel_enqueue_ndrange(init_krnl, cq, 1, NULL,
 		&workSizes.gws, local_size, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "K: init");
 
 	/* Simulation loop. */
@@ -612,7 +608,7 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 			/* Run kernel */
 			evt = ccl_kernel_enqueue_ndrange(step1_krnl, cq, 1, NULL,
 				&workSizes.gws, local_size, NULL, &err_internal);
-			ccl_if_err_propagate_goto(err, err_internal, error_handler);
+			g_if_err_propagate_goto(err, err_internal, error_handler);
 			ccl_event_set_name(evt, "K: step1");
 
 		}
@@ -628,7 +624,7 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 			/* Run kernel */
 			evt = ccl_kernel_enqueue_ndrange(step2_krnl, cq, 1, NULL,
 				&workSizes.gws, local_size, NULL, &err_internal);
-			ccl_if_err_propagate_goto(err, err_internal, error_handler);
+			g_if_err_propagate_goto(err, err_internal, error_handler);
 			ccl_event_set_name(evt, "K: step2");
 
 		}
@@ -700,12 +696,12 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 	/* Map stats host buffer in order to get statistics */
 	stats = ccl_buffer_enqueue_map(buffersDevice->stats, cq, CL_TRUE,
 		CL_MAP_READ, 0, dataSizes.stats, NULL, &evt, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Map: stats");
 
 	/* Output results to file */
 	fp = fopen(realFilename, "w");
-	ccl_if_err_create_goto(*err, PP_ERROR, fp == NULL,
+	g_if_err_create_goto(*err, PP_ERROR, fp == NULL,
 		PP_UNABLE_SAVE_STATS, error_handler,
 		"Unable to open file \"%s\"", realFilename);
 
@@ -728,12 +724,12 @@ static void ppc_stats_save(char* filename, CCLQueue* cq,
 	/* Unmap stats host buffer. */
 	evt = ccl_buffer_enqueue_unmap(buffersDevice->stats, cq,
 		stats, NULL, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 	ccl_event_set_name(evt, "Unmap: stats");
 
 	/* Guarantee all activity has terminated... */
 	ccl_queue_finish(cq, &err_internal);
-	ccl_if_err_propagate_goto(err, err_internal, error_handler);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
 	/* If we got here, everything is OK. */
 	g_assert(*err == NULL);
@@ -886,7 +882,7 @@ int main(int argc, char ** argv) {
 
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
 
 	/* Add CPU filter to device selection. */
@@ -899,29 +895,29 @@ int main(int argc, char ** argv) {
 
 	/* Create context with device specified by user. */
 	ctx = ccl_context_new_from_filters(&filters, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Get chosen device. */
 	dev = ccl_context_get_device(ctx, 0, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Create command queue. */
 	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Create RNG with specified seed. */
 	rng_clo = clo_rng_new(args.rngen, CLO_RNG_SEED_HOST_MT, NULL,
 		args.max_agents, args.rng_seed, NULL, ctx, cq, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Get simulation parameters */
 	pp_load_params(&params, args.params, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Determine number of threads to use based on compute capabilities
 	 * and user arguments */
 	ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Concatenate complete source: RNG kernels source + common source
 	 * + CPU kernel source. */
@@ -930,7 +926,7 @@ int main(int argc, char ** argv) {
 
 	/* Create aprogram. */
 	prg = ccl_program_new_from_source(ctx, src, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Compiler options. */
 	compilerOpts = ppc_compiler_opts_build(
@@ -938,14 +934,14 @@ int main(int argc, char ** argv) {
 
 	/* Build program. */
 	ccl_program_build(prg, compilerOpts, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Profiling / Timings. */
 	prof = ccl_prof_new();
 
 	/* Print simulation info to screen */
 	ppc_simulation_info_print(dev, workSizes, args, compilerOpts, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Determine size in bytes for host and device data structures. */
 	ppc_datasizes_get(params, &dataSizes, workSizes);
@@ -955,20 +951,20 @@ int main(int argc, char ** argv) {
 
 	/* Initialize device buffers */
 	ppc_buffers_init(ctx, cq, &buffersDevice, dataSizes, rng_clo, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/*  Set fixed kernel arguments. */
 	ppc_kernelargs_set(prg, &buffersDevice, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Simulation!! */
 	ppc_simulate(workSizes, params, cq, prg, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Get statistics. */
 	ppc_stats_save(
 		args.stats, cq, &buffersDevice, dataSizes, params, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Stop basic timing / profiling. */
 	ccl_prof_stop(prof);
@@ -977,7 +973,7 @@ int main(int argc, char ** argv) {
 	/* Analyze events */
 	ccl_prof_add_queue(prof, "Queue 1", cq);
 	ccl_prof_calc(prof, &err);
-	ccl_if_err_goto(err, error_handler);
+	g_if_err_goto(err, error_handler);
 
 	/* Print profiling summary. */
 	ccl_prof_print_summary(prof);

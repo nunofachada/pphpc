@@ -47,7 +47,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 		? filename : PP_DEFAULT_PARAMS_FILE;
 
 	fp = fopen(paramsFile, "r");
-	ccl_if_err_create_goto(*err, PP_ERROR, fp == NULL,
+	g_if_err_create_goto(*err, PP_ERROR, fp == NULL,
 		PP_UNABLE_TO_OPEN_PARAMS_FILE, error_handler,
 		"Unable to open file \"%s\"", paramsFile);
 
@@ -57,7 +57,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->init_sheep = value;
 				check = check | 1;
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -66,7 +66,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->sheep_gain_from_food = value;
 				check = check | (1 << 1);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -75,7 +75,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->sheep_reproduce_threshold = value;
 				check = check | (1 << 2);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -84,7 +84,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->sheep_reproduce_prob = value;
 				check = check | (1 << 3);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -93,7 +93,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->init_wolves = value;
 				check = check | (1 << 4);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -102,7 +102,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->wolves_gain_from_food = value;
 				check = check | (1 << 5);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -111,7 +111,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->wolves_reproduce_threshold = value;
 				check = check | (1 << 6);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -120,7 +120,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->wolves_reproduce_prob = value;
 				check = check | (1 << 7);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -129,7 +129,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->grass_restart = value;
 				check = check | (1 << 8);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -138,7 +138,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->grid_x = value;
 				check = check | (1 << 9);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -147,7 +147,7 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->grid_y = value;
 				check = check | (1 << 10);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
@@ -156,18 +156,18 @@ void pp_load_params(PPParameters* parameters, char* filename,
 				parameters->iters = value;
 				check = check | (1 << 11);
 			} else {
-				ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+				g_if_err_create_goto(*err, PP_ERROR, TRUE,
 					PP_INVALID_PARAMS_FILE, error_handler,
 					PP_ERROR_MSG_REPEAT);
 			}
 		} else {
-			ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+			g_if_err_create_goto(*err, PP_ERROR, TRUE,
 				PP_INVALID_PARAMS_FILE, error_handler,
 				"Invalid parameter '%s' in parameters file", param);
 		}
 	}
 	if (check != 0x0fff) {
-		ccl_if_err_create_goto(*err, PP_ERROR, TRUE,
+		g_if_err_create_goto(*err, PP_ERROR, TRUE,
 			PP_INVALID_PARAMS_FILE, error_handler,
 			"Insufficient parameters in parameters file (check=%x)",
 			check);

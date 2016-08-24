@@ -37,6 +37,7 @@
 #include <limits.h>
 #include <cf4ocl2.h>
 #include <cl_ops.h>
+#include "_g_err_macros.h"
 
 /** Common kernel source. */
 #define PP_COMMON_SRC "@PP_COMMON_SRC@"
