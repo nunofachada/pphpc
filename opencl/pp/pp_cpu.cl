@@ -236,7 +236,7 @@ uint random_walk(__global clo_statetype* seeds,
 __kernel void init(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
 		__global PPStatisticsOcl * stats,
-		__global clo_statetype* seeds) {
+		__global clo_statetype * seeds) {
 
 	/* Get global ID. */
 	uint gid = get_global_id(0);
@@ -399,16 +399,16 @@ __kernel void step1(__global PPCAgentOcl * agents,
 			: GRID_XY;
 
 		/* Cycle through cells in line */
-		for (uint index = idx_start; index < idx_stop; index++) {
+		for (uint cell_idx = idx_start; cell_idx < idx_stop; cell_idx++) {
 
 			/* *** Grow grass. *** */
-			if (matrix[index].grass > 0)
-				matrix[index].grass--;
+			if (matrix[cell_idx].grass > 0)
+				matrix[cell_idx].grass--;
 
 			/* *** Move agents. *** */
 
 			/* Get first agent in cell. */
-			uint ag_idx = matrix[index].agent_pointer;
+			uint ag_idx = matrix[cell_idx].agent_pointer;
 
 			/* The following indicates that current index was obtained
 			 * via cell, and not via agent.next */
@@ -433,7 +433,7 @@ __kernel void step1(__global PPCAgentOcl * agents,
 					if (agents[ag_idx].in.sep.energy == 0) {
 
 						/* Agent has no energy left, so will die */
-						rem_ag_from_cell(agents, matrix, index,
+						rem_ag_from_cell(agents, matrix, cell_idx,
 							ag_idx, prev_ag_idx);
 
 					} else {
@@ -442,13 +442,13 @@ __kernel void step1(__global PPCAgentOcl * agents,
 						 * move */
 
 						/* Get a destination */
-						uint neigh_idx = random_walk(seeds, index);
+						uint neigh_idx = random_walk(seeds, cell_idx);
 
 						/* Let's see if agent wants to move */
-						if (neigh_idx != index) {
+						if (neigh_idx != cell_idx) {
 
 							/* If agent wants to move, then move him. */
-							rem_ag_from_cell(agents, matrix, index,
+							rem_ag_from_cell(agents, matrix, cell_idx,
 								ag_idx, prev_ag_idx);
 							add_ag_to_cell(
 								agents, matrix, ag_idx, neigh_idx);
@@ -521,7 +521,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			: GRID_XY;
 
 		/* Cycle through cells in line */
-		for (uint index = idx_start; index < idx_stop; index++) {
+		for (uint cell_idx = idx_start; cell_idx < idx_stop; cell_idx++) {
 
 			/* Pointer for current agent. */
 			uint ag_ptr;
@@ -529,7 +529,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			/* *** Shuffle agent list. *** */
 
 			/* Get pointer to first agent. */
-			ag_ptr = matrix[index].agent_pointer;
+			ag_ptr = matrix[cell_idx].agent_pointer;
 			uint idx = 0;
 
 			/* Copy pointers to an array, and shuffle agents using
@@ -571,7 +571,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			}
 
 			/* For each agent in cell */
-			ag_ptr = matrix[index].agent_pointer;
+			ag_ptr = matrix[cell_idx].agent_pointer;
 			while (ag_ptr != END_OF_AG_LIST) {
 
 				/* Get agent from global memory to private memory. */
@@ -588,10 +588,10 @@ __kernel void step2(__global PPCAgentOcl * agents,
 					if (agent.in.sep.type == SHEEP_ID) {
 
 						/* If there is grass... */
-						if (matrix[index].grass == 0) {
+						if (matrix[cell_idx].grass == 0) {
 
 							/* ...eat grass... */
-							matrix[index].grass =
+							matrix[cell_idx].grass =
 								GRASS_RESTART;
 
 							/* ...and gain energy! */
@@ -608,7 +608,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 						/* Look for sheep... */
 						uint local_ag_ptr =
-							matrix[index].agent_pointer;
+							matrix[cell_idx].agent_pointer;
 						uint prev_ag_ptr =
 							END_OF_AG_LIST;
 
@@ -643,7 +643,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 								/* Remove sheep from cell. */
 								rem_ag_from_cell(agents, matrix,
-									index, local_ag_ptr, prev_ag_ptr);
+									cell_idx, local_ag_ptr, prev_ag_ptr);
 
 								/* Increment wolf energy. */
 								agent.in.sep.energy +=
@@ -713,8 +713,8 @@ __kernel void step2(__global PPCAgentOcl * agents,
 									agent.in.sep.energy / 2;
 
 								/* Put new agent in this cell */
-								new_ag.next = matrix[index].agent_pointer;
-								matrix[index].agent_pointer = new_ag_idx;
+								new_ag.next = matrix[cell_idx].agent_pointer;
+								matrix[cell_idx].agent_pointer = new_ag_idx;
 
 								/* Save new agent in agent array */
 								agents[new_ag_idx] = new_ag;
@@ -749,9 +749,9 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			}
 
 			/* Update grass stats. */
-			if (matrix[index].grass == 0)
+			if (matrix[cell_idx].grass == 0)
 				grass_count++;
-			tot_grass_en += matrix[index].grass;
+			tot_grass_en += matrix[cell_idx].grass;
 
 		}
 
