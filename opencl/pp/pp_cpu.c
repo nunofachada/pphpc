@@ -800,8 +800,6 @@ static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
 	GString* compilerOpts = g_string_new("");
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ",
 		args.max_agents);
-	g_string_append_printf(compilerOpts, "-D MAX_AGENTS_LOC=%d ",
-		(cl_uint) (args.max_agents / work_sizes.gws));
 	g_string_append_printf(compilerOpts, "-D MAX_AGENT_PTRS=%d ",
 		args.max_agents_ptrs);
 	g_string_append_printf(compilerOpts, "-D ROWS_PER_WORKITEM=%d ",

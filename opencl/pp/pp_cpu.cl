@@ -25,7 +25,6 @@
  * The kernels in this file expect the following preprocessor defines:
  *
  * * MAX_AGENTS - Maximum agents in simulation.
- * * MAX_AGENTS_LOC - Maximum agents per work item.
  * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
  * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
  * item (except possibly the last one).
@@ -121,31 +120,48 @@ void add_ag_to_cell(__global PPCAgentOcl * agents,
 }
 
 /**
- * Find a place for the new agent to stay.
+ * Find a place for the new agent to stay using a random allocation strategy.
+ * This strategy will work well if MAX_AGENTS >> actual number of agents.
  */
-uint alloc_ag_idx(__global PPCAgentOcl * agents,
-		__global clo_statetype* seeds) {
+uint alloc_ag_idx(
+	__global PPCAgentOcl * agents, __global clo_statetype* seeds) {
 
 	/* Index of place to put agent. */
 	uint ag_idx;
 
-	/* Base index of where I can place agent. */
-	uint ag_idx_start = MAX_AGENTS_LOC * get_global_id(0);
-
+	/* Allocation attempts. */
 	uint attempts = 0;
 
-	/* Find a place for the agent to stay. */
-	do {
+	/* Get one value from global RNG. This way allocations only change the RNG
+	 * once, allowing for reproducible simulations. */
+	uint state = clo_rng_next(seeds, get_global_id(0));
 
+	/* Find a place for the agent to stay. */
+	while (1) {
+
+		/* If maximum number of allocation attempts was exceeded, give up. */
 		if (++attempts >= MAX_ALLOC_ATTEMPTS) {
 			ag_idx = END_OF_AG_LIST;
 			break;
 		}
-		/* Random strategy will work well if:
-		 * MAX_AGENTS >> actual number of agents. */
-		ag_idx = ag_idx_start + clo_rng_next_int(seeds, MAX_AGENTS_LOC);
 
-	} while (agents[ag_idx].in.sep.energy != 0);
+		/* Get a valid agent location. */
+		ag_idx = state % MAX_AGENTS;
+
+		/* Check if location is available. */
+		if (atomic_cmpxchg(
+			&agents[ag_idx].in.sep.energy, (uint) 0, (uint) 1) == 0) {
+			break;
+		}
+
+		/* If we got here, we need to find another location. Get another
+		 * pseudo-random state from which the next agent location will be
+		 * derived. This is a simple XorShift PRNG. */
+		state ^= (state << 21);
+		state ^= (state >> 35);
+		state ^= (state << 4);
+
+	}
 
 	/* Return index of place where to put agent. */
 	return ag_idx;
@@ -268,7 +284,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 
 	/* Determine base and offset indexes for placing new agents in the
 	 * agents array. */
-	uint new_ag_idx_base = MAX_AGENTS_LOC * gid;
+	uint new_ag_idx_base = num_agents * gid;
 	uint new_ag_idx_offset = 0;
 
 	/* Initialize stats. */
@@ -338,13 +354,6 @@ __kernel void init(__global PPCAgentOcl * agents,
 
 		/* Determine absolute index of agent in agents array. */
 		uint new_ag_idx = new_ag_idx_base + new_ag_idx_offset;
-
-		/* Did we pass the agent limit? */
-		//if (new_ag_idx >= MAX_AGENTS) {
-		if (new_ag_idx_offset >= MAX_AGENTS_LOC) {
-			errors++;
-			break;
-		}
 
 		/* Put new agent in this cell */
 		agent.next = matrix[cell_idx].agent_pointer;
