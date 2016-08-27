@@ -1,6 +1,6 @@
 /*
  * PPHPC-OCL, an OpenCL implementation of the PPHPC agent-based model
- * Copyright (C) 2015 Nuno Fachada
+ * Copyright (C) 2016 Nuno Fachada
  *
  * This file is part of PPHPC-OCL.
  *
@@ -61,13 +61,13 @@
 typedef struct pp_c_args {
 
 	/** Parameters file. */
-	gchar* params;
+	gchar * params;
 
 	/** Stats output file. */
-	gchar* stats;
+	gchar * stats;
 
 	/** Compiler options. */
-	gchar* compiler_opts;
+	gchar * compiler_opts;
 
 	/** Global work size. */
 	size_t gws;
@@ -82,7 +82,7 @@ typedef struct pp_c_args {
 	guint32 rng_seed;
 
 	/** Random number generator. */
-	gchar* rngen;
+	gchar * rngen;
 
 	/** Maximum number of agents. */
 	cl_uint max_agents;
@@ -140,16 +140,16 @@ typedef struct pp_c_data_sizes {
 typedef struct pp_c_buffers_device {
 
 	/** Statistics. */
-	CCLBuffer* stats;
+	CCLBuffer * stats;
 
 	/** Matrix of environment cells. */
-	CCLBuffer* matrix;
+	CCLBuffer * matrix;
 
 	/** Array of agents. */
-	CCLBuffer* agents;
+	CCLBuffer * agents;
 
 	/** Array of RNG seeds. */
-	CCLBuffer* rng_seeds;
+	CCLBuffer * rng_seeds;
 
 } PPCBuffersDevice;
 
@@ -205,8 +205,8 @@ static GOptionEntry entries[] = {
  * @param[in] num_rows Number of rows in (height of) simulation environment.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
-	cl_uint num_rows, GError **err) {
+static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes * workSizes,
+	cl_uint num_rows, GError ** err) {
 
 	/* Get local work size. */
 	workSizes->lws = args.lws;
@@ -328,9 +328,9 @@ finish:
  * @param[in] compilerOpts Compiler options.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_simulation_info_print(CCLDevice* dev,
-	PPCWorkSizes workSizes, PPCArgs args, gchar* compiler_opts,
-	GError** err) {
+static void ppc_simulation_info_print(CCLDevice * dev,
+	PPCWorkSizes workSizes, PPCArgs args, gchar * compiler_opts,
+	GError ** err) {
 
 	/* Error reporting object. */
 	GError* err_internal = NULL;
@@ -387,7 +387,7 @@ finish:
  * @param[in] ws Work sizes for kernels step1 and step2, and other work/memory sizes related to the simulation.
  * */
 static void ppc_datasizes_get(PPParameters params,
-	PPCDataSizes* dataSizes, PPCWorkSizes ws) {
+	PPCDataSizes * dataSizes, PPCWorkSizes ws) {
 
 	/* Statistics */
 	dataSizes->stats = (params.iters + 1) * sizeof(PPStatistics);
@@ -414,15 +414,15 @@ static void ppc_datasizes_get(PPParameters params,
  * @param[in] rng_clo CL_Ops RNG object.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_buffers_init(CCLContext* ctx, CCLQueue* cq,
-	PPCBuffersDevice *buffersDevice, PPCDataSizes dataSizes,
-	CloRng* rng_clo, GError** err) {
+static void ppc_buffers_init(CCLContext * ctx, CCLQueue * cq,
+	PPCBuffersDevice * buffersDevice, PPCDataSizes dataSizes,
+	CloRng * rng_clo, GError ** err) {
 
 	/* Internal error handling object. */
-	GError* err_internal = NULL;
+	GError * err_internal = NULL;
 
 	/* Event wrapper. */
-	CCLEvent* evt = NULL;
+	CCLEvent * evt = NULL;
 
 	/* Initialize RNG. */
 	GRand* rng = g_rand_new_with_seed(args.rng_seed);
@@ -501,16 +501,16 @@ finish:
  * @param[in] buffersDevice Device buffers.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_kernelargs_set(CCLProgram* prg,
-	PPCBuffersDevice* buffersDevice, GError** err) {
+static void ppc_kernelargs_set(CCLProgram * prg,
+	PPCBuffersDevice * buffersDevice, GError ** err) {
 
 	/* Internal error handling object. */
-	GError* err_internal = NULL;
+	GError * err_internal = NULL;
 
 	/* Kernel wrappers. */
-	CCLKernel* init_krnl = NULL;
-	CCLKernel* step1_krnl = NULL;
-	CCLKernel* step2_krnl = NULL;
+	CCLKernel * init_krnl = NULL;
+	CCLKernel * step1_krnl = NULL;
+	CCLKernel * step2_krnl = NULL;
 
 	/* Get kernels. */
 	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
@@ -560,10 +560,10 @@ finish:
  * @param[out] err Return location for a GError.
  * */
 static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
-	CCLQueue* cq, CCLProgram* prg, GError** err) {
+	CCLQueue * cq, CCLProgram* prg, GError ** err) {
 
 	/* Internal error handling object. */
-	GError* err_internal = NULL;
+	GError * err_internal = NULL;
 
 	/* Kernel wrappers. */
 	CCLKernel * init_krnl = NULL;
@@ -571,7 +571,7 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	CCLKernel * step2_krnl = NULL;
 
 	/* Event wrapper. */
-	CCLEvent* evt = NULL;
+	CCLEvent * evt = NULL;
 
 	/* Current iteration. */
 	cl_uint iter;
@@ -674,9 +674,9 @@ static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
  * @param[in] params Simulation parameters.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_stats_save(char* filename, CCLQueue* cq,
-	PPCBuffersDevice* buffersDevice, PPCDataSizes dataSizes,
-	PPParameters params, GError** err) {
+static void ppc_stats_save(char * filename, CCLQueue * cq,
+	PPCBuffersDevice * buffersDevice, PPCDataSizes dataSizes,
+	PPParameters params, GError ** err) {
 
 	/* Stats file. */
 	FILE * fp;
@@ -757,7 +757,7 @@ finish:
  * @param[in] context Context object for command line argument parsing.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_args_parse(int argc, char* argv[],
+static void ppc_args_parse(int argc, char * argv[],
 	GOptionContext** context, GError** err) {
 
 	*context = g_option_context_new (" - " PPC_DESCRIPTION);
@@ -862,25 +862,25 @@ int main(int argc, char ** argv) {
 	gchar* compilerOpts = NULL;
 
 	/* OpenCL object wrappers. */
-	CCLContext* ctx = NULL;
-	CCLDevice* dev = NULL;
-	CCLQueue* cq = NULL;
-	CCLProgram* prg = NULL;
+	CCLContext * ctx = NULL;
+	CCLDevice * dev = NULL;
+	CCLQueue * cq = NULL;
+	CCLProgram * prg = NULL;
 
 	/* Complete OCL program source code. */
-	gchar* src = NULL;
+	gchar * src = NULL;
 
 	/* Device selection filters. */
 	CCLDevSelFilters filters = NULL;
 
 	/* Profiler. */
-	CCLProf* prof = NULL;
+	CCLProf * prof = NULL;
 
 	/* CL_Ops RNG. */
 	CloRng* rng_clo = NULL;
 
 	/* Error management object. */
-	GError *err = NULL;
+	GError * err = NULL;
 
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
@@ -920,6 +920,12 @@ int main(int argc, char ** argv) {
 	 * and user arguments */
 	ppc_worksizes_calc(args, &workSizes, params.grid_y, &err);
 	g_if_err_goto(err, error_handler);
+
+	/* Is there enough space for the initial agents? */
+	g_if_err_create_goto(err, PP_ERROR,
+		params.init_sheep + params.init_wolves > args.max_agents,
+		PP_OUT_OF_RESOURCES, error_handler,
+		"Not enough space for the initial agents.");
 
 	/* Concatenate complete source: RNG kernels source + common source
 	 * + CPU kernel source. */
