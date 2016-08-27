@@ -175,8 +175,7 @@ void shuffle_agents(__global PPCAgentOcl * agents,
 /**
  * Get a random neighbor cell, or current cell.
  */
-uint random_walk(__global clo_statetype* seeds,
-		uint cell_idx) {
+uint random_walk(__global clo_statetype* seeds, uint cell_idx) {
 
 	/* Chose a random direction. */
 	uint direction = clo_rng_next_int(seeds, 5);
@@ -255,8 +254,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 	/* Number of cells to be initialized by this work item. */
 	uint num_cells = cell_idx_end - cell_idx_start;
 
-	/* Determine number of agents to be initialized by this work
-	 * item. */
+	/* Determine number of agents to be initialized by this work item. */
 	uint num_sheep = INIT_SHEEP / gws;
 	uint num_wolves = INIT_WOLVES / gws;
 	uint num_agents = num_sheep + num_wolves;
@@ -270,7 +268,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 
 	/* Determine base and offset indexes for placing new agents in the
 	 * agents array. */
-	uint new_ag_idx_base = num_agents * gid;
+	uint new_ag_idx_base = MAX_AGENTS_LOC * gid;
 	uint new_ag_idx_offset = 0;
 
 	/* Initialize stats. */
@@ -342,7 +340,8 @@ __kernel void init(__global PPCAgentOcl * agents,
 		uint new_ag_idx = new_ag_idx_base + new_ag_idx_offset;
 
 		/* Did we pass the agent limit? */
-		if (new_ag_idx >= MAX_AGENTS) {
+		//if (new_ag_idx >= MAX_AGENTS) {
+		if (new_ag_idx_offset >= MAX_AGENTS_LOC) {
 			errors++;
 			break;
 		}
@@ -377,20 +376,20 @@ __kernel void init(__global PPCAgentOcl * agents,
  */
 __kernel void step1(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
-		__global clo_statetype* seeds,
+		__global clo_statetype * seeds,
 		__private uint turn) {
 
 	/* Determine row to process */
 	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
 
-	/* Check if this thread has to process anything */
+	/* Check if this work-item has to process anything */
 	if (y < GRID_Y) {
 
 		/* Determine start of row. */
 		uint idx_start = y * GRID_X;
 
 		/* Determine end of row: if this is not the last work-item
-		 * (condition 1) OR this is not the last row to process
+		 * (condition 1) OR if this is not the last row to process
 		 * (condition 2), then process current row until the end.
 		 * Otherwise, process all remaining cells until the end. */
 		uint idx_stop = (get_global_id(0) < get_global_size(0) - 1)
@@ -410,8 +409,8 @@ __kernel void step1(__global PPCAgentOcl * agents,
 			/* Get first agent in cell. */
 			uint ag_idx = matrix[cell_idx].agent_pointer;
 
-			/* The following indicates that current index was obtained
-			 * via cell, and not via agent.next */
+			/* The following indicates that current index was obtained via cell,
+			 * and not via agent.next */
 			uint prev_ag_idx = END_OF_AG_LIST;
 
 			/* Cycle through agents in cell. */
@@ -420,16 +419,19 @@ __kernel void step1(__global PPCAgentOcl * agents,
 				/* Get index of next agent. */
 				uint next_ag_idx = agents[ag_idx].next;
 
-				/* Let's see if agent has any energy left... */
+				/* Let's see if agent hasn't yet moved and doesn't have enough
+				 * energy left... */
 				if ((agents[ag_idx].in.sep.energy <= 1)
 					&& (!agents[ag_idx].action)) {
 
+					/* Agent doesn't have enough energy to stay alive, so
+					 * kill him... */
 					agents[ag_idx].alive = 0;
 					agents[ag_idx].in.sep.energy = 0;
 
-					/* Agent has no energy left, so will die. */
-					rem_ag_from_cell(agents, matrix, cell_idx,
-						ag_idx, prev_ag_idx);
+					/* ...and remove him from the cell. */
+					rem_ag_from_cell(
+						agents, matrix, cell_idx, ag_idx, prev_ag_idx);
 
 				/* If agent has enough energy and hasn't moved yet... */
 				} else if (!agents[ag_idx].action) {
@@ -447,18 +449,18 @@ __kernel void step1(__global PPCAgentOcl * agents,
 					if (neigh_idx != cell_idx) {
 
 						/* If agent wants to move, then move him. */
-						rem_ag_from_cell(agents, matrix, cell_idx,
-							ag_idx, prev_ag_idx);
+						rem_ag_from_cell(
+							agents, matrix, cell_idx, ag_idx, prev_ag_idx);
 						add_ag_to_cell(
 							agents, matrix, ag_idx, neigh_idx);
 
 						/* Because this agent moved out of here,
-						 * previous agent remains the same */
+						 * previous agent remains the same. */
 
 					} else {
 
 						/* Current agent will not move, as such make
-						 * previous agent equal to current agent */
+						 * previous agent equal to current agent. */
 						prev_ag_idx = ag_idx;
 
 					}
@@ -478,12 +480,12 @@ __kernel void step1(__global PPCAgentOcl * agents,
 	}
 }
 
-/*
+/**
  * AgentActionsGetStats (step2) kernel
  */
 __kernel void step2(__global PPCAgentOcl * agents,
 		__global PPCCellOcl * matrix,
-		__global clo_statetype* seeds,
+		__global clo_statetype * seeds,
 		__global PPStatisticsOcl * stats,
 		__private uint iter,
 		__private uint turn) {
@@ -576,16 +578,14 @@ __kernel void step2(__global PPCAgentOcl * agents,
 			ag_ptr = matrix[cell_idx].agent_pointer;
 			while (ag_ptr != END_OF_AG_LIST) {
 
-				/* Get agent from global memory to private memory. */
-				PPCAgentOcl agent = agents[ag_ptr];
 
 				/* Set agent action as performed. */
-				agent.action = 0;
+				agents[ag_ptr].action = 0;
 
 				/* *** Agent actions. *** */
 
 				/* Is agent a sheep? */
-				if (agent.in.sep.type == SHEEP_ID) {
+				if (agents[ag_ptr].in.sep.type == SHEEP_ID) {
 
 					/* If there is grass... */
 					if (matrix[cell_idx].grass == 0) {
@@ -594,12 +594,12 @@ __kernel void step2(__global PPCAgentOcl * agents,
 						matrix[cell_idx].grass = GRASS_RESTART;
 
 						/* ...and gain energy! */
-						agent.in.sep.energy += SHEEP_GAIN_FROM_FOOD;
+						agents[ag_ptr].in.sep.energy += SHEEP_GAIN_FROM_FOOD;
 					}
 
 					/* Update sheep stats. */
 					sheep_count++;
-					tot_sheep_en += agent.in.sep.energy;
+					tot_sheep_en += agents[ag_ptr].in.sep.energy;
 
 				/* Or is agent a wolf? */
 				} else {
@@ -637,16 +637,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 								cell_idx, local_ag_ptr, prev_ag_ptr);
 
 							/* Increment wolf energy. */
-							agent.in.sep.energy += WOLVES_GAIN_FROM_FOOD;
-
-							/* If previous agent in list is the wolf
-							 * currently acting, make sure his next
-							 * pointer is updated in local var */
-							if (prev_ag_ptr == ag_ptr) {
-
-								agent.next = next_ag_ptr;
-
-							}
+							agents[ag_ptr].in.sep.energy += WOLVES_GAIN_FROM_FOOD;
 
 							/* One sheep is enough... */
 							break;
@@ -655,27 +646,28 @@ __kernel void step2(__global PPCAgentOcl * agents,
 						/* Not a sheep, next agent please */
 						prev_ag_ptr = local_ag_ptr;
 						local_ag_ptr = next_ag_ptr;
+
 					}
 
 					/* Update wolves stats. */
 					wolves_count++;
-					tot_wolves_en += agent.in.sep.energy;
+					tot_wolves_en += agents[ag_ptr].in.sep.energy;
 
 				}
 
 				/* Try to reproduce agent. */
 
 				uint reproduce_threshold =
-					agent.in.sep.type == SHEEP_ID
+					agents[ag_ptr].in.sep.type == SHEEP_ID
 					? SHEEP_REPRODUCE_THRESHOLD
 					: WOLVES_REPRODUCE_THRESHOLD;
 
 				/* Perhaps agent will reproduce if
 				 * energy > reproduce_threshold ? */
-				if (agent.in.sep.energy > reproduce_threshold) {
+				if (agents[ag_ptr].in.sep.energy > reproduce_threshold) {
 
 					uint reproduce_prob =
-						agent.in.sep.type == SHEEP_ID
+						agents[ag_ptr].in.sep.type == SHEEP_ID
 						? SHEEP_REPRODUCE_PROB
 						: WOLVES_REPRODUCE_PROB;
 
@@ -693,8 +685,8 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							PPCAgentOcl new_ag;
 							new_ag.action = 0;
 							new_ag.alive = 1;
-							new_ag.in.sep.type = agent.in.sep.type;
-							new_ag.in.sep.energy = agent.in.sep.energy / 2;
+							new_ag.in.sep.type = agents[ag_ptr].in.sep.type;
+							new_ag.in.sep.energy = agents[ag_ptr].in.sep.energy / 2;
 
 							/* Add new agent to newly born agents list. */
 							new_ag.next = new_ag_ptr_first;
@@ -707,11 +699,11 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							agents[new_ag_idx] = new_ag;
 
 							/* Parent's energy will be halved also */
-							agent.in.sep.energy =
-								agent.in.sep.energy - new_ag.in.sep.energy;
+							agents[ag_ptr].in.sep.energy =
+								agents[ag_ptr].in.sep.energy - new_ag.in.sep.energy;
 
 							/* Increment agent count */
-							if (agent.in.sep.type == SHEEP_ID)
+							if (agents[ag_ptr].in.sep.type == SHEEP_ID)
 								sheep_count++;
 							else
 								wolves_count++;
@@ -726,11 +718,10 @@ __kernel void step2(__global PPCAgentOcl * agents,
 					}
 				}
 
-				/* Save agent back to global memory. */
-				agents[ag_ptr] = agent;
 
 				/* Get next agent. */
-				ag_ptr = agent.next;
+				ag_ptr = agents[ag_ptr].next;
+
 			}
 
 			/* Add newly born agents to cell. */

@@ -270,6 +270,8 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 				 * is. */
 				workSizes->gws = pp_next_multiple(
 					workSizes->max_gws - 2 * workSizes->lws, workSizes->lws);
+
+				/// TODO What if gws is larger than max_gws?
 			}
 
 		} else {
@@ -283,7 +285,7 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes* workSizes,
 
 	}
 
-	/* Determine initial estimate of rows to be computed per thread. */
+	/* Determine initial estimate of rows to be computed per work-item. */
 	workSizes->rows_per_workitem = num_rows / workSizes->gws;
 
 	/* Is it viable to increment estimate? This estimate can be incremented if:
@@ -564,9 +566,9 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 	GError* err_internal = NULL;
 
 	/* Kernel wrappers. */
-	CCLKernel* init_krnl = NULL;
-	CCLKernel* step1_krnl = NULL;
-	CCLKernel* step2_krnl = NULL;
+	CCLKernel * init_krnl = NULL;
+	CCLKernel * step1_krnl = NULL;
+	CCLKernel * step2_krnl = NULL;
 
 	/* Event wrapper. */
 	CCLEvent* evt = NULL;
@@ -576,7 +578,7 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 
     /* If local work group size is not given or is 0, set it to NULL and
      * let OpenCL decide. */
-	size_t *local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
+	size_t * local_size = (workSizes.lws > 0 ? &workSizes.lws : NULL);
 
 	/* Get initialization kernel. */
 	init_krnl = ccl_program_get_kernel(prg, "init", &err_internal);
@@ -614,9 +616,11 @@ static void ppc_simulate(PPCWorkSizes workSizes, PPParameters params,
 		}
 
 		/* Step 2:  Agent actions, get stats */
+
+		/* Set current iteration on step2_kernel. */
 		ccl_kernel_set_arg(step2_krnl, 4, ccl_arg_priv(iter, cl_uint));
 
-		for (cl_uint t = 0; t < workSizes.rows_per_workitem; ++t ) {
+		for (cl_uint t = 0; t < workSizes.rows_per_workitem; ++t) {
 
 			/* Set turn on step2_kernel */
 			ccl_kernel_set_arg(step2_krnl, 5, ccl_arg_priv(t, cl_uint));
