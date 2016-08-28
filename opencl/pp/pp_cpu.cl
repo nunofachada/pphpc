@@ -1,6 +1,6 @@
 /*
  * PPHPC-OCL, an OpenCL implementation of the PPHPC agent-based model
- * Copyright (C) 2015 Nuno Fachada
+ * Copyright (C) 2016 Nuno Fachada
  *
  * This file is part of PPHPC-OCL.
  *
@@ -24,40 +24,56 @@
  *
  * The kernels in this file expect the following preprocessor defines:
  *
- * * MAX_AGENTS - Maximum agents in simulation.
- * * MAX_AGENT_PTRS - Maximum agents to shuffle in one go.
- * * ROWS_PER_WORKITEM - Number of rows to be processed by each work
- * item (except possibly the last one).
+ * * `MAX_AGENTS` - Maximum agents in simulation.
+ * * `MAX_AGENT_PTRS` - Maximum agents to shuffle in one go.
+ * * `ROWS_PER_WORKITEM` - Number of rows to be processed by each work item
+ * (except possibly the last one).
  *
- * * INIT_SHEEP - Initial number of sheep.
- * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
- * * SHEEP_REPRODUCE_THRESHOLD - Energy required for sheep to reproduce.
- * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep
+ * * `INIT_SHEEP` - Initial number of sheep.
+ * * `SHEEP_GAIN_FROM_FOOD` - Sheep energy gain when eating grass.
+ * * `SHEEP_REPRODUCE_THRESHOLD` - Energy required for sheep to reproduce.
+ * * `SHEEP_REPRODUCE_PROB` - Probability (between 1 and 100) of sheep
  * reproduction.
- * * INIT_WOLVES - Initial number of wolves.
- * * WOLVES_GAIN_FROM_FOOD - Wolves energy gain when eating sheep.
- * * WOLVES_REPRODUCE_THRESHOLD - Energy required for wolves to
- * reproduce.
- * * WOLVES_REPRODUCE_PROB - Probability (between 1 and 100) of wolves
+ * * `INIT_WOLVES` - Initial number of wolves.
+ * * `WOLVES_GAIN_FROM_FOOD` - Wolves energy gain when eating sheep.
+ * * `WOLVES_REPRODUCE_THRESHOLD` - Energy required for wolves to reproduce.
+ * * `WOLVES_REPRODUCE_PROB` - Probability (between 1 and 100) of wolves
  * reproduction.
- * * GRASS_RESTART - Number of iterations that the grass takes to regrow
- * after being eaten by a sheep.
- * * GRID_X - Number of grid columns (horizontal size, width).
- * * GRID_Y - Number of grid rows (vertical size, height).
- * * ITERS - Number of iterations.
+ * * `GRASS_RESTART` - Number of iterations that the grass takes to regrow after
+ * being eaten by a sheep.
+ * * `GRID_X` - Number of grid columns (horizontal size, width).
+ * * `GRID_Y` - Number of grid rows (vertical size, height).
+ * * `ITERS` - Number of iterations.
  * */
 
+/* Marker for the end of a cell's agent list. */
 #define END_OF_AG_LIST UINT_MAX
+
+/* Number of cells. */
 #define GRID_XY GRID_X * GRID_Y
+
+/* Maximum agent memory allocation attempts. */
 #ifndef MAX_ALLOC_ATTEMPTS
 	#define MAX_ALLOC_ATTEMPTS 500
 #endif
 
+/**
+ * Internal agent state which needs to be shuffled.
+ */
 typedef struct pp_c_agent_ocl_internal {
+
+	/** Agent energy. */
 	uint energy;
+
+	/** Agent type. */
 	uint type;
+
 } PPCAgentOclInternal;
 
+/**
+ * Union representing internal agent state which needs to be shuffled as one
+ * variable in order to reduce number of swap instructions.
+ */
 union pp_c_agent_ocl_in {
 
 	PPCAgentOclInternal sep;
@@ -65,18 +81,35 @@ union pp_c_agent_ocl_in {
 
 };
 
+/**
+ * Agent state.
+ */
 typedef struct pp_c_agent_ocl {
 
+	/** Internal agent state which needs to be shuffled, namely energy and
+	 * type. */
 	union pp_c_agent_ocl_in in;
-	ushort action;
-	ushort alive;
+
+	/** Did agent already act? */
+	uint action;
+
+	/** Pointer to next agent in cell. */
 	uint next;
 
 } PPCAgentOcl __attribute__ ((aligned (16)));
 
+/**
+ * Cell state.
+ * */
 typedef struct pp_c_cell_ocl {
+
+	/** Grass state. Zero means the grass exists in this cell, and a positive
+	 * value represents the number of iterations until grass regrows. */
 	uint grass;
+
+	/** Pointer to first agent in cell. */
 	uint agent_pointer;
+
 } PPCCellOcl;
 
 /**
@@ -168,21 +201,33 @@ uint alloc_ag_idx(
 }
 
 
+/**
+ * Shuffle agents in cell using the Durstenfeld version of the Fisher-Yates
+ * shuffle.
+ *
+ * @param agents Global agent list.
+ * @param seeds PRNG seeds.
+ * @param ag_pointers Array of pointers of agents to shuffle.
+ * @param idx Index of last agent in the `ag_pointers` array.
+ */
 void shuffle_agents(__global PPCAgentOcl * agents,
-		__global clo_statetype* seeds,
-		uint * ag_pointers,
-		uint idx) {
+	__global clo_statetype* seeds, uint * ag_pointers, uint idx) {
 
-	/* Shuffle agents in cell using the Durstenfeld version of
-	 * the Fisher-Yates shuffle. */
+	/* Shuffle from last to first. */
 	for (int i = idx - 1; i > 0; --i) {
 
+		/* Get a random index for the ag_pointers array. */
 		uint j = clo_rng_next_int(seeds, i + 1);
 
+		/* Get internal agent state (energy + type) from current loop index. */
 		ulong ag_internal = agents[ag_pointers[i]].in.merg;
 
+		/* Put internal agent state (energy + type) from random index into
+		 * current loop index. */
 		agents[ag_pointers[i]].in.merg = agents[ag_pointers[j]].in.merg;
 
+		/* Put internal agent state (energy + type) from current loop index
+		 * into random index. */
 		agents[ag_pointers[j]].in.merg = ag_internal;
 
 	}
@@ -327,7 +372,6 @@ __kernel void init(__global PPCAgentOcl * agents,
 		/* Create agent. */
 		PPCAgentOcl agent;
 		agent.action = 0;
-		agent.alive = 1;
 
 		/* Should I initialize a sheep or a wolf? */
 		if (i < num_sheep) {
@@ -435,7 +479,6 @@ __kernel void step1(__global PPCAgentOcl * agents,
 
 					/* Agent doesn't have enough energy to stay alive, so
 					 * kill him... */
-					agents[ag_idx].alive = 0;
 					agents[ag_idx].in.sep.energy = 0;
 
 					/* ...and remove him from the cell. */
@@ -565,8 +608,8 @@ __kernel void step2(__global PPCAgentOcl * agents,
 				/* If we're over the array limit... */
 				if (idx >= MAX_AGENT_PTRS) {
 
-					/* ...shuffle agents currently pointed to by
-					 * pointers in the array... */
+					/* ...shuffle agent list using the array of
+					 * pointers... */
 					shuffle_agents(agents, seeds, ag_pointers, idx);
 
 					/* ...and reset the array index in order to start
@@ -639,7 +682,6 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 							/* Set sheep energy to zero. */
 							agents[local_ag_ptr].in.sep.energy = 0;
-							agents[local_ag_ptr].alive = 0;
 
 							/* Remove sheep from cell. */
 							rem_ag_from_cell(agents, matrix,
@@ -693,9 +735,9 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							 * pointing to first agent in this cell */
 							PPCAgentOcl new_ag;
 							new_ag.action = 0;
-							new_ag.alive = 1;
 							new_ag.in.sep.type = agents[ag_ptr].in.sep.type;
-							new_ag.in.sep.energy = agents[ag_ptr].in.sep.energy / 2;
+							new_ag.in.sep.energy =
+								agents[ag_ptr].in.sep.energy / 2;
 
 							/* Add new agent to newly born agents list. */
 							new_ag.next = new_ag_ptr_first;
