@@ -63,10 +63,13 @@
 typedef struct pp_c_agent_ocl_internal {
 
 	/** Agent energy. */
-	uint energy;
+	ushort energy;
 
 	/** Agent type. */
-	uint type;
+	uchar type;
+
+	/** Did agent already act? */
+	uchar action;
 
 } PPCAgentOclInternal;
 
@@ -77,7 +80,7 @@ typedef struct pp_c_agent_ocl_internal {
 union pp_c_agent_ocl_in {
 
 	PPCAgentOclInternal sep;
-	ulong merg;
+	uint merg;
 
 };
 
@@ -90,13 +93,10 @@ typedef struct pp_c_agent_ocl {
 	 * type. */
 	union pp_c_agent_ocl_in in;
 
-	/** Did agent already act? */
-	uint action;
-
 	/** Pointer to next agent in cell. */
 	uint next;
 
-} PPCAgentOcl __attribute__ ((aligned (16)));
+} PPCAgentOcl __attribute__ ((aligned (8)));
 
 /**
  * Cell state.
@@ -183,7 +183,7 @@ uint alloc_ag_idx(
 
 		/* Check if location is available. */
 		if (atomic_cmpxchg(
-			&agents[ag_idx].in.sep.energy, (uint) 0, (uint) 1) == 0) {
+			&agents[ag_idx].in.merg, (uint) 0, (uint) 1) == 0) {
 			break;
 		}
 
@@ -371,7 +371,7 @@ __kernel void init(__global PPCAgentOcl * agents,
 
 		/* Create agent. */
 		PPCAgentOcl agent;
-		agent.action = 0;
+		agent.in.sep.action = 0;
 
 		/* Should I initialize a sheep or a wolf? */
 		if (i < num_sheep) {
@@ -475,21 +475,21 @@ __kernel void step1(__global PPCAgentOcl * agents,
 				/* Let's see if agent hasn't yet moved and doesn't have enough
 				 * energy left... */
 				if ((agents[ag_idx].in.sep.energy <= 1)
-					&& (!agents[ag_idx].action)) {
+					&& (!agents[ag_idx].in.sep.action)) {
 
 					/* Agent doesn't have enough energy to stay alive, so
 					 * kill him... */
-					agents[ag_idx].in.sep.energy = 0;
+					agents[ag_idx].in.merg = 0;
 
 					/* ...and remove him from the cell. */
 					rem_ag_from_cell(
 						agents, matrix, cell_idx, ag_idx, prev_ag_idx);
 
 				/* If agent has enough energy and hasn't moved yet... */
-				} else if (!agents[ag_idx].action) {
+				} else if (!agents[ag_idx].in.sep.action) {
 
 					/* Set move action as performed. */
-					agents[ag_idx].action = 1;
+					agents[ag_idx].in.sep.action = 1;
 
 					/* Decrement energy. */
 					agents[ag_idx].in.sep.energy--;
@@ -632,7 +632,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 
 				/* Set agent action as performed. */
-				agents[ag_ptr].action = 0;
+				agents[ag_ptr].in.sep.action = 0;
 
 				/* *** Agent actions. *** */
 
@@ -672,7 +672,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							/* It is sheep, eat it! */
 
 							/* If sheep already acted, update sheep stats. */
-							if (agents[local_ag_ptr].action == 0) {
+							if (agents[local_ag_ptr].in.sep.action == 0) {
 
 								sheep_count--;
 								tot_sheep_en -=
@@ -681,14 +681,15 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							}
 
 							/* Set sheep energy to zero. */
-							agents[local_ag_ptr].in.sep.energy = 0;
+							agents[local_ag_ptr].in.merg = 0;
 
 							/* Remove sheep from cell. */
 							rem_ag_from_cell(agents, matrix,
 								cell_idx, local_ag_ptr, prev_ag_ptr);
 
 							/* Increment wolf energy. */
-							agents[ag_ptr].in.sep.energy += WOLVES_GAIN_FROM_FOOD;
+							agents[ag_ptr].in.sep.energy +=
+								WOLVES_GAIN_FROM_FOOD;
 
 							/* One sheep is enough... */
 							break;
@@ -734,7 +735,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 							/* Create agent with half the energy of parent and
 							 * pointing to first agent in this cell */
 							PPCAgentOcl new_ag;
-							new_ag.action = 0;
+							new_ag.in.sep.action = 0;
 							new_ag.in.sep.type = agents[ag_ptr].in.sep.type;
 							new_ag.in.sep.energy =
 								agents[ag_ptr].in.sep.energy / 2;
@@ -751,7 +752,8 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 							/* Parent's energy will be halved also */
 							agents[ag_ptr].in.sep.energy =
-								agents[ag_ptr].in.sep.energy - new_ag.in.sep.energy;
+								agents[ag_ptr].in.sep.energy
+								- new_ag.in.sep.energy;
 
 							/* Increment agent count */
 							if (agents[ag_ptr].in.sep.type == SHEEP_ID)
