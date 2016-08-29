@@ -25,7 +25,7 @@
  * The kernels in this file expect the following preprocessor defines:
  *
  * * `MAX_AGENTS` - Maximum agents in simulation.
- * * `MAX_AGENT_PTRS` - Maximum agents to shuffle in one go.
+ * * `MAX_AGENT_SHUF` - Maximum agents to shuffle in one go.
  * * `ROWS_PER_WORKITEM` - Number of rows to be processed by each work item
  * (except possibly the last one).
  *
@@ -608,7 +608,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 	uint tot_errors = 0;
 
 	/* Array with agent pointers, for shuffling purposes.*/
-	uint ag_pointers[MAX_AGENT_PTRS];
+	uint ag_pointers[MAX_AGENT_SHUF];
 
 	/* Determine row to process. */
 	uint y = turn + get_global_id(0) * ROWS_PER_WORKITEM;
@@ -633,6 +633,8 @@ __kernel void step2(__global PPCAgentOcl * agents,
 
 			/* Pointer for current agent. */
 			uint ag_ptr;
+
+#if MAX_AGENT_SHUF > 1
 
 			/* *** Shuffle agent list. *** */
 
@@ -662,7 +664,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 				idx++;
 
 				/* If we're over the array limit... */
-				if (idx >= MAX_AGENT_PTRS) {
+				if (idx >= MAX_AGENT_SHUF) {
 
 					/* ...shuffle agent list using the array of
 					 * pointers... */
@@ -677,6 +679,7 @@ __kernel void step2(__global PPCAgentOcl * agents,
 				ag_ptr = agents[ag_ptr].next;
 
 			}
+#endif
 
 			/* First and last newly born agent pointers. */
 			uint new_ag_ptr_first = END_OF_AG_LIST;

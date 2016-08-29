@@ -189,7 +189,8 @@ static GOptionEntry entries[] = {
 		"SIZE"},
 	{"max_agents_shuff",'u', 0, G_OPTION_ARG_INT,      &args.max_agents_ptrs,
 		"Maximum number of agents which can be shuffled in the same " \
-		"loop (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS_SHUF) ")",
+		"loop (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS_SHUF) "). If "
+		"set to 1 or 0, shuffling is disabled.",
 		"SIZE"},
 	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail,
 		NULL, NULL},
@@ -802,7 +803,7 @@ static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
 	GString* compilerOpts = g_string_new("");
 	g_string_append_printf(compilerOpts, "-D MAX_AGENTS=%d ",
 		args.max_agents);
-	g_string_append_printf(compilerOpts, "-D MAX_AGENT_PTRS=%d ",
+	g_string_append_printf(compilerOpts, "-D MAX_AGENT_SHUF=%d ",
 		args.max_agents_ptrs);
 	g_string_append_printf(compilerOpts, "-D ROWS_PER_WORKITEM=%d ",
 		(cl_uint) work_sizes.rows_per_workitem);
