@@ -49,7 +49,7 @@
  * If error is detected (`error_code != no_error_code`),
  * create an error object (GError) and go to the specified label.
  *
- * @param[out] err ::GError* object.
+ * @param[out] err GError* object.
  * @param[in] quark Quark indicating the error domain.
  * @param[in] error_condition Must result to true in order to create
  * error.
@@ -70,7 +70,7 @@
  * If error is detected in `err` object (`err != NULL`), go to the specified
  * label.
  *
- * @param[in] err ::GError* object.
+ * @param[in] err GError* object.
  * @param[in] label Label to goto if error is detected.
  * */
 #define g_if_err_goto(err, label) \
@@ -80,8 +80,8 @@
 	}
 
 /**
- * Same as g_if_err_goto(), but rethrows error in a source ::GError object to
- * a new destination ::GError object.
+ * Same as g_if_err_goto(), but rethrows error in a source GError object to
+ * a new destination GError object.
  *
  * @param[out] err_dest Destination GError** object.
  * @param[in] err_src Source GError* object.

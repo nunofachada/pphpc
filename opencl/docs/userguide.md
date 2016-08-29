@@ -1,3 +1,3 @@
-## PredPreyOCL userguide
+## PPHPC-OpenCL userguide
 
-TODO
+In progress.
