@@ -220,22 +220,8 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes * workSizes,
 	/* Determine effective number of global work-items to use. */
 	if (args.gws > 0) {
 
-		/* User specified a value, let's see if it's possible to use it. */
-		if (workSizes->max_gws >= args.gws) {
-
-			/* Yes, it's possible. */
-			workSizes->gws = args.gws;
-
-		} else {
-
-			/* No, specified value is too large for the given problem. Throw
-			 * error and exit function. */
-			g_if_err_create_goto(*err, PP_ERROR, TRUE,
-				PP_INVALID_ARGS, error_handler,
-				"Global work size is too large for model parameters. "
-				"Maximum size is %d.", (int) workSizes->max_gws);
-
-		}
+		/* Yes, it's possible. */
+		workSizes->gws = args.gws;
 
 		/* If a local work size is given, check that the global work size is a
 		 * multiple of it. */
@@ -247,7 +233,6 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes * workSizes,
 				"size (%d).",
 				(int) workSizes->gws, (int) workSizes->lws);
 		}
-
 
 	} else {
 
@@ -267,12 +252,14 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes * workSizes,
 			} else {
 
 				/* The maximum global work size is not divisible by the local
-				 * work size, as such find an adequate global work size that
-				 * is. */
-				workSizes->gws = pp_next_multiple(
-					workSizes->max_gws - 2 * workSizes->lws, workSizes->lws);
+				 * work size, as such try to find an global work size that is a
+				 * multiple of the local work size and less than the the
+				 * maximum. */
+				workSizes->gws = workSizes->lws;
+				while (workSizes->gws + workSizes->lws <= workSizes->max_gws) {
+					workSizes->gws += workSizes->lws;
+				}
 
-				/// TODO What if gws is larger than max_gws?
 			}
 
 		} else {
@@ -285,6 +272,12 @@ static void ppc_worksizes_calc(PPCArgs args, PPCWorkSizes * workSizes,
 		}
 
 	}
+
+	/* If the final global work size is larger than the maximum, throw error. */
+	g_if_err_create_goto(*err, PP_ERROR, workSizes->gws > workSizes->max_gws,
+		PP_INVALID_ARGS, error_handler,
+		"Global work size (%d) is too large for model parameters. "
+		"Maximum size is %d.", (int) workSizes->gws, (int) workSizes->max_gws);
 
 	/* Determine initial estimate of rows to be computed per work-item. */
 	workSizes->rows_per_workitem = num_rows / workSizes->gws;
