@@ -298,8 +298,8 @@ __kernel void init_agent(
  * @param agents_index Agent start and end indexes in cell.
  * */
 __kernel void grass(
-			__global grass_uintx *grass,
-			__global grass_ulongx *agents_index)
+			__global grass_uintx * grass,
+			__global grass_ulongx * agents_index)
 {
 	/* Grid position for this workitem */
 	size_t gid = get_global_id(0);
@@ -332,18 +332,20 @@ __kernel void grass(
  * @param reduce_grass_global Global level grass counts.
  * */
 __kernel void reduce_grass1(
-			__global grassreduce_uintx *grass,
-			__local grassreduce_uintx *partial_sums,
-			__global grassreduce_uintx *reduce_grass_global) {
+			__global grassreduce_uintx * grass,
+			__local grassreduce_uintx * partial_sums,
+			__global grassreduce_uintx * reduce_grass_global) {
 
 	/* Global and local work-item IDs */
 	size_t gid = get_global_id(0);
 	size_t lid = get_local_id(0);
 	size_t group_size = get_local_size(0);
 	size_t global_size = get_global_size(0);
+	size_t group_id = get_group_id(0);
 
 	/* Serial sum */
-	grassreduce_uintx sum = 0;
+	grassreduce_uintx sum_qty = 0;
+	grassreduce_uintx sum_en = 0;
 
 	/* Serial count */
 	uint cellVectorCount = PP_DIV_CEIL(CELL_NUM, VW_GRASSREDUCE);
@@ -351,12 +353,14 @@ __kernel void reduce_grass1(
 	for (uint i = 0; i < serialCount; i++) {
 		uint index = i * global_size + gid;
 		if (index < cellVectorCount) {
-			sum += 0x1 & convert_grassreduce_uintx(!grass[index]);
+			sum_qty += 0x1 & convert_grassreduce_uintx(!grass[index]);
+			sum_en += convert_grassreduce_uintx(grass[index]);
 		}
 	}
 
-	/* Put serial sum in local memory */
-	partial_sums[lid] = sum;
+	/* Put serial sums in local memory */
+	partial_sums[lid] = sum_qty;
+	partial_sums[group_size + lid] = sum_en;
 
 	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -365,13 +369,17 @@ __kernel void reduce_grass1(
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
+			partial_sums[group_size + lid] +=
+				partial_sums[group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 
 	/* Put in global memory */
 	if (lid == 0) {
-		reduce_grass_global[get_group_id(0)] = partial_sums[0];
+		reduce_grass_global[group_id] = partial_sums[0];
+		reduce_grass_global[REDUCE_GRASS_NUM_WORKGROUPS + group_id] =
+			partial_sums[group_size];
 	}
 
 }
@@ -384,19 +392,23 @@ __kernel void reduce_grass1(
  * @param stats Final grass count.
  * */
  __kernel void reduce_grass2(
-			__global grassreduce_uintx *reduce_grass_global,
-			__local grassreduce_uintx *partial_sums,
-			__global PPStatisticsOcl *stats) {
+			__global grassreduce_uintx * reduce_grass_global,
+			__local grassreduce_uintx * partial_sums,
+			__global PPStatisticsOcl * stats) {
 
 	/* Global and local work-item IDs */
 	size_t lid = get_local_id(0);
 	size_t group_size = get_local_size(0);
 
 	/* Load partial sum in local memory */
-	if (lid < REDUCE_GRASS_NUM_WORKGROUPS)
+	if (lid < REDUCE_GRASS_NUM_WORKGROUPS) {
 		partial_sums[lid] = reduce_grass_global[lid];
-	else
+		partial_sums[group_size + lid] =
+			reduce_grass_global[REDUCE_GRASS_NUM_WORKGROUPS + lid];
+	} else {
 		partial_sums[lid] = 0;
+		partial_sums[group_size + lid] = 0;
+	}
 
 	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -405,6 +417,8 @@ __kernel void reduce_grass1(
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
+			partial_sums[group_size + lid] +=
+				partial_sums[group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
@@ -412,6 +426,7 @@ __kernel void reduce_grass1(
 	/* Put in global memory */
 	if (lid == 0) {
 		stats[0].grass = VW_GRASSREDUCE_SUM(partial_sums[0]);
+		stats[0].grass_en = VW_GRASSREDUCE_SUM(partial_sums[group_size]);
 	}
 
 }
@@ -522,6 +537,8 @@ __kernel void reduce_agent1(
 	if (lid == 0) {
 		stats[0].sheep = (uint) VW_AGENTREDUCE_SUM(partial_sums[0]);
 		stats[0].wolves = (uint) VW_AGENTREDUCE_SUM(partial_sums[group_size]);
+		stats[0].sheep_en = 0;
+		stats[0].wolves_en = 0;
 	}
 
 }

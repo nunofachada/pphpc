@@ -1349,8 +1349,14 @@ static void ppg_stats_save(char * filename, PPStatistics * statsArray,
 	FILE * fp1 = fopen(realFilename, "w");
 
 	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep,
-			statsArray[i].wolves, statsArray[i].grass);
+		fprintf(fp1, "%d\t%d\t%d\t%f\t%f\t%f\n",
+			statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass,
+			statsArray[i].sheep > 0 ?
+				statsArray[i].sheep_en / (float) statsArray[i].sheep : 0.0,
+			statsArray[i].wolves > 0 ?
+				statsArray[i].wolves_en / (float) statsArray[i].wolves : 0.0,
+			statsArray[i].grass_en / (float) params.grid_xy);
+
 	fclose(fp1);
 }
 
@@ -1384,11 +1390,11 @@ static void ppg_datasizes_get(PPGDataSizes * dataSizes,
 
 	/* Grass reduction. */
 	dataSizes->reduce_grass_local1 =
-		lws.reduce_grass1 * args_vw.reduce_grass * sizeof(cl_uint);
+		2 * lws.reduce_grass1 * args_vw.reduce_grass * sizeof(cl_uint);
 	dataSizes->reduce_grass_global =
-		gws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
+		2 * gws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 	dataSizes->reduce_grass_local2 =
-		lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
+		2 * lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 
 	/* Agent reduction. */
 	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1
