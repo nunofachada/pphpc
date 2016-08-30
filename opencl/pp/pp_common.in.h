@@ -172,6 +172,9 @@ typedef struct pp_agent_params {
 void pp_load_params(PPParameters* parameters, char* filename,
 	GError** err);
 
+/* See if there is anything in build log, and if so, show it. */
+void pp_build_log(CCLProgram * prg);
+
 /* Callback function which will be called when non-option command line
  * arguments are given. */
 gboolean pp_args_fail(const gchar *option_name, const gchar* value,

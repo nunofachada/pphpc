@@ -535,27 +535,27 @@ finish:
  * @return @link pp_error_codes::PP_SUCCESS @endlink if function
  * terminates successfully, or an error code otherwise.
  * */
-static void ppg_simulate(PPGKernels krnls, CCLQueue* cq1, CCLQueue* cq2,
-	CloSort* sorter, PPParameters params, PPGGlobalWorkSizes gws,
+static void ppg_simulate(PPGKernels krnls, CCLQueue * cq1, CCLQueue * cq2,
+	CloSort * sorter, PPParameters params, PPGGlobalWorkSizes gws,
 	PPGLocalWorkSizes lws, PPGDataSizes dataSizes,
-	PPStatistics* stats_host, PPGBuffersDevice buffersDevice,
-	GError** err) {
+	PPStatistics * stats_host, PPGBuffersDevice buffersDevice,
+	GError ** err) {
 
 	/* Stats. */
-	PPStatistics *stats_pinned = NULL;
+	PPStatistics * stats_pinned = NULL;
 
 	/* Event wrappers. */
-	CCLEvent* evt = NULL;
-	CCLEvent* evt_action_agent = NULL;
-	CCLEvent* evt_read_stats = NULL;
-	CCLEvent* evt_reduce_grass2 = NULL;
-	CCLEvent* evt_sort = NULL;
+	CCLEvent * evt = NULL;
+	CCLEvent * evt_action_agent = NULL;
+	CCLEvent * evt_read_stats = NULL;
+	CCLEvent * evt_reduce_grass2 = NULL;
+	CCLEvent * evt_sort = NULL;
 
 	/* Event wait list. */
 	CCLEventWaitList ewl = NULL;
 
 	/* Internal error handling object. */
-	GError* err_internal = NULL;
+	GError * err_internal = NULL;
 
 	/* The maximum agents there can be in the next iteration. */
 	cl_uint max_agents_iter =
@@ -1339,14 +1339,14 @@ static void ppg_kernelargs_set(PPGKernels krnls,
  * @param[in] statsArray Statistics information array.
  * @param[in] params Simulation parameters.
  * */
-static void ppg_results_save(char* filename, PPStatistics* statsArray,
+static void ppg_stats_save(char * filename, PPStatistics * statsArray,
 	PPParameters params) {
 
 	/* Get definite file name. */
 	gchar* realFilename =
 		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
 
-	FILE * fp1 = fopen(realFilename,"w");
+	FILE * fp1 = fopen(realFilename, "w");
 
 	for (unsigned int i = 0; i <= params.iters; i++)
 		fprintf(fp1, "%d\t%d\t%d\n", statsArray[i].sheep,
@@ -1362,8 +1362,8 @@ static void ppg_results_save(char* filename, PPStatistics* statsArray,
  * @param[in] gws Kernel global work sizes.
  * @param[in] lws Kernel local work sizes.
  * */
-static void ppg_datasizes_get(PPGDataSizes* dataSizes,
-	PPParameters params, CloRng* rng_clo, CloSort* sorter,
+static void ppg_datasizes_get(PPGDataSizes * dataSizes,
+	PPParameters params, CloRng * rng_clo, CloSort * sorter,
 	PPGGlobalWorkSizes gws, PPGLocalWorkSizes lws) {
 
 	/// @todo Sorter should be used to query for total required device
@@ -1686,40 +1686,41 @@ int main(int argc, char **argv) {
 	/* Predator-Prey simulation data structures. */
 	PPGGlobalWorkSizes gws;
 	PPGLocalWorkSizes lws;
-	PPGDataSizes dataSizes;
+	PPGDataSizes dataSizes = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	PPGBuffersDevice buffersDevice = {NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 	PPParameters params;
-	PPGKernels krnls = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
-	PPStatistics* stats_host = NULL;
+	PPGKernels krnls =
+		{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+	PPStatistics * stats_host = NULL;
 	gchar* compilerOpts = NULL;
 
 	/* OpenCL wrappers. */
-	CCLContext* ctx = NULL;
-	CCLDevice* dev = NULL;
-	CCLQueue* cq1 = NULL;
-	CCLQueue* cq2 = NULL;
-	CCLProgram* prg = NULL;
+	CCLContext * ctx = NULL;
+	CCLDevice * dev = NULL;
+	CCLQueue * cq1 = NULL;
+	CCLQueue * cq2 = NULL;
+	CCLProgram * prg = NULL;
 
 	/* Profiler. */
-	CCLProf* prof = NULL;
+	CCLProf * prof = NULL;
 
 	/* Device random number generator. */
-	CloRng* rng_clo = NULL;
+	CloRng * rng_clo = NULL;
 
 	/* CL_Ops sorter object. */
-	CloSort* sorter = NULL;
+	CloSort * sorter = NULL;
 
 	/* Complete OCL program source code. */
-	gchar* src = NULL;
+	gchar * src = NULL;
 
 	/* Device selection filters. */
 	CCLDevSelFilters filters = NULL;
 
 	/* Host random number generator. */
-	GRand* rng = NULL;
+	GRand * rng = NULL;
 
 	/* Error management object. */
-	GError *err = NULL;
+	GError * err = NULL;
 
 	/* Type (representing agents) to sort. */
 	CloType ag_sort_type;
@@ -1787,6 +1788,7 @@ int main(int argc, char **argv) {
 
 	/* Build program. */
 	ccl_program_build(prg, compilerOpts, &err);
+	pp_build_log(prg);
 	g_if_err_goto(err, error_handler);
 
 	/* Populate kernels struct. */
@@ -1823,7 +1825,7 @@ int main(int argc, char **argv) {
 	ccl_prof_stop(prof);
 
 	/* Output results to file */
-	ppg_results_save(args.stats, stats_host, params);
+	ppg_stats_save(args.stats, stats_host, params);
 
 #ifdef PP_PROFILE_OPT
 	/* Analyze events */

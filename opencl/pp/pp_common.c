@@ -195,6 +195,27 @@ finish:
 }
 
 /**
+ * See if there is anything in build log, and if so, show it.
+ *
+ * @param prg Program which was just built.
+ * */
+void pp_build_log(CCLProgram * prg) {
+
+	CCLErr * err = NULL;
+	const char * build_log = NULL;
+
+	build_log = ccl_program_get_build_log(prg, &err);
+	if (err) {
+		fprintf(stderr, " * Error obtaining build log: %s", err->message);
+		ccl_err_clear(&err);
+	} else if (build_log) {
+		printf("%s", build_log);
+	}
+
+	return;
+}
+
+/**
  * Callback function which will be called when non-option command line
  * arguments are given. The function will throw an error and fail. It's
  * an implementation of GLib's `(*GOptionArgFunc)` hook function.
