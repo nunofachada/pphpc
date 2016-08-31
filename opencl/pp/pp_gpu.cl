@@ -151,6 +151,12 @@
 	typedef ulong8 uagr8;
 	typedef ulong16 uagr16;
 
+	typedef long agr;
+	typedef long2 agr2;
+	typedef long4 agr4;
+	typedef long8 agr8;
+	typedef long16 agr16;
+
 #elif defined PPG_AG_32
 
 	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0x7FF)
@@ -193,6 +199,13 @@
 	typedef uint4 uagr4;
 	typedef uint8 uagr8;
 	typedef uint16 uagr16;
+
+	typedef int agr;
+	typedef int2 agr2;
+	typedef int4 agr4;
+	typedef int8 agr8;
+	typedef int16 agr16;
+
 #endif
 
 /** Macros and type definitions for agent reduction kernels which depend on chosen vector width. */
@@ -200,22 +213,27 @@
 	#define VW_AGENTREDUCE_SUM(x) (x)
 	#define convert_agentreduce_uagr(x) convert_uagr(x)
 	typedef uagr agentreduce_uagr;
+	typedef agr agentreduce_agr;
 #elif VW_AGENTREDUCE == 2
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1)
 	#define convert_agentreduce_uagr(x) convert_uagr2(x)
 	typedef uagr2 agentreduce_uagr;
+	typedef agr2 agentreduce_agr;
 #elif VW_AGENTREDUCE == 4
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_agentreduce_uagr(x) convert_uagr4(x)
 	typedef uagr4 agentreduce_uagr;
+	typedef agr4 agentreduce_agr;
 #elif VW_AGENTREDUCE == 8
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_agentreduce_uagr(x) convert_uagr8(x)
 	typedef uagr8 agentreduce_uagr;
+	typedef agr8 agentreduce_agr;
 #elif VW_AGENTREDUCE == 16
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_agentreduce_uagr(x) convert_uagr16(x)
 	typedef uagr16 agentreduce_uagr;
+	typedef agr16 agentreduce_agr;
 #endif
 
 #define CLO_SORT_ELEM_TYPE uagr
@@ -471,8 +489,8 @@ __kernel void reduce_agent1(
 			agentreduce_uagr is_wolf = convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
 			sumSheep_pop += is_alive & is_sheep;
 			sumWolves_pop += is_alive & is_wolf;
-			sumSheep_en += select((agentreduce_uagr) (0), PPG_AG_ENERGY_GET(data_l), is_alive && is_sheep);
-			sumWolves_en += select((agentreduce_uagr) (0), PPG_AG_ENERGY_GET(data_l), is_alive && is_wolf);
+			sumSheep_en += select((agentreduce_uagr) (0), (agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)), (agentreduce_agr) (is_alive && is_sheep));
+			sumWolves_en += select((agentreduce_uagr) (0), (agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)), (agentreduce_agr) (is_alive && is_wolf));
 		}
 	}
 
