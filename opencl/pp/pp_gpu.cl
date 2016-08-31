@@ -453,8 +453,10 @@ __kernel void reduce_agent1(
 	size_t group_id = get_group_id(0);
 
 	/* Serial sum */
-	agentreduce_uagr sumSheep = 0;
-	agentreduce_uagr sumWolves = 0;
+	agentreduce_uagr sumSheep_pop = 0;
+	agentreduce_uagr sumWolves_pop = 0;
+	agentreduce_uagr sumSheep_en = 0;
+	agentreduce_uagr sumWolves_en = 0;
 
 	/* Serial count */
 	uint agentVectorCount = PP_DIV_CEIL(max_agents, VW_AGENTREDUCE);
@@ -465,14 +467,20 @@ __kernel void reduce_agent1(
 		if (index < agentVectorCount) {
 			agentreduce_uagr data_l = data[index];
 			agentreduce_uagr is_alive = 0x1 & convert_agentreduce_uagr(PPG_AG_IS_ALIVE(data_l));
-			sumSheep += is_alive & convert_agentreduce_uagr(PPG_AG_IS_SHEEP(data_l));
-			sumWolves += is_alive & convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
+			agentreduce_uagr is_sheep = convert_agentreduce_uagr(PPG_AG_IS_SHEEP(data_l));
+			agentreduce_uagr is_wolf = convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
+			sumSheep_pop += is_alive & is_sheep;
+			sumWolves_pop += is_alive & is_wolf;
+			sumSheep_en += select((agentreduce_uagr) (0), PPG_AG_ENERGY_GET(data_l), is_alive && is_sheep);
+			sumWolves_en += select((agentreduce_uagr) (0), PPG_AG_ENERGY_GET(data_l), is_alive && is_wolf);
 		}
 	}
 
 	/* Put serial sum in local memory */
-	partial_sums[lid] = sumSheep;
-	partial_sums[group_size + lid] = sumWolves;
+	partial_sums[lid] = sumSheep_pop;
+	partial_sums[group_size + lid] = sumWolves_pop;
+	partial_sums[2 * group_size + lid] = sumSheep_en;
+	partial_sums[3 * group_size + lid] = sumWolves_en;
 
 	/* Wait for all work items to perform previous operation */
 	barrier(CLK_LOCAL_MEM_FENCE);
@@ -482,6 +490,8 @@ __kernel void reduce_agent1(
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
 			partial_sums[group_size + lid] += partial_sums[group_size + lid + i];
+			partial_sums[2 * group_size + lid] += partial_sums[2 * group_size + lid + i];
+			partial_sums[3 * group_size + lid] += partial_sums[3 * group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
@@ -490,6 +500,8 @@ __kernel void reduce_agent1(
 	if (lid == 0) {
 		reduce_agent_global[group_id] = partial_sums[0];
 		reduce_agent_global[MAX_LWS + group_id] = partial_sums[group_size];
+		reduce_agent_global[2 * MAX_LWS + group_id] = partial_sums[2 * group_size];
+		reduce_agent_global[3 * MAX_LWS + group_id] = partial_sums[3 * group_size];
 	}
 
 }
@@ -516,9 +528,13 @@ __kernel void reduce_agent1(
 	if (lid < num_slots) {
 		partial_sums[lid] = reduce_agent_global[lid];
 		partial_sums[group_size + lid] = reduce_agent_global[MAX_LWS + lid];
+		partial_sums[2 * group_size + lid] = reduce_agent_global[2 * MAX_LWS + lid];
+		partial_sums[3 * group_size + lid] = reduce_agent_global[3 * MAX_LWS + lid];
 	} else {
 		partial_sums[lid] = 0;
 		partial_sums[group_size + lid] = 0;
+		partial_sums[2 * group_size + lid] = 0;
+		partial_sums[3 * group_size + lid] = 0;
 	}
 
 	/* Wait for all work items to perform previous operation */
@@ -529,6 +545,8 @@ __kernel void reduce_agent1(
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
 			partial_sums[group_size + lid] += partial_sums[group_size + lid + i];
+			partial_sums[2 * group_size + lid] += partial_sums[2 * group_size + lid + i];
+			partial_sums[3 * group_size + lid] += partial_sums[3 * group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
@@ -537,8 +555,8 @@ __kernel void reduce_agent1(
 	if (lid == 0) {
 		stats[0].sheep = (uint) VW_AGENTREDUCE_SUM(partial_sums[0]);
 		stats[0].wolves = (uint) VW_AGENTREDUCE_SUM(partial_sums[group_size]);
-		stats[0].sheep_en = 0;
-		stats[0].wolves_en = 0;
+		stats[0].sheep_en = (uint) VW_AGENTREDUCE_SUM(partial_sums[2 * group_size]);
+		stats[0].wolves_en = (uint) VW_AGENTREDUCE_SUM(partial_sums[3 * group_size]);
 	}
 
 }

@@ -1352,9 +1352,9 @@ static void ppg_stats_save(char * filename, PPStatistics * statsArray,
 		fprintf(fp1, "%d\t%d\t%d\t%f\t%f\t%f\n",
 			statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass,
 			statsArray[i].sheep > 0 ?
-				statsArray[i].sheep_en / (float) statsArray[i].sheep : 0.0,
+				statsArray[i].sheep_en / (float) statsArray[i].sheep : 0.0f,
 			statsArray[i].wolves > 0 ?
-				statsArray[i].wolves_en / (float) statsArray[i].wolves : 0.0,
+				statsArray[i].wolves_en / (float) statsArray[i].wolves : 0.0f,
 			statsArray[i].grass_en / (float) params.grid_xy);
 
 	fclose(fp1);
@@ -1397,8 +1397,8 @@ static void ppg_datasizes_get(PPGDataSizes * dataSizes,
 		2 * lws.reduce_grass2 * args_vw.reduce_grass * sizeof(cl_uint);
 
 	/* Agent reduction. */
-	dataSizes->reduce_agent_local1 = 2 * lws.reduce_agent1
-		* args_vw.reduce_agent * agent_size_bytes; /* 2x to count sheep and wolves. */
+	dataSizes->reduce_agent_local1 = 4 * lws.reduce_agent1
+		* args_vw.reduce_agent * agent_size_bytes; /* 4x to count sheep pop, wolves pop, sheep en, wolves en. */
 	dataSizes->reduce_agent_global = dataSizes->reduce_agent_local1;
 	dataSizes->reduce_agent_local2 = dataSizes->reduce_agent_local1;
 
