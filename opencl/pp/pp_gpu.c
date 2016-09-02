@@ -1765,8 +1765,10 @@ int main(int argc, char **argv) {
 	g_if_err_goto(err, error_handler);
 
 	/* Create RNG object. */
-	rng_clo = clo_rng_new(args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
-		MAX(args.max_agents, params.grid_xy), 0, NULL, ctx, cq1, &err);
+	rng_clo = clo_rng_new(
+		args_alg.rng, CLO_RNG_SEED_HOST_MT, NULL,
+		MAX(args.max_agents, params.grid_xy), args.rng_seed, NULL,
+		ctx, cq1, &err);
 	g_if_err_goto(err, error_handler);
 
 	/* Create sorter object. */
