@@ -658,7 +658,7 @@ static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
 }
 
 /**
- * Save statistics.
+ * Get and save statistics.
  *
  * @param[in] filename File where to save simulation statistics.
  * @param[in] cq Command queue wrapper.
@@ -668,12 +668,9 @@ static void ppc_devicebuffers_free(PPCBuffersDevice* buffersDevice) {
  * @param[in] params Simulation parameters.
  * @param[out] err Return location for a GError.
  * */
-static void ppc_stats_save(char * filename, CCLQueue * cq,
+static void ppc_stats_get_and_save(char * filename, CCLQueue * cq,
 	PPCBuffersDevice * buffersDevice, PPCDataSizes dataSizes,
 	PPParameters params, GError ** err) {
-
-	/* Stats file. */
-	FILE * fp;
 
 	/* Event wrapper. */
 	CCLEvent* evt = NULL;
@@ -687,10 +684,6 @@ static void ppc_stats_save(char * filename, CCLQueue * cq,
 	/* Internal error handling object. */
 	GError* err_internal = NULL;
 
-	/* Get definite file name. */
-	gchar* realFilename =
-		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
-
 	/* Map stats host buffer in order to get statistics */
 	stats = ccl_buffer_enqueue_map(buffersDevice->stats, cq, CL_TRUE,
 		CL_MAP_READ, 0, dataSizes.stats, NULL, &evt, &err_internal);
@@ -698,24 +691,10 @@ static void ppc_stats_save(char * filename, CCLQueue * cq,
 	ccl_event_set_name(evt, "Map: stats");
 
 	/* Output results to file */
-	fp = fopen(realFilename, "w");
-	g_if_err_create_goto(*err, PP_ERROR, fp == NULL,
-		PP_UNABLE_SAVE_STATS, error_handler,
-		"Unable to open file \"%s\"", realFilename);
+	pp_stats_save(filename, stats, params, &err_internal);
+	g_if_err_propagate_goto(err, err_internal, error_handler);
 
-	for (cl_uint i = 0; i <= params.iters; ++i) {
-		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\t%d\n",
-			stats[i].sheep, stats[i].wolves, stats[i].grass,
-			stats[i].sheep > 0 ?
-				stats[i].sheep_en / (float) stats[i].sheep : 0.0,
-			stats[i].wolves > 0 ?
-				stats[i].wolves_en / (float) stats[i].wolves : 0.0,
-			stats[i].grass_en / (float) params.grid_xy,
-			stats[i].errors);
-		alloc_errors += stats[i].errors;
-	}
-	fclose(fp);
-
+	/* Allocation errors? */
 	if (alloc_errors) {
 		printf("\n **** There were %lu allocation errors! **** \n",
 			alloc_errors);
@@ -966,7 +945,7 @@ int main(int argc, char ** argv) {
 	g_if_err_goto(err, error_handler);
 
 	/* Get statistics. */
-	ppc_stats_save(
+	ppc_stats_get_and_save(
 		args.stats, cq, &buffersDevice, dataSizes, params, &err);
 	g_if_err_goto(err, error_handler);
 

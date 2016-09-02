@@ -169,8 +169,11 @@ typedef struct pp_agent_params {
 } PPAgentParams;
 
 /* Load predator-prey simulation parameters. */
-void pp_load_params(PPParameters* parameters, char* filename,
-	GError** err);
+void pp_load_params(PPParameters * parameters, char * filename, GError ** err);
+
+/* Save simulation statistics. */
+void pp_stats_save(char * filename, PPStatistics * statsArray,
+	PPParameters params, GError ** err);
 
 /* See if there is anything in build log, and if so, show it. */
 void pp_build_log(CCLProgram * prg);

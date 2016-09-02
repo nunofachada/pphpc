@@ -195,6 +195,51 @@ finish:
 }
 
 /**
+ * Save simulation statistics.
+ *
+ * @param[in] filename Name of file where to save statistics.
+ * @param[in] statsArray Statistics information array.
+ * @param[in] params Simulation parameters.
+ * @param[in] err Return location for a GError.
+ * */
+void pp_stats_save(char * filename, PPStatistics * statsArray,
+	PPParameters params, GError ** err) {
+
+	/* Get definite file name. */
+	gchar* realFilename =
+		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
+
+	FILE * fp = fopen(realFilename, "w");
+	g_if_err_create_goto(*err, PP_ERROR, fp == NULL,
+		PP_UNABLE_SAVE_STATS, error_handler,
+		"Unable to open file \"%s\"", realFilename);
+
+	for (unsigned int i = 0; i <= params.iters; i++)
+		fprintf(fp, "%d\t%d\t%d\t%f\t%f\t%f\n",
+			statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass,
+			statsArray[i].sheep > 0 ?
+				statsArray[i].sheep_en / (float) statsArray[i].sheep : 0.0f,
+			statsArray[i].wolves > 0 ?
+				statsArray[i].wolves_en / (float) statsArray[i].wolves : 0.0f,
+			statsArray[i].grass_en / (float) params.grid_xy);
+
+	fclose(fp);
+
+	/* If we got here, everything is OK. */
+	g_assert(*err == NULL);
+	goto finish;
+
+error_handler:
+	/* If we got here there was an error, verify that it is so. */
+	g_assert(*err != NULL);
+
+finish:
+
+	/* Return. */
+	return;
+}
+
+/**
  * See if there is anything in build log, and if so, show it.
  *
  * @param prg Program which was just built.

@@ -1333,34 +1333,6 @@ static void ppg_kernelargs_set(PPGKernels krnls,
 }
 
 /**
- * Save simulation statistics.
- *
- * @param[in] filename Name of file where to save statistics.
- * @param[in] statsArray Statistics information array.
- * @param[in] params Simulation parameters.
- * */
-static void ppg_stats_save(char * filename, PPStatistics * statsArray,
-	PPParameters params) {
-
-	/* Get definite file name. */
-	gchar* realFilename =
-		(filename != NULL) ? filename : PP_DEFAULT_STATS_FILE;
-
-	FILE * fp1 = fopen(realFilename, "w");
-
-	for (unsigned int i = 0; i <= params.iters; i++)
-		fprintf(fp1, "%d\t%d\t%d\t%f\t%f\t%f\n",
-			statsArray[i].sheep, statsArray[i].wolves, statsArray[i].grass,
-			statsArray[i].sheep > 0 ?
-				statsArray[i].sheep_en / (float) statsArray[i].sheep : 0.0f,
-			statsArray[i].wolves > 0 ?
-				statsArray[i].wolves_en / (float) statsArray[i].wolves : 0.0f,
-			statsArray[i].grass_en / (float) params.grid_xy);
-
-	fclose(fp1);
-}
-
-/**
  * Determine sizes of data buffers.
  *
  * @param[in] params Simulation parameters.
@@ -1833,7 +1805,8 @@ int main(int argc, char **argv) {
 	ccl_prof_stop(prof);
 
 	/* Output results to file */
-	ppg_stats_save(args.stats, stats_host, params);
+	pp_stats_save(args.stats, stats_host, params, &err);
+	g_if_err_goto(err, error_handler);
 
 #ifdef PP_PROFILE_OPT
 	/* Analyze events */
