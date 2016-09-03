@@ -355,7 +355,6 @@ __kernel void init(__global PPCAgentOcl * agents,
 	/* Determine number of agents to be initialized by this work item. */
 	uint num_sheep = INIT_SHEEP / gws;
 	uint num_wolves = INIT_WOLVES / gws;
-	uint num_agents = num_sheep + num_wolves;
 
 	/* If this is the last work item, adjust the number of agents to be
 	 * initialized accordingly. */
@@ -363,6 +362,9 @@ __kernel void init(__global PPCAgentOcl * agents,
 		num_sheep = INIT_SHEEP - num_sheep * (gws - 1);
 		num_wolves = INIT_WOLVES - num_wolves * (gws - 1);
 	}
+
+	/* Total number of agents. */
+	uint num_agents = num_sheep + num_wolves;
 
 	/* Determine base and offset indexes for placing new agents in the
 	 * agents array. */
