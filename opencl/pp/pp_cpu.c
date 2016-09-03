@@ -882,11 +882,6 @@ int main(int argc, char ** argv) {
 	cq = ccl_queue_new(ctx, dev, PP_QUEUE_PROPERTIES, &err);
 	g_if_err_goto(err, error_handler);
 
-	/* Create RNG with specified seed. */
-	rng_clo = clo_rng_new(args.rngen, CLO_RNG_SEED_HOST_MT, NULL,
-		args.max_agents, args.rng_seed, NULL, ctx, cq, &err);
-	g_if_err_goto(err, error_handler);
-
 	/* Get simulation parameters */
 	pp_load_params(&params, args.params, &err);
 	g_if_err_goto(err, error_handler);
@@ -901,6 +896,11 @@ int main(int argc, char ** argv) {
 		params.init_sheep + params.init_wolves > args.max_agents,
 		PP_OUT_OF_RESOURCES, error_handler,
 		"Not enough space for the initial agents.");
+
+	/* Create RNG with specified seed. */
+	rng_clo = clo_rng_new(args.rngen, CLO_RNG_SEED_HOST_MT, NULL,
+		workSizes.gws, args.rng_seed, NULL, ctx, cq, &err);
+	g_if_err_goto(err, error_handler);
 
 	/* Concatenate complete source: RNG kernels source + common source
 	 * + CPU kernel source. */
