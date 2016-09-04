@@ -1700,8 +1700,12 @@ int main(int argc, char **argv) {
 	/* Error management object. */
 	GError * err = NULL;
 
-	/* Type (representing agents) to sort. */
-	CloType ag_sort_type;
+	/* Type of elements (agents) to sort and type of keys to sort. */
+	CloType ag_sort_elem_type, ag_sort_key_type;
+
+	/* One-line OpenCL code to extract key from element (agent) in order
+	 * to sort it. */
+	const char * get_key;
 
 	/* Parse and validate arguments. */
 	ppg_args_parse(argc, argv, &context, &err);
@@ -1744,9 +1748,17 @@ int main(int argc, char **argv) {
 	g_if_err_goto(err, error_handler);
 
 	/* Create sorter object. */
-	ag_sort_type = args.agent_size == 64 ? CLO_ULONG : CLO_UINT;
+	if (args.agent_size == 64) {
+		ag_sort_elem_type = CLO_ULONG;
+		get_key = "((x) >> 32)";
+	} else {
+		ag_sort_elem_type = CLO_UINT;
+		get_key = "((x) >> 20)";
+	}
+	ag_sort_key_type = CLO_UINT;
 	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
-		&ag_sort_type, NULL, NULL, NULL, args.compiler_opts, &err);
+		&ag_sort_elem_type, &ag_sort_key_type, NULL, get_key,
+		args.compiler_opts, &err);
 	g_if_err_goto(err, error_handler);
 
 	/* Concatenate complete source: RNG kernels source + common source
