@@ -26,8 +26,11 @@
  *
  * * VW_GRASS - Vector size used in grass kernel (vector of uints).
  * * VW_REDUCEGRASS - Vector size used in reduce grass kernels (vector of uints)
- * * VW_REDUCEAGENTS - Vector size used in reduce agents kernels (vector of ulongs or uints)
- * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction step 2.
+ * * VW_REDUCEAGENTS - Vector size used in reduce agents kernels (vector of
+ *   ulongs or uints)
+ * * REDUCE_GRASS_NUM_WORKGROUPS - Number of work groups in grass reduction
+ *   step 1 (equivalent to get_num_groups(0)), but to be used in grass reduction
+ *   step 2.
  * * MAX_LWS - Maximum local work size used in simulation.
  * * CELL_NUM - Number of cells in simulation.
  * * MAX_AGENTS - Maximum allowed agents in the simulation.
@@ -39,12 +42,15 @@
  * * INIT_SHEEP - Initial number of sheep.
  * * SHEEP_GAIN_FROM_FOOD - Sheep energy gain when eating grass.
  * * SHEEP_REPRODUCE_THRESHOLD - Energy required for sheep to reproduce.
- * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep reproduction.
+ * * SHEEP_REPRODUCE_PROB - Probability (between 1 and 100) of sheep
+ *   reproduction.
  * * INIT_WOLVES - Initial number of wolves.
  * * WOLVES_GAIN_FROM_FOOD - Wolves energy gain when eating sheep.
  * * WOLVES_REPRODUCE_THRESHOLD - Energy required for wolves to reproduce.
- * * WOLVES_REPRODUCE_PROB - Probability (between 1 and 100) of wolves reproduction.
- * * GRASS_RESTART - Number of iterations that the grass takes to regrow after being eaten by a sheep.
+ * * WOLVES_REPRODUCE_PROB - Probability (between 1 and 100) of wolves
+ *   reproduction.
+ * * GRASS_RESTART - Number of iterations that the grass takes to regrow after
+ *   being eaten by a sheep.
  * * GRID_X - Number of grid columns (horizontal size, width).
  * * GRID_Y - Number of grid rows (vertical size, height).
  * * ITERS - Number of iterations.
@@ -61,7 +67,8 @@
 	#define PPG_AG_LO_IDX 1 /**< Logical "low" position (LSBs). */
 #endif
 
-/** Macros and type definitions for grass kernel which depend on chosen vector width. */
+/** Macros and type definitions for grass kernel which depend on chosen vector
+ * width. */
 #if VW_GRASS == 1
 	#define VW_GRASS_SUM(x) (x)
 	typedef uint grass_uintx;
@@ -84,7 +91,8 @@
 	typedef ulong16 grass_ulongx;
 #endif
 
-/** Macros and type definitions for grass reduction kernels which depend on chosen vector width. */
+/** Macros and type definitions for grass reduction kernels which depend on
+ * chosen vector width. */
 #if VW_GRASSREDUCE == 1
 	#define VW_GRASSREDUCE_SUM(x) (x)
 	#define convert_grassreduce_uintx(x) convert_uint(x)
@@ -107,7 +115,8 @@
 	typedef uint16 grassreduce_uintx;
 #endif
 
-/** Macros and type definitions for agents, which depend on agent size (number of bits). */
+/** Macros and type definitions for agents, which depend on agent size (number
+ * of bits). */
 #ifdef PPG_AG_64
 
 	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
@@ -208,7 +217,8 @@
 
 #endif
 
-/** Macros and type definitions for agent reduction kernels which depend on chosen vector width. */
+/** Macros and type definitions for agent reduction kernels which depend on
+ * chosen vector width. */
 #if VW_AGENTREDUCE == 1
 	#define VW_AGENTREDUCE_SUM(x) (x)
 	#define convert_agentreduce_uagr(x) convert_uagr(x)
@@ -291,16 +301,20 @@ __kernel void init_agent(
 	/* Determine what this workitem will do. */
 	if (gid < (INIT_SHEEP + INIT_WOLVES)) {
 		/* This workitem will initialize an alive agent. */
-		PPG_AG_XY_SET(new_agent, clo_rng_next_int(seeds, GRID_X), clo_rng_next_int(seeds, GRID_Y));
+		PPG_AG_XY_SET(new_agent,
+			clo_rng_next_int(seeds, GRID_X),
+			clo_rng_next_int(seeds, GRID_Y));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
 			PPG_AG_TYPE_SET(new_agent, SHEEP_ID);
-			PPG_AG_ENERGY_SET(new_agent, clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
+			PPG_AG_ENERGY_SET(new_agent,
+				clo_rng_next_int(seeds, SHEEP_GAIN_FROM_FOOD * 2) + 1);
 		} else {
 			/* A wolf agent. */
 			PPG_AG_TYPE_SET(new_agent, WOLF_ID);
-			PPG_AG_ENERGY_SET(new_agent, clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
+			PPG_AG_ENERGY_SET(new_agent,
+				clo_rng_next_int(seeds, WOLVES_GAIN_FROM_FOOD * 2) + 1);
 		}
 	}
 	/* Store new agent in global memory. */
@@ -656,7 +670,6 @@ __kernel void move_agent(
 			/* Otherwise update agent location. */
 			PPG_AG_XY_SET(data_l, xy_l.x, xy_l.y);
 
-
 		/* Update global mem */
 		data[gid] = data_l;
 
@@ -688,7 +701,7 @@ __kernel void find_cell_idx(
 	/* Only perform this if agent is alive. */
 	if (PPG_AG_IS_ALIVE(data_l)) {
 
-		/* Find cell where this agent lurks... */
+		/* Find cell where this agent is located... */
 		uint cell_idx = 2 * PPG_CELL_IDX(data_l);
 
 		/* Check if this agent is the start of a cell index. */
@@ -746,6 +759,7 @@ __kernel void action_agent(
 	/* Perform specific agent actions */
 
 	if (PPG_AG_IS_ALIVE(data_l)) {
+
 		if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
 
 			/* Set reproduction threshold and probability */
@@ -772,7 +786,8 @@ __kernel void action_agent(
 					if (PPG_AG_IS_SHEEP(possibleSheep)) {
 						/* If it is a sheep, try to eat it! */
 						if (PPG_ATOMIC_TRY_KILL(i, data, data_half)) {
-							/* If wolf catches sheep he's satisfied for now, so let's get out of this loop */
+							/* If wolf catches sheep he's satisfied for now, so
+							 *  let's get out of this loop. */
 							PPG_AG_ENERGY_ADD(data_l, WOLVES_GAIN_FROM_FOOD);
 							break;
 						}

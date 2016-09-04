@@ -302,24 +302,30 @@ static GOptionEntry entries[] = {
 		"Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",
 		"FILENAME"},
 	{"profinfo",        'i', 0, G_OPTION_ARG_FILENAME, &args.prof_info,
-		"File where to export profiling info (if omitted, prof. info will not be exported)",
+		"File where to export profiling info (if omitted, prof. info will not "
+		"be exported)",
 		"FILENAME"},
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts,
 		"Extra OpenCL compiler options",
 		"OPTS"},
 	{"device",          'd', 0, G_OPTION_ARG_INT,      &args.dev_idx,
-		"Device index (if not given and more than one device is available, chose device from menu)",
+		"Device index (if not given and more than one device is available, "
+		"chose device from menu)",
 		"INDEX"},
 	{"rng-seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
-		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
+		"Seed for random number generator (default is "
+		G_STRINGIFY(PP_DEFAULT_SEED) ")",
 		"SEED"},
 	{"agent-size",      'a', 0, G_OPTION_ARG_INT,      &args.agent_size,
-		"Agent size, 32 or 64 bits (default is " G_STRINGIFY(PPG_DEFAULT_AGENT_SIZE) ")",
+		"Agent size, 32 or 64 bits (default is "
+		G_STRINGIFY(PPG_DEFAULT_AGENT_SIZE) ")",
 		"BITS"},
 	{"max-agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
-		"Maximum number of agents (default is " G_STRINGIFY(PPG_DEFAULT_MAX_AGENTS) ")",
+		"Maximum number of agents (default is "
+		G_STRINGIFY(PPG_DEFAULT_MAX_AGENTS) ")",
 		"SIZE"},
-	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL, NULL},
+	{G_OPTION_REMAINING, 0,  0, G_OPTION_ARG_CALLBACK, pp_args_fail, NULL,
+		NULL},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }
 };
 
@@ -378,10 +384,12 @@ static GOptionEntry entries_vw[] = {
 		"Vector (of uints) width for grass kernel, default is 0 (auto-detect)",
 		"WIDTH"},
 	{"vw-reduce-grass", 0, 0, G_OPTION_ARG_INT, &args_vw.reduce_grass,
-		"Vector (of uints) width for grass reduce kernel, default is 0 (auto-detect)",
+		"Vector (of uints) width for grass reduce kernel, default is 0 "
+		"(auto-detect)",
 		"WIDTH"},
 	{"vw-reduce-agent", 0, 0, G_OPTION_ARG_INT, &args_vw.reduce_agent,
-		"Vector (of uint/ulongs, depends on --agent-size) width for agent reduce kernel, default is 0 (auto-detect)",
+		"Vector (of uint/ulongs, depends on --agent-size) width for agent "
+		"reduce kernel, default is 0 (auto-detect)",
 		"WIDTH"},
 	{ NULL, 0, 0, 0, NULL, NULL, NULL }
 };
@@ -445,29 +453,38 @@ static void ppg_dump(int iter, int dump_type, CCLQueue* cq,
 		iter, max_agents_iter, gws_reduce_agent1, gws_action_agent,
 		gws_move_agent);
 	blank_line = FALSE;
+
 	if (agent_size_bytes == 8) {
+
 		for (cl_uint k = 0; k < args.max_agents; k++) {
 			cl_ulong curr_ag = ((cl_ulong*) agents_data)[k];
-			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFFFFFF00000000)!= 0xFFFFFFFF00000000)) {
+			if (!(dump_type & 0x01) ||
+				((curr_ag & 0xFFFFFFFF00000000)!= 0xFFFFFFFF00000000)) {
+
 				if (blank_line) fprintf(fp_agent_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_agent_dump, "[%4d] %016lx: (%4d, %4d) type=%d energy=%d\n",
+				fprintf(fp_agent_dump,
+					"[%4d] %016lx: (%4d, %4d) type=%d energy=%d\n",
 					k, curr_ag,
 					(cl_uint) (curr_ag >> 48),
 					(cl_uint) ((curr_ag >> 32) & 0xFFFF),
 					(cl_uint) ((curr_ag >> 16) & 0xFFFF),
 					(cl_uint) (curr_ag & 0xFFFF));
+
 			} else {
 				blank_line = TRUE;
 			}
 		}
+
 	} else if (agent_size_bytes == 4) {
+
 		for (cl_uint k = 0; k < args.max_agents; k++) {
 			cl_uint curr_ag = ((cl_uint*) agents_data)[k];
 			if (!(dump_type & 0x01) || ((curr_ag & 0xFFFF0000)!= 0xFFFF0000)) {
 				if (blank_line) fprintf(fp_agent_dump, "\n");
 				blank_line = FALSE;
-				fprintf(fp_agent_dump, "[%4d] %08x: (%3d, %3d) type=%d energy=%d\n",
+				fprintf(fp_agent_dump,
+					"[%4d] %08x: (%3d, %3d) type=%d energy=%d\n",
 					k, curr_ag,
 					(cl_uint) (curr_ag >> 22),
 					(cl_uint) ((curr_ag >> 12) & 0x3FF),
@@ -483,14 +500,17 @@ static void ppg_dump(int iter, int dump_type, CCLQueue* cq,
 	fprintf(fp_cell_dump, "\nIteration %d\n", iter);
 	blank_line = FALSE;
 	for (cl_uint k = 0; k < params.grid_xy; k++) {
-		if (!(dump_type & 0x10) || ((iter != -1) & (cells_agents_index[k].s[0] != args.max_agents))) {
+		if (!(dump_type & 0x10) || ((iter != -1)
+				& (cells_agents_index[k].s[0] != args.max_agents))) {
+
 			if (blank_line) fprintf(fp_cell_dump, "\n");
 			blank_line = FALSE;
 			if (iter != -1) {
 				fprintf(fp_cell_dump, "(%d, %d) -> (%d, %d) %s [Grass: %d]\n",
 					k % params.grid_x, k / params.grid_y,
 					cells_agents_index[k].s[0], cells_agents_index[k].s[1],
-					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ? "More than 1 agent present" : "",
+					cells_agents_index[k].s[0] != cells_agents_index[k].s[1] ?
+						"More than 1 agent present" : "",
 					cells_grass[k]);
 			} else {
 				fprintf(fp_cell_dump, "(%d, %d) -> (-, -) [Grass: %d]\n",
@@ -1149,7 +1169,8 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 	/* Print info. */
 	/// @todo Make ints unsigned or change %d to something nice for size_t
 	printf("\n   =========================== Simulation Info =============================\n\n");
-	printf("     Required global memory    : %d bytes (%d Kb = %d Mb)\n", (int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
+	printf("     Required global memory    : %d bytes (%d Kb = %d Mb)\n",
+		(int) dev_mem, (int) dev_mem / 1024, (int) dev_mem / 1024 / 1024);
 	printf("     Compiler options          : %s\n", compilerOpts);
 	printf("     Kernel work sizes and local memory requirements:\n");
 	printf("       -------------------------------------------------------------------\n");
@@ -1163,11 +1184,14 @@ static void ppg_info_print(PPGGlobalWorkSizes gws,
 	printf("       | grass              | %8zu | %5zu |          0 |     %2d x %zu |\n",
 		gws.grass, lws.grass, args_vw.grass, sizeof(cl_uint));
 	printf("       | reduce_grass1      | %8zu | %5zu | %10zu |     %2d x %zu |\n",
-		gws.reduce_grass1, lws.reduce_grass1, dataSizes.reduce_grass_local1, args_vw.reduce_grass, sizeof(cl_uint));
+		gws.reduce_grass1, lws.reduce_grass1, dataSizes.reduce_grass_local1,
+		args_vw.reduce_grass, sizeof(cl_uint));
 	printf("       | reduce_grass2      | %8zu | %5zu | %10zu |     %2d x %zu |\n",
-		gws.reduce_grass2, lws.reduce_grass2, dataSizes.reduce_grass_local2, args_vw.reduce_grass, sizeof(cl_uint));
+		gws.reduce_grass2, lws.reduce_grass2, dataSizes.reduce_grass_local2,
+		args_vw.reduce_grass, sizeof(cl_uint));
 	printf("       | reduce_agent1      |     Var. | %5zu | %10zu |     %2d x %zu |\n",
-		lws.reduce_agent1, dataSizes.reduce_agent_local1, args_vw.reduce_agent, agent_size_bytes);
+		lws.reduce_agent1, dataSizes.reduce_agent_local1, args_vw.reduce_agent,
+		agent_size_bytes);
 	printf("       | reduce_agent2      |     Var. |  Var. | %10zu |     %2d x %zu |\n",
 		dataSizes.reduce_agent_local2, args_vw.reduce_agent, agent_size_bytes);
 	printf("       | move_agent         |     Var. | %5zu |          0 |          0 |\n",
@@ -1600,17 +1624,20 @@ static void ppg_args_parse(int argc, char* argv[],
 	g_if_err_create_goto(*err, PP_ERROR,
 		(clo_ones32(args_vw.grass) > 1) || (args_vw.grass > 16),
 		PP_INVALID_ARGS, error_handler,
-		"The -vw-grass parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+		"The -vw-grass parameter must be either 0 (auto-detect), 1, 2, 4, "
+		"8 or 16.");
 
 	g_if_err_create_goto(*err, PP_ERROR,
 		(clo_ones32(args_vw.reduce_grass) > 1) || (args_vw.reduce_grass > 16),
 		PP_INVALID_ARGS, error_handler,
-		"The -vw-reduce-grass parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+		"The -vw-reduce-grass parameter must be either 0 (auto-detect), 1, 2, "
+		"4, 8 or 16.");
 
 	g_if_err_create_goto(*err, PP_ERROR,
 		(clo_ones32(args_vw.reduce_agent) > 1) || (args_vw.reduce_agent > 16),
 		PP_INVALID_ARGS, error_handler,
-		"The -vw-reduce-agent parameter must be either 0 (auto-detect), 1, 2, 4, 8 or 16.");
+		"The -vw-reduce-agent parameter must be either 0 (auto-detect), 1, 2, "
+		"4, 8 or 16.");
 
 	/* If we got here, everything is OK. */
 	g_assert (*err == NULL);
