@@ -124,7 +124,7 @@
 	#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
 	#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
 
-	#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2))
+	#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2UL))
 
 	#define PPG_AG_DEAD 0xFFFFFFFF
 
@@ -780,36 +780,36 @@ __kernel void action_agent(
 				}
 			}
 		}
-	}
 
-	/* Try reproducing this agent if energy > reproduce_threshold */
-	if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
+		/* Try reproducing this agent if energy > reproduce_threshold */
+		if (PPG_AG_ENERGY_GET(data_l) > reproduce_threshold) {
 
-		/* Throw dice to see if agent reproduces */
-		if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
+			/* Throw dice to see if agent reproduces */
+			if (clo_rng_next_int(seeds, 100) < reproduce_prob) {
 
-			/* Agent will reproduce! */
-			size_t pos_new = get_global_size(0) + gid;
-			uagr data_new = PPG_AG_REPRODUCE(data_l);
-			data[pos_new] = data_new;
+				/* Agent will reproduce! */
+				size_t pos_new = get_global_size(0) + gid;
+				uagr data_new = PPG_AG_REPRODUCE(data_l);
+				data[pos_new] = data_new;
 
-			/* Current agent's energy will be halved also */
-			PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
+				/* Current agent's energy will be halved also */
+				PPG_AG_ENERGY_SUB(data_l, PPG_AG_ENERGY_GET(data_new));
 
+			}
 		}
+
+		/* @ALTERNATIVE for agent reproduction:
+		 * 1 - Create new agents in workgroup local memory using a local
+		 * atomic counter to determine new agent index.
+		 * 2 - In the end of the workitem put a workgroup local mem
+		 * barrier, then push new agents in a coalesced fashion to
+		 * global memory using a global atomic counter to determine
+		 * the index of the first agent in the group.
+		 * - Problems: the additional complexity and the use of atomics
+		 * will probably not allow for any performance improvements. */
+
+		/* My actions only affect my data (energy), so I will only put back data (energy)... */
+		PPG_AG_STORE_LO(data_l, gid, data_half);
+		/// @todo Can't a wolf eat a sheep and then sheep rewrite it that action?
 	}
-
-	/* @ALTERNATIVE for agent reproduction:
-	 * 1 - Create new agents in workgroup local memory using a local
-	 * atomic counter to determine new agent index.
-	 * 2 - In the end of the workitem put a workgroup local mem
-	 * barrier, then push new agents in a coalesced fashion to
-	 * global memory using a global atomic counter to determine
-	 * the index of the first agent in the group.
-	 * - Problems: the additional complexity and the use of atomics
-	 * will probably not allow for any performance improvements. */
-
-	/* My actions only affect my data (energy), so I will only put back data (energy)... */
-	PPG_AG_STORE_LO(data_l, gid, data_half);
-
 }
