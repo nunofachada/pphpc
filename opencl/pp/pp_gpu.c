@@ -1780,7 +1780,7 @@ int main(int argc, char **argv) {
 		get_key = "((x) >> 32)";
 	} else {
 		ag_sort_elem_type = CLO_UINT;
-		get_key = "((x) >> 20)";
+		get_key = "((x) >> 12)";
 	}
 	ag_sort_key_type = CLO_UINT;
 	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
