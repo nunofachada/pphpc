@@ -1751,7 +1751,8 @@ int main(int argc, char **argv) {
 	/* Specify device filters and create context from them. */
 	ccl_devsel_add_indep_filter(
 		&filters, ccl_devsel_indep_type_gpu, NULL);
-	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu, NULL);
+	ccl_devsel_add_dep_filter(
+		&filters, ccl_devsel_dep_menu, (void *) &args.dev_idx);
 
 	ctx = ccl_context_new_from_filters(&filters, &err);
 	g_if_err_goto(err, error_handler);
