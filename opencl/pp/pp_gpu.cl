@@ -1,6 +1,6 @@
 /*
  * PPHPC-OCL, an OpenCL implementation of the PPHPC agent-based model
- * Copyright (C) 2015 Nuno Fachada
+ * Copyright (C) 2016 Nuno Fachada
  *
  * This file is part of PPHPC-OCL.
  *
@@ -56,96 +56,159 @@
  * * ITERS - Number of iterations.
  * */
 
-/** Constants which depend on device endianess. When the agent structure
+/* Constants which depend on device endianess. When the agent structure
  * is accessed in half, these will point to the correct location in
  * global memory. */
 #ifdef __ENDIAN_LITTLE__
+
 	#define PPG_AG_HI_IDX 1 /**< Logical "high" position (MSBs). */
 	#define PPG_AG_LO_IDX 0 /**< Logical "low" position (LSBs). */
+
 #else
+
 	#define PPG_AG_HI_IDX 0 /**< Logical "high" position (MSBs). */
 	#define PPG_AG_LO_IDX 1 /**< Logical "low" position (LSBs). */
+
 #endif
 
-/** Macros and type definitions for grass kernel which depend on chosen vector
+/* Macros and type definitions for grass kernel which depend on chosen vector
  * width. */
 #if VW_GRASS == 1
+
 	#define VW_GRASS_SUM(x) (x)
 	typedef uint grass_uintx;
 	typedef ulong grass_ulongx;
+
 #elif VW_GRASS == 2
+
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1)
 	typedef uint2 grass_uintx;
 	typedef ulong2 grass_ulongx;
+
 #elif VW_GRASS == 4
+
 	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	typedef uint4 grass_uintx;
 	typedef ulong4 grass_ulongx;
+
 #elif VW_GRASS == 8
-	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+
+	#define VW_GRASS_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	typedef uint8 grass_uintx;
 	typedef ulong8 grass_ulongx;
+
 #elif VW_GRASS == 16
-	#define VW_GRASS_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+
+	#define VW_GRASS_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 \
+		+ x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	typedef uint16 grass_uintx;
 	typedef ulong16 grass_ulongx;
+
 #endif
 
-/** Macros and type definitions for grass reduction kernels which depend on
+/* Macros and type definitions for grass reduction kernels which depend on
  * chosen vector width. */
 #if VW_GRASSREDUCE == 1
+
 	#define VW_GRASSREDUCE_SUM(x) (x)
 	#define convert_grassreduce_uintx(x) convert_uint(x)
 	typedef uint grassreduce_uintx;
+
 #elif VW_GRASSREDUCE == 2
+
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1)
 	#define convert_grassreduce_uintx(x) convert_uint2(x)
 	typedef uint2 grassreduce_uintx;
+
 #elif VW_GRASSREDUCE == 4
+
 	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_grassreduce_uintx(x) convert_uint4(x)
 	typedef uint4 grassreduce_uintx;
+
 #elif VW_GRASSREDUCE == 8
-	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+
+	#define VW_GRASSREDUCE_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_grassreduce_uintx(x) convert_uint8(x)
 	typedef uint8 grassreduce_uintx;
+
 #elif VW_GRASSREDUCE == 16
-	#define VW_GRASSREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+
+	#define VW_GRASSREDUCE_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 \
+		+ x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_grassreduce_uintx(x) convert_uint16(x)
 	typedef uint16 grassreduce_uintx;
+
 #endif
 
-/** Macros and type definitions for agents, which depend on agent size (number
+/* Macros and type definitions for agents, which depend on agent size (number
  * of bits). */
 #ifdef PPG_AG_64
 
-	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xFFFF)
-	#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | ((energy) & 0xFFFF)
-	#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) + energy) & 0xFFFF)
-	#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFFFFFFFFF0000) | (((agent) - energy) & 0xFFFF)
+	/*
+	 * 64-bit agents
+	 * -------------
+	 *
+	 * * FFFF 0000 0000 0000 - X (16 bits, 0-65535)
+	 * * 0000 FFFF 0000 0000 - Y (16 bits, 0-65535)
+	 * * 0000 0000 FFFF 0000 - Type (16 bits, 0-65535)
+	 * * 0000 0000 0000 FFFF - Energy (16 bits, 0-65535)
+	 *
+	 * */
 
-	#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xFFFF)
-	#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFFFFF0000FFFF) | (((type) & 0xFFFF) << 16)
+	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0xffff)
+
+	#define PPG_AG_ENERGY_SET(agent, energy) \
+		(agent) = ((agent) & 0xffffffffffff0000) | ((energy) & 0xffff)
+
+	#define PPG_AG_ENERGY_ADD(agent, energy) \
+		(agent) = ((agent) & 0xffffffffffff0000) | (((agent) + energy) & 0xffff)
+
+	#define PPG_AG_ENERGY_SUB(agent, energy) \
+		(agent) = ((agent) & 0xffffffffffff0000) | (((agent) - energy) & 0xffff)
+
+	#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xffff)
+
+	#define PPG_AG_TYPE_SET(agent, type) \
+		(agent) = ((agent) & 0xffffffff0000ffff) | (((type) & 0xffff) << 16)
 
 	#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
+
 	#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
 
-	#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xFFFF))
-	#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((ulong) x) << 48) | ((((ulong) y) & 0xFFFF) << 32) | ((agent) & 0xFFFFFFFF)
+	#define PPG_AG_XY_GET(agent) \
+		(ushort2) \
+			((ushort) ((agent) >> 48), (ushort) (((agent) >> 32) & 0xffff))
 
-	#define PPG_AG_REPRODUCE(agent) ((ulong) ((agent) & 0xFFFFFFFFFFFF0000) | (PPG_AG_ENERGY_GET(agent) / 2UL))
+	#define PPG_AG_XY_SET(agent, x, y) \
+		(agent) = (((ulong) x) << 48) | \
+			((((ulong) y) & 0xffff) << 32) | \
+			((agent) & 0xffffffff)
 
-	#define PPG_AG_DEAD 0xFFFFFFFF
+	#define PPG_AG_REPRODUCE(agent) \
+		((ulong) \
+			((agent) & 0xffffffffffff0000) | (PPG_AG_ENERGY_GET(agent) / 2UL))
+
+	#define PPG_AG_DEAD 0xffffffff
 
 	#define PPG_AG_IS_ALIVE(agent) (((agent) >> 32) != PPG_AG_DEAD)
 
-	#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFFFFFFFFFF
+	#define PPG_AG_SET_DEAD(agent) (agent) = 0xffffffffffffffff
 
-	#define PPG_CELL_IDX(agent) ((((agent) >> 32) & 0xFFFF) * GRID_X + ((agent) >> 48))
+	#define PPG_CELL_IDX(agent) \
+		((((agent) >> 32) & 0xffff) * GRID_X + ((agent) >> 48))
 
-	#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xFFFFFFFF)
+	#define PPG_AG_STORE_LO(agent, pos, data) \
+		data[pos * 2 + PPG_AG_LO_IDX] = (uint) (agent & 0xffffffffU)
 
-	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) (atomic_or(&(data_half[pos * 2 + PPG_AG_HI_IDX]), PPG_AG_DEAD) != PPG_AG_DEAD)
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) \
+		(atomic_or( \
+			&(data_half[pos * 2 + PPG_AG_HI_IDX]), PPG_AG_DEAD) \
+				!= PPG_AG_DEAD)
 
 	#define convert_uagr(x) convert_ulong(x)
 	#define convert_uagr2(x) convert_ulong2(x)
@@ -168,33 +231,62 @@
 
 #elif defined PPG_AG_32
 
-	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0x7FF)
-	#define PPG_AG_ENERGY_SET(agent, energy) (agent) = ((agent) & 0xFFFFF800) | ((energy) & 0x7FF)
-	#define PPG_AG_ENERGY_ADD(agent, energy) (agent) = ((agent) & 0xFFFFF800) | (((agent) + energy) & 0x7FF)
-	#define PPG_AG_ENERGY_SUB(agent, energy) (agent) = ((agent) & 0xFFFFF800) | (((agent) - energy) & 0x7FF)
+	/*
+	 * 64-bit agents
+	 * -------------
+	 *
+	 * * ffc00000 - X (10 bits, 0-1023)
+	 * * 003ff000 - Y (10 bits, 0-1023)
+	 * * 00000800 - Type (1 bits, 0-1)
+	 * * 000007ff - Energy (11 bits, 0-2047)
+	 *
+	 * */
+
+	#define PPG_AG_ENERGY_GET(agent) ((agent) & 0x7ff)
+
+	#define PPG_AG_ENERGY_SET(agent, energy) \
+		(agent) = ((agent) & 0xfffff800) | ((energy) & 0x7ff)
+
+	#define PPG_AG_ENERGY_ADD(agent, energy) \
+		(agent) = ((agent) & 0xfffff800) | (((agent) + energy) & 0x7ff)
+
+	#define PPG_AG_ENERGY_SUB(agent, energy) \
+		(agent) = ((agent) & 0xfffff800) | (((agent) - energy) & 0x7ff)
 
 	#define PPG_AG_TYPE_GET(agent) (((agent) >> 11) & 0x1)
-	#define PPG_AG_TYPE_SET(agent, type) (agent) = ((agent) & 0xFFFFF7FF) | (((type) & 0x1) << 11)
+
+	#define PPG_AG_TYPE_SET(agent, type) \
+		(agent) = ((agent) & 0xfffff7ff) | (((type) & 0x1) << 11)
 
 	#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
+
 	#define PPG_AG_IS_WOLF(agent) (PPG_AG_TYPE_GET(agent) == WOLF_ID)
 
-	#define PPG_AG_XY_GET(agent) (ushort2) ((ushort) ((agent) >> 22), (ushort) (((agent) >> 12) & 0x3FF))
-	#define PPG_AG_XY_SET(agent, x, y) (agent) =  (((uint) x) << 22) | ((((uint) y) & 0x3FF) << 12) | ((agent) & 0xFFF)
+	#define PPG_AG_XY_GET(agent) \
+		(ushort2) ((ushort) ((agent) >> 22), (ushort) (((agent) >> 12) & 0x3ff))
 
-	#define PPG_AG_REPRODUCE(agent) ((uint) ((agent) & 0xFFFFF800) | (PPG_AG_ENERGY_GET(agent) / 2))
+	#define PPG_AG_XY_SET(agent, x, y) \
+		(agent) = (((uint) x) << 22) | \
+			((((uint) y) & 0x3ff) << 12) | \
+			((agent) & 0xfff)
 
-	#define PPG_AG_DEAD 0xFFFF
+	#define PPG_AG_REPRODUCE(agent) \
+		((uint) ((agent) & 0xfffff800) | (PPG_AG_ENERGY_GET(agent) / 2))
+
+	#define PPG_AG_DEAD 0xffff
 
 	#define PPG_AG_IS_ALIVE(agent) (((agent) >> 16) != PPG_AG_DEAD)
 
-	#define PPG_AG_SET_DEAD(agent) (agent) = 0xFFFFFFFF
+	#define PPG_AG_SET_DEAD(agent) (agent) = 0xffffffff
 
-	#define PPG_CELL_IDX(agent) ((((agent) >> 12) & 0x3FF) * GRID_X + ((agent) >> 22))
+	#define PPG_CELL_IDX(agent) \
+		((((agent) >> 12) & 0x3ff) * GRID_X + ((agent) >> 22))
 
-	#define PPG_AG_STORE_LO(agent, pos, data) data[pos * 2 + PPG_AG_LO_IDX] = (ushort) (agent & 0xFFFF)
+	#define PPG_AG_STORE_LO(agent, pos, data) \
+		data[pos * 2 + PPG_AG_LO_IDX] = (ushort) (agent & 0xffff)
 
-	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) PPG_AG_IS_ALIVE(atomic_or(&(data[pos]), 0xFFFFFFFF))
+	#define PPG_ATOMIC_TRY_KILL(pos, data, data_half) \
+		PPG_AG_IS_ALIVE(atomic_or(&(data[pos]), 0xffffffff))
 
 	#define convert_uagr(x) convert_uint(x)
 	#define convert_uagr2(x) convert_uint2(x)
@@ -217,39 +309,52 @@
 
 #endif
 
-/** Macros and type definitions for agent reduction kernels which depend on
+/* Macros and type definitions for agent reduction kernels which depend on
  * chosen vector width. */
 #if VW_AGENTREDUCE == 1
+
 	#define VW_AGENTREDUCE_SUM(x) (x)
 	#define convert_agentreduce_uagr(x) convert_uagr(x)
 	typedef uagr agentreduce_uagr;
 	typedef agr agentreduce_agr;
+
 #elif VW_AGENTREDUCE == 2
+
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1)
 	#define convert_agentreduce_uagr(x) convert_uagr2(x)
 	typedef uagr2 agentreduce_uagr;
 	typedef agr2 agentreduce_agr;
+
 #elif VW_AGENTREDUCE == 4
+
 	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3)
 	#define convert_agentreduce_uagr(x) convert_uagr4(x)
 	typedef uagr4 agentreduce_uagr;
 	typedef agr4 agentreduce_agr;
+
 #elif VW_AGENTREDUCE == 8
-	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
+
+	#define VW_AGENTREDUCE_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7)
 	#define convert_agentreduce_uagr(x) convert_uagr8(x)
 	typedef uagr8 agentreduce_uagr;
 	typedef agr8 agentreduce_agr;
+
 #elif VW_AGENTREDUCE == 16
-	#define VW_AGENTREDUCE_SUM(x) (x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 + x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
+
+	#define VW_AGENTREDUCE_SUM(x) \
+		(x.s0 + x.s1 + x.s2 + x.s3 + x.s4 + x.s5 + x.s6 + x.s7 \
+		+ x.s8 + x.s9 + x.sa + x.sb + x.sc + x.sd + x.se + x.sf)
 	#define convert_agentreduce_uagr(x) convert_uagr16(x)
 	typedef uagr16 agentreduce_uagr;
 	typedef agr16 agentreduce_agr;
+
 #endif
 
 #define CLO_SORT_ELEM_TYPE uagr
 
 /**
- * @brief Initialize grid cells.
+ * Initialize grid cells.
  *
  * @param grass Grass counters (0 means grass is alive).
  * @param seeds RNG seeds.
@@ -268,11 +373,15 @@ __kernel void init_cell(
 	if (gid < CELL_NUM) {
 
 		/* Cells within bounds may be dead or alive with 50% chance. */
-		uint is_alive = select((uint) 0, (uint) clo_rng_next_int(seeds, 2), gid < CELL_NUM);
+		uint is_alive =
+			select((uint) 0, (uint) clo_rng_next_int(seeds, 2), gid < CELL_NUM);
 
 		/* If cell is alive, value will be zero. Otherwise, randomly
 		 * determine a counter value. */
-		counter = select((uint) (clo_rng_next_int(seeds, GRASS_RESTART) + 1), (uint) 0, is_alive);
+		counter = select(
+			(uint) (clo_rng_next_int(seeds, GRASS_RESTART) + 1),
+			(uint) 0,
+			is_alive);
 	}
 
 	/* Initialize cell counter. Padding cells (gid >= CELL_NUM) will
@@ -283,7 +392,7 @@ __kernel void init_cell(
 }
 
 /**
- * @brief Initialize agents.
+ * Initialize agents.
  *
  * @param data The agent data array.
  * @param seeds RNG seeds.
@@ -324,7 +433,7 @@ __kernel void init_agent(
 
 
 /**
- * @brief Grass kernel. Grows grass and resets agent indexes in cell.
+ * Grass kernel. Grows grass and resets agent indexes in cell.
  *
  * @param grass Grass counters (0 means grass is alive).
  * @param agents_index Agent start and end indexes in cell.
@@ -349,15 +458,18 @@ __kernel void grass(
 		grass[gid] = select((grass_uintx) 0, grass_l - 1, grass_l > 0);
 
 		/* Reset cell start and finish. */
-		agents_index[gid] = (grass_ulongx) upsample((grass_uintx) MAX_AGENTS, (grass_uintx) MAX_AGENTS);
-		/// @todo The above is a long vectorization, and kernels should have a specific length vectorization
-		/// before we had two int memory writes, which were in accordance to int vectorization
-		/// Although like this is faster for small vector sizes, maybe we should separate the "reset cell start and finish" in another kernel?
+		agents_index[gid] = (grass_ulongx)
+			upsample((grass_uintx) MAX_AGENTS, (grass_uintx) MAX_AGENTS);
+		/// @todo The above is a long vectorization, and kernels should have a
+		/// specific length vectorization before we had two int memory writes,
+		/// which were in accordance to int vectorization. Although like this is
+		/// faster for small vector sizes, maybe we should separate the "reset
+		/// cell start and finish" in another kernel?
 	}
 }
 
 /**
- * @brief Grass reduction kernel, part 1.
+ * Grass reduction kernel, part 1.
  *
  * @param grass Grass counters (0 means grass is alive).
  * @param partial_sums Workgroup level (shared memory) grass counts.
@@ -417,7 +529,7 @@ __kernel void reduce_grass1(
 }
 
 /**
- * @brief Grass reduction kernel, part 2.
+ * Grass reduction kernel, part 2.
  *
  * @param reduce_grass_global Global level grass counts.
  * @param partial_sums Workgroup level (shared memory) grass counts.
@@ -464,7 +576,7 @@ __kernel void reduce_grass1(
 }
 
 /**
- * @brief Agent reduction kernel, part 1.
+ * Agent reduction kernel, part 1.
  *
  * @param data The agent data array.
  * @param partial_sums Workgroup level (shared memory) agent counts.
@@ -498,13 +610,22 @@ __kernel void reduce_agent1(
 		uint index = i * global_size + gid;
 		if (index < agentVectorCount) {
 			agentreduce_uagr data_l = data[index];
-			agentreduce_uagr is_alive = 0x1 & convert_agentreduce_uagr(PPG_AG_IS_ALIVE(data_l));
-			agentreduce_uagr is_sheep = convert_agentreduce_uagr(PPG_AG_IS_SHEEP(data_l));
-			agentreduce_uagr is_wolf = convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
+			agentreduce_uagr is_alive =
+				0x1 & convert_agentreduce_uagr(PPG_AG_IS_ALIVE(data_l));
+			agentreduce_uagr is_sheep =
+				convert_agentreduce_uagr(PPG_AG_IS_SHEEP(data_l));
+			agentreduce_uagr is_wolf =
+				convert_agentreduce_uagr(PPG_AG_IS_WOLF(data_l));
 			sumSheep_pop += is_alive & is_sheep;
 			sumWolves_pop += is_alive & is_wolf;
-			sumSheep_en += select((agentreduce_uagr) (0), (agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)), (agentreduce_agr) (is_alive && is_sheep));
-			sumWolves_en += select((agentreduce_uagr) (0), (agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)), (agentreduce_agr) (is_alive && is_wolf));
+			sumSheep_en += select(
+				(agentreduce_uagr) (0),
+				(agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)),
+				(agentreduce_agr) (is_alive && is_sheep));
+			sumWolves_en += select(
+				(agentreduce_uagr) (0),
+				(agentreduce_uagr) (PPG_AG_ENERGY_GET(data_l)),
+				(agentreduce_agr) (is_alive && is_wolf));
 		}
 	}
 
@@ -521,9 +642,12 @@ __kernel void reduce_agent1(
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
-			partial_sums[group_size + lid] += partial_sums[group_size + lid + i];
-			partial_sums[2 * group_size + lid] += partial_sums[2 * group_size + lid + i];
-			partial_sums[3 * group_size + lid] += partial_sums[3 * group_size + lid + i];
+			partial_sums[group_size + lid] +=
+				partial_sums[group_size + lid + i];
+			partial_sums[2 * group_size + lid] +=
+				partial_sums[2 * group_size + lid + i];
+			partial_sums[3 * group_size + lid] +=
+				partial_sums[3 * group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
@@ -532,14 +656,16 @@ __kernel void reduce_agent1(
 	if (lid == 0) {
 		reduce_agent_global[group_id] = partial_sums[0];
 		reduce_agent_global[MAX_LWS + group_id] = partial_sums[group_size];
-		reduce_agent_global[2 * MAX_LWS + group_id] = partial_sums[2 * group_size];
-		reduce_agent_global[3 * MAX_LWS + group_id] = partial_sums[3 * group_size];
+		reduce_agent_global[2 * MAX_LWS + group_id] =
+			partial_sums[2 * group_size];
+		reduce_agent_global[3 * MAX_LWS + group_id] =
+			partial_sums[3 * group_size];
 	}
 
 }
 
 /**
- * @brief Agent reduction kernel, part 2.
+ * Agent reduction kernel, part 2.
  *
  * @param reduce_agent_global Global level agent counts.
  * @param partial_sums Workgroup level (shared memory) agent counts.
@@ -560,8 +686,10 @@ __kernel void reduce_agent1(
 	if (lid < num_slots) {
 		partial_sums[lid] = reduce_agent_global[lid];
 		partial_sums[group_size + lid] = reduce_agent_global[MAX_LWS + lid];
-		partial_sums[2 * group_size + lid] = reduce_agent_global[2 * MAX_LWS + lid];
-		partial_sums[3 * group_size + lid] = reduce_agent_global[3 * MAX_LWS + lid];
+		partial_sums[2 * group_size + lid] =
+			reduce_agent_global[2 * MAX_LWS + lid];
+		partial_sums[3 * group_size + lid] =
+			reduce_agent_global[3 * MAX_LWS + lid];
 	} else {
 		partial_sums[lid] = 0;
 		partial_sums[group_size + lid] = 0;
@@ -576,25 +704,32 @@ __kernel void reduce_agent1(
 	for (int i = group_size / 2; i > 0; i >>= 1) {
 		if (lid < i) {
 			partial_sums[lid] += partial_sums[lid + i];
-			partial_sums[group_size + lid] += partial_sums[group_size + lid + i];
-			partial_sums[2 * group_size + lid] += partial_sums[2 * group_size + lid + i];
-			partial_sums[3 * group_size + lid] += partial_sums[3 * group_size + lid + i];
+			partial_sums[group_size + lid] +=
+				partial_sums[group_size + lid + i];
+			partial_sums[2 * group_size + lid] +=
+				partial_sums[2 * group_size + lid + i];
+			partial_sums[3 * group_size + lid] +=
+				partial_sums[3 * group_size + lid + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 
 	/* Put in global memory */
 	if (lid == 0) {
-		stats[0].sheep = (uint) VW_AGENTREDUCE_SUM(partial_sums[0]);
-		stats[0].wolves = (uint) VW_AGENTREDUCE_SUM(partial_sums[group_size]);
-		stats[0].sheep_en = (uint) VW_AGENTREDUCE_SUM(partial_sums[2 * group_size]);
-		stats[0].wolves_en = (uint) VW_AGENTREDUCE_SUM(partial_sums[3 * group_size]);
+		stats[0].sheep =
+			(uint) VW_AGENTREDUCE_SUM(partial_sums[0]);
+		stats[0].wolves =
+			(uint) VW_AGENTREDUCE_SUM(partial_sums[group_size]);
+		stats[0].sheep_en =
+			(uint) VW_AGENTREDUCE_SUM(partial_sums[2 * group_size]);
+		stats[0].wolves_en =
+			(uint) VW_AGENTREDUCE_SUM(partial_sums[3 * group_size]);
 	}
 
 }
 
 /**
- * @brief Agent movement kernel.
+ * Agent movement kernel.
  *
  * @param data The agent data array.
  * @param seeds RNG seeds.
@@ -678,7 +813,7 @@ __kernel void move_agent(
 }
 
 /**
- * @brief Find cell start and finish.
+ * Find cell start and finish.
  *
  * The cell_agents_idx array is used as uint instead of uint2 because
  * it makes accessing global memory easier, as most likely this kernel
@@ -724,7 +859,7 @@ __kernel void find_cell_idx(
 }
 
 /**
- * @brief Agents action kernel.
+ * Agents action kernel.
  *
  * Wolves try to eat sheep.
  * Sheep try to eat grass.
@@ -733,7 +868,8 @@ __kernel void find_cell_idx(
  * @param grass Grass counters (0 means grass is alive).
  * @param cell_agents_idx Agent start and end indexes in cell.
  * @param data The agent data array.
- * @param data_half The agent data array, allows direct access to upper or lower half of the agent data.
+ * @param data_half The agent data array, allows direct access to upper or lower
+ * half of the agent data.
  * @param seeds RNG seeds.
  */
 __kernel void action_agent(
@@ -760,19 +896,23 @@ __kernel void action_agent(
 
 	if (PPG_AG_IS_ALIVE(data_l)) {
 
-		if (PPG_AG_IS_SHEEP(data_l)) { /* Agent is sheep, perform sheep actions. */
+		if (PPG_AG_IS_SHEEP(data_l)) {
+			/* Agent is sheep, perform sheep actions. */
 
 			/* Set reproduction threshold and probability */
 			reproduce_threshold = SHEEP_REPRODUCE_THRESHOLD;
 			reproduce_prob = SHEEP_REPRODUCE_PROB;
 
-			/* If there is grass, eat it (and I can be the only one to do so)! */
-			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0) { /// @todo Maybe a atomic_or or something would be faster
+			/* If there is grass, eat it (and I can be the only one to do so) */
+			if (atomic_cmpxchg(&grass[cell_idx], (uint) 0, GRASS_RESTART) == 0)
+			{ /// @todo Maybe a atomic_or or something would be faster
 				/* If grass is alive, sheep eats it and gains energy */
 				PPG_AG_ENERGY_ADD(data_l, SHEEP_GAIN_FROM_FOOD);
 			}
 
-		} else if (PPG_AG_IS_WOLF(data_l)) { /* Agent is wolf, perform wolf actions. */ /// @todo Maybe remove if is_wolf, it's always wolf in this case
+		} else if (PPG_AG_IS_WOLF(data_l)) {
+			/* Agent is wolf, perform wolf actions. */
+			/// @todo Maybe remove if is_wolf, it's always wolf in this case
 
 			/* Set reproduction threshold and probability */
 			reproduce_threshold = WOLVES_REPRODUCE_THRESHOLD;
@@ -823,8 +963,9 @@ __kernel void action_agent(
 		 * - Problems: the additional complexity and the use of atomics
 		 * will probably not allow for any performance improvements. */
 
-		/* My actions only affect my data (energy), so I will only put back data (energy)... */
+		/* My actions only affect my data (energy), so I will only put back data
+		 * (energy)... */
 		PPG_AG_STORE_LO(data_l, gid, data_half);
-		/// @todo Can't a wolf eat a sheep and then sheep rewrite it that action?
+
 	}
 }
