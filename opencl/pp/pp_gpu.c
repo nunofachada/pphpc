@@ -1778,12 +1778,12 @@ int main(int argc, char **argv) {
 	/* Create sorter object. */
 	if (args.agent_size == 64) {
 		ag_sort_elem_type = CLO_ULONG;
-		get_key = "((x) >> 32)";
+		get_key = "((x) >> 17)";
 	} else {
 		ag_sort_elem_type = CLO_UINT;
 		get_key = "((x) >> 12)";
 	}
-	ag_sort_key_type = CLO_UINT;
+	ag_sort_key_type = CLO_ULONG;
 	sorter = clo_sort_new(args_alg.sort, args_alg.sort_opts, ctx,
 		&ag_sort_elem_type, &ag_sort_key_type, NULL, get_key,
 		args.compiler_opts, &err);

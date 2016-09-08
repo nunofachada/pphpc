@@ -153,10 +153,11 @@
 	 * 64-bit agents
 	 * -------------
 	 *
-	 * * FFFF 0000 0000 0000 - X (16 bits, 0-65535)
-	 * * 0000 FFFF 0000 0000 - Y (16 bits, 0-65535)
-	 * * 0000 0000 FFFF 0000 - Type (16 bits, 0-65535)
-	 * * 0000 0000 0000 FFFF - Energy (16 bits, 0-65535)
+	 * * ffff 0000 0000 0000 - X (16 bits, 0-65535)
+	 * * 0000 ffff 0000 0000 - Y (16 bits, 0-65535)
+	 * * 0000 0000 fffe 0000 - Hash (15 bits, 0-32767)
+	 * * 0000 0000 0001 0000 - Type (1 bit, 0-65535)
+	 * * 0000 0000 0000 ffff - Energy (16 bits, 0-65535)
 	 *
 	 * */
 
@@ -171,10 +172,13 @@
 	#define PPG_AG_ENERGY_SUB(agent, energy) \
 		(agent) = ((agent) & 0xffffffffffff0000) | (((agent) - energy) & 0xffff)
 
-	#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0xffff)
+	#define PPG_AG_TYPE_GET(agent) (((agent) >> 16) & 0x1)
 
 	#define PPG_AG_TYPE_SET(agent, type) \
-		(agent) = ((agent) & 0xffffffff0000ffff) | (((type) & 0xffff) << 16)
+		(agent) = ((agent) & 0xfffffffffffeffff) | (((type) & 0x1) << 16)
+
+	#define PPG_AG_HASH_SET(agent, hash) \
+		(agent) = ((agent) & 0xffffffff0001ffff) | (((hash) & 0x7fff) << 17)
 
 	#define PPG_AG_IS_SHEEP(agent) (PPG_AG_TYPE_GET(agent) == SHEEP_ID)
 
@@ -413,6 +417,7 @@ __kernel void init_agent(
 		PPG_AG_XY_SET(new_agent,
 			clo_rng_next_int(seeds, GRID_X),
 			clo_rng_next_int(seeds, GRID_Y));
+		PPG_AG_HASH_SET(new_agent, clo_rng_next_int(seeds, 0x7fff));
 		/* The remaining parameters depend on the type of agent. */
 		if (gid < INIT_SHEEP) {
 			/* A sheep agent. */
@@ -798,13 +803,14 @@ __kernel void move_agent(
 		/* Lose energy */
 		PPG_AG_ENERGY_SUB(data_l, 1);
 		/* Check if energy is zero... */
-		if (PPG_AG_ENERGY_GET(data_l) == 0)
+		if (PPG_AG_ENERGY_GET(data_l) == 0) {
 			/* If so, "kill" agent... */
 			PPG_AG_SET_DEAD(data_l);
-		else
+		} else {
 			/* Otherwise update agent location. */
 			PPG_AG_XY_SET(data_l, xy_l.x, xy_l.y);
-
+			PPG_AG_HASH_SET(data_l, clo_rng_next_int(seeds, 0x7fff));
+		}
 		/* Update global mem */
 		data[gid] = data_l;
 
@@ -945,6 +951,7 @@ __kernel void action_agent(
 				/* Agent will reproduce! */
 				size_t pos_new = get_global_size(0) + gid;
 				uagr data_new = PPG_AG_REPRODUCE(data_l);
+				PPG_AG_HASH_SET(data_new, clo_rng_next_int(seeds, 0x7fff));
 				data[pos_new] = data_new;
 
 				/* Current agent's energy will be halved also */
