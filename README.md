@@ -20,10 +20,10 @@ in general.
 
 #### Currently available implementations
 
-* [Netlogo](https://github.com/FakenMC/pphpc/tree/netlogo/netlogo)
+* [Netlogo](https://github.com/fakenmc/pphpc/tree/netlogo/netlogo)
 ([certified OpenABM implementation](https://www.openabm.org/model/4693/))
-* [Java (parallel)](https://github.com/FakenMC/pphpc/tree/java/java)
-* [OpenCL (GPU+CPU)](https://github.com/FakenMC/pphpc/tree/opencl/opencl) 
+* [Java (parallel)](https://github.com/fakenmc/pphpc/tree/java/java)
+* [OpenCL (GPU+CPU)](https://github.com/fakenmc/pphpc/tree/opencl/opencl) 
 (in progress)
 
 #### Publications
