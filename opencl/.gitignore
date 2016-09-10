@@ -1,0 +1,10 @@
+*~
+.~*#
+.nfs*
+*.[oa]
+*.tsv
+stats*.txt
+config.txt
+out_*
+example*
+build/
