@@ -259,6 +259,8 @@
 
 	#define PPG_AG_TYPE_GET(agent) (((agent) >> 11) & 0x1)
 
+	#define PPG_AG_HASH_SET(agent, hash) do {} while (0)
+
 	#define PPG_AG_TYPE_SET(agent, type) \
 		(agent) = ((agent) & 0xfffff7ff) | (((type) & 0x1) << 11)
 
@@ -951,7 +953,6 @@ __kernel void action_agent(
 				/* Agent will reproduce! */
 				size_t pos_new = get_global_size(0) + gid;
 				uagr data_new = PPG_AG_REPRODUCE(data_l);
-				PPG_AG_HASH_SET(data_new, clo_rng_next_int(seeds, 0x7fff));
 				data[pos_new] = data_new;
 
 				/* Current agent's energy will be halved also */
