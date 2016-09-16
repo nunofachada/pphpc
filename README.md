@@ -43,6 +43,9 @@ Parallelization strategies for spatial agent-based models,
 Model-independent comparison of simulation output, under review, 2015 
 ([arXiv preprint](http://arxiv.org/abs/1509.09174))
 
+* Fachada, N., Agent-Based Modeling on High Performance Computing Architectures,
+PhD thesis, 2016 ([link](http://hgpu.org/papers/16552_20160915225141.pdf)) 
+
 #### Licenses
 
 Several Open Source licenses, which depend on the implementation.
