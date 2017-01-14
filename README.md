@@ -28,23 +28,28 @@ in general.
 
 #### Publications
 
-* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C.,
+* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., (2015)
 Towards a standard model for research in agent-based modeling and simulation, 
 [PeerJ Computer Science](https://peerj.com/computer-science/), 
-2015, http://dx.doi.org/10.7717/peerj-cs.36
+1:e36, 
+http://dx.doi.org/10.7717/peerj-cs.36
 
-* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
+* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., (2016)
 Parallelization strategies for spatial agent-based models,
 [International Journal of Parallel Programming](http://www.springer.com/computer/theoretical+computer+science/journal/10766), 
-2016, http://dx.doi.org/10.1007/s10766-015-0399-9
+In press, 
+http://dx.doi.org/10.1007/s10766-015-0399-9
 ([arXiv preprint](http://arxiv.org/abs/1507.04047))
 
-* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., 
-Model-independent comparison of simulation output, under review, 2015 
-([arXiv preprint](http://arxiv.org/abs/1509.09174))
+* Fachada, N. (2016), Agent-Based Modeling on High Performance Computing Architectures,
+PhD Thesis, Instituto Superior Técnico ([link](http://hgpu.org/papers/16552_20160915225141.pdf))
 
-* Fachada, N., Agent-Based Modeling on High Performance Computing Architectures,
-PhD thesis, 2016 ([link](http://hgpu.org/papers/16552_20160915225141.pdf)) 
+* Fachada, N., Lopes, V.V., Martins, R.C., Rosa, A.C., (2017)
+Model-independent comparison of simulation output,
+[Simulation Modelling Practice and Theory](https://www.journals.elsevier.com/simulation-modelling-practice-and-theory),
+72:131-149, 
+http://dx.doi.org/10.1016/j.simpat.2016.12.013
+([arXiv preprint](http://arxiv.org/abs/1509.09174))
 
 #### Licenses
 
