@@ -240,6 +240,26 @@ finish:
 }
 
 /**
+ * Export aggregate profiling info to a file.
+ *
+ * @param filename Name of file where to export info.
+ * @param prof Profiler object.
+ * */
+void pp_export_prof_agg_info(char * filename, CCLProf * prof) {
+
+	const CCLProfAgg * agg;
+	FILE * fp = fopen(filename, "w");
+
+	ccl_prof_iter_agg_init(prof, CCL_PROF_AGG_SORT_NAME | CCL_PROF_SORT_ASC);
+	while ((agg = ccl_prof_iter_agg_next(prof))) {
+		fprintf(fp, "\"%s\"\t%lu\t%lg\n",
+			agg->event_name, agg->absolute_time, agg->relative_time);
+	}
+
+	fclose(fp);
+}
+
+/**
  * See if there is anything in build log, and if so, show it.
  *
  * @param prg Program which was just built.

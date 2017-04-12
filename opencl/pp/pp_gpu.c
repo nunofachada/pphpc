@@ -77,19 +77,28 @@
 typedef struct pp_g_args {
 
 	/** Parameters file. */
-	gchar* params;
+	gchar * params;
+
 	/** Stats output file. */
-	gchar* stats;
-	/** Profiling info. */
-	gchar* prof_info;
+	gchar * stats;
+
+#ifdef PP_PROFILE_OPT
+	/** File where to export aggregate profiling info. */
+	gchar * prof_agg_file;
+#endif
+
 	/** Compiler options. */ /// @todo Remove compiler_opts?
-	gchar* compiler_opts;
+	gchar * compiler_opts;
+
 	/** Index of device to use. */
 	cl_int dev_idx;
+
 	/** Rng seed. */
 	guint32 rng_seed;
+
 	/** Agent size in bits (32 or 64). */
 	guint32 agent_size;
+
 	/** Maximum number of agents. */
 	cl_uint max_agents;
 
@@ -281,7 +290,11 @@ typedef struct pp_g_buffers_device {
 } PPGBuffersDevice;
 
 /** Main command line arguments and respective default values. */
-static PPGArgs args = {NULL, NULL, NULL, NULL, -1, PP_DEFAULT_SEED,
+static PPGArgs args = {NULL, NULL,
+#ifdef PP_PROFILE_OPT
+	NULL,
+#endif
+	NULL, -1, PP_DEFAULT_SEED,
 	PPG_DEFAULT_AGENT_SIZE, PPG_DEFAULT_MAX_AGENTS};
 
 /** Algorithm selection arguments. */
@@ -301,10 +314,12 @@ static GOptionEntry entries[] = {
 	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,
 		"Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",
 		"FILENAME"},
-	{"profinfo",        'i', 0, G_OPTION_ARG_FILENAME, &args.prof_info,
-		"File where to export profiling info (if omitted, prof. info will not "
-		"be exported)",
+#ifdef PP_PROFILE_OPT
+	{"prof-agg",        'i', 0, G_OPTION_ARG_FILENAME, &args.prof_agg_file,
+		"File where to export aggregate profiling info (if omitted, info will "
+		"not be exported)",
 		"FILENAME"},
+#endif
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts,
 		"Extra OpenCL compiler options",
 		"OPTS"},
@@ -1665,7 +1680,9 @@ static void ppg_args_free(GOptionContext* context) {
 	}
 	if (args.params) g_free(args.params);
 	if (args.stats) g_free(args.stats);
-	if (args.prof_info) g_free(args.prof_info);
+#ifdef PP_PROFILE_OPT
+	if (args.prof_agg_file) g_free(args.prof_agg_file);
+#endif
 	if (args.compiler_opts) g_free(args.compiler_opts);
 	if (args_alg.rng) g_free(args_alg.rng);
 	if (args_alg.sort) g_free(args_alg.sort);
@@ -1854,6 +1871,11 @@ int main(int argc, char **argv) {
 	ccl_prof_add_queue(prof, "Queue 2", cq2);
 	ccl_prof_calc(prof, &err);
 	g_if_err_goto(err, error_handler);
+
+	/* Export aggregate profile info if so requested by user. */
+	if (args.prof_agg_file) {
+		pp_export_prof_agg_info(args.prof_agg_file, prof);
+	}
 
 	/* Print profiling summary. */
 	ccl_prof_print_summary(prof);
