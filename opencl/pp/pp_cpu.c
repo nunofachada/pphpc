@@ -1,6 +1,6 @@
 /*
  * PPHPC-OCL, an OpenCL implementation of the PPHPC agent-based model
- * Copyright (C) 2016 Nuno Fachada
+ * Copyright (C) 2017 Nuno Fachada
  *
  * This file is part of PPHPC-OCL.
  *
@@ -83,6 +83,9 @@ typedef struct pp_c_args {
 	/** Index of device to use. */
 	cl_int dev_idx;
 
+	/** List devices? */
+	gboolean list_devs;
+
 	/** Rng seed. */
 	guint32 rng_seed;
 
@@ -163,7 +166,7 @@ static PPCArgs args = {NULL, NULL,
 #ifdef PP_PROFILE_OPT
 	NULL,
 #endif
-	NULL, 0, 0, -1, PP_DEFAULT_SEED,
+	NULL, 0, 0, -1, FALSE, PP_DEFAULT_SEED,
 	NULL, PPC_DEFAULT_MAX_AGENTS, PPC_DEFAULT_MAX_AGENTS_SHUF};
 
 /** Valid command line options. */
@@ -193,6 +196,9 @@ static GOptionEntry entries[] = {
 		"Device index (if not given and more than one device is "\
 		"available, chose device from menu)",
 		"INDEX"},
+	{"list-devices",      0, 0, G_OPTION_ARG_NONE,     &args.list_devs,
+		"List available devices and exit (overrides all other options)",
+		NULL},
 	{"rng-seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
 		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
 		"SEED"},
@@ -830,7 +836,6 @@ static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
 	return compilerOptsStr;
 }
 
-
 /**
  * PredPrey CPU simulation main program.
  *
@@ -863,14 +868,11 @@ int main(int argc, char ** argv) {
 	/* Complete OCL program source code. */
 	gchar * src = NULL;
 
-	/* Device selection filters. */
-	CCLDevSelFilters filters = NULL;
-
 	/* Profiler. */
 	CCLProf * prof = NULL;
 
 	/* CL_Ops RNG. */
-	CloRng* rng_clo = NULL;
+	CloRng * rng_clo = NULL;
 
 	/* Error management object. */
 	GError * err = NULL;
@@ -878,18 +880,20 @@ int main(int argc, char ** argv) {
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
 	g_if_err_goto(err, error_handler);
+
+	/* List devices and exit? */
+	if (args.list_devs) {
+		ccl_devsel_print_device_strings(&err);
+		g_if_err_goto(err, error_handler);
+		ppc_args_free(context);
+		exit(EXIT_SUCCESS);
+	}
+
+	/* Use default seed if no seed was specified by user. */
 	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
 
-	/* Add CPU filter to device selection. */
-	ccl_devsel_add_indep_filter(
-		&filters, ccl_devsel_indep_type_cpu, NULL);
-
-	/* Add menu filter to device selection. */
-	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu,
-		&args.dev_idx);
-
 	/* Create context with device specified by user. */
-	ctx = ccl_context_new_from_filters(&filters, &err);
+	ctx = ccl_context_new_from_menu_full(&args.dev_idx, &err);
 	g_if_err_goto(err, error_handler);
 
 	/* Get chosen device. */
