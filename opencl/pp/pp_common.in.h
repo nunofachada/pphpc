@@ -175,6 +175,9 @@ void pp_load_params(PPParameters * parameters, char * filename, GError ** err);
 void pp_stats_save(char * filename, PPStatistics * statsArray,
 	PPParameters params, GError ** err);
 
+/* Export aggregate profiling info to a file. */
+void pp_export_prof_agg_info(char * filename, CCLProf * prof);
+
 /* See if there is anything in build log, and if so, show it. */
 void pp_build_log(CCLProgram * prg);
 

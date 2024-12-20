@@ -1,6 +1,6 @@
 /*
  * PPHPC-OCL, an OpenCL implementation of the PPHPC agent-based model
- * Copyright (C) 2016 Nuno Fachada
+ * Copyright (C) 2017 Nuno Fachada
  *
  * This file is part of PPHPC-OCL.
  *
@@ -66,6 +66,11 @@ typedef struct pp_c_args {
 	/** Stats output file. */
 	gchar * stats;
 
+#ifdef PP_PROFILE_OPT
+	/** File where to export aggregate profiling info. */
+	gchar* prof_agg_file;
+#endif
+
 	/** Compiler options. */
 	gchar * compiler_opts;
 
@@ -77,6 +82,9 @@ typedef struct pp_c_args {
 
 	/** Index of device to use. */
 	cl_int dev_idx;
+
+	/** List devices? */
+	gboolean list_devs;
 
 	/** Rng seed. */
 	guint32 rng_seed;
@@ -154,8 +162,12 @@ typedef struct pp_c_buffers_device {
 } PPCBuffersDevice;
 
 /** Command line arguments and respective default values. */
-static PPCArgs args = {NULL, NULL, NULL, 0, 0, -1, PP_DEFAULT_SEED,
-		NULL, PPC_DEFAULT_MAX_AGENTS, PPC_DEFAULT_MAX_AGENTS_SHUF};
+static PPCArgs args = {NULL, NULL,
+#ifdef PP_PROFILE_OPT
+	NULL,
+#endif
+	NULL, 0, 0, -1, FALSE, PP_DEFAULT_SEED,
+	NULL, PPC_DEFAULT_MAX_AGENTS, PPC_DEFAULT_MAX_AGENTS_SHUF};
 
 /** Valid command line options. */
 static GOptionEntry entries[] = {
@@ -165,6 +177,12 @@ static GOptionEntry entries[] = {
 	{"stats",           's', 0, G_OPTION_ARG_FILENAME, &args.stats,
 		"Specify statistics output file (default is " PP_DEFAULT_STATS_FILE ")",
 		"FILENAME"},
+#ifdef PP_PROFILE_OPT
+	{"prof-agg",        'i', 0, G_OPTION_ARG_FILENAME, &args.prof_agg_file,
+		"File where to export aggregate profiling info (if omitted, info will "
+		"not be exported)",
+		"FILENAME"},
+#endif
 	{"compiler",        'c', 0, G_OPTION_ARG_STRING,   &args.compiler_opts,
 		"Extra OpenCL compiler options",
 		"OPTS"},
@@ -178,16 +196,19 @@ static GOptionEntry entries[] = {
 		"Device index (if not given and more than one device is "\
 		"available, chose device from menu)",
 		"INDEX"},
-	{"rng_seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
+	{"list-devices",      0, 0, G_OPTION_ARG_NONE,     &args.list_devs,
+		"List available devices and exit (overrides all other options)",
+		NULL},
+	{"rng-seed",        'r', 0, G_OPTION_ARG_INT,      &args.rng_seed,
 		"Seed for random number generator (default is " G_STRINGIFY(PP_DEFAULT_SEED) ")",
 		"SEED"},
 	{"rngen",           'n', 0, G_OPTION_ARG_STRING,   &args.rngen,
 		"Random number generator: " CLO_RNG_IMPLS " (default is " PP_RNG_DEFAULT ")",
 		"RNG"},
-	{"max_agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
+	{"max-agents",      'm', 0, G_OPTION_ARG_INT,      &args.max_agents,
 		"Maximum number of agents (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS) ")",
 		"SIZE"},
-	{"max_agents_shuff",'u', 0, G_OPTION_ARG_INT,      &args.max_agents_ptrs,
+	{"max-agents-shuff",'u', 0, G_OPTION_ARG_INT,      &args.max_agents_ptrs,
 		"Maximum number of agents which can be shuffled in the same " \
 		"loop (default is " G_STRINGIFY(PPC_DEFAULT_MAX_AGENTS_SHUF) "). If "
 		"set to 1 or 0, shuffling is disabled.",
@@ -752,6 +773,9 @@ static void ppc_args_free(GOptionContext* context) {
 		g_option_context_free(context);
 	}
 	if (args.params) g_free(args.params);
+#ifdef PP_PROFILE_OPT
+	if (args.prof_agg_file) g_free(args.prof_agg_file);
+#endif
 	if (args.stats) g_free(args.stats);
 	if (args.compiler_opts) g_free(args.compiler_opts);
 	if (args.rngen) g_free(args.rngen);
@@ -812,7 +836,6 @@ static gchar* ppc_compiler_opts_build(PPCArgs args, PPParameters params,
 	return compilerOptsStr;
 }
 
-
 /**
  * PredPrey CPU simulation main program.
  *
@@ -845,14 +868,11 @@ int main(int argc, char ** argv) {
 	/* Complete OCL program source code. */
 	gchar * src = NULL;
 
-	/* Device selection filters. */
-	CCLDevSelFilters filters = NULL;
-
 	/* Profiler. */
 	CCLProf * prof = NULL;
 
 	/* CL_Ops RNG. */
-	CloRng* rng_clo = NULL;
+	CloRng * rng_clo = NULL;
 
 	/* Error management object. */
 	GError * err = NULL;
@@ -860,18 +880,20 @@ int main(int argc, char ** argv) {
 	/* Parse arguments. */
 	ppc_args_parse(argc, argv, &context, &err);
 	g_if_err_goto(err, error_handler);
+
+	/* List devices and exit? */
+	if (args.list_devs) {
+		ccl_devsel_print_device_strings(&err);
+		g_if_err_goto(err, error_handler);
+		ppc_args_free(context);
+		exit(EXIT_SUCCESS);
+	}
+
+	/* Use default seed if no seed was specified by user. */
 	if (!args.rngen) args.rngen = g_strdup(PP_RNG_DEFAULT);
 
-	/* Add CPU filter to device selection. */
-	ccl_devsel_add_indep_filter(
-		&filters, ccl_devsel_indep_type_cpu, NULL);
-
-	/* Add menu filter to device selection. */
-	ccl_devsel_add_dep_filter(&filters, ccl_devsel_dep_menu,
-		&args.dev_idx);
-
 	/* Create context with device specified by user. */
-	ctx = ccl_context_new_from_filters(&filters, &err);
+	ctx = ccl_context_new_from_menu_full(&args.dev_idx, &err);
 	g_if_err_goto(err, error_handler);
 
 	/* Get chosen device. */
@@ -957,6 +979,11 @@ int main(int argc, char ** argv) {
 	ccl_prof_add_queue(prof, "Queue 1", cq);
 	ccl_prof_calc(prof, &err);
 	g_if_err_goto(err, error_handler);
+
+	/* Export aggregate profile info if so requested by user. */
+	if (args.prof_agg_file) {
+		pp_export_prof_agg_info(args.prof_agg_file, prof);
+	}
 
 	/* Print profiling summary. */
 	ccl_prof_print_summary(prof);
